@@ -1,0 +1,12 @@
+{
+  "name": "OrderRail",
+  "short_name": "OrderRail",
+  "description": "Scan, order, sip.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf6f0",
+  "theme_color": "#1a1210",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" }
+  ]
+}
