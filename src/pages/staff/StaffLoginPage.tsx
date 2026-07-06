@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { Coffee, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth, hasRole } from "@/lib/auth";
 
 export default function StaffLoginPage() {
@@ -48,11 +47,13 @@ export default function StaffLoginPage() {
   const signInGoogle = async () => {
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/staff/login`,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/staff/login`,
+        },
       });
-      if (result.error) throw new Error(result.error.message ?? "Google sign-in failed");
-      if (result.redirected) return;
+      if (error) throw error;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Google sign-in failed";
       toast.error(msg);
