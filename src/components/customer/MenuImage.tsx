@@ -53,8 +53,7 @@ export function MenuImage({ src, alt, className, size = "lg" }: MenuImageProps) 
           setError(true);
         }}
         className={cn(
-          "h-full w-full object-cover transition-opacity duration-300",
-          loading ? "opacity-0" : "opacity-100"
+          loading ? "absolute w-0 h-0 opacity-0 pointer-events-none" : "h-full w-full object-cover transition-opacity duration-300 opacity-100"
         )}
       />
     </div>
