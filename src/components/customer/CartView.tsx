@@ -8,40 +8,7 @@ import { getSessionId } from "@/lib/session";
 import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
 import { toast } from "sonner";
-
-function CartItemImage({ src, alt }: { src: string; alt: string }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  if (error) {
-    return (
-      <div className="h-14 w-14 shrink-0 rounded-xl bg-gradient-warm flex items-center justify-center text-xs text-muted-foreground ring-1 ring-border/60">
-        <span>☕</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-secondary/35 ring-1 ring-border/60">
-      {loading && (
-        <div className="absolute inset-0 animate-pulse bg-secondary/70" />
-      )}
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onLoad={() => setLoading(false)}
-        onError={() => {
-          setLoading(false);
-          setError(true);
-        }}
-        className={`h-full w-full object-cover transition-opacity duration-300 ${
-          loading ? "opacity-0" : "opacity-100"
-        }`}
-      />
-    </div>
-  );
-}
+import { MenuImage } from "./MenuImage";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { lines, setQty, remove, subtotalCents, clear } = useCart();
@@ -56,14 +23,13 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadHistory = async () => {
-    const ids = getOrderHistory();
-    if (ids.length === 0) return;
     setLoadingHistory(true);
     try {
       const { data: ords, error } = await supabase
         .from("orders")
         .select("*, order_items(*)")
-        .in("id", ids)
+        .eq("session_id", getSessionId())
+        .eq("table_id", table.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       if (ords) {
@@ -304,13 +270,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             key={l.item.id}
             className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60"
           >
-            {l.item.image_url ? (
-              <CartItemImage src={l.item.image_url} alt={l.item.name} />
-            ) : (
-              <div className="h-14 w-14 rounded-xl bg-gradient-warm flex items-center justify-center ring-1 ring-border/60" aria-hidden>
-                <span>☕</span>
-              </div>
-            )}
+            <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{l.item.name}</p>
               <p className="text-sm text-muted-foreground tabular-nums">
@@ -366,12 +326,26 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         <p className="mt-2 text-center text-xs text-muted-foreground">Pay at the counter when you're ready.</p>
       </div>
 
-      {/* Show active/previous history at the bottom to avoid empty states */}
-      {historyOrders.length > 0 && (
-        <div className="mt-8 pt-8 border-t border-border/60 space-y-4">
-          <h2 className="font-display text-lg font-semibold text-muted-foreground">Placed Orders History</h2>
+      {/* Active Orders Section */}
+      {activeOrders.length > 0 && (
+        <div className="mt-6 pt-6 border-t border-border/60">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-muted-foreground">
+            <ShoppingBag className="h-5 w-5 text-accent animate-pulse" /> Active Orders
+          </h2>
           <div className="space-y-3">
-            {historyOrders.map(renderOrderCard)}
+            {activeOrders.map(renderOrderCard)}
+          </div>
+        </div>
+      )}
+
+      {/* Previous Orders Section */}
+      {previousOrders.length > 0 && (
+        <div className="mt-6 pt-6 border-t border-border/60">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-muted-foreground">
+            <History className="h-5 w-5 text-muted-foreground" /> Previous Orders
+          </h2>
+          <div className="space-y-3">
+            {previousOrders.map(renderOrderCard)}
           </div>
         </div>
       )}

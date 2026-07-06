@@ -1,105 +1,186 @@
-import { Plus } from "lucide-react";
+import { useState } from "react";
+import { Plus, Minus } from "lucide-react";
 import { motion } from "framer-motion";
 import type { MenuItem } from "@/lib/db";
 import { formatMoney } from "@/lib/db";
 import { useCart } from "@/lib/cart";
 import { useImageUrl } from "@/lib/useImageUrl";
+import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
+import { toast } from "sonner";
 
-import { useState } from "react";
-
-function MenuImage({ src, alt }: { src: string; alt: string }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  if (error) {
-    return (
-      <div className="h-24 w-24 shrink-0 rounded-2xl bg-gradient-warm flex flex-col items-center justify-center text-xs text-muted-foreground font-semibold ring-1 ring-border/60">
-        <span className="text-xl">☕</span>
-        <span className="text-[9px] mt-1 text-muted-foreground/80">No Image</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-secondary/35 ring-1 ring-border/60">
-      {loading && (
-        <div className="absolute inset-0 animate-pulse bg-secondary/70 flex items-center justify-center">
-          <span className="text-xs text-muted-foreground/60">Loading…</span>
-        </div>
-      )}
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onLoad={() => setLoading(false)}
-        onError={() => {
-          setLoading(false);
-          setError(true);
-        }}
-        className={`h-full w-full object-cover transition-opacity duration-300 group-hover:scale-105 ${
-          loading ? "opacity-0" : "opacity-100"
-        }`}
-      />
-    </div>
-  );
-}
+import { MenuImage } from "./MenuImage";
 
 export function MenuItemCard({ item, currency }: { item: MenuItem; currency: string }) {
-  const { add } = useCart();
+  const { add, lines, setQty } = useCart();
   const imgUrl = useImageUrl(item.image_url);
-  return (
-    <motion.article
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="group relative flex gap-4 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/60"
-    >
-      {imgUrl ? (
-        <MenuImage src={imgUrl} alt={item.name} />
-      ) : (
-        <div className="h-24 w-24 shrink-0 rounded-2xl bg-gradient-warm flex items-center justify-center ring-1 ring-border/60" aria-hidden>
-          <span className="text-xl">☕</span>
-        </div>
-      )}
+  const [isOpen, setIsOpen] = useState(false);
+  const [quantity, setQuantity] = useState(1);
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        {item.tags && item.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-1">
-            {item.tags.map((tag) => (
-              <span
-                key={tag}
-                className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                  tag === "Bestseller" ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" :
-                  tag === "New" ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" :
-                  tag === "Popular" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300" :
-                  tag === "Chef's Choice" ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300" :
-                  tag === "Spicy" ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" :
-                  tag === "Veg" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" :
-                  tag === "Non-Veg" ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" :
-                  "bg-secondary text-secondary-foreground"
-                }`}
-              >
-                {tag}
-              </span>
-            ))}
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("svg")) {
+      return;
+    }
+    setQuantity(1);
+    setIsOpen(true);
+  };
+
+  const handleAddToCart = () => {
+    const existingLine = lines.find((l) => l.item.id === item.id);
+    const existingQty = existingLine ? existingLine.qty : 0;
+
+    if (existingQty === 0) {
+      add({
+        id: item.id,
+        name: item.name,
+        price_cents: item.price_cents,
+        image_url: item.image_url,
+      });
+      if (quantity > 1) {
+        setQty(item.id, quantity);
+      }
+    } else {
+      setQty(item.id, existingQty + quantity);
+    }
+    setIsOpen(false);
+    toast.success(`Added ${quantity} × ${item.name} to cart`);
+  };
+
+  return (
+    <>
+      <motion.article
+        layout
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        onClick={handleCardClick}
+        className="group relative flex gap-4 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/60 cursor-pointer transition hover:ring-accent/40"
+      >
+        {imgUrl ? (
+          <MenuImage src={imgUrl} alt={item.name} />
+        ) : (
+          <div className="h-24 w-24 shrink-0 rounded-2xl bg-gradient-warm flex items-center justify-center ring-1 ring-border/60" aria-hidden>
+            <span className="text-xl">☕</span>
           </div>
         )}
-        <h3 className="truncate font-display text-lg font-semibold leading-tight">{item.name}</h3>
-        {item.description && (
-          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
-        )}
-        <div className="mt-auto flex items-end justify-between pt-2">
-          <span className="font-semibold tabular-nums">{formatMoney(item.price_cents, currency)}</span>
-          <button
-            type="button"
-            aria-label={`Add ${item.name}`}
-            onClick={() => add({ id: item.id, name: item.name, price_cents: item.price_cents, image_url: item.image_url })}
-            className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft transition-transform active:scale-90"
-          >
-            <Plus className="h-5 w-5" strokeWidth={2.5} />
-          </button>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          {item.tags && item.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-1">
+              {item.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                    tag === "Bestseller" ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" :
+                    tag === "New" ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" :
+                    tag === "Popular" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300" :
+                    tag === "Chef's Choice" ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300" :
+                    tag === "Spicy" ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" :
+                    tag === "Veg" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" :
+                    tag === "Non-Veg" ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" :
+                    "bg-secondary text-secondary-foreground"
+                  }`}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          <h3 className="truncate font-display text-lg font-semibold leading-tight">{item.name}</h3>
+          {item.description && (
+            <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
+          )}
+          <div className="mt-auto flex items-end justify-between pt-2">
+            <span className="font-semibold tabular-nums">{formatMoney(item.price_cents, currency)}</span>
+            <button
+              type="button"
+              aria-label={`Add ${item.name}`}
+              onClick={() => add({ id: item.id, name: item.name, price_cents: item.price_cents, image_url: item.image_url })}
+              className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft transition-transform active:scale-90"
+            >
+              <Plus className="h-5 w-5" strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
-      </div>
-    </motion.article>
+      </motion.article>
+
+      <Drawer open={isOpen} onOpenChange={setIsOpen}>
+        <DrawerContent className="max-w-md mx-auto">
+          {/* Large image */}
+          {imgUrl ? (
+            <div className="relative w-full aspect-[4/3] overflow-hidden rounded-t-[10px] bg-muted">
+              <img src={imgUrl} alt={item.name} className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-full aspect-[4/3] bg-gradient-warm flex items-center justify-center rounded-t-[10px]" aria-hidden>
+              <span className="text-4xl">☕</span>
+            </div>
+          )}
+
+          <div className="p-5 flex-1 overflow-y-auto max-h-[45vh]">
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {item.tags?.map((tag) => (
+                <span
+                  key={tag}
+                  className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                    tag === "Bestseller" ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" :
+                    tag === "New" ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" :
+                    tag === "Popular" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300" :
+                    tag === "Chef's Choice" ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300" :
+                    tag === "Spicy" ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" :
+                    tag === "Veg" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" :
+                    tag === "Non-Veg" ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" :
+                    "bg-secondary text-secondary-foreground"
+                  }`}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <h2 className="font-display text-2xl font-bold text-foreground leading-tight">{item.name}</h2>
+
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              {item.description || "Freshly prepared with premium ingredients by our experienced chefs."}
+            </p>
+
+            <div className="mt-6 flex items-center justify-between">
+              <span className="text-xl font-bold text-foreground tabular-nums">
+                {formatMoney(item.price_cents, currency)}
+              </span>
+
+              <div className="flex items-center gap-3 rounded-full bg-secondary p-1">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="w-8 text-center text-sm font-semibold tabular-nums">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => q + 1)}
+                  className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <DrawerFooter className="border-t border-border/60 bg-card p-4">
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              className="w-full rounded-full bg-gradient-accent py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] flex items-center justify-center gap-2"
+            >
+              <span>Add {quantity} to Cart</span>
+              <span>·</span>
+              <span className="tabular-nums">{formatMoney(item.price_cents * quantity, currency)}</span>
+            </button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    </>
   );
 }

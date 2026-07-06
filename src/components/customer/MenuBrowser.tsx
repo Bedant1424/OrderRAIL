@@ -82,7 +82,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
   };
 
   return (
-    <div className="pb-40">
+    <div className="pb-52">
       {/* Search */}
       <div className="px-4 pt-2">
         <label className="relative block">
