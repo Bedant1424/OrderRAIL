@@ -33,6 +33,21 @@ export default function Index() {
   const { session, roles, loading } = useAuth();
   const navigate = useNavigate();
 
+  const { data: tables = [] } = useQuery({
+    queryKey: ["landing-tables", cafeId],
+    enabled: !!cafeId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("tables")
+        .select("*")
+        .eq("cafe_id", cafeId!)
+        .order("label");
+      return ((data ?? []) as TableRow[]).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+    },
+  });
+
+  const firstTable = tables[0];
+
   useEffect(() => {
     if (!loading && session) {
       if (hasRole(roles, "owner")) {
@@ -53,21 +68,6 @@ export default function Index() {
       </div>
     );
   }
-
-  const { data: tables = [] } = useQuery({
-    queryKey: ["landing-tables", cafeId],
-    enabled: !!cafeId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("tables")
-        .select("*")
-        .eq("cafe_id", cafeId!)
-        .order("label");
-      return ((data ?? []) as TableRow[]).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
-    },
-  });
-
-  const firstTable = tables[0];
 
   return (
     <div className="min-h-screen bg-gradient-warm">
