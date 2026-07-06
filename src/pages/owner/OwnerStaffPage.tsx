@@ -7,6 +7,8 @@ import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
+import { useCafe } from "@/lib/cafe";
+
 type Profile = { id: string; email: string | null; display_name: string | null };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
 
@@ -16,11 +18,7 @@ export default function OwnerStaffPage() {
   const [role, setRole] = useState<AppRole>("staff");
   const [busy, setBusy] = useState(false);
 
-  const { data: cafe } = useQuery({
-    queryKey: ["owner-cafe"],
-    queryFn: async () => (await supabase.from("cafes").select("*").eq("slug", "orderrail").maybeSingle()).data as Cafe | null,
-  });
-  const cafeId = cafe?.id;
+  const { cafe, cafeId } = useCafe();
 
   const rolesQ = useQuery({
     queryKey: ["owner-roles", cafeId],

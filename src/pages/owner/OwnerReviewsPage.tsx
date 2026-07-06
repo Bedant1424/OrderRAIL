@@ -3,6 +3,8 @@ import { Star } from "lucide-react";
 import { supabase, type Cafe } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
+import { useCafe } from "@/lib/cafe";
+
 type Review = {
   id: string;
   rating: number;
@@ -12,10 +14,7 @@ type Review = {
 };
 
 export default function OwnerReviewsPage() {
-  const { data: cafe } = useQuery({
-    queryKey: ["owner-cafe"],
-    queryFn: async () => (await supabase.from("cafes").select("*").eq("slug", "orderrail").maybeSingle()).data as Cafe | null,
-  });
+  const { cafe } = useCafe();
 
   const q = useQuery({
     queryKey: ["owner-reviews", cafe?.id],

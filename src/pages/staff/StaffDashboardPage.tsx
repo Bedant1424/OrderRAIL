@@ -35,20 +35,13 @@ const SR_META: Record<string, { label: string; icon: React.ComponentType<{ class
   help: { label: "Needs help", icon: HelpCircle },
 };
 
+import { useCafe } from "@/lib/cafe";
+
 type OrderWithItems = Order & { order_items: OrderItem[]; tables: { label: string } | null };
 
 export default function StaffDashboardPage() {
   const qc = useQueryClient();
-
-  const { data: cafe } = useQuery({
-    queryKey: ["staff-cafe"],
-    queryFn: async () => {
-      const { data } = await supabase.from("cafes").select("*").eq("slug", "orderrail").maybeSingle();
-      return data as Cafe | null;
-    },
-  });
-
-  const cafeId = cafe?.id;
+  const { cafe, cafeId } = useCafe();
 
   const ordersQ = useQuery({
     queryKey: ["staff-orders", cafeId],

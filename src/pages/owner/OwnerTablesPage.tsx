@@ -21,16 +21,14 @@ function TableQRCard({ table }: { table: TableRow }) {
   );
 }
 
+import { useCafe } from "@/lib/cafe";
+
 export default function OwnerTablesPage() {
   const qc = useQueryClient();
   const [label, setLabel] = useState("");
   const [seats, setSeats] = useState(2);
 
-  const { data: cafe } = useQuery({
-    queryKey: ["owner-cafe"],
-    queryFn: async () => (await supabase.from("cafes").select("*").eq("slug", "orderrail").maybeSingle()).data as Cafe | null,
-  });
-  const cafeId = cafe?.id;
+  const { cafe, cafeId } = useCafe();
 
   const tablesQ = useQuery({
     queryKey: ["owner-tables", cafeId],

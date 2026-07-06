@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase, type Cafe } from "@/lib/db";
+import { useCafe } from "@/lib/cafe";
+import { supabase } from "@/lib/db";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN", "CHF"];
 
@@ -12,10 +13,7 @@ export default function OwnerSettingsPage() {
   const [currency, setCurrency] = useState("USD");
   const [busy, setBusy] = useState(false);
 
-  const { data: cafe } = useQuery({
-    queryKey: ["owner-cafe"],
-    queryFn: async () => (await supabase.from("cafes").select("*").eq("slug", "orderrail").maybeSingle()).data as Cafe | null,
-  });
+  const { cafe, refreshCafe } = useCafe();
 
   useEffect(() => {
     if (cafe) {
@@ -35,7 +33,7 @@ export default function OwnerSettingsPage() {
     setBusy(false);
     if (error) return toast.error(error.message);
     toast.success("Saved");
-    void qc.invalidateQueries({ queryKey: ["owner-cafe"] });
+    void refreshCafe();
   };
 
   return (

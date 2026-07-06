@@ -4,18 +4,13 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Too
 import { CircleDollarSign, ShoppingBag, Timer, TrendingUp } from "lucide-react";
 import { supabase, formatMoney, type Cafe, type Order, type OrderItem } from "@/lib/db";
 
+import { useCafe } from "@/lib/cafe";
+
 type Range = 7 | 30 | 90;
 
 export default function OwnerAnalyticsPage() {
   const [range, setRange] = useState<Range>(7);
-
-  const { data: cafe } = useQuery({
-    queryKey: ["owner-cafe"],
-    queryFn: async () => {
-      const { data } = await supabase.from("cafes").select("*").eq("slug", "orderrail").maybeSingle();
-      return data as Cafe | null;
-    },
-  });
+  const { cafe } = useCafe();
 
   const since = useMemo(() => {
     const d = new Date();

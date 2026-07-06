@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { QrCode, Coffee, Zap, WifiOff, ArrowRight, ChefHat, LayoutDashboard } from "lucide-react";
-import { supabase, type Cafe, type TableRow } from "@/lib/db";
+import { supabase, type TableRow } from "@/lib/db";
+import { useCafe } from "@/lib/cafe";
 
 function TableQR({ tableId, label }: { tableId: string; label: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -27,20 +28,22 @@ function TableQR({ tableId, label }: { tableId: string; label: string }) {
 
 export default function Index() {
   const [showQRs, setShowQRs] = useState(false);
-  const { data } = useQuery({
-    queryKey: ["landing-cafe"],
+  const { cafe, cafeId } = useCafe();
+
+  const { data: tables = [] } = useQuery({
+    queryKey: ["landing-tables", cafeId],
+    enabled: !!cafeId,
     queryFn: async () => {
-      const { data: cafe } = await supabase.from("cafes").select("*").eq("slug", "orderrail").maybeSingle();
-      const { data: tables } = await supabase
+      const { data } = await supabase
         .from("tables")
         .select("*")
-        .eq("cafe_id", cafe?.id ?? "")
+        .eq("cafe_id", cafeId!)
         .order("label");
-      return { cafe: cafe as Cafe | null, tables: (tables ?? []) as TableRow[] };
+      return (data ?? []) as TableRow[];
     },
   });
 
-  const firstTable = data?.tables[0];
+  const firstTable = tables[0];
 
   return (
     <div className="min-h-screen bg-gradient-warm">
@@ -118,16 +121,16 @@ export default function Index() {
       </section>
 
       {/* Demo tables / QR codes */}
-      {showQRs && data?.tables?.length ? (
+      {showQRs && tables.length ? (
         <section className="mx-auto max-w-5xl px-6 pb-24">
           <div className="mb-6 flex items-end justify-between">
             <div>
-              <h2 className="font-display text-2xl font-semibold">Demo tables — {data.cafe?.name}</h2>
+              <h2 className="font-display text-2xl font-semibold">Demo tables — {cafe?.name}</h2>
               <p className="text-sm text-muted-foreground">Scan with a phone camera, or click a card to open.</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {data.tables.map((t) => (
+            {tables.map((t) => (
               <TableQR key={t.id} tableId={t.id} label={t.label} />
             ))}
           </div>

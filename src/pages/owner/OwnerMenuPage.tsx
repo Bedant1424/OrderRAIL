@@ -13,17 +13,15 @@ async function urlForPath(path: string) {
   return data?.signedUrl ?? null;
 }
 
+import { useCafe } from "@/lib/cafe";
+
 export default function OwnerMenuPage() {
   const qc = useQueryClient();
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [addingCat, setAddingCat] = useState(false);
   const [editingCat, setEditingCat] = useState<MenuCategory | null>(null);
 
-  const { data: cafe } = useQuery({
-    queryKey: ["owner-cafe"],
-    queryFn: async () => (await supabase.from("cafes").select("*").eq("slug", "orderrail").maybeSingle()).data as Cafe | null,
-  });
-  const cafeId = cafe?.id;
+  const { cafe, cafeId } = useCafe();
 
   const catsQ = useQuery({
     queryKey: ["owner-cats", cafeId],
