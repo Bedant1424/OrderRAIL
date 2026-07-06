@@ -136,7 +136,13 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         )}
       </section>
 
-      {order.status === "served" && <ReviewForm cafe={cafe} orderId={order.id} />}
+      {order.status === "served" && (
+        <ReviewForm
+          cafe={cafe}
+          orderId={order.id}
+          onComplete={() => navigate(`/t/${tableId}/cart`)}
+        />
+      )}
 
       <div className="mt-6 px-4">
         <button

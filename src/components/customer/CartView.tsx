@@ -103,8 +103,19 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     }
   };
 
-  const activeOrders = historyOrders.filter((o) => o.status !== "served" && o.status !== "cancelled");
-  const previousOrders = historyOrders.filter((o) => o.status === "served" || o.status === "cancelled");
+  // Sort historyOrders by created_at descending (latest first)
+  const sortedHistory = [...historyOrders].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  // Find the latest active order
+  const latestActive = sortedHistory.find((o) => o.status !== "served" && o.status !== "cancelled");
+
+  // Active orders contains only the latest active order (if any)
+  const activeOrders = latestActive ? [latestActive] : [];
+
+  // Previous orders contains all other orders (older active orders + all served/cancelled orders)
+  const previousOrders = sortedHistory.filter((o) => o.id !== latestActive?.id);
 
   // Renders a single history order card
   const renderOrderCard = (o: Order & { order_items: OrderItem[] }) => {

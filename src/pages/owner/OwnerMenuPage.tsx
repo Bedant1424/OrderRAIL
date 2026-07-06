@@ -71,7 +71,24 @@ export default function OwnerMenuPage() {
   };
 
   const removeCat = async (cat: MenuCategory) => {
-    if (!confirm(`Remove category "${cat.name}" and its items?`)) return;
+    // Prevent deleting category if it still has menu items
+    const { data: items, error: checkError } = await supabase
+      .from("menu_items")
+      .select("id")
+      .eq("category_id", cat.id)
+      .limit(1);
+
+    if (checkError) {
+      toast.error(checkError.message);
+      return;
+    }
+
+    if (items && items.length > 0) {
+      toast.error(`Cannot delete category "${cat.name}" because it still contains menu items. Please delete or move the items first.`);
+      return;
+    }
+
+    if (!confirm(`Remove category "${cat.name}"?`)) return;
     const { error } = await supabase.from("menu_categories").delete().eq("id", cat.id);
     if (error) toast.error(error.message);
     else {

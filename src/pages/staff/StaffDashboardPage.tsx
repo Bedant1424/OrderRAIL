@@ -323,15 +323,15 @@ function OrderColumn({
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
-    <div className="flex flex-col rounded-3xl bg-muted/40 p-3 ring-1 ring-border/50">
-      <div className="mb-3 flex items-center justify-between px-1">
+    <div className="flex flex-col rounded-3xl bg-muted/40 p-3 ring-1 ring-border/50 max-h-[500px]">
+      <div className="mb-3 flex items-center justify-between px-1 shrink-0">
         <div className="flex items-center gap-2">
           <span className={cn("h-2 w-2 rounded-full", dot)} />
           <h3 className="font-display text-base font-semibold">{title}</h3>
         </div>
         <span className="text-xs text-muted-foreground tabular-nums">{orders.length}</span>
       </div>
-      <div className="space-y-3">
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-1">
         <AnimatePresence initial={false}>
           {orders.length === 0 && (
             <p className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-center text-xs text-muted-foreground">

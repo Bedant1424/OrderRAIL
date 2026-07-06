@@ -63,6 +63,25 @@ export default function OwnerTablesPage() {
   };
 
   const remove = async (t: TableRow) => {
+    // Prevent deleting table if there are active orders
+    const { data: activeOrds, error: checkError } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("table_id", t.id)
+      .neq("status", "served")
+      .neq("status", "cancelled")
+      .limit(1);
+
+    if (checkError) {
+      toast.error(checkError.message);
+      return;
+    }
+
+    if (activeOrds && activeOrds.length > 0) {
+      toast.error(`Cannot delete table "${t.label}" because it has active orders in progress.`);
+      return;
+    }
+
     if (!confirm(`Remove table ${t.label}?`)) return;
     const { error } = await supabase.from("tables").delete().eq("id", t.id);
     if (error) return toast.error(error.message);

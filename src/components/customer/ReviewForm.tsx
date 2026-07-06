@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { APP_CONFIG } from "@/config/app";
 
-export function ReviewForm({ cafe, orderId }: { cafe: Cafe; orderId: string }) {
+export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId: string; onComplete: () => void }) {
   const storageKey = `review-sent:${orderId}`;
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -39,6 +39,7 @@ export function ReviewForm({ cafe, orderId }: { cafe: Cafe; orderId: string }) {
       localStorage.setItem(storageKey, "1");
       setSent(true);
       toast.success("Thanks for the feedback!");
+      onComplete();
     } catch (e) {
       console.error(e);
       toast.error("Couldn't send review — please try again.");
@@ -128,6 +129,14 @@ export function ReviewForm({ cafe, orderId }: { cafe: Cafe; orderId: string }) {
           className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft disabled:opacity-60"
         >
           {busy ? "Sending…" : "Submit review"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onComplete}
+          className="w-full rounded-full bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80"
+        >
+          Skip
         </button>
 
         {APP_CONFIG.googleReviewUrl && (
