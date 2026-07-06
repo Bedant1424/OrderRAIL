@@ -68,8 +68,9 @@ Navigate to the local address displayed in your console (usually `http://localho
   * `name`: `"OrderRail"`
   * `slug`: `"orderrail"`
   * `currency`: `"INR"`
+  * Seeding also automatically provisions **10 default tables** (labeled "1" to "10") with 4 seats each.
 * **Users:** No users exist initially in the database.
 * **Onboarding Owner/Staff:** The first user to access the application must sign up via the `/staff/login` page and click **Claim Owner** or **Claim Staff** to assign themselves control over the newly created cafe.
 
 ### Existing Installation State
-* The bootstrap script is **idempotent**. Running the seed command again will detect that a cafe with the slug `"orderrail"` already exists and will exit safely without making any duplicate entries or database updates.
+* The bootstrap script is **idempotent**. Running the seed command again will detect that a cafe with the slug `"orderrail"` already exists, and that tables "1" through "10" exist, exiting safely without making any duplicate entries or database updates.
