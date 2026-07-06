@@ -6,14 +6,25 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
   const { session, roles, loading, signOut } = useAuth();
   const location = useLocation();
 
+  console.log("StaffLayout: Guard check evaluation:", {
+    require,
+    loading,
+    sessionExists: !!session,
+    roles,
+    isOwner: hasRole(roles, "owner"),
+    isStaff: hasRole(roles, "staff")
+  });
+
   if (loading) {
     return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   }
   if (!session) {
+    console.log("StaffLayout: Redirecting to /staff/login - no session");
     return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
   }
   const allowed = require === "owner" ? hasRole(roles, "owner") : hasRole(roles, "staff", "owner");
   if (!allowed) {
+    console.log("StaffLayout: Redirecting to /staff/login - not allowed");
     return <Navigate to="/staff/login" replace />;
   }
 

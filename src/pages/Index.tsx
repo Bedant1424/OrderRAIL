@@ -49,10 +49,19 @@ export default function Index() {
   const firstTable = tables[0];
 
   useEffect(() => {
+    console.log("Index: Redirect check evaluation:", {
+      loading,
+      sessionExists: !!session,
+      roles,
+      isOwner: hasRole(roles, "owner"),
+      isStaff: hasRole(roles, "staff")
+    });
     if (!loading && session) {
       if (hasRole(roles, "owner")) {
+        console.log("Index: Redirecting to /owner");
         navigate("/owner", { replace: true });
       } else if (hasRole(roles, "staff")) {
+        console.log("Index: Redirecting to /staff");
         navigate("/staff", { replace: true });
       }
     }

@@ -23,23 +23,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [lastUid, setLastUid] = useState<string | null>(null);
 
   const loadRoles = async (uid: string | undefined, force = false) => {
+    console.log("AuthProvider: loadRoles invoked for uid:", uid, "force:", force);
     if (!uid) {
+      console.log("AuthProvider: loadRoles early exit - no uid");
       setRoles([]);
       setLastUid(null);
       setLoading(false);
       return;
     }
     if (uid === lastUid && !loading && !force) {
+      console.log("AuthProvider: loadRoles early exit - cached");
       return;
     }
+    console.log("AuthProvider: setting loading to true, fetching roles");
     setLoading(true);
     setLastUid(uid);
     try {
-      const { data } = await supabase.from("user_roles").select("role, cafe_id").eq("user_id", uid);
+      const { data, error } = await supabase.from("user_roles").select("role, cafe_id").eq("user_id", uid);
+      if (error) {
+        console.error("AuthProvider: supabase query error in user_roles:", error);
+      } else {
+        console.log("AuthProvider: loaded roles from Supabase database:", data);
+      }
       setRoles((data ?? []) as AuthCtx["roles"]);
     } catch (e) {
-      console.error("Error loading user roles:", e);
+      console.error("AuthProvider: loadRoles try-catch exception:", e);
     } finally {
+      console.log("AuthProvider: setting loading to false");
       setLoading(false);
     }
   };
@@ -48,8 +58,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
 
     // Initial session load
-    supabase.auth.getSession().then(({ data }) => {
+    console.log("AuthProvider: triggering supabase.auth.getSession()");
+    supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
+      if (error) {
+        console.error("AuthProvider: getSession returned error:", error);
+      }
+      console.log("AuthProvider: getSession result session exists:", !!data.session, {
+        email: data.session?.user?.email,
+        id: data.session?.user?.id
+      });
       setSession(data.session);
       void loadRoles(data.session?.user.id, true).finally(() => {
         if (active) setLoading(false);
@@ -58,6 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
       if (!active) return;
+      console.log("AuthProvider: onAuthStateChange fired event:", evt, "session exists:", !!s, {
+        email: s?.user?.email,
+        id: s?.user?.id
+      });
       setSession(s);
       if (evt === "SIGNED_IN" || evt === "TOKEN_REFRESHED") {
         void loadRoles(s?.user.id, true);

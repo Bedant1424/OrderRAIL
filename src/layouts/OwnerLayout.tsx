@@ -16,9 +16,22 @@ const nav = [
 export default function OwnerLayout() {
   const { session, roles, loading, signOut } = useAuth();
 
+  console.log("OwnerLayout: Guard check evaluation:", {
+    loading,
+    sessionExists: !!session,
+    roles,
+    isOwner: hasRole(roles, "owner")
+  });
+
   if (loading) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
-  if (!session) return <Navigate to="/staff/login" replace />;
-  if (!hasRole(roles, "owner")) return <Navigate to="/staff/login" replace />;
+  if (!session) {
+    console.log("OwnerLayout: Redirecting to /staff/login - no session");
+    return <Navigate to="/staff/login" replace />;
+  }
+  if (!hasRole(roles, "owner")) {
+    console.log("OwnerLayout: Redirecting to /staff/login - not owner");
+    return <Navigate to="/staff/login" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-background lg:grid lg:grid-cols-[240px_1fr] print:block print:bg-white">

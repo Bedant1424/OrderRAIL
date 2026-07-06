@@ -14,8 +14,17 @@ export default function StaffLoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    console.log("StaffLoginPage: Redirect check evaluation:", {
+      loading,
+      sessionExists: !!session,
+      roles,
+      isOwner: hasRole(roles, "owner"),
+      isStaff: hasRole(roles, "staff")
+    });
     if (!loading && session && hasRole(roles, "staff", "owner")) {
-      nav(hasRole(roles, "owner") ? "/owner" : "/staff", { replace: true });
+      const target = hasRole(roles, "owner") ? "/owner" : "/staff";
+      console.log("StaffLoginPage: Redirecting to:", target);
+      nav(target, { replace: true });
     }
   }, [loading, session, roles, nav]);
 
@@ -33,7 +42,14 @@ export default function StaffLoginPage() {
         if (error) throw error;
         toast.success("Account created — you're signed in.");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        console.log("StaffLoginPage: Attempting signInWithPassword for email:", email);
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        console.log("StaffLoginPage: signInWithPassword result:", {
+          success: !error,
+          error,
+          userId: data.user?.id,
+          userEmail: data.user?.email
+        });
         if (error) throw error;
       }
     } catch (err: unknown) {
