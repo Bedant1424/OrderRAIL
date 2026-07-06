@@ -15,7 +15,7 @@ export function FloatingCart({ currency }: { currency: string }) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 80, opacity: 0 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
-          className="pointer-events-none fixed bottom-[calc(6.25rem+env(safe-area-inset-bottom))] inset-x-0 z-50 px-4"
+          className="pointer-events-none fixed bottom-[calc(6.25rem+env(safe-area-inset-bottom))] inset-x-0 z-30 px-4"
         >
           <Link
             to={`/t/${tableId}/cart`}
