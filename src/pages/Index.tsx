@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { QrCode, Coffee, Zap, WifiOff, ArrowRight, ChefHat, LayoutDashboard } from "lucide-react";
 import { supabase, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
+import { useAuth, hasRole } from "@/lib/auth";
 
 function TableQR({ tableId, label }: { tableId: string; label: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -29,6 +30,29 @@ function TableQR({ tableId, label }: { tableId: string; label: string }) {
 export default function Index() {
   const [showQRs, setShowQRs] = useState(false);
   const { cafe, cafeId } = useCafe();
+  const { session, roles, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && session) {
+      if (hasRole(roles, "owner")) {
+        navigate("/owner", { replace: true });
+      } else if (hasRole(roles, "staff")) {
+        navigate("/staff", { replace: true });
+      }
+    }
+  }, [loading, session, roles, navigate]);
+
+  if (loading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-gradient-warm text-muted-foreground">
+        <div className="flex flex-col items-center gap-2">
+          <Coffee className="h-8 w-8 animate-bounce text-accent" />
+          <span className="text-sm font-medium animate-pulse">Checking session…</span>
+        </div>
+      </div>
+    );
+  }
 
   const { data: tables = [] } = useQuery({
     queryKey: ["landing-tables", cafeId],

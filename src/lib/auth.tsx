@@ -20,27 +20,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AuthCtx["roles"]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUid, setLastUid] = useState<string | null>(null);
 
-  const loadRoles = async (uid: string | undefined) => {
+  const loadRoles = async (uid: string | undefined, force = false) => {
     if (!uid) {
       setRoles([]);
+      setLastUid(null);
+      setLoading(false);
       return;
     }
-    const { data } = await supabase.from("user_roles").select("role, cafe_id").eq("user_id", uid);
-    setRoles((data ?? []) as AuthCtx["roles"]);
+    if (uid === lastUid && !loading && !force) {
+      return;
+    }
+    setLoading(true);
+    setLastUid(uid);
+    try {
+      const { data } = await supabase.from("user_roles").select("role, cafe_id").eq("user_id", uid);
+      setRoles((data ?? []) as AuthCtx["roles"]);
+    } catch (e) {
+      console.error("Error loading user roles:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
-      setSession(s);
-      // Defer supabase call to avoid deadlocks inside the callback.
-      setTimeout(() => void loadRoles(s?.user.id), 0);
-    });
+    let active = true;
+
+    // Initial session load
     supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
       setSession(data.session);
-      void loadRoles(data.session?.user.id).finally(() => setLoading(false));
+      void loadRoles(data.session?.user.id, true).finally(() => {
+        if (active) setLoading(false);
+      });
     });
-    return () => sub.subscription.unsubscribe();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
+      if (!active) return;
+      setSession(s);
+      if (evt === "SIGNED_IN" || evt === "TOKEN_REFRESHED") {
+        void loadRoles(s?.user.id, true);
+      } else if (evt === "SIGNED_OUT") {
+        setRoles([]);
+        setLastUid(null);
+        setLoading(false);
+      } else {
+        void loadRoles(s?.user.id);
+      }
+    });
+
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const value: AuthCtx = {
@@ -48,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     roles,
     loading,
-    refreshRoles: () => loadRoles(session?.user.id),
+    refreshRoles: () => loadRoles(session?.user.id, true),
     signOut: async () => {
       await supabase.auth.signOut();
     },
