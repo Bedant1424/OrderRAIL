@@ -257,7 +257,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   // 2. ACTIVE CART/BASKET VIEW
   return (
-    <div className="pb-40 px-4">
+    <div className="pb-24 px-4">
       <div className="pt-4">
         <h1 className="font-display text-3xl font-semibold">Your Order</h1>
         <p className="mt-1 text-sm text-muted-foreground">Table {table.label} · {cafe.name}</p>
@@ -313,6 +313,23 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         />
       </div>
 
+      <div className="mt-6 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Subtotal</span>
+          <span className="font-display text-xl font-semibold tabular-nums">
+            {formatMoney(subtotalCents, cafe.currency)}
+          </span>
+        </div>
+        <button
+          onClick={placeOrder}
+          disabled={placing}
+          className="w-full rounded-full bg-gradient-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
+        >
+          {placing ? "Sending…" : "Place Order"}
+        </button>
+        <p className="mt-2 text-center text-xs text-muted-foreground">Pay at the counter when you're ready.</p>
+      </div>
+
       {/* Show active/previous history at the bottom to avoid empty states */}
       {historyOrders.length > 0 && (
         <div className="mt-8 pt-8 border-t border-border/60 space-y-4">
@@ -322,27 +339,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           </div>
         </div>
       )}
-
-      <div className="fixed inset-x-0 bottom-16 z-30 pb-safe">
-        <div className="mx-auto max-w-md px-4">
-          <div className="rounded-2xl bg-card p-4 shadow-float ring-1 ring-border">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Subtotal</span>
-              <span className="font-display text-xl font-semibold tabular-nums">
-                {formatMoney(subtotalCents, cafe.currency)}
-              </span>
-            </div>
-            <button
-              onClick={placeOrder}
-              disabled={placing}
-              className="w-full rounded-full bg-gradient-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
-            >
-              {placing ? "Sending…" : "Place Order"}
-            </button>
-            <p className="mt-2 text-center text-xs text-muted-foreground">Pay at the counter when you're ready.</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
