@@ -35,43 +35,73 @@ const App = () => {
     initOfflineSync();
   }, []);
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <CafeProvider>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/t/:tableId" element={<TableLayout />}>
-                  <Route index element={<TableMenuPage />} />
-                  <Route path="cart" element={<TableCartPage />} />
-                  <Route path="call" element={<TableCallPage />} />
-                  <Route path="order/:orderId" element={<TableOrderPage />} />
-                </Route>
-                <Route path="/staff/login" element={<StaffLoginPage />} />
-                <Route path="/staff" element={<StaffLayout />}>
-                  <Route index element={<StaffDashboardPage />} />
-                </Route>
-                <Route path="/owner" element={<OwnerLayout />}>
-                  <Route index element={<OwnerAnalyticsPage />} />
-                  <Route path="orders" element={<OwnerOrdersPage />} />
-                  <Route path="menu" element={<OwnerMenuPage />} />
-                  <Route path="tables" element={<OwnerTablesPage />} />
-                  <Route path="staff" element={<OwnerStaffPage />} />
-                  <Route path="reviews" element={<OwnerReviewsPage />} />
-                  <Route path="settings" element={<OwnerSettingsPage />} />
-                </Route>
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </CafeProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
+  console.log("App start");
+  try {
+    console.log("Before QueryClientProvider");
+    return (
+      <QueryClientProvider client={queryClient}>
+        {(() => {
+          console.log("Inside QueryClientProvider, Before TooltipProvider");
+          return (
+            <TooltipProvider>
+              {(() => {
+                console.log("Inside TooltipProvider, Before BrowserRouter");
+                return (
+                  <BrowserRouter>
+                    {(() => {
+                      console.log("Inside BrowserRouter, Before AuthProvider");
+                      return (
+                        <AuthProvider>
+                          {(() => {
+                            console.log("Inside AuthProvider, Before CafeProvider");
+                            return (
+                              <CafeProvider>
+                                {(() => {
+                                  console.log("Inside CafeProvider, Before Routes");
+                                  return (
+                                    <Routes>
+                                      <Route path="/" element={<Index />} />
+                                      <Route path="/t/:tableId" element={<TableLayout />}>
+                                        <Route index element={<TableMenuPage />} />
+                                        <Route path="cart" element={<TableCartPage />} />
+                                        <Route path="call" element={<TableCallPage />} />
+                                        <Route path="order/:orderId" element={<TableOrderPage />} />
+                                      </Route>
+                                      <Route path="/staff/login" element={<StaffLoginPage />} />
+                                      <Route path="/staff" element={<StaffLayout />}>
+                                        <Route index element={<StaffDashboardPage />} />
+                                      </Route>
+                                      <Route path="/owner" element={<OwnerLayout />}>
+                                        <Route index element={<OwnerAnalyticsPage />} />
+                                        <Route path="orders" element={<OwnerOrdersPage />} />
+                                        <Route path="menu" element={<OwnerMenuPage />} />
+                                        <Route path="tables" element={<OwnerTablesPage />} />
+                                        <Route path="staff" element={<OwnerStaffPage />} />
+                                        <Route path="reviews" element={<OwnerReviewsPage />} />
+                                        <Route path="settings" element={<OwnerSettingsPage />} />
+                                      </Route>
+                                      <Route path="*" element={<NotFound />} />
+                                    </Routes>
+                                  );
+                                })()}
+                              </CafeProvider>
+                            );
+                          })()}
+                        </AuthProvider>
+                      );
+                    })()}
+                  </BrowserRouter>
+                );
+              })()}
+            </TooltipProvider>
+          );
+        })()}
+      </QueryClientProvider>
+    );
+  } catch (err) {
+    console.error("App render failed:", err);
+    throw err;
+  }
 };
 
 export default App;
