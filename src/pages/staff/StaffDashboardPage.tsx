@@ -78,7 +78,7 @@ export default function StaffDashboardPage() {
     enabled: !!cafeId,
     queryFn: async () => {
       const { data } = await supabase.from("tables").select("*").eq("cafe_id", cafeId!).order("label");
-      return (data ?? []) as TableRow[];
+      return ((data ?? []) as TableRow[]).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
     },
   });
 

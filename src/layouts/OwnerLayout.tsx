@@ -21,9 +21,9 @@ export default function OwnerLayout() {
   if (!hasRole(roles, "owner")) return <Navigate to="/staff/login" replace />;
 
   return (
-    <div className="min-h-screen bg-background lg:grid lg:grid-cols-[240px_1fr]">
+    <div className="min-h-screen bg-background lg:grid lg:grid-cols-[240px_1fr] print:block print:bg-white">
       {/* Sidebar */}
-      <aside className="hidden border-r border-border/60 bg-card/40 lg:flex lg:flex-col">
+      <aside className="hidden border-r border-border/60 bg-card/40 lg:flex lg:flex-col print:hidden">
         <Link to="/owner" className="flex items-center gap-2 px-5 py-5">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
             <span className="font-display text-sm font-bold">OR</span>
@@ -68,7 +68,7 @@ export default function OwnerLayout() {
       </aside>
 
       {/* Mobile header */}
-      <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between border-b border-border/60 bg-background/85 px-4 py-3 backdrop-blur">
+      <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between border-b border-border/60 bg-background/85 px-4 py-3 backdrop-blur print:hidden">
         <Link to="/owner" className="flex items-center gap-2">
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
             <span className="font-display text-sm font-bold">OR</span>
@@ -105,7 +105,7 @@ export default function OwnerLayout() {
         </details>
       </div>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8 lg:py-10">
+      <main className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8 lg:py-10 print:p-0 print:max-w-none">
         <Outlet />
       </main>
     </div>
