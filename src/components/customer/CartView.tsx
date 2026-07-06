@@ -9,6 +9,40 @@ import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
 import { toast } from "sonner";
 
+function CartItemImage({ src, alt }: { src: string; alt: string }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return (
+      <div className="h-14 w-14 shrink-0 rounded-xl bg-gradient-warm flex items-center justify-center text-xs text-muted-foreground ring-1 ring-border/60">
+        <span>☕</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-secondary/35 ring-1 ring-border/60">
+      {loading && (
+        <div className="absolute inset-0 animate-pulse bg-secondary/70" />
+      )}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onLoad={() => setLoading(false)}
+        onError={() => {
+          setLoading(false);
+          setError(true);
+        }}
+        className={`h-full w-full object-cover transition-opacity duration-300 ${
+          loading ? "opacity-0" : "opacity-100"
+        }`}
+      />
+    </div>
+  );
+}
+
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { lines, setQty, remove, subtotalCents, clear } = useCart();
   const { tableId } = useParams();
@@ -271,9 +305,11 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60"
           >
             {l.item.image_url ? (
-              <img src={l.item.image_url} alt="" className="h-14 w-14 rounded-xl object-cover" />
+              <CartItemImage src={l.item.image_url} alt={l.item.name} />
             ) : (
-              <div className="h-14 w-14 rounded-xl bg-gradient-warm" aria-hidden />
+              <div className="h-14 w-14 rounded-xl bg-gradient-warm flex items-center justify-center ring-1 ring-border/60" aria-hidden>
+                <span>☕</span>
+              </div>
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{l.item.name}</p>

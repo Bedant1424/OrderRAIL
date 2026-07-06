@@ -5,6 +5,45 @@ import { formatMoney } from "@/lib/db";
 import { useCart } from "@/lib/cart";
 import { useImageUrl } from "@/lib/useImageUrl";
 
+import { useState } from "react";
+
+function MenuImage({ src, alt }: { src: string; alt: string }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return (
+      <div className="h-24 w-24 shrink-0 rounded-2xl bg-gradient-warm flex flex-col items-center justify-center text-xs text-muted-foreground font-semibold ring-1 ring-border/60">
+        <span className="text-xl">☕</span>
+        <span className="text-[9px] mt-1 text-muted-foreground/80">No Image</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-secondary/35 ring-1 ring-border/60">
+      {loading && (
+        <div className="absolute inset-0 animate-pulse bg-secondary/70 flex items-center justify-center">
+          <span className="text-xs text-muted-foreground/60">Loading…</span>
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onLoad={() => setLoading(false)}
+        onError={() => {
+          setLoading(false);
+          setError(true);
+        }}
+        className={`h-full w-full object-cover transition-opacity duration-300 group-hover:scale-105 ${
+          loading ? "opacity-0" : "opacity-100"
+        }`}
+      />
+    </div>
+  );
+}
+
 export function MenuItemCard({ item, currency }: { item: MenuItem; currency: string }) {
   const { add } = useCart();
   const imgUrl = useImageUrl(item.image_url);
@@ -16,16 +55,11 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
       className="group relative flex gap-4 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/60"
     >
       {imgUrl ? (
-        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-muted">
-          <img
-            src={imgUrl}
-            alt={item.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        </div>
+        <MenuImage src={imgUrl} alt={item.name} />
       ) : (
-        <div className="h-24 w-24 shrink-0 rounded-2xl bg-gradient-warm" aria-hidden />
+        <div className="h-24 w-24 shrink-0 rounded-2xl bg-gradient-warm flex items-center justify-center ring-1 ring-border/60" aria-hidden>
+          <span className="text-xl">☕</span>
+        </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
