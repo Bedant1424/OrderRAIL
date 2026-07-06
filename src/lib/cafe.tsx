@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase, type Cafe } from "./db";
+import { APP_CONFIG } from "@/config/app";
 
 interface CafeContextType {
   cafe: Cafe | null;
@@ -21,7 +22,7 @@ export function CafeProvider({ children }: { children: ReactNode }) {
       const { data, error: err } = await supabase
         .from("cafes")
         .select("*")
-        .eq("slug", "orderrail")
+        .eq("slug", APP_CONFIG.cafeSlug)
         .maybeSingle();
       if (err) throw err;
       return data as Cafe | null;
