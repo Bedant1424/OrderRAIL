@@ -52,7 +52,7 @@ BEGIN
   -- Seed Menu Items
   -- Coffee
   INSERT INTO public.menu_items (cafe_id, category_id, name, description, price_cents, image_url, tags, sort_order) VALUES
-  (_cafe_id, _cat_coffee_id, 'Classic Espresso', 'Rich and bold double shot of our house signature blend espresso.', 18000, 'https://images.unsplash.com/photo-151097252790b-af4f42d9101e?w=500&auto=format&fit=crop&q=60', ARRAY['Popular', 'Veg'], 1),
+  (_cafe_id, _cat_coffee_id, 'Classic Espresso', 'Rich and bold double shot of our house signature blend espresso.', 18000, 'https://images.unsplash.com/photo-1579992357154-faf4bde95b3d?w=500&auto=format&fit=crop&q=60', ARRAY['Popular', 'Veg'], 1),
   (_cafe_id, _cat_coffee_id, 'Vanilla Cappuccino', 'Espresso with steamed milk, thick layer of foam, and sweet vanilla extract.', 24000, 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=500&auto=format&fit=crop&q=60', ARRAY['Bestseller', 'Veg'], 2),
   (_cafe_id, _cat_coffee_id, 'Caramel Macchiato', 'Espresso poured over steamed milk, marked with vanilla syrup and caramel drizzle.', 28000, 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?w=500&auto=format&fit=crop&q=60', ARRAY['Chef''s Choice', 'Veg'], 3),
   (_cafe_id, _cat_coffee_id, 'Spanish Latte', 'Sweetened condensed milk topped with espresso shots and textured fresh milk.', 26000, 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=500&auto=format&fit=crop&q=60', ARRAY['New', 'Veg'], 4),
@@ -78,7 +78,7 @@ BEGIN
   INSERT INTO public.menu_items (cafe_id, category_id, name, description, price_cents, image_url, tags, sort_order) VALUES
   (_cafe_id, _cat_sandwiches_id, 'Double-Decker Club', 'Grilled chicken breast, crispy bacon, fried egg, lettuce, and tomatoes in toasted white bread.', 36000, 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=500&auto=format&fit=crop&q=60', ARRAY['Bestseller', 'Non-Veg'], 1),
   (_cafe_id, _cat_sandwiches_id, 'Caprese Panini', 'Toasted sourdough bread pressed with fresh mozzarella, sliced tomatoes, and basil pesto.', 32000, 'https://images.unsplash.com/photo-1539252554453-80ab65ce3586?w=500&auto=format&fit=crop&q=60', ARRAY['Popular', 'Veg'], 2),
-  (_cafe_id, _cat_sandwiches_id, 'Three-Cheese Grilled', 'Artisanal bread loaded with melted Cheddar, Swiss, and Provolone cheeses.', 28000, 'https://images.unsplash.com/photo-1475090169767-40ed8d18a67d?w=500&auto=format&fit=crop&q=60', ARRAY['Veg'], 3),
+  (_cafe_id, _cat_sandwiches_id, 'Three-Cheese Grilled', 'Artisanal bread loaded with melted Cheddar, Swiss, and Provolone cheeses.', 28000, 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=500&auto=format&fit=crop&q=60', ARRAY['Veg'], 3),
   (_cafe_id, _cat_sandwiches_id, 'Smoked Salmon Bagel', 'Toasted bagel spread with cream cheese, capers, red onions, and premium smoked salmon slices.', 45000, 'https://images.unsplash.com/photo-1541532713592-79a0317b6b77?w=500&auto=format&fit=crop&q=60', ARRAY['Chef''s Choice', 'Non-Veg'], 4),
   (_cafe_id, _cat_sandwiches_id, 'Turkey & Cranberry', 'Sliced roast turkey breast, cranberry sauce, Swiss cheese, and wild rocket leaves.', 34000, 'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=500&auto=format&fit=crop&q=60', ARRAY['Non-Veg'], 5);
 
@@ -96,7 +96,7 @@ BEGIN
   (_cafe_id, _cat_pizza_id, 'Pepperoni Feast', 'Double loaded pepperoni slices, mozzarella, and dynamic tomato sauce with herbs.', 45000, 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=500&auto=format&fit=crop&q=60', ARRAY['Bestseller', 'Non-Veg'], 2),
   (_cafe_id, _cat_pizza_id, 'BBQ Chicken Pizza', 'Grilled chicken cubes, red onions, chopped cilantro, and sweet barbecue sauce base.', 44000, 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500&auto=format&fit=crop&q=60', ARRAY['Non-Veg'], 3),
   (_cafe_id, _cat_pizza_id, 'Four Cheese Pizza', 'Rich blend of Mozzarella, Gorgonzola, Parmesan, and Ricotta cheeses baked to golden brown.', 46000, 'https://images.unsplash.com/photo-1573821663912-569905455b1c?w=500&auto=format&fit=crop&q=60', ARRAY['Chef''s Choice', 'Veg'], 4),
-  (_cafe_id, _cat_pizza_id, 'Garden Veggie Pizza', 'Crisp bell peppers, red onions, mushrooms, black olives, and sweet corn on a thin crust.', 38000, 'https://images.unsplash.com/photo-1571066811602-71683a3f680d?w=500&auto=format&fit=crop&q=60', ARRAY['Veg'], 5);
+  (_cafe_id, _cat_pizza_id, 'Garden Veggie Pizza', 'Crisp bell peppers, red onions, mushrooms, black olives, and sweet corn on a thin crust.', 38000, 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?w=500&auto=format&fit=crop&q=60', ARRAY['Veg'], 5);
 
   -- Pasta
   INSERT INTO public.menu_items (cafe_id, category_id, name, description, price_cents, image_url, tags, sort_order) VALUES
@@ -108,7 +108,7 @@ BEGIN
 
   -- Desserts
   INSERT INTO public.menu_items (cafe_id, category_id, name, description, price_cents, image_url, tags, sort_order) VALUES
-  (_cafe_id, _cat_desserts_id, 'New York Cheesecake', 'Rich, dense, and creamy classic cheesecake served with a sweet strawberry compote.', 28000, 'https://images.unsplash.com/photo-1524351199679-46cddf530c04?w=500&auto=format&fit=crop&q=60', ARRAY['Bestseller', 'Veg'], 1),
+  (_cafe_id, _cat_desserts_id, 'New York Cheesecake', 'Rich, dense, and creamy classic cheesecake served with a sweet strawberry compote.', 28000, 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?w=500&auto=format&fit=crop&q=60', ARRAY['Bestseller', 'Veg'], 1),
   (_cafe_id, _cat_desserts_id, 'Chocolate Fudge Cake', 'Rich double chocolate sponge cake served warm with a scoop of vanilla ice cream.', 26000, 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=500&auto=format&fit=crop&q=60', ARRAY['Popular', 'Veg'], 2),
   (_cafe_id, _cat_desserts_id, 'Classic Tiramisu', 'Coffee-soaked ladyfingers layered with whipped mascarpone custard and cocoa powder.', 30000, 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&auto=format&fit=crop&q=60', ARRAY['Chef''s Choice', 'Veg'], 3),
   (_cafe_id, _cat_desserts_id, 'Warm Apple Pie', 'Spiced sweet apple filling baked in a flaky crust, served with caramel syrup.', 25000, 'https://images.unsplash.com/photo-1519869325930-281384150729?w=500&auto=format&fit=crop&q=60', ARRAY['Veg'], 4),
