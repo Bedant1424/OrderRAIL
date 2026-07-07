@@ -304,45 +304,59 @@ export default function StaffDashboardPage() {
         </div>
 
         <AnimatePresence>
-          {selectedTable && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-float"
-              >
-                <h3 className="font-display text-xl font-bold">Table {selectedTable.label}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Current status: <span className="font-semibold text-foreground capitalize">{selectedTable.status}</span>
-                </p>
-                
-                <div className="mt-6 flex flex-col gap-2">
-                  {selectedTable.status === "occupied" ? (
+          {selectedTable && (() => {
+            const activeOrdersCount = (ordersQ.data ?? []).filter((o) =>
+              o.dining_session_id === selectedTable.active_session_id &&
+              (o.status === "pending" || o.status === "preparing" || o.status === "ready")
+            ).length;
+            return (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-float"
+                >
+                  <h3 className="font-display text-xl font-bold">Table {selectedTable.label}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Current status: <span className="font-semibold text-foreground capitalize">{selectedTable.status}</span>
+                  </p>
+                  
+                  <div className="mt-6 flex flex-col gap-2">
+                    {selectedTable.status === "occupied" ? (
+                      <>
+                        <button
+                          disabled={activeOrdersCount > 0}
+                          onClick={() => void handleMarkTableFree(selectedTable)}
+                          className="w-full rounded-full bg-destructive py-2.5 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Mark Table Free
+                        </button>
+                        {activeOrdersCount > 0 && (
+                          <p className="mt-1 text-center text-xs text-destructive font-medium leading-normal">
+                            {activeOrdersCount === 1 ? "1 active order remaining." : `${activeOrdersCount} active orders remaining.`} Complete all active orders before freeing this table.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        disabled
+                        className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-muted-foreground opacity-50 cursor-not-allowed"
+                      >
+                        Table is already Free
+                      </button>
+                    )}
                     <button
-                      onClick={() => void handleMarkTableFree(selectedTable)}
-                      className="w-full rounded-full bg-destructive py-2.5 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 transition"
+                      onClick={() => setSelectedTable(null)}
+                      className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
                     >
-                      Mark Table Free
+                      Cancel
                     </button>
-                  ) : (
-                    <button
-                      disabled
-                      className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-muted-foreground opacity-50 cursor-not-allowed"
-                    >
-                      Table is already Free
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setSelectedTable(null)}
-                    className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
+                  </div>
+                </motion.div>
+              </div>
+            );
+          })()}
         </AnimatePresence>
       </section>
     </div>
