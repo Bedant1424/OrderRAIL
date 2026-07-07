@@ -105,6 +105,13 @@ export default function StaffDashboardPage() {
           }
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tables", filter: `cafe_id=eq.${cafeId}` },
+        () => {
+          void qc.invalidateQueries({ queryKey: ["staff-tables", cafeId] });
+        },
+      )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
@@ -181,7 +188,7 @@ export default function StaffDashboardPage() {
 
   const currency = cafe?.currency ?? "USD";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
-  const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => t.status === "occupied").length;
+  const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => t.active_session_id !== null).length;
 
   return (
     <div className="space-y-8">
@@ -282,7 +289,7 @@ export default function StaffDashboardPage() {
         <h2 className="mb-3 font-display text-lg font-semibold">Tables</h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-8">
           {(tablesQ.data ?? []).map((t) => {
-            const isOccupied = t.status === "occupied";
+            const isOccupied = t.active_session_id !== null;
             return (
               <div
                 key={t.id}
@@ -319,11 +326,11 @@ export default function StaffDashboardPage() {
                 >
                   <h3 className="font-display text-xl font-bold">Table {selectedTable.label}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Current status: <span className="font-semibold text-foreground capitalize">{selectedTable.status}</span>
+                    Current status: <span className="font-semibold text-foreground capitalize">{selectedTable.active_session_id !== null ? "Occupied" : "Free"}</span>
                   </p>
                   
                   <div className="mt-6 flex flex-col gap-2">
-                    {selectedTable.status === "occupied" ? (
+                    {selectedTable.active_session_id !== null ? (
                       <>
                         <button
                           disabled={activeOrdersCount > 0}
