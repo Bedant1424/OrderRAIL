@@ -15,7 +15,6 @@ export interface QueuedOrder {
     name: string;
     price_cents: number;
     qty: number;
-    note?: string | null;
   }[];
   queuedAt: number;
 }
@@ -67,7 +66,6 @@ async function pushOne(o: QueuedOrder) {
       name: i.name,
       price_cents: i.price_cents,
       qty: i.qty,
-      note: i.note ?? null,
     })),
   );
   if (itemsErr) throw itemsErr;

@@ -87,7 +87,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               ))}
             </div>
           )}
-          <h3 className="truncate font-display text-lg font-semibold leading-tight">{item.name}</h3>
+          <h3 className="break-anywhere font-display text-lg font-semibold leading-tight">{item.name}</h3>
           {item.description && (
             <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
           )}

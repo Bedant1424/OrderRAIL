@@ -118,7 +118,7 @@ export default function OwnerLayout() {
         </details>
       </div>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8 lg:py-10 print:p-0 print:max-w-none">
+      <main className="min-w-0 mx-auto w-full max-w-7xl px-4 py-6 lg:px-8 lg:py-10 print:p-0 print:max-w-none">
         <Outlet />
       </main>
     </div>

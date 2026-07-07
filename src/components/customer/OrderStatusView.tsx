@@ -115,11 +115,11 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         <h2 className="mb-3 font-display text-lg font-semibold">Items</h2>
         <ul className="divide-y divide-border/60">
           {items.map((i) => (
-            <li key={i.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-              <span className="min-w-0 truncate">
+            <li key={i.id} className="flex items-baseline justify-between gap-2 py-2 text-sm">
+              <span className="break-anywhere flex-1">
                 <span className="font-medium">{i.qty}×</span> {i.name}
               </span>
-              <span className="tabular-nums text-muted-foreground">
+              <span className="shrink-0 tabular-nums text-muted-foreground">
                 {formatMoney(i.price_cents * i.qty, cafe.currency)}
               </span>
             </li>
@@ -130,7 +130,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
           <span className="tabular-nums">{formatMoney(order.total_cents, cafe.currency)}</span>
         </div>
         {order.note && (
-          <p className="mt-3 rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
+          <p className="break-anywhere mt-3 rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Note:</span> {order.note}
           </p>
         )}

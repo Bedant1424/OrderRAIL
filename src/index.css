@@ -137,6 +137,38 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+  /* Thin custom scrollbar for kanban card lists */
+  .kanban-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .kanban-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  .kanban-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .kanban-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+  .kanban-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  /* Kanban column — must have min-width:0 to respect CSS Grid track */
+  .kanban-col {
+    min-width: 0;
+  }
+
+  /* Force text to wrap at any character boundary (prevents card overflow) */
+  .break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   .glass {
     background: hsl(var(--card) / 0.75);
     backdrop-filter: saturate(180%) blur(14px);

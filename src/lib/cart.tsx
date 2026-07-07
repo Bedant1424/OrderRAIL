@@ -4,7 +4,6 @@ import type { MenuItem } from "@/lib/db";
 export interface CartLine {
   item: Pick<MenuItem, "id" | "name" | "price_cents" | "image_url">;
   qty: number;
-  note?: string;
 }
 
 interface CartCtx {

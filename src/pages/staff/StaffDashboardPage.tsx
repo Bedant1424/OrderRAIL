@@ -192,11 +192,21 @@ export default function StaffDashboardPage() {
         <StatCard label="Tables busy" value={occupiedTablesCount} icon={Utensils} tone="muted" />
       </section>
 
-      {/* Service requests strip */}
+      {/* Service Requests — horizontal scroll strip.
+           The page-level overflow root cause was <main> in OwnerLayout
+           lacking min-width:0 as a grid item (confirmed via DevTools:
+           htmlScrollW=1684 vs clientW=1019 WITHOUT min-width:0;
+           htmlScrollW=clientW=1034 WITH min-width:0).
+           The SR strip itself is correct: overflow-x:auto scrolls internally
+           once its grid-item parent is properly constrained. */}
       {(srQ.data?.length ?? 0) > 0 && (
         <section>
           <h2 className="mb-3 font-display text-lg font-semibold">Service requests</h2>
-          <div className="flex snap-x gap-3 overflow-x-auto pb-1">
+          {/* no-scrollbar hides the native scrollbar; the strip is still
+              scrollable via mouse-wheel, touch-swipe and trackpad.
+              scroll-snap-type x mandatory + snap-start on cards gives
+              the snapping behaviour. */}
+          <div className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
             <AnimatePresence initial={false}>
               {srQ.data!.map((s) => {
                 const meta = SR_META[s.type] ?? { label: s.type, icon: Bell };
@@ -209,19 +219,19 @@ export default function StaffDashboardPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     className={cn(
-                      "min-w-[220px] snap-start rounded-2xl border p-4 shadow-soft",
+                      "min-w-[280px] max-w-[320px] shrink-0 snap-start rounded-2xl border p-4 shadow-soft",
                       s.status === "open"
                         ? "border-destructive/40 bg-destructive/5"
                         : "border-accent/40 bg-accent/5",
                     )}
                   >
                     <div className="flex items-center gap-2 text-sm font-semibold">
-                      <Icon className="h-4 w-4" /> {meta.label}
+                      <Icon className="h-4 w-4 shrink-0" /> {meta.label}
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       Table {s.tables?.label ?? "?"} · {new Date(s.created_at).toLocaleTimeString()}
                     </div>
-                    {s.note && <p className="mt-2 text-xs">{s.note}</p>}
+                    {s.note && <p className="break-anywhere mt-2 text-xs">{s.note}</p>}
                     <div className="mt-3 flex gap-2">
                       {s.status === "open" && (
                         <button
@@ -246,7 +256,7 @@ export default function StaffDashboardPage() {
         </section>
       )}
 
-      {/* Orders kanban */}
+      {/* Orders kanban — CSS Grid, each column min-width:0 to respect track width */}
       <section className="grid gap-4 lg:grid-cols-3">
         <OrderColumn
           title="Incoming"
@@ -411,7 +421,13 @@ function OrderColumn({
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
-    <div className="flex flex-col rounded-3xl bg-muted/40 p-3 ring-1 ring-border/50 max-h-[500px]">
+    /*
+     * kanban-col  → min-width: 0  (must-have so CSS Grid track constrains the column)
+     * flex-col    → header stays fixed, card list scrolls
+     * No max-h on wrapper → empty columns use natural height (min-height on scroll area)
+     */
+    <div className="kanban-col flex flex-col rounded-3xl bg-muted/40 p-3 ring-1 ring-border/50">
+      {/* Column header — never scrolls */}
       <div className="mb-3 flex items-center justify-between px-1 shrink-0">
         <div className="flex items-center gap-2">
           <span className={cn("h-2 w-2 rounded-full", dot)} />
@@ -419,7 +435,15 @@ function OrderColumn({
         </div>
         <span className="text-xs text-muted-foreground tabular-nums">{orders.length}</span>
       </div>
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-1">
+
+      {/*
+       * Card list:
+       *   - kanban-scroll     → thin custom scrollbar, overflow-y:auto, overflow-x:hidden
+       *   - max-h-[520px]     → caps the scrolling area height (not the whole column)
+       *   - min-h-[80px]      → empty columns show a sensible height instead of collapsing
+       * This is the ONLY element that scrolls vertically; horizontal scroll is impossible.
+       */}
+      <div className="kanban-scroll max-h-[520px] min-h-[80px] space-y-3 pr-1 py-1">
         <AnimatePresence initial={false}>
           {orders.length === 0 && (
             <p className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-center text-xs text-muted-foreground">
@@ -433,11 +457,21 @@ function OrderColumn({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60"
+              /*
+               * w-full          → card always fills 100% of column width
+               * min-w-0         → redundant safety in case article is flex child somewhere
+               * No overflow:hidden — clipping is never the answer
+               */
+              className="w-full min-w-0 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60"
             >
+              {/* Order header row */}
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-display text-sm font-semibold">
+                {/*
+                 * min-w-0 lets the left side shrink so the price on the right
+                 * never pushes content outside the card.
+                 */}
+                <div className="min-w-0">
+                  <div className="break-anywhere font-display text-sm font-semibold">
                     Table {o.tables?.label ?? "?"} · #{o.id.slice(0, 6).toUpperCase()}
                   </div>
                   <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
@@ -445,25 +479,30 @@ function OrderColumn({
                     <StatusBadge status={o.status} />
                   </div>
                 </div>
-                <div className="text-right font-display text-base font-semibold tabular-nums">
+                <div className="shrink-0 text-right font-display text-base font-semibold tabular-nums">
                   {formatMoney(o.total_cents, currency)}
                 </div>
               </div>
+
+              {/* Order items list — no per-item notes, names wrap */}
               <ul className="mt-3 space-y-1 text-sm">
                 {o.order_items?.map((it) => (
-                  <li key={it.id} className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate">
+                  <li key={it.id} className="flex items-baseline gap-2">
+                    <span className="break-anywhere flex-1">
                       <span className="font-medium tabular-nums">{it.qty}×</span> {it.name}
                     </span>
-                    {it.note && <span className="text-xs text-muted-foreground">{it.note}</span>}
                   </li>
                 ))}
               </ul>
+
+              {/* Order-level note — long notes wrap, never overflow */}
               {o.note && (
-                <p className="mt-2 rounded-xl bg-muted/60 p-2 text-xs text-muted-foreground">
+                <p className="break-anywhere mt-2 rounded-xl bg-muted/60 p-2 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">Note:</span> {o.note}
                 </p>
               )}
+
+              {/* Action buttons */}
               {(NEXT_STATUS[o.status] || onCancel) && (
                 <div className="mt-3 flex gap-2">
                   {NEXT_STATUS[o.status] && (

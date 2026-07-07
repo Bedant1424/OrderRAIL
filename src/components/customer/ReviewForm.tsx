@@ -115,12 +115,17 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
 
       <textarea
         value={comment}
-        onChange={(e) => setComment(e.target.value)}
+        onChange={(e) => setComment(e.target.value.slice(0, 500))}
         rows={3}
         placeholder="Tell us more (optional)"
         maxLength={500}
         className="mt-4 w-full resize-none rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
       />
+      <div className="mt-1 flex justify-end">
+        <span className={`text-xs tabular-nums ${comment.length >= 500 ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+          {comment.length} / 500
+        </span>
+      </div>
 
       <div className="mt-3 space-y-2">
         <button

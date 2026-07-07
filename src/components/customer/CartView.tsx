@@ -20,6 +20,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const [placing, setPlacing] = useState(false);
   const [callingType, setCallingType] = useState<ServiceRequestType | null>(null);
 
+  const ORDER_NOTE_MAX = 200;
+
   // History State
   const [historyOrders, setHistoryOrders] = useState<(Order & { order_items: OrderItem[] })[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -67,7 +69,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           name: l.item.name,
           price_cents: l.item.price_cents,
           qty: l.qty,
-          note: l.note ?? null,
         })),
       });
 
@@ -183,12 +184,17 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         </div>
         <div className="space-y-1 text-sm text-foreground">
           {o.order_items?.map((it) => (
-            <div key={it.id} className="flex justify-between">
-              <span>{it.qty}× {it.name}</span>
-              <span className="text-muted-foreground tabular-nums">{formatMoney(it.price_cents * it.qty, cafe.currency)}</span>
+            <div key={it.id} className="flex justify-between gap-2">
+              <span className="break-anywhere flex-1">{it.qty}× {it.name}</span>
+              <span className="shrink-0 text-muted-foreground tabular-nums">{formatMoney(it.price_cents * it.qty, cafe.currency)}</span>
             </div>
           ))}
         </div>
+        {o.note && (
+          <p className="break-anywhere mt-2 rounded-xl bg-muted/50 p-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Note:</span> {o.note}
+          </p>
+        )}
         <div className="flex items-center justify-between border-t border-border/40 pt-2 text-xs text-muted-foreground">
           <span>Total: <strong className="text-foreground text-sm tabular-nums">{formatMoney(o.total_cents, cafe.currency)}</strong></span>
           {isServed && (
@@ -323,7 +329,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           >
             <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{l.item.name}</p>
+              <p className="break-anywhere font-medium">{l.item.name}</p>
               <p className="text-sm text-muted-foreground tabular-nums">
                 {formatMoney(l.item.price_cents, cafe.currency)}
               </p>
@@ -350,13 +356,19 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       </ul>
 
       <div className="mt-6">
-        <label className="block text-sm font-medium">Note for staff (optional)</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium">Note for staff (optional)</label>
+          <span className={`text-xs tabular-nums ${note.length >= ORDER_NOTE_MAX ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+            {note.length} / {ORDER_NOTE_MAX}
+          </span>
+        </div>
         <textarea
           value={note}
-          onChange={(e) => setNote(e.target.value.slice(0, 300))}
+          onChange={(e) => setNote(e.target.value.slice(0, ORDER_NOTE_MAX))}
           placeholder="Any allergies or special requests?"
           rows={3}
-          className="mt-2 w-full resize-none rounded-2xl border border-border bg-card p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+          maxLength={ORDER_NOTE_MAX}
+          className="mt-1 w-full resize-none rounded-2xl border border-border bg-card p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
         />
       </div>
 
