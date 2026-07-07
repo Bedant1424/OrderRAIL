@@ -197,12 +197,7 @@ export default function StaffDashboardPage() {
       {/* Service requests strip */}
       {(srQ.data?.length ?? 0) > 0 && (
         <section>
-          <h2 className="mb-3 font-display text-lg font-semibold flex items-center gap-2">
-            Service requests
-            <span className="rounded-full bg-destructive/15 text-destructive px-2.5 py-0.5 text-xs font-bold tabular-nums">
-              {srQ.data?.length ?? 0}
-            </span>
-          </h2>
+          <h2 className="mb-3 font-display text-lg font-semibold">Service requests</h2>
           <div className="flex snap-x gap-3 overflow-x-auto pb-1">
             <AnimatePresence initial={false}>
               {srQ.data!.map((s) => {
@@ -441,14 +436,7 @@ function OrderColumn({
       <div className="mb-3 flex items-center justify-between px-1 shrink-0">
         <div className="flex items-center gap-2">
           <span className={cn("h-2 w-2 rounded-full", dot)} />
-          <h3 className="font-display text-base font-semibold flex items-center gap-1.5">
-            {title}
-            {title === "Incoming" && orders.length > 0 && (
-              <span className="rounded-full bg-destructive text-destructive-foreground px-1.5 py-0.5 text-[10px] font-bold tabular-nums">
-                {orders.length}
-              </span>
-            )}
-          </h3>
+          <h3 className="font-display text-base font-semibold">{title}</h3>
         </div>
         <span className="text-xs text-muted-foreground tabular-nums">{orders.length}</span>
       </div>
