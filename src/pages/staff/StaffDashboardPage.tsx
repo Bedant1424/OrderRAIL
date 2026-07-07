@@ -150,39 +150,21 @@ export default function StaffDashboardPage() {
 
   const handleMarkTableFree = async (table: TableRow) => {
     try {
-      if (table.active_session_id) {
-        const { data: ords } = await supabase
-          .from("orders")
-          .select("total_cents")
-          .eq("dining_session_id", table.active_session_id);
-        const total = ords ? ords.reduce((sum, o) => sum + o.total_cents, 0) : 0;
+      const { error: rpcErr } = await supabase.rpc("free_table", {
+        p_table_id: table.id,
+      });
 
-        await supabase
-          .from("dining_sessions")
-          .update({
-            status: "closed",
-            closed_at: new Date().toISOString(),
-            total_amount: total
-          })
-          .eq("id", table.active_session_id);
-      }
-
-      const { error: tableErr } = await supabase
-        .from("tables")
-        .update({
-          active_session_id: null,
-          status: "free"
-        })
-        .eq("id", table.id);
-
-      if (tableErr) throw tableErr;
+      if (rpcErr) throw rpcErr;
 
       toast.success(`Table ${table.label} marked Free`);
       void tablesQ.refetch();
       setSelectedTable(null);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error("Could not free table. Please try again.");
+      const friendlyMsg = e.message?.includes("active orders")
+        ? "This table still has active orders."
+        : "Could not free table. Please try again.";
+      toast.error(friendlyMsg);
     }
   };
 
