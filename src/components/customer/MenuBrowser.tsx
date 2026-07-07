@@ -76,6 +76,51 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
     return () => observer.disconnect();
   }, [categories, filtered]);
 
+  // Search transient back navigation logic
+  useEffect(() => {
+    if (!query) return;
+
+    const state = { isSearching: true };
+    window.history.pushState(state, "");
+
+    const handlePopState = () => {
+      setQuery("");
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      if (window.history.state?.isSearching) {
+        window.history.back();
+      }
+    };
+  }, [query ? true : false]);
+
+  // Category chips auto-scroll centering (only if not fully visible)
+  useEffect(() => {
+    if (!activeCat) return;
+    const activeChip = document.getElementById(`chip-${activeCat}`);
+    const container = activeChip?.parentElement;
+    if (activeChip && container) {
+      const chipRect = activeChip.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+
+      // Only scroll if the active chip is partially or fully out of the container view
+      const isVisible = (
+        chipRect.left >= containerRect.left &&
+        chipRect.right <= containerRect.right
+      );
+
+      if (!isVisible) {
+        activeChip.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest"
+        });
+      }
+    }
+  }, [activeCat]);
+
   const scrollToCat = (id: string) => {
     const el = sectionRefs.current[id];
     if (el) {
@@ -110,6 +155,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
           {categories.map((c) => (
             <button
               key={c.id}
+              id={`chip-${c.id}`}
               onClick={() => scrollToCat(c.id)}
               className={cn(
                 "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",

@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Minus, Plus, Trash2, ShoppingBag, History, ChevronRight, Star, PhoneCall, Receipt, Sparkles } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, History, ChevronRight, Star, PhoneCall, Receipt, Sparkles, Clock, CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useCart } from "@/lib/cart";
@@ -10,6 +10,7 @@ import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
 import { toast } from "sonner";
 import { MenuImage } from "./MenuImage";
 import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, STICKY_FOOTER_GAP, STICKY_FOOTER_HEIGHT } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { lines, setQty, remove, subtotalCents, clear } = useCart();
@@ -121,6 +122,47 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   // Renders a single history order card
   const renderOrderCard = (o: Order & { order_items: OrderItem[] }) => {
     const isServed = o.status === "served";
+    
+    const getStatusDetails = (status: string) => {
+      const s = status.toLowerCase();
+      if (s === "pending" || s === "received") {
+        return {
+          label: "Received",
+          colorClass: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border-blue-200/50 dark:border-blue-900/30",
+          icon: Clock
+        };
+      }
+      if (s === "preparing") {
+        return {
+          label: "Preparing",
+          colorClass: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200/50 dark:border-amber-900/30",
+          icon: Sparkles
+        };
+      }
+      if (s === "ready") {
+        return {
+          label: "Ready",
+          colorClass: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/50 dark:border-emerald-900/30",
+          icon: CheckCircle2
+        };
+      }
+      if (s === "served") {
+        return {
+          label: "Served",
+          colorClass: "text-muted-foreground bg-secondary/40 border-border/50",
+          icon: History
+        };
+      }
+      return {
+        label: status.charAt(0).toUpperCase() + status.slice(1),
+        colorClass: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-200/50 dark:border-rose-900/30",
+        icon: ChevronRight
+      };
+    };
+
+    const details = getStatusDetails(o.status);
+    const StatusIcon = details.icon;
+
     return (
       <div
         key={o.id}
@@ -129,9 +171,11 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       >
         <div className="flex items-center justify-between border-b border-border/60 pb-2 text-xs font-semibold text-muted-foreground">
           <span>Order #{o.id.slice(0, 8).toUpperCase()}</span>
-          <span className="flex items-center gap-1">
-            <span className={`inline-block h-2 w-2 rounded-full ${isServed ? "bg-success" : "bg-warning"}`} />
-            <span className="capitalize">{o.status}</span>
+          <span className="flex items-center gap-1.5">
+            <span className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium", details.colorClass)}>
+              <StatusIcon className="h-3 w-3 shrink-0" />
+              <span>{details.label}</span>
+            </span>
             <ChevronRight className="h-3 w-3" />
           </span>
         </div>
