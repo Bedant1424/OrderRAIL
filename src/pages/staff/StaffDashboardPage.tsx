@@ -14,7 +14,6 @@ import {
   type TableRow,
 } from "@/lib/db";
 import { cn } from "@/lib/utils";
-import { EditOrderDialog } from "@/components/shared/EditOrderDialog";
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   pending: "preparing",
@@ -45,7 +44,6 @@ export default function StaffDashboardPage() {
   const qc = useQueryClient();
   const { cafe, cafeId } = useCafe();
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
-  const [editingOrder, setEditingOrder] = useState<OrderWithItems | null>(null);
 
   const ordersQ = useQuery({
     queryKey: ["staff-orders", cafeId],
@@ -257,7 +255,6 @@ export default function StaffDashboardPage() {
           currency={currency}
           onAdvance={advance}
           onCancel={cancel}
-          onEdit={setEditingOrder}
           emptyLabel="No new orders."
         />
         <OrderColumn
@@ -267,7 +264,6 @@ export default function StaffDashboardPage() {
           currency={currency}
           onAdvance={advance}
           onCancel={cancel}
-          onEdit={setEditingOrder}
           emptyLabel="Nothing in the kitchen right now."
         />
         <OrderColumn
@@ -276,7 +272,6 @@ export default function StaffDashboardPage() {
           orders={grouped.done}
           currency={currency}
           onAdvance={advance}
-          onEdit={setEditingOrder}
           emptyLabel="No completed orders yet."
         />
       </section>
@@ -363,20 +358,6 @@ export default function StaffDashboardPage() {
           })()}
         </AnimatePresence>
       </section>
-
-      {editingOrder && (
-        <EditOrderDialog
-          isOpen={!!editingOrder}
-          onClose={() => setEditingOrder(null)}
-          order={editingOrder}
-          originalItems={editingOrder.order_items}
-          editorType="staff"
-          cafeId={cafeId!}
-          onSaved={() => {
-            void ordersQ.refetch();
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -418,7 +399,6 @@ function OrderColumn({
   currency,
   onAdvance,
   onCancel,
-  onEdit,
   emptyLabel,
 }: {
   title: string;
@@ -427,7 +407,6 @@ function OrderColumn({
   currency: string;
   onAdvance: (o: OrderWithItems) => void;
   onCancel?: (o: OrderWithItems) => void;
-  onEdit: (o: OrderWithItems) => void;
   emptyLabel: string;
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
@@ -485,31 +464,27 @@ function OrderColumn({
                   <span className="font-medium text-foreground">Note:</span> {o.note}
                 </p>
               )}
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => onEdit(o)}
-                  className="rounded-full bg-secondary px-3.5 py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/85 transition"
-                >
-                  Edit
-                </button>
-                {NEXT_STATUS[o.status] && (
-                  <button
-                    onClick={() => onAdvance(o)}
-                    className="flex-1 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft"
-                  >
-                    {NEXT_LABEL[o.status]}
-                  </button>
-                )}
-                {onCancel && o.status !== "served" && o.status !== "cancelled" && (
-                  <button
-                    onClick={() => onCancel(o)}
-                    className="rounded-full bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground hover:bg-destructive/15 hover:text-destructive"
-                    aria-label="Cancel order"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
+              {(NEXT_STATUS[o.status] || onCancel) && (
+                <div className="mt-3 flex gap-2">
+                  {NEXT_STATUS[o.status] && (
+                    <button
+                      onClick={() => onAdvance(o)}
+                      className="flex-1 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft"
+                    >
+                      {NEXT_LABEL[o.status]}
+                    </button>
+                  )}
+                  {onCancel && o.status !== "served" && o.status !== "cancelled" && (
+                    <button
+                      onClick={() => onCancel(o)}
+                      className="rounded-full bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground hover:bg-destructive/15 hover:text-destructive"
+                      aria-label="Cancel order"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </motion.article>
           ))}
         </AnimatePresence>
