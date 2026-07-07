@@ -82,7 +82,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
   };
 
   return (
-    <div className="pb-52">
+    <div className="pb-[calc(10.3125rem+env(safe-area-inset-bottom))]">
       {/* Search */}
       <div className="px-4 pt-2">
         <label className="relative block">
