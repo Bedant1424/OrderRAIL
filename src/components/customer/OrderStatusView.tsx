@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { supabase, formatMoney, type Order, type OrderItem, type OrderStatus, type Cafe } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { ReviewForm } from "./ReviewForm";
+import { EditOrderDialog } from "../shared/EditOrderDialog";
 
 const STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "pending", label: "Received", icon: Clock },
@@ -18,29 +19,49 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [audits, setAudits] = useState<any[]>([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  const load = async () => {
+    if (!orderId) return;
+    const { data: o } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
+    if (o) setOrder(o as Order);
+    const { data: it } = await supabase.from("order_items").select("*").eq("order_id", orderId);
+    if (it) setItems(it as OrderItem[]);
+    const { data: auds } = await supabase.from("order_audits").select("*").eq("order_id", orderId).order("created_at", { ascending: true });
+    if (auds) setAudits(auds as any[]);
+  };
 
   useEffect(() => {
     if (!orderId) return;
-    let cancelled = false;
-
-    const load = async () => {
-      const { data: o } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
-      if (!cancelled && o) setOrder(o as Order);
-      const { data: it } = await supabase.from("order_items").select("*").eq("order_id", orderId);
-      if (!cancelled && it) setItems(it as OrderItem[]);
-    };
     void load();
 
-    const channel = supabase
+    const orderChannel = supabase
       .channel(`order-${orderId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` }, (payload) => {
         setOrder(payload.new as Order);
+        void load();
+      })
+      .subscribe();
+
+    const itemsChannel = supabase
+      .channel(`items-${orderId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items", filter: `order_id=eq.${orderId}` }, () => {
+        void load();
+      })
+      .subscribe();
+
+    const auditChannel = supabase
+      .channel(`audits-${orderId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "order_audits", filter: `order_id=eq.${orderId}` }, (payload) => {
+        setAudits((prev) => [...prev, payload.new as any]);
       })
       .subscribe();
 
     return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
+      supabase.removeChannel(orderChannel);
+      supabase.removeChannel(itemsChannel);
+      supabase.removeChannel(auditChannel);
     };
   }, [orderId]);
 
@@ -111,6 +132,28 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         </ol>
       )}
 
+      {order.status === "pending" && (
+        <div className="mx-4 mt-6">
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground shadow-soft hover:bg-accent/90 transition"
+          >
+            Edit Order
+          </button>
+        </div>
+      )}
+
+      {order.status === "preparing" && (
+        <div className="mx-4 mt-6 rounded-2xl bg-accent/10 border border-accent/20 p-4 text-center">
+          <p className="text-sm font-semibold text-accent-foreground leading-normal">
+            Your order is being prepared.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground leading-normal">
+            Please ask a staff member if changes are needed.
+          </p>
+        </div>
+      )}
+
       <section className="mx-4 mt-8 rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
         <h2 className="mb-3 font-display text-lg font-semibold">Items</h2>
         <ul className="divide-y divide-border/60">
@@ -136,6 +179,23 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         )}
       </section>
 
+      {audits.length > 0 && (
+        <section className="mx-4 mt-6 rounded-3xl bg-muted/30 p-4 ring-1 ring-border/60">
+          <h2 className="mb-2 font-display text-sm font-semibold text-muted-foreground">Activity Log</h2>
+          <ul className="space-y-1.5 text-xs text-muted-foreground">
+            {audits.map((a) => (
+              <li key={a.id} className="flex gap-2">
+                <span className="font-semibold text-foreground/80 shrink-0">
+                  {new Date(a.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                </span>
+                <span className="capitalize font-medium text-foreground/60">{a.editor}:</span>
+                <span className="leading-normal text-foreground/70">{a.change_summary}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {order.status === "served" && (
         <ReviewForm
           cafe={cafe}
@@ -152,6 +212,15 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
           Back to menu
         </button>
       </div>
+      <EditOrderDialog
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        order={order}
+        originalItems={items}
+        editorType="customer"
+        cafeId={cafe.id}
+        onSaved={load}
+      />
     </div>
   );
 }

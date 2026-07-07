@@ -98,6 +98,38 @@ export type Database = {
           }
         ]
       }
+      order_audits: {
+        Row: {
+          id: string
+          order_id: string
+          editor: string
+          change_summary: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          editor: string
+          change_summary: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          editor?: string
+          change_summary?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_audits_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       menu_categories: {
         Row: {
           cafe_id: string
