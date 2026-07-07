@@ -343,23 +343,23 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         style={{
           bottom: `calc(${BOTTOM_NAV_HEIGHT} + ${FLOATING_CART_GAP} + env(safe-area-inset-bottom))`
         }}
-        className="fixed inset-x-0 z-30 px-6"
+        className="fixed inset-x-0 z-30 px-4"
       >
-        <div className="mx-auto w-full max-w-[420px] rounded-3xl border border-border bg-card/95 backdrop-blur-sm p-3.5 shadow-float">
+        <div className="mx-auto w-full max-w-[420px] rounded-3xl border border-border bg-card/95 backdrop-blur-sm p-3.5 shadow-none ring-1 ring-border/60">
           <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-xs font-medium text-muted-foreground">Subtotal</span>
-            <span className="font-display text-lg font-bold tabular-nums">
+            <span className="text-sm font-medium text-muted-foreground">Subtotal</span>
+            <span className="font-display text-xl font-bold tabular-nums">
               {formatMoney(subtotalCents, cafe.currency)}
             </span>
           </div>
           <button
             onClick={placeOrder}
             disabled={placing}
-            className="w-full rounded-full bg-gradient-accent py-2.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
+            className="w-full rounded-full bg-gradient-accent py-2.5 text-base font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
           >
             {placing ? "Sending…" : "Place Order"}
           </button>
-          <p className="mt-1 text-center text-[10px] text-muted-foreground leading-none">
+          <p className="mt-1 text-center text-xs text-muted-foreground leading-none">
             Pay at the counter when you're ready.
           </p>
         </div>
