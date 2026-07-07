@@ -51,7 +51,7 @@
     --gradient-warm: linear-gradient(140deg, hsl(36 55% 96%), hsl(30 45% 90%));
     --gradient-accent: linear-gradient(135deg, hsl(32 90% 60%), hsl(18 85% 55%));
     --shadow-soft: 0 1px 2px hsl(20 25% 12% / 0.04), 0 8px 24px -12px hsl(20 25% 12% / 0.12);
-    --shadow-float: 0 12px 40px -12px hsl(20 25% 12% / 0.28);
+    --shadow-float: 0 16px 48px -10px hsl(20 25% 12% / 0.38), 0 4px 12px -4px hsl(20 25% 12% / 0.16);
 
     --sidebar-background: 36 40% 96%;
     --sidebar-foreground: 20 25% 12%;
@@ -101,7 +101,7 @@
     --gradient-warm: linear-gradient(140deg, hsl(20 22% 12%), hsl(20 20% 8%));
     --gradient-accent: linear-gradient(135deg, hsl(32 90% 58%), hsl(18 85% 52%));
     --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.4), 0 8px 24px -12px hsl(0 0% 0% / 0.6);
-    --shadow-float: 0 12px 40px -12px hsl(0 0% 0% / 0.7);
+    --shadow-float: 0 16px 48px -10px hsl(0 0% 0% / 0.8), 0 4px 12px -4px hsl(0 0% 0% / 0.4);
 
     --sidebar-background: 20 20% 8%;
     --sidebar-foreground: 36 30% 94%;

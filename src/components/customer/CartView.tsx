@@ -9,6 +9,7 @@ import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
 import { toast } from "sonner";
 import { MenuImage } from "./MenuImage";
+import { BOTTOM_NAV_HEIGHT, STICKY_FOOTER_GAP } from "@/lib/constants";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { lines, setQty, remove, subtotalCents, clear } = useCart();
@@ -154,207 +155,211 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     );
   };
 
+  const pagePaddingBottom = `calc(${BOTTOM_NAV_HEIGHT} + 1.5rem + env(safe-area-inset-bottom))`;
+
   // 1. EMPTY BASKET VIEW
   if (!lines.length) {
     return (
-      <div className="flex flex-col h-[calc(100dvh-3.5rem-5.3125rem-env(safe-area-inset-bottom))] overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-          {/* If no active orders AND no previous orders exist, show empty state */}
-          {activeOrders.length === 0 && previousOrders.length === 0 ? (
-            <div className="py-24 text-center">
-              <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-secondary">
-                <span aria-hidden className="text-3xl">🥐</span>
-              </div>
-              <h2 className="font-display text-2xl font-semibold">Your basket is empty</h2>
-              <p className="mt-2 text-muted-foreground text-sm">Add something delicious from the menu.</p>
-              <button
-                onClick={() => navigate(`/t/${tableId}`)}
-                className="mt-6 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft"
-              >
-                Browse menu
-              </button>
+      <div style={{ paddingBottom: pagePaddingBottom }} className="px-4 pt-4 space-y-6">
+        {/* If no active orders AND no previous orders exist, show empty state */}
+        {activeOrders.length === 0 && previousOrders.length === 0 ? (
+          <div className="py-24 text-center">
+            <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-secondary">
+              <span aria-hidden className="text-3xl">🥐</span>
             </div>
-          ) : (
-            <div className="space-y-6">
+            <h2 className="font-display text-2xl font-semibold">Your basket is empty</h2>
+            <p className="mt-2 text-muted-foreground text-sm">Add something delicious from the menu.</p>
+            <button
+              onClick={() => navigate(`/t/${tableId}`)}
+              className="mt-6 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft"
+            >
+              Browse menu
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div>
+              <h1 className="font-display text-3xl font-semibold">My Order</h1>
+              <p className="mt-1 text-sm text-muted-foreground">Table {table.label} · {cafe.name}</p>
+            </div>
+
+            {/* Active Orders Section */}
+            {activeOrders.length > 0 && (
               <div>
-                <h1 className="font-display text-3xl font-semibold">My Order</h1>
-                <p className="mt-1 text-sm text-muted-foreground">Table {table.label} · {cafe.name}</p>
+                <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold">
+                  <ShoppingBag className="h-5 w-5 text-accent animate-pulse" /> Active Orders
+                </h2>
+                <div className="space-y-3">
+                  {activeOrders.map(renderOrderCard)}
+                </div>
               </div>
+            )}
 
-              {/* Active Orders Section */}
-              {activeOrders.length > 0 && (
-                <div>
-                  <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold">
-                    <ShoppingBag className="h-5 w-5 text-accent animate-pulse" /> Active Orders
-                  </h2>
-                  <div className="space-y-3">
-                    {activeOrders.map(renderOrderCard)}
-                  </div>
+            {/* Previous Orders Section */}
+            {previousOrders.length > 0 && (
+              <div>
+                <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold">
+                  <History className="h-5 w-5 text-muted-foreground" /> Previous Orders
+                </h2>
+                <div className="space-y-3">
+                  {previousOrders.map(renderOrderCard)}
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Previous Orders Section */}
-              {previousOrders.length > 0 && (
-                <div>
-                  <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold">
-                    <History className="h-5 w-5 text-muted-foreground" /> Previous Orders
-                  </h2>
-                  <div className="space-y-3">
-                    {previousOrders.map(renderOrderCard)}
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Actions (Avoiding Empty States) */}
-              <div className="rounded-3xl bg-secondary/35 p-5 border border-border/50 space-y-4">
-                <h3 className="font-display text-base font-semibold flex items-center gap-1.5 text-foreground">
-                  <Sparkles className="h-4 w-4 text-accent" /> Quick Actions
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => navigate(`/t/${tableId}`)}
-                    className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40"
-                  >
-                    <Plus className="h-5 w-5 text-primary" />
-                    <span className="text-xs font-semibold text-foreground">Order Again</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const lastOrder = previousOrders[0];
-                      if (lastOrder) {
-                        navigate(`/t/${tableId}/order/${lastOrder.id}`);
-                      } else {
-                        toast.info("No orders to review yet.");
-                      }
-                    }}
-                    className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40"
-                  >
-                    <Star className="h-5 w-5 text-accent" />
-                    <span className="text-xs font-semibold text-foreground">Leave Review</span>
-                  </button>
-                  <button
-                    disabled={callingType !== null}
-                    onClick={() => void handleCallStaff("waiter", "Call Staff")}
-                    className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40 disabled:opacity-60"
-                  >
-                    <PhoneCall className="h-5 w-5 text-success" />
-                    <span className="text-xs font-semibold text-foreground">Call Staff</span>
-                  </button>
-                  <button
-                    disabled={callingType !== null}
-                    onClick={() => void handleCallStaff("bill", "Request Bill")}
-                    className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40 disabled:opacity-60"
-                  >
-                    <Receipt className="h-5 w-5 text-accent" />
-                    <span className="text-xs font-semibold text-foreground">Request Bill</span>
-                  </button>
-                </div>
+            {/* Quick Actions (Avoiding Empty States) */}
+            <div className="rounded-3xl bg-secondary/35 p-5 border border-border/50 space-y-4">
+              <h3 className="font-display text-base font-semibold flex items-center gap-1.5 text-foreground">
+                <Sparkles className="h-4 w-4 text-accent" /> Quick Actions
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => navigate(`/t/${tableId}`)}
+                  className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40"
+                >
+                  <Plus className="h-5 w-5 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">Order Again</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const lastOrder = previousOrders[0];
+                    if (lastOrder) {
+                      navigate(`/t/${tableId}/order/${lastOrder.id}`);
+                    } else {
+                      toast.info("No orders to review yet.");
+                    }
+                  }}
+                  className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40"
+                >
+                  <Star className="h-5 w-5 text-accent" />
+                  <span className="text-xs font-semibold text-foreground">Leave Review</span>
+                </button>
+                <button
+                  disabled={callingType !== null}
+                  onClick={() => void handleCallStaff("waiter", "Call Staff")}
+                  className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40 disabled:opacity-60"
+                >
+                  <PhoneCall className="h-5 w-5 text-success" />
+                  <span className="text-xs font-semibold text-foreground">Call Staff</span>
+                </button>
+                <button
+                  disabled={callingType !== null}
+                  onClick={() => void handleCallStaff("bill", "Request Bill")}
+                  className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40 disabled:opacity-60"
+                >
+                  <Receipt className="h-5 w-5 text-accent" />
+                  <span className="text-xs font-semibold text-foreground">Request Bill</span>
+                </button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
 
   // 2. ACTIVE CART/BASKET VIEW
   return (
-    <div className="flex flex-col h-[calc(100dvh-3.5rem-5.3125rem-env(safe-area-inset-bottom))] overflow-hidden">
-      {/* Scrollable Region */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-6">
-        <div>
-          <h1 className="font-display text-3xl font-semibold">Your Order</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Table {table.label} · {cafe.name}</p>
-        </div>
-
-        <ul className="mt-6 space-y-3">
-          {lines.map((l) => (
-            <motion.li
-              layout
-              key={l.item.id}
-              className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60"
-            >
-              <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{l.item.name}</p>
-                <p className="text-sm text-muted-foreground tabular-nums">
-                  {formatMoney(l.item.price_cents, cafe.currency)}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 rounded-full bg-secondary p-1">
-                <button
-                  aria-label="Decrease"
-                  onClick={() => setQty(l.item.id, l.qty - 1)}
-                  className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
-                >
-                  {l.qty === 1 ? <Trash2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
-                </button>
-                <span className="w-6 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
-                <button
-                  aria-label="Increase"
-                  onClick={() => setQty(l.item.id, l.qty + 1)}
-                  className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-            </motion.li>
-          ))}
-        </ul>
-
-        <div className="mt-6">
-          <label className="block text-sm font-medium">Note for staff (optional)</label>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value.slice(0, 300))}
-            placeholder="Any allergies or special requests?"
-            rows={3}
-            className="mt-2 w-full resize-none rounded-2xl border border-border bg-card p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-          />
-        </div>
-
-        {/* Active Orders Section */}
-        {activeOrders.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-border/60">
-            <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-muted-foreground">
-              <ShoppingBag className="h-5 w-5 text-accent animate-pulse" /> Active Orders
-            </h2>
-            <div className="space-y-3">
-              {activeOrders.map(renderOrderCard)}
-            </div>
-          </div>
-        )}
-
-        {/* Previous Orders Section */}
-        {previousOrders.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-border/60">
-            <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-muted-foreground">
-              <History className="h-5 w-5 text-muted-foreground" /> Previous Orders
-            </h2>
-            <div className="space-y-3">
-              {previousOrders.map(renderOrderCard)}
-            </div>
-          </div>
-        )}
+    <div style={{ paddingBottom: pagePaddingBottom }} className="px-4 pt-4 space-y-6">
+      <div>
+        <h1 className="font-display text-3xl font-semibold">Your Order</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Table {table.label} · {cafe.name}</p>
       </div>
 
-      {/* Sticky Footer */}
-      <div className="border-t border-border bg-card p-4 shadow-float pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Subtotal</span>
-          <span className="font-display text-xl font-semibold tabular-nums">
+      <ul className="mt-6 space-y-3">
+        {lines.map((l) => (
+          <motion.li
+            layout
+            key={l.item.id}
+            className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60"
+          >
+            <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium">{l.item.name}</p>
+              <p className="text-sm text-muted-foreground tabular-nums">
+                {formatMoney(l.item.price_cents, cafe.currency)}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 rounded-full bg-secondary p-1">
+              <button
+                aria-label="Decrease"
+                onClick={() => setQty(l.item.id, l.qty - 1)}
+                className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+              >
+                {l.qty === 1 ? <Trash2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+              </button>
+              <span className="w-6 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
+              <button
+                aria-label="Increase"
+                onClick={() => setQty(l.item.id, l.qty + 1)}
+                className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </motion.li>
+        ))}
+      </ul>
+
+      <div className="mt-6">
+        <label className="block text-sm font-medium">Note for staff (optional)</label>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value.slice(0, 300))}
+          placeholder="Any allergies or special requests?"
+          rows={3}
+          className="mt-2 w-full resize-none rounded-2xl border border-border bg-card p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+        />
+      </div>
+
+      {/* Sticky Place Order Footer */}
+      <div
+        style={{
+          bottom: `calc(${BOTTOM_NAV_HEIGHT} + env(safe-area-inset-bottom))`
+        }}
+        className="sticky z-20 mt-5 rounded-full border border-border bg-card/95 backdrop-blur-sm p-3.5 shadow-float"
+      >
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-xs font-medium text-muted-foreground">Subtotal</span>
+          <span className="font-display text-lg font-bold tabular-nums">
             {formatMoney(subtotalCents, cafe.currency)}
           </span>
         </div>
         <button
           onClick={placeOrder}
           disabled={placing}
-          className="w-full rounded-full bg-gradient-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
+          className="w-full rounded-full bg-gradient-accent py-2.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
         >
           {placing ? "Sending…" : "Place Order"}
         </button>
-        <p className="mt-2 text-center text-xs text-muted-foreground">Pay at the counter when you're ready.</p>
+        <p className="mt-1 text-center text-[10px] text-muted-foreground leading-none">
+          Pay at the counter when you're ready.
+        </p>
       </div>
+
+      {/* Active Orders Section */}
+      {activeOrders.length > 0 && (
+        <div className="pt-6 border-t border-border/60">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-muted-foreground">
+            <ShoppingBag className="h-5 w-5 text-accent animate-pulse" /> Active Orders
+          </h2>
+          <div className="space-y-3">
+            {activeOrders.map(renderOrderCard)}
+          </div>
+        </div>
+      )}
+
+      {/* Previous Orders Section */}
+      {previousOrders.length > 0 && (
+        <div className="pt-6 border-t border-border/60">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-muted-foreground">
+            <History className="h-5 w-5 text-muted-foreground" /> Previous Orders
+          </h2>
+          <div className="space-y-3">
+            {previousOrders.map(renderOrderCard)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

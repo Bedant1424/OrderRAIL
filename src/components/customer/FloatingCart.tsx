@@ -3,11 +3,12 @@ import { ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/db";
+import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP } from "@/lib/constants";
 
 export function FloatingCart({ currency }: { currency: string }) {
   const { count, subtotalCents } = useCart();
   const { tableId } = useParams();
-   return (
+  return (
     <AnimatePresence>
       {count > 0 && (
         <motion.div
@@ -15,11 +16,14 @@ export function FloatingCart({ currency }: { currency: string }) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 80, opacity: 0 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
-          className="pointer-events-none fixed bottom-[calc(6.3125rem+env(safe-area-inset-bottom))] inset-x-0 z-30 px-4"
+          style={{
+            bottom: `calc(${BOTTOM_NAV_HEIGHT} + ${FLOATING_CART_GAP} + env(safe-area-inset-bottom))`
+          }}
+          className="pointer-events-none fixed inset-x-0 z-30 px-6"
         >
           <Link
             to={`/t/${tableId}/cart`}
-            className="pointer-events-auto mx-auto flex max-w-md items-center justify-between gap-4 rounded-full bg-primary px-5 py-3.5 text-primary-foreground shadow-float"
+            className="pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-4 rounded-full bg-primary px-5 py-3.5 text-primary-foreground shadow-float"
           >
             <span className="flex items-center gap-3">
               <span className="grid h-8 w-8 place-items-center rounded-full bg-primary-foreground/15">

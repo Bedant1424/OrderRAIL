@@ -4,8 +4,11 @@ import { Search } from "lucide-react";
 import { supabase, type MenuCategory, type MenuItem } from "@/lib/db";
 import { MenuItemCard } from "@/components/customer/MenuItemCard";
 import { cn } from "@/lib/utils";
+import { useCart } from "@/lib/cart";
+import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, FLOATING_CART_HEIGHT } from "@/lib/constants";
 
 export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: string }) {
+  const { count } = useCart();
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -81,8 +84,12 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
     }
   };
 
+  const bottomPadding = count > 0
+    ? `calc(${BOTTOM_NAV_HEIGHT} + ${FLOATING_CART_GAP} + ${FLOATING_CART_HEIGHT} + ${FLOATING_CART_GAP} + env(safe-area-inset-bottom))`
+    : `calc(${BOTTOM_NAV_HEIGHT} + 1.5rem + env(safe-area-inset-bottom))`;
+
   return (
-    <div className="pb-[calc(10.3125rem+env(safe-area-inset-bottom))]">
+    <div style={{ paddingBottom: bottomPadding }}>
       {/* Search */}
       <div className="px-4 pt-2">
         <label className="relative block">
