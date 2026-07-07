@@ -9,7 +9,7 @@ import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
 import { toast } from "sonner";
 import { MenuImage } from "./MenuImage";
-import { BOTTOM_NAV_HEIGHT, STICKY_FOOTER_GAP } from "@/lib/constants";
+import { BOTTOM_NAV_HEIGHT, STICKY_FOOTER_GAP, STICKY_FOOTER_HEIGHT } from "@/lib/constants";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { lines, setQty, remove, subtotalCents, clear } = useCart();
@@ -155,7 +155,9 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     );
   };
 
-  const pagePaddingBottom = `calc(${BOTTOM_NAV_HEIGHT} + 1.5rem + env(safe-area-inset-bottom))`;
+  const pagePaddingBottom = lines.length > 0
+    ? `calc(${BOTTOM_NAV_HEIGHT} + ${STICKY_FOOTER_HEIGHT} + env(safe-area-inset-bottom))`
+    : `calc(${BOTTOM_NAV_HEIGHT} + 1.5rem + env(safe-area-inset-bottom))`;
 
   // 1. EMPTY BASKET VIEW
   if (!lines.length) {
@@ -312,31 +314,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         />
       </div>
 
-      {/* Sticky Place Order Footer */}
-      <div
-        style={{
-          bottom: `calc(${BOTTOM_NAV_HEIGHT} + env(safe-area-inset-bottom))`
-        }}
-        className="sticky z-20 mt-5 rounded-full border border-border bg-card/95 backdrop-blur-sm p-3.5 shadow-float"
-      >
-        <div className="flex items-center justify-between mb-2 px-1">
-          <span className="text-xs font-medium text-muted-foreground">Subtotal</span>
-          <span className="font-display text-lg font-bold tabular-nums">
-            {formatMoney(subtotalCents, cafe.currency)}
-          </span>
-        </div>
-        <button
-          onClick={placeOrder}
-          disabled={placing}
-          className="w-full rounded-full bg-gradient-accent py-2.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
-        >
-          {placing ? "Sending…" : "Place Order"}
-        </button>
-        <p className="mt-1 text-center text-[10px] text-muted-foreground leading-none">
-          Pay at the counter when you're ready.
-        </p>
-      </div>
-
       {/* Active Orders Section */}
       {activeOrders.length > 0 && (
         <div className="pt-6 border-t border-border/60">
@@ -360,6 +337,31 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           </div>
         </div>
       )}
+
+      {/* Fixed Place Order Panel */}
+      <div
+        style={{
+          bottom: `calc(${BOTTOM_NAV_HEIGHT} + env(safe-area-inset-bottom))`
+        }}
+        className="fixed inset-x-0 z-30 mx-auto w-full max-w-md rounded-t-3xl border-t border-x border-border bg-card/95 backdrop-blur-sm p-3.5 shadow-float"
+      >
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-xs font-medium text-muted-foreground">Subtotal</span>
+          <span className="font-display text-lg font-bold tabular-nums">
+            {formatMoney(subtotalCents, cafe.currency)}
+          </span>
+        </div>
+        <button
+          onClick={placeOrder}
+          disabled={placing}
+          className="w-full rounded-full bg-gradient-accent py-2.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
+        >
+          {placing ? "Sending…" : "Place Order"}
+        </button>
+        <p className="mt-1 text-center text-[10px] text-muted-foreground leading-none">
+          Pay at the counter when you're ready.
+        </p>
+      </div>
     </div>
   );
 }
