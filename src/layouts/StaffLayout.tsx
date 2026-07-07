@@ -14,7 +14,7 @@ function StaffHeader({ onOpenNotifications }: { onOpenNotifications: () => void 
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-none items-center justify-between px-6">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <Link to="/staff" className="flex items-center gap-2">
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
             <span className="font-display text-sm font-bold">OR</span>
@@ -243,7 +243,7 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
     <NotificationProvider>
       <div className="min-h-screen bg-background">
         <StaffHeader onOpenNotifications={() => setNotificationsOpen(true)} />
-        <main className="mx-auto max-w-none px-6 py-6">
+        <main className="mx-auto max-w-7xl px-4 py-6">
           <Outlet />
         </main>
         <NotificationsDrawer isOpen={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
