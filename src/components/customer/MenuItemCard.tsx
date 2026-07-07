@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Plus, Minus } from "lucide-react";
-import { motion } from "framer-motion";
+import { Plus, Minus, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { MenuItem } from "@/lib/db";
 import { formatMoney } from "@/lib/db";
 import { useCart } from "@/lib/cart";
@@ -15,6 +15,8 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
   const imgUrl = useImageUrl(item.image_url);
   const [isOpen, setIsOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const cartLine = lines.find((l) => l.item.id === item.id);
+  const cartQty = cartLine ? cartLine.qty : 0;
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -91,14 +93,61 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
           )}
           <div className="mt-auto flex items-end justify-between pt-2">
             <span className="font-semibold tabular-nums">{formatMoney(item.price_cents, currency)}</span>
-            <button
-              type="button"
-              aria-label={`Add ${item.name}`}
-              onClick={() => add({ id: item.id, name: item.name, price_cents: item.price_cents, image_url: item.image_url })}
-              className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft transition-transform active:scale-90"
-            >
-              <Plus className="h-5 w-5" strokeWidth={2.5} />
-            </button>
+            <AnimatePresence mode="wait">
+              {cartQty === 0 ? (
+                <motion.button
+                  key="add-btn"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.1 }}
+                  type="button"
+                  aria-label={`Add ${item.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    add({ id: item.id, name: item.name, price_cents: item.price_cents, image_url: item.image_url });
+                  }}
+                  className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft transition-transform active:scale-90"
+                >
+                  <Plus className="h-5 w-5" strokeWidth={2.5} />
+                </motion.button>
+              ) : (
+                <motion.div
+                  key="qty-selector"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.1 }}
+                  className="flex items-center gap-1.5 rounded-full bg-secondary p-1 h-10"
+                >
+                  <button
+                    type="button"
+                    aria-label="Decrease quantity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQty(item.id, cartQty - 1);
+                    }}
+                    className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="w-5 text-center text-sm font-semibold tabular-nums select-none">
+                    {cartQty}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQty(item.id, cartQty + 1);
+                    }}
+                    className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </motion.article>
