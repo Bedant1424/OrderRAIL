@@ -24,6 +24,9 @@ export default function TableLayout() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["table", tableId],
     queryFn: async () => {
+      // Clean up expired browsing sessions before loading table data
+      await supabase.rpc("cleanup_expired_browsing_sessions");
+
       const { data: table, error: tErr } = await supabase
         .from("tables")
         .select("*")
@@ -35,28 +38,28 @@ export default function TableLayout() {
       let activeSessionId = table.active_session_id;
 
       if (!activeSessionId) {
-        // Create a new dining session
+        // Create a new dining session with 'browsing' status
         const { data: session, error: sErr } = await supabase
           .from("dining_sessions")
-          .insert({ table_id: table.id, status: "active" })
+          .insert({ table_id: table.id, status: "browsing" })
           .select("id")
           .single();
         if (sErr) throw sErr;
 
         activeSessionId = session.id;
 
-        // Update the table with the active session ID and occupied status
+        // Update the table with the active session ID, keeping status free
         const { error: uErr } = await supabase
           .from("tables")
           .update({
             active_session_id: activeSessionId,
-            status: "occupied",
+            status: "free",
           })
           .eq("id", table.id);
         if (uErr) throw uErr;
 
         table.active_session_id = activeSessionId;
-        table.status = "occupied";
+        table.status = "free";
       }
 
       // Clear localStorage cart if the session ID has changed (e.g. table reset)

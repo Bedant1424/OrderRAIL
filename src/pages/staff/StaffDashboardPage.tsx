@@ -38,6 +38,7 @@ const SR_META: Record<string, { label: string; icon: React.ComponentType<{ class
 import { useCafe } from "@/lib/cafe";
 
 type OrderWithItems = Order & { order_items: OrderItem[]; tables: { label: string } | null };
+type TableWithSession = TableRow & { dining_sessions: { status: string } | null };
 
 export default function StaffDashboardPage() {
   const qc = useQueryClient();
@@ -78,8 +79,17 @@ export default function StaffDashboardPage() {
     queryKey: ["staff-tables", cafeId],
     enabled: !!cafeId,
     queryFn: async () => {
-      const { data } = await supabase.from("tables").select("*").eq("cafe_id", cafeId!).order("label");
-      return ((data ?? []) as TableRow[]).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+      // Clean up expired browsing sessions before loading table list
+      await supabase.rpc("cleanup_expired_browsing_sessions");
+
+      const { data } = await supabase
+        .from("tables")
+        .select("*, dining_sessions:active_session_id(*)")
+        .eq("cafe_id", cafeId!)
+        .order("label");
+      
+      const sorted = ((data ?? []) as any[]).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+      return sorted as TableWithSession[];
     },
   });
 
@@ -170,7 +180,7 @@ export default function StaffDashboardPage() {
 
   const currency = cafe?.currency ?? "USD";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
-  const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => t.active_session_id !== null).length;
+  const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => (t as any).dining_sessions?.status === "active").length;
 
   return (
     <div className="space-y-8">
@@ -271,7 +281,7 @@ export default function StaffDashboardPage() {
         <h2 className="mb-3 font-display text-lg font-semibold">Tables</h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-8">
           {(tablesQ.data ?? []).map((t) => {
-            const isOccupied = t.active_session_id !== null;
+            const isOccupied = t.dining_sessions?.status === "active";
             return (
               <div
                 key={t.id}
@@ -308,11 +318,11 @@ export default function StaffDashboardPage() {
                 >
                   <h3 className="font-display text-xl font-bold">Table {selectedTable.label}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Current status: <span className="font-semibold text-foreground capitalize">{selectedTable.active_session_id !== null ? "Occupied" : "Free"}</span>
+                    Current status: <span className="font-semibold text-foreground capitalize">{(selectedTable as any).dining_sessions?.status === "active" ? "Occupied" : "Free"}</span>
                   </p>
                   
                   <div className="mt-6 flex flex-col gap-2">
-                    {selectedTable.active_session_id !== null ? (
+                    {(selectedTable as any).dining_sessions?.status === "active" ? (
                       <>
                         <button
                           disabled={activeOrdersCount > 0}

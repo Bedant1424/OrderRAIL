@@ -71,6 +71,29 @@ async function pushOne(o: QueuedOrder) {
     })),
   );
   if (itemsErr) throw itemsErr;
+
+  // If order matches a dining session, check if it's currently 'browsing' and activate it
+  if (o.dining_session_id) {
+    const { data: session } = await supabase
+      .from("dining_sessions")
+      .select("status")
+      .eq("id", o.dining_session_id)
+      .maybeSingle();
+
+    if (session && session.status === "browsing") {
+      // Transition session to active
+      await supabase
+        .from("dining_sessions")
+        .update({ status: "active" })
+        .eq("id", o.dining_session_id);
+
+      // Transition table status to occupied (for compatibility)
+      await supabase
+        .from("tables")
+        .update({ status: "occupied" })
+        .eq("id", o.table_id);
+    }
+  }
 }
 
 export async function flushQueue() {
