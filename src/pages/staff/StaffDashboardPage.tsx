@@ -42,6 +42,7 @@ type OrderWithItems = Order & { order_items: OrderItem[]; tables: { label: strin
 export default function StaffDashboardPage() {
   const qc = useQueryClient();
   const { cafe, cafeId } = useCafe();
+  const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
 
   const ordersQ = useQuery({
     queryKey: ["staff-orders", cafeId],
@@ -140,13 +141,47 @@ export default function StaffDashboardPage() {
     if (error) toast.error(error.message);
   };
 
+  const handleMarkTableFree = async (table: TableRow) => {
+    try {
+      if (table.active_session_id) {
+        const { data: ords } = await supabase
+          .from("orders")
+          .select("total_cents")
+          .eq("dining_session_id", table.active_session_id);
+        const total = ords ? ords.reduce((sum, o) => sum + o.total_cents, 0) : 0;
+
+        await supabase
+          .from("dining_sessions")
+          .update({
+            status: "closed",
+            closed_at: new Date().toISOString(),
+            total_amount: total
+          })
+          .eq("id", table.active_session_id);
+      }
+
+      const { error: tableErr } = await supabase
+        .from("tables")
+        .update({
+          active_session_id: null,
+          status: "free"
+        })
+        .eq("id", table.id);
+
+      if (tableErr) throw tableErr;
+
+      toast.success(`Table ${table.label} marked Free`);
+      void tablesQ.refetch();
+      setSelectedTable(null);
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not free table. Please try again.");
+    }
+  };
+
   const currency = cafe?.currency ?? "USD";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
-  const activeOrderTables = new Set(
-    (ordersQ.data ?? [])
-      .filter((o) => o.status !== "served" && o.status !== "cancelled" && o.table_id)
-      .map((o) => o.table_id as string),
-  );
+  const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => t.status === "occupied").length;
 
   return (
     <div className="space-y-8">
@@ -155,7 +190,7 @@ export default function StaffDashboardPage() {
         <StatCard label="Incoming" value={grouped.incoming.length} icon={Clock} tone="warning" />
         <StatCard label="In kitchen" value={grouped.active.length} icon={ChefHat} tone="accent" />
         <StatCard label="Open requests" value={srQ.data?.length ?? 0} icon={Bell} tone="destructive" />
-        <StatCard label="Tables busy" value={activeOrderTables.size} icon={Utensils} tone="muted" />
+        <StatCard label="Tables busy" value={occupiedTablesCount} icon={Utensils} tone="muted" />
       </section>
 
       {/* Service requests strip */}
@@ -247,28 +282,68 @@ export default function StaffDashboardPage() {
         <h2 className="mb-3 font-display text-lg font-semibold">Tables</h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-8">
           {(tablesQ.data ?? []).map((t) => {
-            const hasSR = openSRTables.has(t.id);
-            const hasOrder = activeOrderTables.has(t.id);
+            const isOccupied = t.status === "occupied";
             return (
               <div
                 key={t.id}
+                onClick={() => setSelectedTable(t)}
                 className={cn(
-                  "rounded-2xl border p-3 text-center shadow-soft",
-                  hasSR
-                    ? "border-destructive/40 bg-destructive/5"
-                    : hasOrder
+                  "rounded-2xl border p-3 text-center shadow-soft cursor-pointer hover:border-primary/50 transition",
+                  isOccupied
                     ? "border-accent/40 bg-accent/5"
                     : "border-border bg-card",
                 )}
               >
                 <div className="font-display text-lg font-semibold">{t.label}</div>
                 <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {hasSR ? "Needs staff" : hasOrder ? "Ordering" : "Free"}
+                  {isOccupied ? "Occupied" : "Free"}
                 </div>
               </div>
             );
           })}
         </div>
+
+        <AnimatePresence>
+          {selectedTable && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-float"
+              >
+                <h3 className="font-display text-xl font-bold">Table {selectedTable.label}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Current status: <span className="font-semibold text-foreground capitalize">{selectedTable.status}</span>
+                </p>
+                
+                <div className="mt-6 flex flex-col gap-2">
+                  {selectedTable.status === "occupied" ? (
+                    <button
+                      onClick={() => void handleMarkTableFree(selectedTable)}
+                      className="w-full rounded-full bg-destructive py-2.5 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 transition"
+                    >
+                      Mark Table Free
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-muted-foreground opacity-50 cursor-not-allowed"
+                    >
+                      Table is already Free
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedTable(null)}
+                    className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </section>
     </div>
   );

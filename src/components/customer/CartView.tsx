@@ -25,12 +25,13 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadHistory = async () => {
+    if (!table.active_session_id) return;
     setLoadingHistory(true);
     try {
       const { data: ords, error } = await supabase
         .from("orders")
         .select("*, order_items(*)")
-        .eq("session_id", getSessionId())
+        .eq("dining_session_id", table.active_session_id)
         .eq("table_id", table.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -46,7 +47,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   useEffect(() => {
     void loadHistory();
-  }, []);
+  }, [table.active_session_id]);
 
   const placeOrder = async () => {
     if (!lines.length) return;
@@ -58,6 +59,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         cafe_id: cafe.id,
         table_id: table.id,
         session_id: getSessionId(),
+        dining_session_id: table.active_session_id,
         note: note.trim() || null,
         total_cents: subtotalCents,
         items: lines.map((l) => ({

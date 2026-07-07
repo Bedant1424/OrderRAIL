@@ -31,6 +31,42 @@ export default function TableLayout() {
         .maybeSingle();
       if (tErr) throw tErr;
       if (!table) return null;
+
+      let activeSessionId = table.active_session_id;
+
+      if (!activeSessionId) {
+        // Create a new dining session
+        const { data: session, error: sErr } = await supabase
+          .from("dining_sessions")
+          .insert({ table_id: table.id, status: "active" })
+          .select("id")
+          .single();
+        if (sErr) throw sErr;
+
+        activeSessionId = session.id;
+
+        // Update the table with the active session ID and occupied status
+        const { error: uErr } = await supabase
+          .from("tables")
+          .update({
+            active_session_id: activeSessionId,
+            status: "occupied",
+          })
+          .eq("id", table.id);
+        if (uErr) throw uErr;
+
+        table.active_session_id = activeSessionId;
+        table.status = "occupied";
+      }
+
+      // Clear localStorage cart if the session ID has changed (e.g. table reset)
+      const sessionKey = `orderrail.last_session_id.${tableId}`;
+      const lastSession = localStorage.getItem(sessionKey);
+      if (lastSession && lastSession !== activeSessionId) {
+        localStorage.removeItem(`orderrail.cart.${tableId}`);
+      }
+      localStorage.setItem(sessionKey, activeSessionId);
+
       const { data: cafe, error: cErr } = await supabase
         .from("cafes")
         .select("*")
@@ -65,7 +101,7 @@ export default function TableLayout() {
   const { cafe, table } = data;
 
   return (
-    <CartProvider tableId={tableId!}>
+    <CartProvider key={table.active_session_id || "no-session"} tableId={tableId!}>
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">

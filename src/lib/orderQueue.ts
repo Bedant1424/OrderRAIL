@@ -7,6 +7,7 @@ export interface QueuedOrder {
   cafe_id: string;
   table_id: string;
   session_id: string;
+  dining_session_id?: string | null;
   note?: string | null;
   total_cents: number;
   items: {
@@ -54,6 +55,7 @@ async function pushOne(o: QueuedOrder) {
     cafe_id: o.cafe_id,
     table_id: o.table_id,
     session_id: o.session_id,
+    dining_session_id: o.dining_session_id || null,
     total_cents: o.total_cents,
     note: o.note ?? null,
   });

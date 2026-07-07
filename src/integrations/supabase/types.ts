@@ -47,6 +47,57 @@ export type Database = {
         }
         Relationships: []
       }
+      dining_sessions: {
+        Row: {
+          id: string
+          table_id: string
+          status: string
+          opened_at: string
+          closed_at: string | null
+          closed_by_staff_id: string | null
+          total_amount: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          table_id: string
+          status?: string
+          opened_at?: string
+          closed_at?: string | null
+          closed_by_staff_id?: string | null
+          total_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          table_id?: string
+          status?: string
+          opened_at?: string
+          closed_at?: string | null
+          closed_by_staff_id?: string | null
+          total_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dining_sessions_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dining_sessions_closed_by_staff_id_fkey"
+            columns: ["closed_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       menu_categories: {
         Row: {
           cafe_id: string
@@ -191,6 +242,7 @@ export type Database = {
         Row: {
           cafe_id: string
           created_at: string
+          dining_session_id: string | null
           id: string
           note: string | null
           session_id: string
@@ -202,6 +254,7 @@ export type Database = {
         Insert: {
           cafe_id: string
           created_at?: string
+          dining_session_id?: string | null
           id?: string
           note?: string | null
           session_id: string
@@ -213,6 +266,7 @@ export type Database = {
         Update: {
           cafe_id?: string
           created_at?: string
+          dining_session_id?: string | null
           id?: string
           note?: string | null
           session_id?: string
@@ -406,28 +460,34 @@ export type Database = {
       }
       tables: {
         Row: {
+          active_session_id: string | null
           cafe_id: string
           created_at: string
           id: string
           is_active: boolean
           label: string
           seats: number | null
+          status: string
         }
         Insert: {
+          active_session_id?: string | null
           cafe_id: string
           created_at?: string
           id?: string
           is_active?: boolean
           label: string
           seats?: number | null
+          status?: string
         }
         Update: {
+          active_session_id?: string | null
           cafe_id?: string
           created_at?: string
           id?: string
           is_active?: boolean
           label?: string
           seats?: number | null
+          status?: string
         }
         Relationships: [
           {
