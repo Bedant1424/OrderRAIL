@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase, type Cafe, type TableRow } from "@/lib/db";
 import { CartProvider } from "@/lib/cart";
 import { BottomNav } from "@/components/customer/BottomNav";
+import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 
 export default function TableLayout() {
   const { tableId } = useParams();
@@ -80,6 +81,8 @@ export default function TableLayout() {
     },
     enabled: !!tableId,
   });
+
+  useOrderNotifications({ tableId: tableId!, sessionId: data?.table.active_session_id ?? null });
 
   if (isLoading) {
     return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;

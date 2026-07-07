@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { MenuImage } from "./MenuImage";
 import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, STICKY_FOOTER_GAP, STICKY_FOOTER_HEIGHT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { APP_CONFIG } from "@/config/app";
+import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { lines, setQty, remove, subtotalCents, clear } = useCart();
@@ -19,6 +21,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const [note, setNote] = useState("");
   const [placing, setPlacing] = useState(false);
   const [callingType, setCallingType] = useState<ServiceRequestType | null>(null);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const cooldown = useServiceRequestCooldown(APP_CONFIG.serviceRequestCooldownMs, APP_CONFIG.serviceRequestTimeoutMs);
 
   const ORDER_NOTE_MAX = 200;
 
@@ -49,6 +53,28 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   useEffect(() => {
     void loadHistory();
+  }, [table.active_session_id]);
+
+  // Keep order cards live (status/eta/items) even when this view isn't the focused page.
+  useEffect(() => {
+    if (!table.active_session_id) return;
+    const channel = supabase
+      .channel(`cart-orders-${table.active_session_id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `dining_session_id=eq.${table.active_session_id}` },
+        (payload) => {
+          const updated = payload.new as Order;
+          setHistoryOrders((prev) =>
+            prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)),
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [table.active_session_id]);
 
   const placeOrder = async () => {
@@ -90,6 +116,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   };
 
   const handleCallStaff = async (type: ServiceRequestType, label: string) => {
+    if (!cooldown.canSend(type)) return;
     setCallingType(type);
     try {
       const { error } = await supabase.from("service_requests").insert({
@@ -99,12 +126,33 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         type,
       });
       if (error) throw error;
+      cooldown.markSent(type);
       toast.success(`${label} request sent to staff`);
     } catch (e) {
       console.error(e);
       toast.error("Could not contact staff. Please try again.");
     } finally {
       setCallingType(null);
+    }
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    setCancelingId(orderId);
+    try {
+      const { error } = await supabase.rpc("cancel_order", {
+        p_order_id: orderId,
+        p_session_id: getSessionId(),
+      });
+      if (error) throw error;
+      setHistoryOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: "cancelled" } : o)),
+      );
+      toast.success("Order cancelled");
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Could not cancel order. Please try again.");
+    } finally {
+      setCancelingId(null);
     }
   };
 
@@ -203,8 +251,45 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             </span>
           )}
         </div>
+        {o.status === "pending" && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleCancelOrder(o.id);
+            }}
+            disabled={cancelingId === o.id}
+            className="mt-1 w-full rounded-full border border-destructive/40 px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+          >
+            {cancelingId === o.id ? "Cancelling…" : "Cancel order"}
+          </button>
+        )}
       </div>
     );
+  };
+
+  const handleGiveReview = async () => {
+    const servedOrders = sortedHistory.filter((o) => o.status === "served");
+    if (!servedOrders.length) {
+      toast.info("No orders to review yet.");
+      return;
+    }
+    try {
+      const { data: reviewed, error } = await supabase
+        .from("reviews")
+        .select("order_id")
+        .in("order_id", servedOrders.map((o) => o.id));
+      if (error) throw error;
+      const reviewedIds = new Set((reviewed ?? []).map((r) => r.order_id));
+      const target = servedOrders.find((o) => !reviewedIds.has(o.id));
+      if (!target) {
+        toast.info("You're all caught up — no orders left to review!");
+        return;
+      }
+      navigate(`/t/${tableId}/order/${target.id}?scrollTo=review`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't check review status. Please try again.");
+    }
   };
 
   const pagePaddingBottom = lines.length > 0
@@ -275,34 +360,37 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                   <span className="text-xs font-semibold text-foreground">Order Again</span>
                 </button>
                 <button
-                  onClick={() => {
-                    const lastOrder = previousOrders[0];
-                    if (lastOrder) {
-                      navigate(`/t/${tableId}/order/${lastOrder.id}`);
-                    } else {
-                      toast.info("No orders to review yet.");
-                    }
-                  }}
+                  onClick={() => void handleGiveReview()}
                   className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40"
                 >
                   <Star className="h-5 w-5 text-accent" />
                   <span className="text-xs font-semibold text-foreground">Leave Review</span>
                 </button>
                 <button
-                  disabled={callingType !== null}
+                  disabled={callingType === "waiter" || !cooldown.canSend("waiter")}
                   onClick={() => void handleCallStaff("waiter", "Call Staff")}
                   className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40 disabled:opacity-60"
                 >
                   <PhoneCall className="h-5 w-5 text-success" />
                   <span className="text-xs font-semibold text-foreground">Call Staff</span>
+                  {cooldown.remainingCooldownMs("waiter") > 0 && (
+                    <span className="text-[10px] tabular-nums text-muted-foreground">
+                      {Math.ceil(cooldown.remainingCooldownMs("waiter") / 1000)}s
+                    </span>
+                  )}
                 </button>
                 <button
-                  disabled={callingType !== null}
+                  disabled={callingType === "bill" || !cooldown.canSend("bill")}
                   onClick={() => void handleCallStaff("bill", "Request Bill")}
                   className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40 disabled:opacity-60"
                 >
                   <Receipt className="h-5 w-5 text-accent" />
                   <span className="text-xs font-semibold text-foreground">Request Bill</span>
+                  {cooldown.remainingCooldownMs("bill") > 0 && (
+                    <span className="text-[10px] tabular-nums text-muted-foreground">
+                      {Math.ceil(cooldown.remainingCooldownMs("bill") / 1000)}s
+                    </span>
+                  )}
                 </button>
               </div>
             </div>

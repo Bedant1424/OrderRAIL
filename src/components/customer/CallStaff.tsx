@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { supabase, type Cafe, type TableRow, type ServiceRequestType } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { toast } from "sonner";
+import { APP_CONFIG } from "@/config/app";
+import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
 
 const actions: { type: ServiceRequestType; label: string; sub: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { type: "water", label: "Need Water", sub: "Refill or a fresh glass", icon: Droplet },
@@ -14,9 +16,10 @@ const actions: { type: ServiceRequestType; label: string; sub: string; icon: Rea
 
 export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const [sending, setSending] = useState<ServiceRequestType | null>(null);
-  const [sent, setSent] = useState<Record<string, number>>({});
+  const cooldown = useServiceRequestCooldown(APP_CONFIG.serviceRequestCooldownMs, APP_CONFIG.serviceRequestTimeoutMs);
 
   const send = async (type: ServiceRequestType) => {
+    if (!cooldown.canSend(type)) return;
     setSending(type);
     try {
       const { error } = await supabase.from("service_requests").insert({
@@ -26,15 +29,8 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         type,
       });
       if (error) throw error;
-      setSent((s) => ({ ...s, [type]: Date.now() }));
+      cooldown.markSent(type);
       toast.success("Staff notified");
-      setTimeout(() => {
-        setSent((s) => {
-          const next = { ...s };
-          delete next[type];
-          return next;
-        });
-      }, 3000);
     } catch (e) {
       console.error(e);
       toast.error("Couldn't reach staff — please try again.");
@@ -54,23 +50,28 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
       <div className="mt-6 grid grid-cols-1 gap-3 px-4 sm:grid-cols-2">
         {actions.map(({ type, label, sub, icon: Icon }) => {
-          const wasSent = sent[type];
           const isSending = sending === type;
+          const isPending = cooldown.isPending(type);
+          const remaining = cooldown.remainingCooldownMs(type);
           return (
             <motion.button
               key={type}
               whileTap={{ scale: 0.98 }}
               onClick={() => send(type)}
-              disabled={isSending}
+              disabled={isSending || remaining > 0}
               className="group relative flex items-start gap-4 overflow-hidden rounded-3xl bg-card p-5 text-left shadow-soft ring-1 ring-border/60 transition hover:ring-accent/40 disabled:opacity-70"
             >
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-accent text-accent-foreground">
-                {wasSent ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
+                {isPending ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
               </span>
               <span className="min-w-0">
                 <span className="block font-display text-lg font-semibold">{label}</span>
                 <span className="mt-0.5 block text-sm text-muted-foreground">
-                  {wasSent ? "Sent — staff is on the way" : sub}
+                  {remaining > 0
+                    ? `Sent — you can ask again in ${Math.ceil(remaining / 1000)}s`
+                    : isPending
+                    ? "Sent — staff is on the way"
+                    : sub}
                 </span>
               </span>
             </motion.button>
@@ -80,3 +81,4 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     </div>
   );
 }
+

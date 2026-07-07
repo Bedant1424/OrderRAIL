@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Check, ChefHat, Clock, Coffee, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase, formatMoney, type Order, type OrderItem, type OrderStatus, type Cafe } from "@/lib/db";
+import { getSessionId } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { ReviewForm } from "./ReviewForm";
 
 const STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -16,8 +18,11 @@ const STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ clas
 export function OrderStatusView({ cafe }: { cafe: Cafe }) {
   const { orderId, tableId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [cancelling, setCancelling] = useState(false);
+  const reviewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!orderId) return;
@@ -59,6 +64,31 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
   }
 
   const currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === order.status));
+
+  useEffect(() => {
+    if (order.status === "served" && searchParams.get("scrollTo") === "review") {
+      reviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [order.status, searchParams]);
+
+  const handleCancel = async () => {
+    if (!order) return;
+    setCancelling(true);
+    try {
+      const { error } = await supabase.rpc("cancel_order", {
+        p_order_id: order.id,
+        p_session_id: getSessionId(),
+      });
+      if (error) throw error;
+      setOrder({ ...order, status: "cancelled" });
+      toast.success("Order cancelled");
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Could not cancel order. Please try again.");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div className="pb-32">
@@ -136,12 +166,26 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         )}
       </section>
 
+      {order.status === "pending" && (
+        <div className="mx-4 mt-4">
+          <button
+            onClick={() => void handleCancel()}
+            disabled={cancelling}
+            className="w-full rounded-full border border-destructive/40 px-6 py-3 text-sm font-semibold text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+          >
+            {cancelling ? "Cancelling…" : "Cancel order"}
+          </button>
+        </div>
+      )}
+
       {order.status === "served" && (
-        <ReviewForm
-          cafe={cafe}
-          orderId={order.id}
-          onComplete={() => navigate(`/t/${tableId}/cart`)}
-        />
+        <div ref={reviewRef}>
+          <ReviewForm
+            cafe={cafe}
+            orderId={order.id}
+            onComplete={() => navigate(`/t/${tableId}/cart`)}
+          />
+        </div>
       )}
 
       <div className="mt-6 px-4">

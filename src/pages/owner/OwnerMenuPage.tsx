@@ -357,6 +357,7 @@ function ItemDialog({
   const [price, setPrice] = useState(((initial.price_cents ?? 0) / 100).toFixed(2));
   const [category, setCategory] = useState(initial.category_id ?? categories[0].id);
   const [available, setAvailable] = useState(initial.is_available ?? true);
+  const [vegType, setVegType] = useState(initial.veg_type ?? "unspecified");
   const [imagePath, setImagePath] = useState<string | null>(initial.image_url ?? null);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -404,6 +405,7 @@ function ItemDialog({
       description: desc.trim() || null,
       price_cents: cents,
       is_available: available,
+      veg_type: vegType,
       image_url: imagePath,
     };
     const q = isEdit
@@ -487,6 +489,18 @@ function ItemDialog({
         <input type="checkbox" checked={available} onChange={(e) => setAvailable(e.target.checked)} />
         Available on menu
       </label>
+      <div className="mt-3">
+        <label className="text-xs font-medium text-muted-foreground">Veg / Non-Veg</label>
+        <select
+          value={vegType}
+          onChange={(e) => setVegType(e.target.value as typeof vegType)}
+          className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+        >
+          <option value="unspecified">Not specified</option>
+          <option value="veg">Veg</option>
+          <option value="non_veg">Non-Veg</option>
+        </select>
+      </div>
       <button
         onClick={() => void save()}
         disabled={busy || !name.trim()}

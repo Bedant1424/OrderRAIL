@@ -144,6 +144,7 @@ export type Database = {
           sort_order: number
           tags: string[] | null
           updated_at: string
+          veg_type: Database["public"]["Enums"]["veg_type"]
         }
         Insert: {
           cafe_id: string
@@ -158,6 +159,7 @@ export type Database = {
           sort_order?: number
           tags?: string[] | null
           updated_at?: string
+          veg_type?: Database["public"]["Enums"]["veg_type"]
         }
         Update: {
           cafe_id?: string
@@ -172,6 +174,7 @@ export type Database = {
           sort_order?: number
           tags?: string[] | null
           updated_at?: string
+          veg_type?: Database["public"]["Enums"]["veg_type"]
         }
         Relationships: [
           {
@@ -541,6 +544,10 @@ export type Database = {
         }
         Returns: string
       }
+      cancel_order: {
+        Args: { p_order_id: string; p_session_id: string }
+        Returns: undefined
+      }
       claim_demo_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: undefined
@@ -559,6 +566,7 @@ export type Database = {
       order_status: "pending" | "preparing" | "ready" | "served" | "cancelled"
       service_request_status: "open" | "acknowledged" | "resolved"
       service_request_type: "water" | "waiter" | "bill" | "help"
+      veg_type: "veg" | "non_veg" | "unspecified"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -690,6 +698,7 @@ export const Constants = {
       order_status: ["pending", "preparing", "ready", "served", "cancelled"],
       service_request_status: ["open", "acknowledged", "resolved"],
       service_request_type: ["water", "waiter", "bill", "help"],
+      veg_type: ["veg", "non_veg", "unspecified"],
     },
   },
 } as const

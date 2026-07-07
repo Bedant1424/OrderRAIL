@@ -66,6 +66,17 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
+          {item.veg_type !== "unspecified" && (
+            <span
+              aria-label={item.veg_type === "veg" ? "Vegetarian" : "Non-vegetarian"}
+              title={item.veg_type === "veg" ? "Vegetarian" : "Non-vegetarian"}
+              className={`mb-1 inline-block h-2.5 w-2.5 shrink-0 self-start rounded-full ring-1 ${
+                item.veg_type === "veg"
+                  ? "bg-emerald-500 ring-emerald-600"
+                  : "bg-rose-500 ring-rose-600"
+              }`}
+            />
+          )}
           {item.tags && item.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-1">
               {item.tags.map((tag) => (
