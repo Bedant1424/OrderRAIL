@@ -23,6 +23,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { NotificationCenter, type NotificationItem } from "@/components/staff/NotificationCenter";
+import {
+  loadNotifications,
+  saveNotifications,
+  addNotification,
+  dismissNotification,
+  clearAllNotifications,
+  markAllAsRead,
+  getUnreadCount,
+} from "@/lib/notificationHistory";
 import { Switch } from "@/components/ui/switch";
 import {
   initNotificationSystem,
@@ -71,6 +81,79 @@ export default function StaffDashboardPage() {
   const [flashCardsEnabled, setFlashCardsEnabled] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Notification History states and refs
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notificationsTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const unreadCount = getUnreadCount(notifications);
+
+  useEffect(() => {
+    setNotifications(loadNotifications());
+  }, []);
+
+  const handleNotificationClick = (item: NotificationItem) => {
+    setIsNotificationsOpen(false);
+    
+    // Mark as read when clicked
+    const updated = loadNotifications().map(n => n.id === item.id ? { ...n, read: true } : n);
+    saveNotifications(updated);
+    setNotifications(updated);
+
+    if (item.relatedType === "order") {
+      const el = document.getElementById(`order-card-${item.relatedId}`);
+      if (el) {
+        executeScroll(item.relatedId, () => {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        
+        // Flash card highlight
+        const flashType = item.type === "cancelled_order" ? "cancelled" : item.type === "updated_order" ? "updated" : "new";
+        setFlashingIds(prev => ({ ...prev, [item.relatedId]: flashType as any }));
+        setTimeout(() => {
+          setFlashingIds(prev => {
+            const copy = { ...prev };
+            delete copy[item.relatedId];
+            return copy;
+          });
+        }, 2000);
+      }
+    } else if (item.relatedType === "service_request") {
+      const el = document.getElementById(`sr-card-${item.relatedId}`);
+      if (el) {
+        // First scroll the requests section into center
+        const section = document.getElementById("service-requests-section");
+        if (section) {
+          section.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        
+        // Scroll horizontally to the card within container
+        const container = document.getElementById("service-requests-container");
+        if (container) {
+          el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        }
+
+        // Trigger flash
+        setFlashingIds(prev => ({ ...prev, [item.relatedId]: "sr" }));
+        setTimeout(() => {
+          setFlashingIds(prev => {
+            const copy = { ...prev };
+            delete copy[item.relatedId];
+            return copy;
+          });
+        }, 2000);
+      }
+    }
+  };
+
+  const handleDismissNotification = (id: string) => {
+    setNotifications(dismissNotification(id));
+  };
+
+  const handleClearAllNotifications = () => {
+    setNotifications(clearAllNotifications());
+  };
 
 
 
@@ -229,6 +312,17 @@ export default function StaffDashboardPage() {
             void (async () => {
               const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
               const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
+              
+              // Record history entry
+              const updatedList = addNotification(
+                "new_order",
+                "New Order",
+                `Order ${formatOrderLabel(newOrder.order_number)} placed at Table ${tbl?.label ?? "?"}`,
+                newOrder.id,
+                "order"
+              );
+              setNotifications(updatedList);
+
               toast.success("🛒 New Order", {
                 description: `${formatOrderLabel(newOrder.order_number)} has been placed.`,
                 duration: 5000,
@@ -262,6 +356,21 @@ export default function StaffDashboardPage() {
           }
         } else if (payload.eventType === "UPDATE") {
           const newOrder = payload.new as Order;
+
+          // Record Order Completed if status changes to served
+          if (newOrder.status === "served") {
+            void (async () => {
+              const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
+              const updatedList = addNotification(
+                "completed_order",
+                "Order Completed",
+                `Order ${formatOrderLabel(newOrder.order_number)} for Table ${tbl?.label ?? "?"} completed.`,
+                newOrder.id,
+                "order"
+              );
+              setNotifications(updatedList);
+            })();
+          }
           
           // Case A: Cancelled by customer
           if (newOrder.status === 'cancelled' && newOrder.last_updated_by === 'customer') {
@@ -278,6 +387,17 @@ export default function StaffDashboardPage() {
               void (async () => {
                 const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
                 const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
+                
+                // Record history entry
+                const updatedList = addNotification(
+                  "cancelled_order",
+                  "Order Cancelled",
+                  `Order ${formatOrderLabel(newOrder.order_number)} for Table ${tbl?.label ?? "?"} was cancelled.`,
+                  newOrder.id,
+                  "order"
+                );
+                setNotifications(updatedList);
+
                 toast.error("Order Cancelled", {
                   description: `${label} was CANCELLED by the customer.`,
                   duration: 5000,
@@ -348,6 +468,17 @@ export default function StaffDashboardPage() {
               void (async () => {
                 const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
                 const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
+                
+                // Record history entry
+                const updatedList = addNotification(
+                  "updated_order",
+                  "Order Updated",
+                  `Order ${formatOrderLabel(newOrder.order_number)} for Table ${tbl?.label ?? "?"} was updated by customer.`,
+                  newOrder.id,
+                  "order"
+                );
+                setNotifications(updatedList);
+
                 toast.info("Order Updated", {
                   description: `${label} updated by customer. Please review.`,
                   duration: 5000,
@@ -409,6 +540,24 @@ export default function StaffDashboardPage() {
               void (async () => {
                 const { data: tbl } = await supabase.from("tables").select("label").eq("id", req.table_id).maybeSingle();
                 const tableLabel = tbl ? `Table ${tbl.label}` : 'Unknown table';
+
+                // Record history entry
+                let type: NotificationItem["type"] = "general_request";
+                if (t === "water") type = "need_water";
+                else if (t === "bill") type = "need_bill";
+                else if (t === "waiter") type = "call_waiter";
+
+                const updatedList = addNotification(
+                  type,
+                  type === "need_water" ? "Need Water" :
+                  type === "need_bill" ? "Need Bill" :
+                  type === "call_waiter" ? "Call Waiter" : "General Request",
+                  `Table ${tbl?.label ?? "?"} requested ${label.toLowerCase()}.`,
+                  req.id,
+                  "service_request"
+                );
+                setNotifications(updatedList);
+
                 toast.warning(`Service Request: ${label}`, {
                   description: `${tableLabel} is calling for attention.`,
                   duration: 5000,
@@ -632,22 +781,64 @@ export default function StaffDashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header and Settings Icon */}
+      {/* Header and Settings/Bell Icons */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold">Dashboard</h1>
           <p className="text-xs text-muted-foreground">Manage active orders and service requests in real-time.</p>
         </div>
-        <button
-          ref={settingsTriggerRef}
-          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
-          aria-label="Notification settings"
-        >
-          <Settings className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Notification History Center */}
+          <button
+            ref={notificationsTriggerRef}
+            onClick={() => {
+              setIsNotificationsOpen(!isNotificationsOpen);
+              // Mark all notifications as read when opening history
+              if (!isNotificationsOpen) {
+                const readList = markAllAsRead();
+                setNotifications(readList);
+              }
+            }}
+            className="relative grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
+            aria-label="Notification center"
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-destructive text-[9.5px] font-bold text-destructive-foreground">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Settings Trigger */}
+          <button
+            ref={settingsTriggerRef}
+            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+            className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
+            aria-label="Notification settings"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
+      {/* Notification Center Popover */}
+      <AnchoredPopover
+        open={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        triggerRef={notificationsTriggerRef}
+        className="w-[320px] max-w-[90vw]"
+      >
+        <NotificationCenter
+          notifications={notifications}
+          onClose={() => setIsNotificationsOpen(false)}
+          onDismiss={handleDismissNotification}
+          onClearAll={handleClearAllNotifications}
+          onNotificationClick={handleNotificationClick}
+        />
+      </AnchoredPopover>
+
+      {/* Settings Popover */}
       <AnchoredPopover
         open={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
