@@ -52,6 +52,12 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     }
   };
 
+  // Reset scroll to top when entering the Cart page so the customer
+  // always sees the current cart / checkout section first.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   useEffect(() => {
     void loadHistory();
   }, [table.active_session_id]);

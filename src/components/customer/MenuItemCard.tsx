@@ -11,10 +11,10 @@ import { toast } from "sonner";
 import { MenuImage } from "./MenuImage";
 
 export function MenuItemCard({ item, currency }: { item: MenuItem; currency: string }) {
-  const { add, lines, setQty } = useCart();
+  const { add, lines, setQty, editingOrderId } = useCart();
   const imgUrl = useImageUrl(item.image_url);
   const [isOpen, setIsOpen] = useState(false);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(0);
   const cartLine = lines.find((l) => l.item.id === item.id);
   const cartQty = cartLine ? cartLine.qty : 0;
 
@@ -23,11 +23,14 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
     if (target.closest("button") || target.closest("svg")) {
       return;
     }
-    setQuantity(1);
+    // When opening the modal, start with the cart quantity (0 = show ADD button)
+    setQuantity(cartQty);
     setIsOpen(true);
   };
 
   const handleAddToCart = () => {
+    if (quantity <= 0) return;
+
     const existingLine = lines.find((l) => l.item.id === item.id);
     const existingQty = existingLine ? existingLine.qty : 0;
 
@@ -42,11 +45,15 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
         setQty(item.id, quantity);
       }
     } else {
-      setQty(item.id, existingQty + quantity);
+      setQty(item.id, quantity);
     }
     setIsOpen(false);
     toast.success(`Added ${quantity} × ${item.name} to cart`);
   };
+
+  const isEditing = !!editingOrderId;
+  const displayQty = quantity;
+  const totalPrice = item.price_cents * (displayQty > 0 ? displayQty : 1);
 
   return (
     <>
@@ -142,7 +149,10 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                   >
                     <Minus className="h-4 w-4" />
                   </button>
-                  <span className="w-5 text-center text-sm font-semibold tabular-nums select-none">
+                  <span
+                    className="w-5 text-center text-sm font-semibold tabular-nums select-none"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {cartQty}
                   </span>
                   <button
@@ -165,13 +175,13 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
 
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
         <DrawerContent className="max-w-md mx-auto">
-          {/* Large image */}
+          {/* Hero image — flush with modal top via negative margin over the drag handle */}
           {imgUrl ? (
-            <div className="relative w-full aspect-[4/3] overflow-hidden rounded-t-[10px] bg-muted">
+            <div className="relative w-full aspect-[4/3] overflow-hidden rounded-t-[10px] bg-muted -mt-6">
               <img src={imgUrl} alt={item.name} className="h-full w-full object-cover" />
             </div>
           ) : (
-            <div className="w-full aspect-[4/3] bg-gradient-warm flex items-center justify-center rounded-t-[10px]" aria-hidden>
+            <div className="w-full aspect-[4/3] bg-gradient-warm flex items-center justify-center rounded-t-[10px] -mt-6" aria-hidden>
               <span className="text-4xl">☕</span>
             </div>
           )}
@@ -203,28 +213,53 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               {item.description || "Freshly prepared with premium ingredients by our experienced chefs."}
             </p>
 
+            {/* Price row with ADD / quantity selector */}
             <div className="mt-6 flex items-center justify-between">
               <span className="text-xl font-bold text-foreground tabular-nums">
                 {formatMoney(item.price_cents, currency)}
               </span>
 
-              <div className="flex items-center gap-3 rounded-full bg-secondary p-1">
-                <button
-                  type="button"
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="w-8 text-center text-sm font-semibold tabular-nums">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={() => setQuantity((q) => q + 1)}
-                  className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
+              <AnimatePresence mode="wait">
+                {displayQty === 0 ? (
+                  <motion.button
+                    key="modal-add-btn"
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.85, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    type="button"
+                    onClick={() => setQuantity(1)}
+                    className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition-transform active:scale-95"
+                  >
+                    ADD
+                  </motion.button>
+                ) : (
+                  <motion.div
+                    key="modal-qty-selector"
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.85, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-3 rounded-full bg-secondary p-1"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(0, q - 1))}
+                      className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="w-8 text-center text-sm font-semibold tabular-nums select-none">{displayQty}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => q + 1)}
+                      className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -232,11 +267,12 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
             <button
               type="button"
               onClick={handleAddToCart}
-              className="w-full rounded-full bg-gradient-accent py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] flex items-center justify-center gap-2"
+              disabled={displayQty === 0}
+              className="w-full rounded-full bg-gradient-accent py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
             >
-              <span>Add {quantity} to Cart</span>
+              <span>{isEditing ? "Update Order" : "Add to Cart"}</span>
               <span>·</span>
-              <span className="tabular-nums">{formatMoney(item.price_cents * quantity, currency)}</span>
+              <span className="tabular-nums">{formatMoney(totalPrice, currency)}</span>
             </button>
           </DrawerFooter>
         </DrawerContent>
