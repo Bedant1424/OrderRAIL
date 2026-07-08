@@ -158,6 +158,27 @@
     background: hsl(var(--muted-foreground) / 0.4);
   }
 
+  /* Thin custom horizontal scrollbar for desktop, native for mobile */
+  .horizontal-thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  @media (pointer: fine) {
+    .horizontal-thin-scrollbar::-webkit-scrollbar {
+      height: 5px;
+    }
+    .horizontal-thin-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .horizontal-thin-scrollbar::-webkit-scrollbar-thumb {
+      background: hsl(var(--border));
+      border-radius: 9999px;
+    }
+    .horizontal-thin-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: hsl(var(--muted-foreground) / 0.4);
+    }
+  }
+
   /* Kanban column — must have min-width:0 to respect CSS Grid track */
   .kanban-col {
     min-width: 0;
