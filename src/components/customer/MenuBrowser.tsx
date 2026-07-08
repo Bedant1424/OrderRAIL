@@ -5,13 +5,14 @@ import { supabase, type MenuCategory, type MenuItem } from "@/lib/db";
 import { MenuItemCard } from "@/components/customer/MenuItemCard";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
+import { ExclusiveFilter } from "@/components/customer/ExclusiveFilter";
 import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, FLOATING_CART_HEIGHT } from "@/lib/constants";
 
 export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: string }) {
   const { count } = useCart();
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string | null>(null);
-  const [vegFilter, setVegFilter] = useState<"all" | "veg" | "non_veg">("all");
+  const [vegFilter, setVegFilter] = useState<"veg" | "non_veg" | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const { data: categories = [] } = useQuery({
@@ -44,7 +45,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((i) => {
-      if (vegFilter !== "all" && i.veg_type !== vegFilter) return false;
+      if (vegFilter && i.veg_type !== vegFilter) return false;
       if (!q) return true;
       return (
         i.name.toLowerCase().includes(q) ||
@@ -154,25 +155,29 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
 
       {/* Sticky category bar */}
       <div className="sticky top-14 z-20 mt-4 border-b border-border/60 bg-background/85 backdrop-blur">
-        <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-3">
-          {([
-            { key: "all", label: "All" },
-            { key: "veg", label: "🟢 Veg" },
-            { key: "non_veg", label: "🔴 Non-Veg" },
-          ] as const).map((opt) => (
-            <button
-              key={opt.key}
-              onClick={() => setVegFilter(opt.key)}
-              className={cn(
-                "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                vegFilter === opt.key
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-muted",
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="px-4 pt-3">
+          <ExclusiveFilter
+            options={[
+              {
+                key: "veg",
+                label: "Veg",
+                activeDotClass: "bg-emerald-500",
+                activeBgClass: "bg-emerald-500/10 dark:bg-emerald-500/20",
+                activeTextClass: "text-emerald-700 dark:text-emerald-400",
+                activeBorderClass: "border-emerald-500/25",
+              },
+              {
+                key: "non_veg",
+                label: "Non-Veg",
+                activeDotClass: "bg-rose-500",
+                activeBgClass: "bg-rose-500/10 dark:bg-rose-500/20",
+                activeTextClass: "text-rose-700 dark:text-rose-400",
+                activeBorderClass: "border-rose-500/25",
+              },
+            ]}
+            value={vegFilter}
+            onChange={setVegFilter}
+          />
         </div>
         <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
           {categories.map((c) => (
