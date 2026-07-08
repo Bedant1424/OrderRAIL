@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings } from "lucide-react";
+import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import {
   supabase,
@@ -843,31 +843,78 @@ export default function StaffDashboardPage() {
         open={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         triggerRef={settingsTriggerRef}
+        className="w-[280px] max-w-[90vw]"
       >
-        <div className="space-y-3.5">
-          <h3 className="font-display text-sm font-semibold border-b border-border/40 pb-2">
-            Notification Settings
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-2 select-none">
-                <span className="text-sm">🔊</span> Sound Alerts
-              </span>
-              <Switch id="notify-sound" checked={soundEnabled} onCheckedChange={handleSoundToggle} />
+        <div className="flex flex-col overflow-hidden rounded-2xl bg-card text-card-foreground shadow-float ring-1 ring-border/50">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 bg-muted/20">
+            <h3 className="font-display text-sm font-semibold">Notification Settings</h3>
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              className="grid h-6 w-6 place-items-center rounded-full bg-secondary/80 text-muted-foreground hover:bg-secondary hover:text-foreground transition active:scale-95"
+              aria-label="Close settings"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Body/Rows */}
+          <div className="p-2 space-y-1">
+            {/* Sound Alerts */}
+            <div
+              onClick={() => handleSoundToggle(!soundEnabled)}
+              className="flex items-center justify-between p-2.5 rounded-xl border border-transparent hover:bg-muted/40 hover:border-border/60 transition duration-150 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-500">
+                  <Volume2 className="h-4.5 w-4.5" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Sound Alerts</span>
+              </div>
+              <Switch
+                id="notify-sound"
+                checked={soundEnabled}
+                onCheckedChange={handleSoundToggle}
+                onClick={(e) => e.stopPropagation()}
+              />
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-2 select-none">
-                <span className="text-sm">📳</span> Vibrate Alerts
-              </span>
-              <Switch id="notify-vibrate" checked={vibrationEnabled} onCheckedChange={handleVibrationToggle} />
+            {/* Vibrate Alerts */}
+            <div
+              onClick={() => handleVibrationToggle(!vibrationEnabled)}
+              className="flex items-center justify-between p-2.5 rounded-xl border border-transparent hover:bg-muted/40 hover:border-border/60 transition duration-150 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-warning/20 bg-warning/10 text-warning">
+                  <Smartphone className="h-4.5 w-4.5" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Vibrate Alerts</span>
+              </div>
+              <Switch
+                id="notify-vibrate"
+                checked={vibrationEnabled}
+                onCheckedChange={handleVibrationToggle}
+                onClick={(e) => e.stopPropagation()}
+              />
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-2 select-none">
-                <span className="text-sm">✨</span> Flash Cards
-              </span>
-              <Switch id="notify-flash" checked={flashCardsEnabled} onCheckedChange={handleFlashCardsToggle} />
+            {/* Flash Cards */}
+            <div
+              onClick={() => handleFlashCardsToggle(!flashCardsEnabled)}
+              className="flex items-center justify-between p-2.5 rounded-xl border border-transparent hover:bg-muted/40 hover:border-border/60 transition duration-150 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
+                  <Sparkles className="h-4.5 w-4.5" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Flash Cards</span>
+              </div>
+              <Switch
+                id="notify-flash"
+                checked={flashCardsEnabled}
+                onCheckedChange={handleFlashCardsToggle}
+                onClick={(e) => e.stopPropagation()}
+              />
             </div>
           </div>
         </div>
