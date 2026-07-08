@@ -96,24 +96,7 @@ export default function StaffDashboardPage() {
     });
   };
 
-  useEffect(() => {
-    const el = srContainerRef.current;
-    if (!el) return;
 
-    checkScroll();
-
-    el.addEventListener("scroll", checkScroll, { passive: true });
-    window.addEventListener("resize", checkScroll);
-
-    const ro = new ResizeObserver(() => checkScroll());
-    ro.observe(el);
-
-    return () => {
-      el.removeEventListener("scroll", checkScroll);
-      window.removeEventListener("resize", checkScroll);
-      ro.disconnect();
-    };
-  }, [srQ.data]);
 
   // Idle Activity Detection
   const lastActivityRef = useRef(Date.now());
@@ -244,6 +227,26 @@ export default function StaffDashboardPage() {
       return sorted as TableWithSession[];
     },
   });
+
+  // Recalculate scroller control visibility on window resize, scroll, or data changes
+  useEffect(() => {
+    const el = srContainerRef.current;
+    if (!el) return;
+
+    checkScroll();
+
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    window.addEventListener("resize", checkScroll);
+
+    const ro = new ResizeObserver(() => checkScroll());
+    ro.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      window.removeEventListener("resize", checkScroll);
+      ro.disconnect();
+    };
+  }, [srQ.data]);
 
   // Realtime: refresh orders + service requests on any change for this cafe.
   useEffect(() => {
