@@ -8,6 +8,7 @@ import type { Database } from "@/integrations/supabase/types";
 type AppRole = Database["public"]["Enums"]["app_role"];
 type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
 import { useCafe } from "@/lib/cafe";
+import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 type Profile = { id: string; email: string | null; display_name: string | null };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
@@ -92,11 +93,14 @@ export default function OwnerStaffPage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Staff</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Grant staff or owner access to your cafe. Team members must already have an account.
-        </p>
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Staff</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Grant staff or owner access to your cafe. Team members must already have an account.
+          </p>
+        </div>
+        <GlobalNotificationControls />
       </header>
 
       <section className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">

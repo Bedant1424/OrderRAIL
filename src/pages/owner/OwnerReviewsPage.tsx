@@ -4,6 +4,7 @@ import { supabase, type Cafe } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
 import { useCafe } from "@/lib/cafe";
+import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 type Review = {
   id: string;
@@ -35,9 +36,12 @@ export default function OwnerReviewsPage() {
 
   return (
     <div className="space-y-8 overflow-x-hidden min-w-0">
-      <header>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Reviews</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Feedback from customers who scanned & ordered.</p>
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Reviews</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Feedback from customers who scanned & ordered.</p>
+        </div>
+        <GlobalNotificationControls />
       </header>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">

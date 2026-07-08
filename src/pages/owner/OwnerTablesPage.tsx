@@ -5,6 +5,7 @@ import { Plus, Printer, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, type Cafe, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
+import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 /* ── QR size: reduced ~28% from 200→144. Canvas stays square. ── */
 const QR_SIZE = 144;
@@ -144,10 +145,14 @@ export default function OwnerTablesPage() {
     <div className="space-y-6">
       {/* ── Header + CTA buttons ── */}
       <header className="flex flex-wrap items-end justify-between gap-3 print:hidden">
-        <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Tables & QR</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Print a code for every table — customers scan to order.</p>
+        <div className="flex items-center justify-between w-full lg:w-auto">
+          <div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Tables & QR</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Print a code for every table — customers scan to order.</p>
+          </div>
         </div>
+        <div className="flex items-center gap-4">
+          <GlobalNotificationControls />
         {/* CTA stack: Print = primary, Download = secondary */}
         <div className="flex gap-2">
           <button
@@ -162,6 +167,7 @@ export default function OwnerTablesPage() {
           >
             <Printer className="h-4 w-4" /> Print all QR codes
           </button>
+        </div>
         </div>
       </header>
 

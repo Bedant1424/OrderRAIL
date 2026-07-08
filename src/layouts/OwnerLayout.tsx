@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, createContext, useContext } from "react";
 import { NavLink, Navigate, Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -43,6 +43,32 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
+export interface OwnerLayoutContextType {
+  notifications: NotificationItem[];
+  setNotifications: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
+  unreadCount: number;
+  isNotificationsOpen: boolean;
+  setIsNotificationsOpen: (open: boolean) => void;
+  notificationsTriggerRef: React.RefObject<HTMLButtonElement>;
+  isSettingsOpen: boolean;
+  setIsSettingsOpen: (open: boolean) => void;
+  settingsTriggerRef: React.RefObject<HTMLButtonElement>;
+  soundEnabled: boolean;
+  handleSoundToggle: (val: boolean) => void;
+  vibrationEnabled: boolean;
+  handleVibrationToggle: (val: boolean) => void;
+  flashCardsEnabled: boolean;
+  handleFlashCardsToggle: (val: boolean) => void;
+  handleClearAllNotifications: () => void;
+}
+
+export const OwnerLayoutContext = createContext<OwnerLayoutContextType | null>(null);
+
+export function useOwnerLayout() {
+  return useContext(OwnerLayoutContext);
+}
+
+
 const nav = [
   { to: "/owner", end: true, label: "Analytics", icon: BarChart3 },
   { to: "/owner/orders", label: "Orders", icon: ClipboardList },
@@ -81,6 +107,13 @@ export default function OwnerLayout() {
     initNotificationSystem();
     setNotifications(loadNotifications());
   }, []);
+
+  useEffect(() => {
+    if (isNotificationsOpen) {
+      const readList = markAllAsRead();
+      setNotifications(readList);
+    }
+  }, [isNotificationsOpen]);
 
   const handleSoundToggle = (val: boolean) => {
     setSoundEnabled(val);
@@ -334,30 +367,43 @@ export default function OwnerLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col print:block print:bg-white">
-      {/* Global header bar (visible on both mobile and desktop) */}
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/85 px-4 backdrop-blur print:hidden shrink-0">
-        <Link to="/owner" className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
-            <span className="font-display text-sm font-bold">OR</span>
-          </span>
-          <span className="font-display text-sm font-semibold">Owner</span>
-        </Link>
-        <div className="flex items-center gap-3">
-          {/* Notification History Center */}
-          <button
-            ref={notificationsTriggerRef}
-            onClick={() => {
-              setIsNotificationsOpen(!isNotificationsOpen);
-              // Mark all notifications as read when opening history
-              if (!isNotificationsOpen) {
-                const readList = markAllAsRead();
-                setNotifications(readList);
-              }
-            }}
-            className="relative grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
-            aria-label="Notification center"
-          >
+    <OwnerLayoutContext.Provider
+      value={{
+        notifications,
+        setNotifications,
+        unreadCount,
+        isNotificationsOpen,
+        setIsNotificationsOpen,
+        notificationsTriggerRef,
+        isSettingsOpen,
+        setIsSettingsOpen,
+        settingsTriggerRef,
+        soundEnabled,
+        handleSoundToggle,
+        vibrationEnabled,
+        handleVibrationToggle,
+        flashCardsEnabled,
+        handleFlashCardsToggle,
+        handleClearAllNotifications
+      }}
+    >
+      <div className="min-h-screen bg-background flex flex-col print:block print:bg-white">
+        {/* Global header bar (visible on mobile and tablet, hidden on desktop) */}
+        <header className="lg:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/85 px-4 backdrop-blur print:hidden shrink-0">
+          <Link to="/owner" className="flex items-center gap-2">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
+              <span className="font-display text-sm font-bold">OR</span>
+            </span>
+            <span className="font-display text-sm font-semibold">Owner</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            {/* Notification History Center */}
+            <button
+              ref={notificationsTriggerRef}
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              className="relative grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
+              aria-label="Notification center"
+            >
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-destructive text-[9.5px] font-bold text-destructive-foreground">
@@ -614,5 +660,6 @@ export default function OwnerLayout() {
         </main>
       </div>
     </div>
+    </OwnerLayoutContext.Provider>
   );
 }

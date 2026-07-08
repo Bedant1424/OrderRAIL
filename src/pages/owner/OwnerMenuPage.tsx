@@ -15,6 +15,7 @@ async function urlForPath(path: string) {
 }
 
 import { useCafe } from "@/lib/cafe";
+import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 export default function OwnerMenuPage() {
   const qc = useQueryClient();
@@ -102,10 +103,14 @@ export default function OwnerMenuPage() {
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Menu manager</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Add categories, items, prices and photos.</p>
+        <div className="flex items-center justify-between w-full lg:w-auto">
+          <div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Menu manager</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Add categories, items, prices and photos.</p>
+          </div>
         </div>
+        <div className="flex items-center gap-4">
+          <GlobalNotificationControls />
         <div className="flex gap-2">
           <button
             onClick={() => setAddingCat(true)}
@@ -119,6 +124,7 @@ export default function OwnerMenuPage() {
           >
             <Plus className="mr-1 inline h-3.5 w-3.5" /> Item
           </button>
+        </div>
         </div>
       </header>
 

@@ -5,6 +5,7 @@ import { CircleDollarSign, ShoppingBag, Timer, TrendingUp } from "lucide-react";
 import { supabase, formatMoney, type Cafe, type Order, type OrderItem } from "@/lib/db";
 
 import { useCafe } from "@/lib/cafe";
+import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 type Range = 7 | 30 | 90;
 
@@ -80,11 +81,15 @@ export default function OwnerAnalyticsPage() {
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Analytics</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{cafe?.name} · last {range} days</p>
+        <div className="flex items-center justify-between w-full lg:w-auto">
+          <div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Analytics</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{cafe?.name} · last {range} days</p>
+          </div>
         </div>
-        <div className="inline-flex rounded-full bg-secondary p-1 text-xs font-medium">
+        <div className="flex items-center gap-4">
+          <GlobalNotificationControls />
+          <div className="inline-flex rounded-full bg-secondary p-1 text-xs font-medium">
           {[7, 30, 90].map((r) => (
             <button
               key={r}
@@ -97,6 +102,7 @@ export default function OwnerAnalyticsPage() {
               {r}d
             </button>
           ))}
+          </div>
         </div>
       </header>
 

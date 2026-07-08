@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { getNotificationSetting, initNotificationSystem } from "@/lib/notificationSystem";
+import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   pending: "preparing",
@@ -532,9 +533,12 @@ export default function StaffDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div>
-        <h1 className="font-display text-2xl font-bold">Dashboard</h1>
-        <p className="text-xs text-muted-foreground">Manage active orders and service requests in real-time.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Dashboard</h1>
+          <p className="text-xs text-muted-foreground">Manage active orders and service requests in real-time.</p>
+        </div>
+        <GlobalNotificationControls />
       </div>
 
       {/* Top stats */}

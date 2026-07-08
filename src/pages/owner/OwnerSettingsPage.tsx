@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCafe } from "@/lib/cafe";
 import { supabase } from "@/lib/db";
+import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN", "CHF"];
 
@@ -38,9 +39,12 @@ export default function OwnerSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Cafe details customers see.</p>
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Cafe details customers see.</p>
+        </div>
+        <GlobalNotificationControls />
       </header>
 
       <section className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
