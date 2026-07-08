@@ -845,9 +845,9 @@ export default function StaffDashboardPage() {
         triggerRef={settingsTriggerRef}
         className="w-[280px] max-w-[90vw]"
       >
-        <div className="flex flex-col overflow-hidden rounded-2xl bg-card text-card-foreground shadow-float ring-1 ring-border/50">
+        <div className="flex flex-col text-card-foreground">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 bg-muted/20">
+          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 bg-muted/5">
             <h3 className="font-display text-sm font-semibold">Notification Settings</h3>
             <button
               onClick={() => setIsSettingsOpen(false)}
@@ -859,15 +859,15 @@ export default function StaffDashboardPage() {
           </div>
 
           {/* Body/Rows */}
-          <div className="p-2 space-y-1">
+          <div className="p-1.5 space-y-0.5">
             {/* Sound Alerts */}
             <div
               onClick={() => handleSoundToggle(!soundEnabled)}
-              className="flex items-center justify-between p-2.5 rounded-xl border border-transparent hover:bg-muted/40 hover:border-border/60 transition duration-150 cursor-pointer select-none"
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
             >
               <div className="flex items-center gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-500">
-                  <Volume2 className="h-4.5 w-4.5" />
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-500/8 text-blue-500">
+                  <Volume2 className="h-4 w-4" />
                 </div>
                 <span className="text-xs font-semibold text-foreground">Sound Alerts</span>
               </div>
@@ -882,11 +882,11 @@ export default function StaffDashboardPage() {
             {/* Vibrate Alerts */}
             <div
               onClick={() => handleVibrationToggle(!vibrationEnabled)}
-              className="flex items-center justify-between p-2.5 rounded-xl border border-transparent hover:bg-muted/40 hover:border-border/60 transition duration-150 cursor-pointer select-none"
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
             >
               <div className="flex items-center gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-warning/20 bg-warning/10 text-warning">
-                  <Smartphone className="h-4.5 w-4.5" />
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-warning/8 text-warning">
+                  <Smartphone className="h-4 w-4" />
                 </div>
                 <span className="text-xs font-semibold text-foreground">Vibrate Alerts</span>
               </div>
@@ -901,11 +901,11 @@ export default function StaffDashboardPage() {
             {/* Flash Cards */}
             <div
               onClick={() => handleFlashCardsToggle(!flashCardsEnabled)}
-              className="flex items-center justify-between p-2.5 rounded-xl border border-transparent hover:bg-muted/40 hover:border-border/60 transition duration-150 cursor-pointer select-none"
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
             >
               <div className="flex items-center gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
-                  <Sparkles className="h-4.5 w-4.5" />
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent/8 text-accent">
+                  <Sparkles className="h-4 w-4" />
                 </div>
                 <span className="text-xs font-semibold text-foreground">Flash Cards</span>
               </div>

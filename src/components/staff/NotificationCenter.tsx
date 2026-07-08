@@ -62,40 +62,40 @@ const TYPE_CONFIG: Record<
   NotificationItem["type"],
   {
     icon: React.ComponentType<{ className?: string }>;
-    colorClass: string; // text, bg, border
+    colorClass: string; // text, bg
   }
 > = {
   new_order: {
     icon: ShoppingBag,
-    colorClass: "text-success bg-success/10 border-success/20",
+    colorClass: "text-success bg-success/8",
   },
   updated_order: {
     icon: Edit2,
-    colorClass: "text-blue-500 bg-blue-500/10 border-blue-500/20",
+    colorClass: "text-blue-500 bg-blue-500/8",
   },
   cancelled_order: {
     icon: XCircle,
-    colorClass: "text-destructive bg-destructive/10 border-destructive/20",
+    colorClass: "text-destructive bg-destructive/8",
   },
   completed_order: {
     icon: CheckCircle2,
-    colorClass: "text-success bg-success/10 border-success/20",
+    colorClass: "text-success bg-success/8",
   },
   need_water: {
     icon: Droplet,
-    colorClass: "text-warning bg-warning/10 border-warning/20",
+    colorClass: "text-warning bg-warning/8",
   },
   need_bill: {
     icon: Receipt,
-    colorClass: "text-warning bg-warning/10 border-warning/20",
+    colorClass: "text-warning bg-warning/8",
   },
   call_waiter: {
     icon: HandPlatter,
-    colorClass: "text-warning bg-warning/10 border-warning/20",
+    colorClass: "text-warning bg-warning/8",
   },
   general_request: {
     icon: HelpCircle,
-    colorClass: "text-muted-foreground bg-muted border-border",
+    colorClass: "text-muted-foreground bg-muted/50",
   },
 };
 
@@ -114,9 +114,9 @@ export function NotificationCenter({
   }, []);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl bg-card text-card-foreground shadow-float ring-1 ring-border/50">
+    <div className="flex flex-col text-card-foreground">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 bg-muted/20">
+      <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 bg-muted/5">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
           <h3 className="font-display text-sm font-semibold">Notifications</h3>
@@ -141,7 +141,7 @@ export function NotificationCenter({
       </div>
 
       {/* List */}
-      <div className="max-h-[380px] overflow-y-auto px-2 py-2 scrollbar-thin">
+      <div className="max-h-[380px] overflow-y-auto p-1.5 scrollbar-thin">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
             <div className="grid h-10 w-10 place-items-center rounded-full bg-muted/40 text-muted-foreground mb-2">
@@ -151,7 +151,7 @@ export function NotificationCenter({
             <p className="text-[10px] text-muted-foreground mt-0.5">No notifications today.</p>
           </div>
         ) : (
-          <div className="space-y-1.5 overflow-x-hidden">
+          <div className="space-y-0.5 overflow-x-hidden">
             <AnimatePresence initial={false}>
               {notifications.map((n) => {
                 const config = TYPE_CONFIG[n.type] || TYPE_CONFIG.general_request;
@@ -174,12 +174,12 @@ export function NotificationCenter({
                     }}
                     onClick={() => onNotificationClick(n)}
                     className={cn(
-                      "group relative flex items-start gap-3 rounded-xl border border-transparent p-3 cursor-pointer select-none",
-                      "bg-card hover:bg-muted/40 hover:border-border/60 transition duration-150 active:scale-[0.99] touch-pan-y"
+                      "group relative flex items-start gap-3 rounded-xl p-2.5 cursor-pointer select-none",
+                      "hover:bg-muted/30 transition duration-150 active:scale-[0.99] touch-pan-y"
                     )}
                   >
                     {/* Icon container */}
-                    <div className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl border", config.colorClass)}>
+                    <div className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", config.colorClass)}>
                       <Icon className="h-4.5 w-4.5" />
                     </div>
 

@@ -53,7 +53,7 @@ export function AnchoredPopover({
     <Overlay open={open} onClose={onClose} zClass={zClass}>
       <div
         className={cn(
-          "fixed w-72 rounded-2xl border border-border bg-card p-4 shadow-float transition-all duration-200 ease-out",
+          "fixed w-72 rounded-2xl border border-border bg-card p-0 overflow-hidden shadow-float transition-all duration-200 ease-out",
           animate ? "opacity-100 scale-100" : "opacity-0 scale-95",
           className
         )}
