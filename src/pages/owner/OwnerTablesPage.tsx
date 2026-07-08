@@ -48,20 +48,23 @@ function TableQRCard({ table, onDelete }: { table: TableRow; onDelete: () => voi
         Scan to order
       </div>
 
-      {/* Actions row — download + delete side by side, away from QR */}
-      <div className="flex items-center justify-center gap-2 px-3 py-2.5 print:hidden">
+      {/* Actions row — icon-only buttons, space-between */}
+      <div className="flex items-center justify-between px-3 py-2.5 print:hidden">
         <button
           onClick={downloadSingle}
-          className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground transition hover:bg-secondary/80"
+          className="inline-flex items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-sm transition hover:bg-secondary/80 active:scale-95"
+          style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+          aria-label={`Download QR for table ${table.label}`}
         >
-          <Download className="h-3 w-3" /> Download
+          <Download className="h-[18px] w-[18px]" />
         </button>
         <button
           onClick={onDelete}
-          className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive transition hover:bg-destructive/20"
-          aria-label="Remove table"
+          className="inline-flex items-center justify-center rounded-full bg-destructive/10 text-destructive shadow-sm transition hover:bg-destructive/20 active:scale-95"
+          style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+          aria-label={`Delete table ${table.label}`}
         >
-          <Trash2 className="h-3 w-3" /> Delete
+          <Trash2 className="h-[18px] w-[18px]" />
         </button>
       </div>
     </div>
