@@ -24,4 +24,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
+if (typeof window !== "undefined") {
+  (window as any).__toast = toast;
+}
+
 export { Toaster, toast };

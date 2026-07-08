@@ -43,3 +43,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+if (typeof window !== "undefined") {
+  (window as any).__supabase = supabase;
+}

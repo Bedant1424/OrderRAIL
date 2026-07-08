@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { useCart } from "@/lib/cart";
 import { supabase, formatMoney, type Cafe, type TableRow, type Order, type OrderItem, type ServiceRequestType } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
+import { generateUUID } from "@/lib/uuid";
+import { cancelOrder } from "@/lib/orders";
 import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
 import { toast } from "sonner";
@@ -15,10 +17,9 @@ import { APP_CONFIG } from "@/config/app";
 import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
-  const { lines, setQty, remove, subtotalCents, clear } = useCart();
+  const { lines, setQty, remove, subtotalCents, clear, note, setNote, editingOrderId, editingOrderVersion, cancelEditing } = useCart();
   const { tableId } = useParams();
   const navigate = useNavigate();
-  const [note, setNote] = useState("");
   const [placing, setPlacing] = useState(false);
   const [callingType, setCallingType] = useState<ServiceRequestType | null>(null);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -81,7 +82,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     if (!lines.length) return;
     setPlacing(true);
     try {
-      const orderId = crypto.randomUUID();
+      const orderId = generateUUID();
       const { queued } = await submitOrder({
         id: orderId,
         cafe_id: cafe.id,
@@ -115,6 +116,40 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     }
   };
 
+  const updateExistingOrder = async () => {
+    if (!lines.length || !editingOrderId) return;
+    setPlacing(true);
+    try {
+      const { error } = await supabase.rpc("update_order", {
+        p_order_id: editingOrderId,
+        p_session_id: getSessionId(),
+        p_expected_version: editingOrderVersion!,
+        p_note: note.trim() || null,
+        p_total_cents: subtotalCents,
+        p_items: lines.map((l) => ({
+          menu_item_id: l.item.id,
+          name: l.item.name,
+          price_cents: l.item.price_cents,
+          qty: l.qty,
+        })),
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success("Order updated successfully! ☕");
+      const savedId = editingOrderId;
+      clear();
+      navigate(`/t/${tableId}/order/${savedId}`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Could not update order. Please try again.");
+    } finally {
+      setPlacing(false);
+    }
+  };
+
   const handleCallStaff = async (type: ServiceRequestType, label: string) => {
     if (!cooldown.canSend(type)) return;
     setCallingType(type);
@@ -139,11 +174,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const handleCancelOrder = async (orderId: string) => {
     setCancelingId(orderId);
     try {
-      const { error } = await supabase.rpc("cancel_order", {
-        p_order_id: orderId,
-        p_session_id: getSessionId(),
-      });
-      if (error) throw error;
+      await cancelOrder(orderId);
       setHistoryOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: "cancelled" } : o)),
       );
@@ -161,14 +192,11 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  // Find the latest active order
-  const latestActive = sortedHistory.find((o) => o.status !== "served" && o.status !== "cancelled");
+  // Active orders contains all active orders (not served and not cancelled)
+  const activeOrders = sortedHistory.filter((o) => o.status !== "served" && o.status !== "cancelled");
 
-  // Active orders contains only the latest active order (if any)
-  const activeOrders = latestActive ? [latestActive] : [];
-
-  // Previous orders contains all other orders (older active orders + all served/cancelled orders)
-  const previousOrders = sortedHistory.filter((o) => o.id !== latestActive?.id);
+  // Previous orders contains all served and cancelled orders
+  const previousOrders = sortedHistory.filter((o) => o.status === "served" || o.status === "cancelled");
 
   // Renders a single history order card
   const renderOrderCard = (o: Order & { order_items: OrderItem[] }) => {
@@ -408,6 +436,24 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         <p className="mt-1 text-sm text-muted-foreground">Table {table.label} · {cafe.name}</p>
       </div>
 
+      {editingOrderId && (
+        <div className="rounded-2xl bg-accent/15 border border-accent/30 p-4 flex items-center justify-between shadow-soft">
+          <div className="text-sm font-medium">
+            <span className="block text-accent font-semibold">Editing Order #{editingOrderId.slice(0, 8).toUpperCase()}</span>
+            <span className="text-xs text-muted-foreground">You are modifying an existing order.</span>
+          </div>
+          <button
+            onClick={() => {
+              cancelEditing();
+              toast.info("Editing cancelled. Cart cleared.");
+            }}
+            className="rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
+          >
+            Cancel Edit
+          </button>
+        </div>
+      )}
+
       <ul className="mt-6 space-y-3">
         {lines.map((l) => (
           <motion.li
@@ -499,11 +545,11 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             </span>
           </div>
           <button
-            onClick={placeOrder}
+            onClick={editingOrderId ? updateExistingOrder : placeOrder}
             disabled={placing}
             className="w-full rounded-full bg-gradient-accent py-2.5 text-base font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
           >
-            {placing ? "Sending…" : "Place Order"}
+            {placing ? "Sending…" : editingOrderId ? "Update Order" : "Place Order"}
           </button>
           <p className="mt-1 text-center text-xs text-muted-foreground leading-none">
             Pay at the counter when you're ready.

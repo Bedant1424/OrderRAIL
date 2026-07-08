@@ -6,7 +6,9 @@ import { supabase, formatMoney, type Order, type OrderItem, type OrderStatus, ty
 import { getSessionId } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { cancelOrder } from "@/lib/orders";
 import { ReviewForm } from "./ReviewForm";
+import { useCart } from "@/lib/cart";
 
 const STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "pending", label: "Received", icon: Clock },
@@ -20,9 +22,10 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [order, setOrder] = useState<Order | null>(null);
-  const [items, setItems] = useState<OrderItem[]>([]);
+  const [items, setItems] = useState<(OrderItem & { menu_items?: { image_url: string | null } | null })[]>([]);
   const [cancelling, setCancelling] = useState(false);
   const reviewRef = useRef<HTMLDivElement>(null);
+  const { startEditing } = useCart();
 
   useEffect(() => {
     if (!orderId) return;
@@ -31,8 +34,11 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
     const load = async () => {
       const { data: o } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
       if (!cancelled && o) setOrder(o as Order);
-      const { data: it } = await supabase.from("order_items").select("*").eq("order_id", orderId);
-      if (!cancelled && it) setItems(it as OrderItem[]);
+      const { data: it } = await supabase
+        .from("order_items")
+        .select("*, menu_items(image_url)")
+        .eq("order_id", orderId);
+      if (!cancelled && it) setItems(it as any);
     };
     void load();
 
@@ -48,6 +54,12 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
       supabase.removeChannel(channel);
     };
   }, [orderId]);
+
+  useEffect(() => {
+    if (order?.status === "served" && searchParams.get("scrollTo") === "review") {
+      reviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [order?.status, searchParams]);
 
   if (!order) {
     return (
@@ -65,21 +77,27 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
 
   const currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === order.status));
 
-  useEffect(() => {
-    if (order.status === "served" && searchParams.get("scrollTo") === "review") {
-      reviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [order.status, searchParams]);
+  const handleStartEdit = () => {
+    if (!order) return;
+    const cartLines = items.map((i) => ({
+      item: {
+        id: i.menu_item_id || "",
+        name: i.name,
+        price_cents: i.price_cents,
+        image_url: i.menu_items?.image_url || null,
+      },
+      qty: i.qty,
+    }));
+    startEditing(order.id, order.version, cartLines, order.note);
+    toast.success("Order loaded in basket for editing.");
+    navigate(`/t/${tableId}/cart`);
+  };
 
   const handleCancel = async () => {
     if (!order) return;
     setCancelling(true);
     try {
-      const { error } = await supabase.rpc("cancel_order", {
-        p_order_id: order.id,
-        p_session_id: getSessionId(),
-      });
-      if (error) throw error;
+      await cancelOrder(order.id);
       setOrder({ ...order, status: "cancelled" });
       toast.success("Order cancelled");
     } catch (e) {
@@ -167,7 +185,13 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
       </section>
 
       {order.status === "pending" && (
-        <div className="mx-4 mt-4">
+        <div className="mx-4 mt-4 space-y-2">
+          <button
+            onClick={handleStartEdit}
+            className="w-full rounded-full bg-gradient-accent py-3 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99]"
+          >
+            Edit Order
+          </button>
           <button
             onClick={() => void handleCancel()}
             disabled={cancelling}

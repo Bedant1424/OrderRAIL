@@ -5,6 +5,7 @@ import { Camera, Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, formatMoney, type Cafe, type MenuCategory, type MenuItem } from "@/lib/db";
 import { cn } from "@/lib/utils";
+import { generateUUID } from "@/lib/uuid";
 
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
 
@@ -380,7 +381,7 @@ function ItemDialog({
     setUploading(true);
     try {
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${cafeId}/${crypto.randomUUID()}.${ext}`;
+      const path = `${cafeId}/${generateUUID()}.${ext}`;
       const { error } = await supabase.storage.from("menu-images").upload(path, file, {
         upsert: false,
         contentType: file.type,

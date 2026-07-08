@@ -175,3 +175,36 @@
     -webkit-backdrop-filter: saturate(180%) blur(14px);
   }
 }
+
+/* Custom OrderRail premium top-centered notifications */
+[data-sonner-toaster] {
+  top: calc(56px + env(safe-area-inset-top, 12px) + 8px) !important;
+  bottom: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 92% !important;
+  max-width: 400px !important;
+  z-index: 99999 !important;
+  padding: 0 !important;
+}
+
+[data-sonner-toast] {
+  width: 100% !important;
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border) / 0.8) !important;
+  border-radius: 1.25rem !important;
+  box-shadow: var(--shadow-float) !important;
+  padding: 1rem !important;
+  font-family: inherit !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  border-color: hsl(var(--success) / 0.4) !important;
+  background: linear-gradient(to right, hsl(var(--card)), hsl(145 55% 98%)) !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  border-color: hsl(var(--destructive) / 0.4) !important;
+  background: linear-gradient(to right, hsl(var(--card)), hsl(0 72% 98%)) !important;
+}

@@ -3,10 +3,11 @@ import { ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/db";
+import { cn } from "@/lib/utils";
 import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP } from "@/lib/constants";
 
 export function FloatingCart({ currency }: { currency: string }) {
-  const { count, subtotalCents } = useCart();
+  const { count, subtotalCents, editingOrderId } = useCart();
   const { tableId } = useParams();
   return (
     <AnimatePresence>
@@ -23,14 +24,17 @@ export function FloatingCart({ currency }: { currency: string }) {
         >
           <Link
             to={`/t/${tableId}/cart`}
-            className="pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-4 rounded-full bg-primary px-5 py-3.5 text-primary-foreground shadow-none"
+            className={cn(
+              "pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-4 rounded-full px-5 py-3.5 text-primary-foreground shadow-none",
+              editingOrderId ? "bg-gradient-accent" : "bg-primary"
+            )}
           >
             <span className="flex items-center gap-3">
               <span className="grid h-8 w-8 place-items-center rounded-full bg-primary-foreground/15">
                 <ShoppingBag className="h-4 w-4" />
               </span>
               <span className="text-base font-semibold">
-                {count} {count === 1 ? "item" : "items"}
+                {editingOrderId ? "Editing: " : ""}{count} {count === 1 ? "item" : "items"}
               </span>
             </span>
             <span className="flex items-center gap-2 text-base font-bold tabular-nums">

@@ -14,6 +14,14 @@ import {
   type TableRow,
 } from "@/lib/db";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   pending: "preparing",
@@ -44,6 +52,22 @@ export default function StaffDashboardPage() {
   const qc = useQueryClient();
   const { cafe, cafeId } = useCafe();
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
+  const [reviewingOrder, setReviewingOrder] = useState<OrderWithItems | null>(null);
+
+  const handleAcknowledge = async (orderId: string, version: number) => {
+    try {
+      const { error } = await supabase.rpc("review_order_changes", {
+        p_order_id: orderId,
+        p_version: version,
+      });
+      if (error) throw error;
+      toast.success("Changes acknowledged.");
+      setReviewingOrder(null);
+      void ordersQ.refetch();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to acknowledge changes.");
+    }
+  };
 
   const ordersQ = useQuery({
     queryKey: ["staff-orders", cafeId],
@@ -98,8 +122,22 @@ export default function StaffDashboardPage() {
     if (!cafeId) return;
     const channel = supabase
       .channel(`staff-${cafeId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `cafe_id=eq.${cafeId}` }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `cafe_id=eq.${cafeId}` }, (payload) => {
         void qc.invalidateQueries({ queryKey: ["staff-orders", cafeId] });
+        if (payload.eventType === "UPDATE") {
+          const newOrder = payload.new as Order;
+          // check if version incremented by customer
+          if (newOrder.version > newOrder.last_reviewed_version && newOrder.last_updated_by === 'customer') {
+            void (async () => {
+              const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
+              const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
+              toast.info(`${label} updated by customer`, {
+                description: "Items or note changed. Please review.",
+                duration: 5000,
+              });
+            })();
+          }
+        }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
         void qc.invalidateQueries({ queryKey: ["staff-orders", cafeId] });
@@ -265,6 +303,7 @@ export default function StaffDashboardPage() {
           currency={currency}
           onAdvance={advance}
           onCancel={cancel}
+          onReviewChanges={setReviewingOrder}
           emptyLabel="No new orders."
         />
         <OrderColumn
@@ -274,6 +313,7 @@ export default function StaffDashboardPage() {
           currency={currency}
           onAdvance={advance}
           onCancel={cancel}
+          onReviewChanges={setReviewingOrder}
           emptyLabel="Nothing in the kitchen right now."
         />
         <OrderColumn
@@ -282,6 +322,7 @@ export default function StaffDashboardPage() {
           orders={grouped.done}
           currency={currency}
           onAdvance={advance}
+          onReviewChanges={setReviewingOrder}
           emptyLabel="No completed orders yet."
         />
       </section>
@@ -368,6 +409,98 @@ export default function StaffDashboardPage() {
           })()}
         </AnimatePresence>
       </section>
+
+      {/* Review Changes Dialog */}
+      <Dialog open={!!reviewingOrder} onOpenChange={(open) => !open && setReviewingOrder(null)}>
+        {reviewingOrder && (() => {
+          const diff = getOrderDiff(reviewingOrder.previous_items, reviewingOrder.order_items);
+          return (
+            <DialogContent className="sm:max-w-[425px] rounded-3xl">
+              <DialogHeader>
+                <DialogTitle className="font-display text-xl font-bold flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-accent animate-pulse" />
+                  Review Changes
+                </DialogTitle>
+                <DialogDescription>
+                  Table {reviewingOrder.tables?.label ?? "?"} · Order #{reviewingOrder.id.slice(0, 6).toUpperCase()} has been updated.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-4">
+                <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-3">
+                  <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Changes Diff</h4>
+                  
+                  {diff.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No item quantity changes (only notes updated).</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {diff.map((item, idx) => {
+                        const isAdded = item.qtyDiff > 0;
+                        return (
+                          <li
+                            key={idx}
+                            className={cn(
+                              "flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium border",
+                              isAdded
+                                ? "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"
+                                : "bg-destructive/10 border-destructive/20 text-destructive"
+                            )}
+                          >
+                            <span>{item.name}</span>
+                            <span className="tabular-nums">
+                              {isAdded ? `+${item.qtyDiff}` : item.qtyDiff} (Now: {item.currQty})
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                {reviewingOrder.note && (
+                  <div className="rounded-2xl border border-border bg-card p-4 space-y-1">
+                    <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Note for Staff</h4>
+                    <p className="text-sm text-foreground italic">"{reviewingOrder.note}"</p>
+                  </div>
+                )}
+
+                <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+                  <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Current Order Items</h4>
+                  <ul className="space-y-1 text-sm text-foreground divide-y divide-border/40">
+                    {reviewingOrder.order_items?.map((it) => (
+                      <li key={it.id} className="flex justify-between py-1.5">
+                        <span>{it.qty}× {it.name}</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          {formatMoney(it.price_cents * it.qty, currency)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex justify-between pt-2 border-t border-border/60 text-sm font-semibold">
+                    <span>Total Amount</span>
+                    <span className="tabular-nums">{formatMoney(reviewingOrder.total_cents, currency)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <button
+                  onClick={() => setReviewingOrder(null)}
+                  className="rounded-full bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => void handleAcknowledge(reviewingOrder.id, reviewingOrder.version)}
+                  className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/95 shadow-soft transition"
+                >
+                  Acknowledge Changes
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          );
+        })()}
+      </Dialog>
     </div>
   );
 }
@@ -410,6 +543,7 @@ function OrderColumn({
   onAdvance,
   onCancel,
   emptyLabel,
+  onReviewChanges,
 }: {
   title: string;
   accent: "warning" | "accent" | "success";
@@ -418,6 +552,7 @@ function OrderColumn({
   onAdvance: (o: OrderWithItems) => void;
   onCancel?: (o: OrderWithItems) => void;
   emptyLabel: string;
+  onReviewChanges?: (o: OrderWithItems) => void;
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
@@ -442,7 +577,7 @@ function OrderColumn({
        *   - max-h-[520px]     → caps the scrolling area height (not the whole column)
        *   - min-h-[80px]      → empty columns show a sensible height instead of collapsing
        * This is the ONLY element that scrolls vertically; horizontal scroll is impossible.
-       */}
+              */}
       <div className="kanban-scroll max-h-[520px] min-h-[80px] space-y-3 pr-1 py-1">
         <AnimatePresence initial={false}>
           {orders.length === 0 && (
@@ -470,9 +605,14 @@ function OrderColumn({
                  * min-w-0 lets the left side shrink so the price on the right
                  * never pushes content outside the card.
                  */}
-                <div className="min-w-0">
-                  <div className="break-anywhere font-display text-sm font-semibold">
-                    Table {o.tables?.label ?? "?"} · #{o.id.slice(0, 6).toUpperCase()}
+                <div className="min-w-0 flex-1">
+                  <div className="break-anywhere font-display text-sm font-semibold flex items-center flex-wrap gap-1">
+                    <span>Table {o.tables?.label ?? "?"} · #{o.id.slice(0, 6).toUpperCase()}</span>
+                    {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
+                        UPDATED
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
                     {new Date(o.created_at).toLocaleTimeString()} ·{" "}
@@ -500,6 +640,17 @@ function OrderColumn({
                 <p className="break-anywhere mt-2 rounded-xl bg-muted/60 p-2 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">Note:</span> {o.note}
                 </p>
+              )}
+
+              {/* Review changes button */}
+              {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && onReviewChanges && (
+                <button
+                  onClick={() => onReviewChanges(o)}
+                  className="mt-3 w-full rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Review changes
+                </button>
               )}
 
               {/* Action buttons */}
@@ -531,6 +682,47 @@ function OrderColumn({
     </div>
   );
 }
+
+const getOrderDiff = (prev: any[] | null, curr: any[]) => {
+  const diff: { name: string; qtyDiff: number; prevQty: number; currQty: number }[] = [];
+  const prevItems = prev || [];
+  
+  const prevMap = new Map<string, any>();
+  prevItems.forEach(i => {
+    const key = i.menu_item_id || i.name;
+    prevMap.set(key, i);
+  });
+
+  const currMap = new Map<string, any>();
+  curr.forEach(i => {
+    const key = i.menu_item_id || i.name;
+    currMap.set(key, i);
+  });
+
+  // Check for changed or removed items
+  prevItems.forEach(pi => {
+    const key = pi.menu_item_id || pi.name;
+    const ci = currMap.get(key);
+    if (!ci) {
+      // Removed completely
+      diff.push({ name: pi.name, qtyDiff: -pi.qty, prevQty: pi.qty, currQty: 0 });
+    } else if (ci.qty !== pi.qty) {
+      // Quantity changed
+      diff.push({ name: pi.name, qtyDiff: ci.qty - pi.qty, prevQty: pi.qty, currQty: ci.qty });
+    }
+  });
+
+  // Check for new items
+  curr.forEach(ci => {
+    const key = ci.menu_item_id || ci.name;
+    if (!prevMap.has(key)) {
+      // Added
+      diff.push({ name: ci.name, qtyDiff: ci.qty, prevQty: 0, currQty: ci.qty });
+    }
+  });
+
+  return diff;
+};
 
 function StatusBadge({ status }: { status: OrderStatus }) {
   const map: Record<OrderStatus, { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {

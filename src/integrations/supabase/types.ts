@@ -253,6 +253,10 @@ export type Database = {
           table_id: string
           total_cents: number
           updated_at: string
+          version: number
+          last_updated_by: string
+          last_reviewed_version: number
+          previous_items: any | null
         }
         Insert: {
           cafe_id: string
@@ -265,6 +269,10 @@ export type Database = {
           table_id: string
           total_cents?: number
           updated_at?: string
+          version?: number
+          last_updated_by?: string
+          last_reviewed_version?: number
+          previous_items?: any | null
         }
         Update: {
           cafe_id?: string
@@ -277,6 +285,10 @@ export type Database = {
           table_id?: string
           total_cents?: number
           updated_at?: string
+          version?: number
+          last_updated_by?: string
+          last_reviewed_version?: number
+          previous_items?: any | null
         }
         Relationships: [
           {

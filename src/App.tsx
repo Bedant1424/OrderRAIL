@@ -59,29 +59,33 @@ const App = () => {
                                 {(() => {
                                   console.log("Inside CafeProvider, Before Routes");
                                   return (
-                                    <Routes>
-                                      <Route path="/" element={<Index />} />
-                                      <Route path="/t/:tableId" element={<TableLayout />}>
-                                        <Route index element={<TableMenuPage />} />
-                                        <Route path="cart" element={<TableCartPage />} />
-                                        <Route path="call" element={<TableCallPage />} />
-                                        <Route path="order/:orderId" element={<TableOrderPage />} />
-                                      </Route>
-                                      <Route path="/staff/login" element={<StaffLoginPage />} />
-                                      <Route path="/staff" element={<StaffLayout />}>
-                                        <Route index element={<StaffDashboardPage />} />
-                                      </Route>
-                                      <Route path="/owner" element={<OwnerLayout />}>
-                                        <Route index element={<OwnerAnalyticsPage />} />
-                                        <Route path="orders" element={<OwnerOrdersPage />} />
-                                        <Route path="menu" element={<OwnerMenuPage />} />
-                                        <Route path="tables" element={<OwnerTablesPage />} />
-                                        <Route path="staff" element={<OwnerStaffPage />} />
-                                        <Route path="reviews" element={<OwnerReviewsPage />} />
-                                        <Route path="settings" element={<OwnerSettingsPage />} />
-                                      </Route>
-                                      <Route path="*" element={<NotFound />} />
-                                    </Routes>
+                                    <>
+                                      <Routes>
+                                        <Route path="/" element={<Index />} />
+                                        <Route path="/t/:tableId" element={<TableLayout />}>
+                                          <Route index element={<TableMenuPage />} />
+                                          <Route path="cart" element={<TableCartPage />} />
+                                          <Route path="call" element={<TableCallPage />} />
+                                          <Route path="order/:orderId" element={<TableOrderPage />} />
+                                        </Route>
+                                        <Route path="/staff/login" element={<StaffLoginPage />} />
+                                        <Route path="/staff" element={<StaffLayout />}>
+                                          <Route index element={<StaffDashboardPage />} />
+                                        </Route>
+                                        <Route path="/owner" element={<OwnerLayout />}>
+                                          <Route index element={<OwnerAnalyticsPage />} />
+                                          <Route path="orders" element={<OwnerOrdersPage />} />
+                                          <Route path="menu" element={<OwnerMenuPage />} />
+                                          <Route path="tables" element={<OwnerTablesPage />} />
+                                          <Route path="staff" element={<OwnerStaffPage />} />
+                                          <Route path="reviews" element={<OwnerReviewsPage />} />
+                                          <Route path="settings" element={<OwnerSettingsPage />} />
+                                        </Route>
+                                        <Route path="*" element={<NotFound />} />
+                                      </Routes>
+                                      <Sonner position="top-center" duration={3500} />
+                                      <Toaster />
+                                    </>
                                   );
                                 })()}
                               </CafeProvider>
