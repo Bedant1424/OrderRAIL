@@ -23,24 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { NotificationCenter, type NotificationItem } from "@/components/staff/NotificationCenter";
-import {
-  loadNotifications,
-  saveNotifications,
-  addNotification,
-  dismissNotification,
-  clearAllNotifications,
-  markAllAsRead,
-  getUnreadCount,
-} from "@/lib/notificationHistory";
-import { Switch } from "@/components/ui/switch";
-import {
-  initNotificationSystem,
-  triggerNotification,
-  loadNotificationSettings,
-  saveNotificationSettings,
-  getNotificationSetting,
-} from "@/lib/notificationSystem";
+import { getNotificationSetting } from "@/lib/notificationSystem";
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   pending: "preparing",
@@ -75,85 +58,24 @@ export default function StaffDashboardPage() {
   const [reviewingOrder, setReviewingOrder] = useState<OrderWithItems | null>(null);
   const [flashingIds, setFlashingIds] = useState<Record<string, "new" | "updated" | "sr" | "cancelled">>({});
 
-  // Notification States
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);
-  const [flashCardsEnabled, setFlashCardsEnabled] = useState(true);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
-
-  // Notification History states and refs
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const notificationsTriggerRef = useRef<HTMLButtonElement>(null);
-
-  const unreadCount = getUnreadCount(notifications);
-
+  // Listen to cross-page card flashing requests from the global layout notifications trigger
   useEffect(() => {
-    setNotifications(loadNotifications());
+    const handleFlash = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.id && detail.type) {
+        setFlashingIds(prev => ({ ...prev, [detail.id]: detail.type }));
+        setTimeout(() => {
+          setFlashingIds(prev => {
+            const copy = { ...prev };
+            delete copy[detail.id];
+            return copy;
+          });
+        }, 2000);
+      }
+    };
+    window.addEventListener("flash-card", handleFlash);
+    return () => window.removeEventListener("flash-card", handleFlash);
   }, []);
-
-  const handleNotificationClick = (item: NotificationItem) => {
-    setIsNotificationsOpen(false);
-    
-    // Mark as read when clicked
-    const updated = loadNotifications().map(n => n.id === item.id ? { ...n, read: true } : n);
-    saveNotifications(updated);
-    setNotifications(updated);
-
-    if (item.relatedType === "order") {
-      const el = document.getElementById(`order-card-${item.relatedId}`);
-      if (el) {
-        executeScroll(item.relatedId, () => {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        });
-        
-        // Flash card highlight
-        const flashType = item.type === "cancelled_order" ? "cancelled" : item.type === "updated_order" ? "updated" : "new";
-        setFlashingIds(prev => ({ ...prev, [item.relatedId]: flashType as any }));
-        setTimeout(() => {
-          setFlashingIds(prev => {
-            const copy = { ...prev };
-            delete copy[item.relatedId];
-            return copy;
-          });
-        }, 2000);
-      }
-    } else if (item.relatedType === "service_request") {
-      const el = document.getElementById(`sr-card-${item.relatedId}`);
-      if (el) {
-        // First scroll the requests section into center
-        const section = document.getElementById("service-requests-section");
-        if (section) {
-          section.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-        
-        // Scroll horizontally to the card within container
-        const container = document.getElementById("service-requests-container");
-        if (container) {
-          el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-        }
-
-        // Trigger flash
-        setFlashingIds(prev => ({ ...prev, [item.relatedId]: "sr" }));
-        setTimeout(() => {
-          setFlashingIds(prev => {
-            const copy = { ...prev };
-            delete copy[item.relatedId];
-            return copy;
-          });
-        }, 2000);
-      }
-    }
-  };
-
-  const handleDismissNotification = (id: string) => {
-    setNotifications(dismissNotification(id));
-  };
-
-  const handleClearAllNotifications = () => {
-    setNotifications(clearAllNotifications());
-  };
 
 
 
@@ -205,24 +127,7 @@ export default function StaffDashboardPage() {
 
   useEffect(() => {
     initNotificationSystem();
-    const settings = loadNotificationSettings();
-    setSoundEnabled(settings.sound);
-    setVibrationEnabled(settings.vibration);
-    setFlashCardsEnabled(settings.flashCards);
   }, []);
-
-  const handleSoundToggle = (val: boolean) => {
-    setSoundEnabled(val);
-    saveNotificationSettings({ sound: val });
-  };
-  const handleVibrationToggle = (val: boolean) => {
-    setVibrationEnabled(val);
-    saveNotificationSettings({ vibration: val });
-  };
-  const handleFlashCardsToggle = (val: boolean) => {
-    setFlashCardsEnabled(val);
-    saveNotificationSettings({ flashCards: val });
-  };
 
   const handleAcknowledge = async (orderId: string, version: number) => {
     try {
@@ -297,41 +202,39 @@ export default function StaffDashboardPage() {
         
         if (payload.eventType === "INSERT") {
           const newOrder = payload.new as Order;
-          
-          // Trigger notification via the queue
-          const isNewEvent = triggerNotification({
-            type: "new",
-            title: "New Order",
-            body: `${formatOrderLabel(newOrder.order_number)} received.`,
-            vibratePattern: 300,
-            orderId: newOrder.id
-          });
 
-          if (isNewEvent) {
-            // Show toast notification
-            void (async () => {
-              const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
-              const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
-              
-              // Record history entry
-              const updatedList = addNotification(
-                "new_order",
-                "New Order",
-                `Order ${formatOrderLabel(newOrder.order_number)} placed at Table ${tbl?.label ?? "?"}`,
-                newOrder.id,
-                "order"
-              );
-              setNotifications(updatedList);
-
-              toast.success("🛒 New Order", {
-                description: `${formatOrderLabel(newOrder.order_number)} has been placed.`,
-                duration: 5000,
+          // Flash card green (pulse) if enabled
+          if (getNotificationSetting("flashCards")) {
+            setFlashingIds(prev => ({ ...prev, [newOrder.id]: "new" }));
+            setTimeout(() => {
+              setFlashingIds(prev => {
+                const copy = { ...prev };
+                delete copy[newOrder.id];
+                return copy;
               });
-            })();
+            }, 2000);
+          }
 
-            // Flash card green (pulse) if enabled
+          // Scroll if idle
+          if (isIdle()) {
+            setTimeout(() => {
+              if (!isIdle()) return;
+              const el = document.getElementById(`order-card-${newOrder.id}`);
+              if (el) {
+                executeScroll(newOrder.id, () => {
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+                });
+              }
+            }, 1000);
+          }
+        } else if (payload.eventType === "UPDATE") {
+          const newOrder = payload.new as Order;
+          
+          // Case A: Cancelled by customer
+          if (newOrder.status === 'cancelled' && newOrder.last_updated_by === 'customer') {
+            // Briefly highlight card as cancelled (red flash) for 2 seconds
             if (getNotificationSetting("flashCards")) {
-              setFlashingIds(prev => ({ ...prev, [newOrder.id]: "new" }));
+              setFlashingIds(prev => ({ ...prev, [newOrder.id]: "cancelled" }));
               setTimeout(() => {
                 setFlashingIds(prev => {
                   const copy = { ...prev };
@@ -341,7 +244,44 @@ export default function StaffDashboardPage() {
               }, 2000);
             }
 
-            // Scroll if idle
+            if (isIdle()) {
+              // Scroll immediately to the current card location (before it moves)
+              setTimeout(() => {
+                if (!isIdle()) return;
+                const el = document.getElementById(`order-card-${newOrder.id}`);
+                if (el) {
+                  executeScroll(newOrder.id + "-cancel-pre", () => {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  });
+                }
+              }, 100);
+
+              // Scroll again after transition to "Recently done" column
+              setTimeout(() => {
+                if (!isIdle()) return;
+                const el = document.getElementById(`order-card-${newOrder.id}`);
+                if (el) {
+                  executeScroll(newOrder.id + "-cancel-post", () => {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  });
+                }
+              }, 1200);
+            }
+          }
+          // Case B: Normal update by customer
+          else if (newOrder.status !== 'cancelled' && newOrder.version > newOrder.last_reviewed_version && newOrder.last_updated_by === 'customer') {
+            // Flash card if enabled
+            if (getNotificationSetting("flashCards")) {
+              setFlashingIds(prev => ({ ...prev, [newOrder.id]: "updated" }));
+              setTimeout(() => {
+                setFlashingIds(prev => {
+                  const copy = { ...prev };
+                  delete copy[newOrder.id];
+                  return copy;
+                });
+              }, 2000);
+            }
+
             if (isIdle()) {
               setTimeout(() => {
                 if (!isIdle()) return;
@@ -352,150 +292,6 @@ export default function StaffDashboardPage() {
                   });
                 }
               }, 1000);
-            }
-          }
-        } else if (payload.eventType === "UPDATE") {
-          const newOrder = payload.new as Order;
-
-          // Record Order Completed if status changes to served
-          if (newOrder.status === "served") {
-            void (async () => {
-              const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
-              const updatedList = addNotification(
-                "completed_order",
-                "Order Completed",
-                `Order ${formatOrderLabel(newOrder.order_number)} for Table ${tbl?.label ?? "?"} completed.`,
-                newOrder.id,
-                "order"
-              );
-              setNotifications(updatedList);
-            })();
-          }
-          
-          // Case A: Cancelled by customer
-          if (newOrder.status === 'cancelled' && newOrder.last_updated_by === 'customer') {
-            const isNewEvent = triggerNotification({
-              type: "cancelled",
-              title: "Order Cancelled",
-              body: `${formatOrderLabel(newOrder.order_number)} was cancelled.`,
-              vibratePattern: [150, 100, 150],
-              orderId: newOrder.id
-            });
-
-            if (isNewEvent) {
-              // Show toast
-              void (async () => {
-                const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
-                const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
-                
-                // Record history entry
-                const updatedList = addNotification(
-                  "cancelled_order",
-                  "Order Cancelled",
-                  `Order ${formatOrderLabel(newOrder.order_number)} for Table ${tbl?.label ?? "?"} was cancelled.`,
-                  newOrder.id,
-                  "order"
-                );
-                setNotifications(updatedList);
-
-                toast.error("Order Cancelled", {
-                  description: `${label} was CANCELLED by the customer.`,
-                  duration: 5000,
-                });
-              })();
-
-              // Briefly highlight card as cancelled (red flash) for 2 seconds
-              if (getNotificationSetting("flashCards")) {
-                setFlashingIds(prev => ({ ...prev, [newOrder.id]: "cancelled" }));
-                setTimeout(() => {
-                  setFlashingIds(prev => {
-                    const copy = { ...prev };
-                    delete copy[newOrder.id];
-                    return copy;
-                  });
-                }, 2000);
-              }
-
-              if (isIdle()) {
-                // Scroll immediately to the current card location (before it moves)
-                setTimeout(() => {
-                  if (!isIdle()) return;
-                  const el = document.getElementById(`order-card-${newOrder.id}`);
-                  if (el) {
-                    executeScroll(newOrder.id + "-cancel-pre", () => {
-                      el.scrollIntoView({ behavior: "smooth", block: "center" });
-                    });
-                  }
-                }, 100);
-
-                // Scroll again after transition to "Recently done" column
-                setTimeout(() => {
-                  if (!isIdle()) return;
-                  const el = document.getElementById(`order-card-${newOrder.id}`);
-                  if (el) {
-                    executeScroll(newOrder.id + "-cancel-post", () => {
-                      el.scrollIntoView({ behavior: "smooth", block: "center" });
-                    });
-                  }
-                }, 1200);
-              }
-            }
-          }
-          // Case B: Normal update by customer
-          else if (newOrder.status !== 'cancelled' && newOrder.version > newOrder.last_reviewed_version && newOrder.last_updated_by === 'customer') {
-            // Trigger notification
-            const isNewEvent = triggerNotification({
-              type: "updated",
-              title: "Order Updated",
-              body: `${formatOrderLabel(newOrder.order_number)} updated.`,
-              vibratePattern: [120, 80, 120],
-              orderId: newOrder.id
-            });
-
-            if (isNewEvent) {
-              // Flash card if enabled
-              if (getNotificationSetting("flashCards")) {
-                setFlashingIds(prev => ({ ...prev, [newOrder.id]: "updated" }));
-                setTimeout(() => {
-                  setFlashingIds(prev => {
-                    const copy = { ...prev };
-                    delete copy[newOrder.id];
-                    return copy;
-                  });
-                }, 2000);
-              }
-
-              void (async () => {
-                const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
-                const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
-                
-                // Record history entry
-                const updatedList = addNotification(
-                  "updated_order",
-                  "Order Updated",
-                  `Order ${formatOrderLabel(newOrder.order_number)} for Table ${tbl?.label ?? "?"} was updated by customer.`,
-                  newOrder.id,
-                  "order"
-                );
-                setNotifications(updatedList);
-
-                toast.info("Order Updated", {
-                  description: `${label} updated by customer. Please review.`,
-                  duration: 5000,
-                });
-              })();
-
-              if (isIdle()) {
-                setTimeout(() => {
-                  if (!isIdle()) return;
-                  const el = document.getElementById(`order-card-${newOrder.id}`);
-                  if (el) {
-                    executeScroll(newOrder.id, () => {
-                      el.scrollIntoView({ behavior: "smooth", block: "center" });
-                    });
-                  }
-                }, 1000);
-              }
             }
           }
         }
@@ -510,67 +306,21 @@ export default function StaffDashboardPage() {
           void qc.invalidateQueries({ queryKey: ["staff-sr", cafeId] });
           if (payload.eventType === "INSERT") {
             const req = payload.new as ServiceRequest;
-            const t = req.type;
-            const label = SR_META[t]?.label ?? t;
             
-            // Trigger notification
-            const isNewEvent = triggerNotification({
-              type: "sr",
-              title: "Service Request",
-              body: label,
-              vibratePattern: [80, 60, 80, 60, 80],
-              orderId: req.id
-            });
-
-            if (isNewEvent) {
-              const triggerBlueFlash = (id: string) => {
-                if (getNotificationSetting("flashCards")) {
-                  setFlashingIds(prev => ({ ...prev, [id]: "sr" }));
-                  setTimeout(() => {
-                    setFlashingIds(prev => {
-                      const copy = { ...prev };
-                      delete copy[id];
-                      return copy;
-                    });
-                  }, 2000);
-                }
-              };
-
-              // Show toast immediately
-              void (async () => {
-                const { data: tbl } = await supabase.from("tables").select("label").eq("id", req.table_id).maybeSingle();
-                const tableLabel = tbl ? `Table ${tbl.label}` : 'Unknown table';
-
-                // Record history entry
-                let type: NotificationItem["type"] = "general_request";
-                if (t === "water") type = "need_water";
-                else if (t === "bill") type = "need_bill";
-                else if (t === "waiter") type = "call_waiter";
-
-                const updatedList = addNotification(
-                  type,
-                  type === "need_water" ? "Need Water" :
-                  type === "need_bill" ? "Need Bill" :
-                  type === "call_waiter" ? "Call Waiter" : "General Request",
-                  `Table ${tbl?.label ?? "?"} requested ${label.toLowerCase()}.`,
-                  req.id,
-                  "service_request"
-                );
-                setNotifications(updatedList);
-
-                toast.warning(`Service Request: ${label}`, {
-                  description: `${tableLabel} is calling for attention.`,
-                  duration: 5000,
+            if (getNotificationSetting("flashCards")) {
+              setFlashingIds(prev => ({ ...prev, [req.id]: "sr" }));
+              setTimeout(() => {
+                setFlashingIds(prev => {
+                  const copy = { ...prev };
+                  delete copy[req.id];
+                  return copy;
                 });
-              })();
+              }, 2000);
+            }
 
-              if (isIdle()) {
-                // Set pending ID to scroll after React renders the new card in the DOM
-                pendingScrollRequestIdRef.current = req.id;
-              } else {
-                // If active, flash card immediately without scrolling
-                triggerBlueFlash(req.id);
-              }
+            if (isIdle()) {
+              // Set pending ID to scroll after React renders the new card in the DOM
+              pendingScrollRequestIdRef.current = req.id;
             }
           }
         },
@@ -781,144 +531,11 @@ export default function StaffDashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header and Settings/Bell Icons */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Dashboard</h1>
-          <p className="text-xs text-muted-foreground">Manage active orders and service requests in real-time.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Notification History Center */}
-          <button
-            ref={notificationsTriggerRef}
-            onClick={() => {
-              setIsNotificationsOpen(!isNotificationsOpen);
-              // Mark all notifications as read when opening history
-              if (!isNotificationsOpen) {
-                const readList = markAllAsRead();
-                setNotifications(readList);
-              }
-            }}
-            className="relative grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
-            aria-label="Notification center"
-          >
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-destructive text-[9.5px] font-bold text-destructive-foreground">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          {/* Settings Trigger */}
-          <button
-            ref={settingsTriggerRef}
-            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-            className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
-            aria-label="Notification settings"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
-        </div>
+      {/* Page Header */}
+      <div>
+        <h1 className="font-display text-2xl font-bold">Dashboard</h1>
+        <p className="text-xs text-muted-foreground">Manage active orders and service requests in real-time.</p>
       </div>
-
-      {/* Notification Center Popover */}
-      <AnchoredPopover
-        open={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
-        triggerRef={notificationsTriggerRef}
-        className="w-[320px] max-w-[90vw]"
-      >
-        <NotificationCenter
-          notifications={notifications}
-          onClose={() => setIsNotificationsOpen(false)}
-          onDismiss={handleDismissNotification}
-          onClearAll={handleClearAllNotifications}
-          onNotificationClick={handleNotificationClick}
-        />
-      </AnchoredPopover>
-
-      {/* Settings Popover */}
-      <AnchoredPopover
-        open={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        triggerRef={settingsTriggerRef}
-        className="w-[280px] max-w-[90vw]"
-      >
-        <div className="flex flex-col text-card-foreground">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 bg-muted/5">
-            <h3 className="font-display text-sm font-semibold">Notification Settings</h3>
-            <button
-              onClick={() => setIsSettingsOpen(false)}
-              className="grid h-6 w-6 place-items-center rounded-full bg-secondary/80 text-muted-foreground hover:bg-secondary hover:text-foreground transition active:scale-95"
-              aria-label="Close settings"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Body/Rows */}
-          <div className="p-1.5 space-y-0.5">
-            {/* Sound Alerts */}
-            <div
-              onClick={() => handleSoundToggle(!soundEnabled)}
-              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
-            >
-              <div className="flex items-center gap-3">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-500/8 text-blue-500">
-                  <Volume2 className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-semibold text-foreground">Sound Alerts</span>
-              </div>
-              <Switch
-                id="notify-sound"
-                checked={soundEnabled}
-                onCheckedChange={handleSoundToggle}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-
-            {/* Vibrate Alerts */}
-            <div
-              onClick={() => handleVibrationToggle(!vibrationEnabled)}
-              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
-            >
-              <div className="flex items-center gap-3">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-warning/8 text-warning">
-                  <Smartphone className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-semibold text-foreground">Vibrate Alerts</span>
-              </div>
-              <Switch
-                id="notify-vibrate"
-                checked={vibrationEnabled}
-                onCheckedChange={handleVibrationToggle}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-
-            {/* Flash Cards */}
-            <div
-              onClick={() => handleFlashCardsToggle(!flashCardsEnabled)}
-              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
-            >
-              <div className="flex items-center gap-3">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent/8 text-accent">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-semibold text-foreground">Flash Cards</span>
-              </div>
-              <Switch
-                id="notify-flash"
-                checked={flashCardsEnabled}
-                onCheckedChange={handleFlashCardsToggle}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
-        </div>
-      </AnchoredPopover>
 
       {/* Top stats */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
