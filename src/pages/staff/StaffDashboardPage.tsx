@@ -22,6 +22,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import {
+  initNotificationSystem,
+  triggerNotification,
+  loadNotificationSettings,
+  saveNotificationSettings,
+  getNotificationSetting,
+} from "@/lib/notificationSystem";
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   pending: "preparing",
@@ -53,6 +61,33 @@ export default function StaffDashboardPage() {
   const { cafe, cafeId } = useCafe();
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
   const [reviewingOrder, setReviewingOrder] = useState<OrderWithItems | null>(null);
+  const [flashingIds, setFlashingIds] = useState<Record<string, "new" | "updated" | "sr">>({});
+
+  // Notification States
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
+  const [flashCardsEnabled, setFlashCardsEnabled] = useState(true);
+
+  useEffect(() => {
+    initNotificationSystem();
+    const settings = loadNotificationSettings();
+    setSoundEnabled(settings.sound);
+    setVibrationEnabled(settings.vibration);
+    setFlashCardsEnabled(settings.flashCards);
+  }, []);
+
+  const handleSoundToggle = (val: boolean) => {
+    setSoundEnabled(val);
+    saveNotificationSettings({ sound: val });
+  };
+  const handleVibrationToggle = (val: boolean) => {
+    setVibrationEnabled(val);
+    saveNotificationSettings({ vibration: val });
+  };
+  const handleFlashCardsToggle = (val: boolean) => {
+    setFlashCardsEnabled(val);
+    saveNotificationSettings({ flashCards: val });
+  };
 
   const handleAcknowledge = async (orderId: string, version: number) => {
     try {
@@ -124,10 +159,55 @@ export default function StaffDashboardPage() {
       .channel(`staff-${cafeId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `cafe_id=eq.${cafeId}` }, (payload) => {
         void qc.invalidateQueries({ queryKey: ["staff-orders", cafeId] });
-        if (payload.eventType === "UPDATE") {
+        
+        if (payload.eventType === "INSERT") {
+          const newOrder = payload.new as Order;
+          
+          // Trigger notification
+          triggerNotification({
+            type: "new",
+            title: "New Order",
+            body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} received.`,
+            vibratePattern: 300,
+            orderId: newOrder.id
+          });
+
+          // Flash card if enabled
+          if (getNotificationSetting("flashCards")) {
+            setFlashingIds(prev => ({ ...prev, [newOrder.id]: "new" }));
+            setTimeout(() => {
+              setFlashingIds(prev => {
+                const copy = { ...prev };
+                delete copy[newOrder.id];
+                return copy;
+              });
+            }, 2000);
+          }
+        } else if (payload.eventType === "UPDATE") {
           const newOrder = payload.new as Order;
           // check if version incremented by customer
           if (newOrder.version > newOrder.last_reviewed_version && newOrder.last_updated_by === 'customer') {
+            // Trigger notification
+            triggerNotification({
+              type: "updated",
+              title: "Order Updated",
+              body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} updated.`,
+              vibratePattern: [120, 80, 120],
+              orderId: newOrder.id
+            });
+
+            // Flash card if enabled
+            if (getNotificationSetting("flashCards")) {
+              setFlashingIds(prev => ({ ...prev, [newOrder.id]: "updated" }));
+              setTimeout(() => {
+                setFlashingIds(prev => {
+                  const copy = { ...prev };
+                  delete copy[newOrder.id];
+                  return copy;
+                });
+              }, 2000);
+            }
+
             void (async () => {
               const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
               const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
@@ -148,8 +228,32 @@ export default function StaffDashboardPage() {
         (payload) => {
           void qc.invalidateQueries({ queryKey: ["staff-sr", cafeId] });
           if (payload.eventType === "INSERT") {
-            const t = (payload.new as ServiceRequest).type;
-            toast(`New request: ${SR_META[t]?.label ?? t}`);
+            const req = payload.new as ServiceRequest;
+            const t = req.type;
+            const label = SR_META[t]?.label ?? t;
+            
+            // Trigger notification
+            triggerNotification({
+              type: "sr",
+              title: "Service Request",
+              body: label,
+              vibratePattern: [80, 60, 80, 60, 80],
+              orderId: req.id
+            });
+
+            // Flash card if enabled
+            if (getNotificationSetting("flashCards")) {
+              setFlashingIds(prev => ({ ...prev, [req.id]: "sr" }));
+              setTimeout(() => {
+                setFlashingIds(prev => {
+                  const copy = { ...prev };
+                  delete copy[req.id];
+                  return copy;
+                });
+              }, 2000);
+            }
+
+            toast(`New request: ${label}`);
           }
         },
       )
@@ -222,6 +326,31 @@ export default function StaffDashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Header and Notification Settings */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Dashboard</h1>
+          <p className="text-xs text-muted-foreground">Manage active orders and service requests in real-time.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-card p-3 shadow-soft">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Staff Notifications</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <Switch id="notify-sound" checked={soundEnabled} onCheckedChange={handleSoundToggle} />
+              <label htmlFor="notify-sound" className="text-xs font-semibold cursor-pointer text-foreground select-none">Sound</label>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Switch id="notify-vibrate" checked={vibrationEnabled} onCheckedChange={handleVibrationToggle} />
+              <label htmlFor="notify-vibrate" className="text-xs font-semibold cursor-pointer text-foreground select-none">Vibrate</label>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Switch id="notify-flash" checked={flashCardsEnabled} onCheckedChange={handleFlashCardsToggle} />
+              <label htmlFor="notify-flash" className="text-xs font-semibold cursor-pointer text-foreground select-none">Flash Cards</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Top stats */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Incoming" value={grouped.incoming.length} icon={Clock} tone="warning" />
@@ -257,10 +386,11 @@ export default function StaffDashboardPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     className={cn(
-                      "min-w-[280px] max-w-[320px] shrink-0 snap-start rounded-2xl border p-4 shadow-soft",
+                      "min-w-[280px] max-w-[320px] shrink-0 snap-start rounded-2xl border p-4 shadow-soft transition-all duration-300",
                       s.status === "open"
                         ? "border-destructive/40 bg-destructive/5"
                         : "border-accent/40 bg-accent/5",
+                      flashingIds[s.id] === "sr" && "animate-flash-blue"
                     )}
                   >
                     <div className="flex items-center gap-2 text-sm font-semibold">
@@ -304,6 +434,7 @@ export default function StaffDashboardPage() {
           onAdvance={advance}
           onCancel={cancel}
           onReviewChanges={setReviewingOrder}
+          flashingIds={flashingIds}
           emptyLabel="No new orders."
         />
         <OrderColumn
@@ -314,6 +445,7 @@ export default function StaffDashboardPage() {
           onAdvance={advance}
           onCancel={cancel}
           onReviewChanges={setReviewingOrder}
+          flashingIds={flashingIds}
           emptyLabel="Nothing in the kitchen right now."
         />
         <OrderColumn
@@ -323,6 +455,7 @@ export default function StaffDashboardPage() {
           currency={currency}
           onAdvance={advance}
           onReviewChanges={setReviewingOrder}
+          flashingIds={flashingIds}
           emptyLabel="No completed orders yet."
         />
       </section>
@@ -544,6 +677,7 @@ function OrderColumn({
   onCancel,
   emptyLabel,
   onReviewChanges,
+  flashingIds,
 }: {
   title: string;
   accent: "warning" | "accent" | "success";
@@ -553,6 +687,7 @@ function OrderColumn({
   onCancel?: (o: OrderWithItems) => void;
   emptyLabel: string;
   onReviewChanges?: (o: OrderWithItems) => void;
+  flashingIds: Record<string, "new" | "updated" | "sr">;
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
@@ -597,7 +732,11 @@ function OrderColumn({
                * min-w-0         → redundant safety in case article is flex child somewhere
                * No overflow:hidden — clipping is never the answer
                */
-              className="w-full min-w-0 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60"
+              className={cn(
+                "w-full min-w-0 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition-all duration-300",
+                flashingIds[o.id] === "new" && "animate-flash-green",
+                flashingIds[o.id] === "updated" && "animate-flash-amber"
+              )}
             >
               {/* Order header row */}
               <div className="flex items-start justify-between gap-2">

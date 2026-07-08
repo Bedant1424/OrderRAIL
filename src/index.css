@@ -208,3 +208,29 @@
   border-color: hsl(var(--destructive) / 0.4) !important;
   background: linear-gradient(to right, hsl(var(--card)), hsl(0 72% 98%)) !important;
 }
+
+@keyframes flash-green {
+  0% { box-shadow: 0 0 0 0px hsl(142, 70%, 45%, 0.7); border-color: hsl(142, 70%, 45%); }
+  50% { box-shadow: 0 0 0 12px hsl(142, 70%, 45%, 0); border-color: hsl(142, 70%, 45%, 0.5); }
+  100% { box-shadow: 0 0 0 0px hsl(142, 70%, 45%, 0); }
+}
+@keyframes flash-amber {
+  0% { box-shadow: 0 0 0 0px hsl(38, 92%, 50%, 0.7); border-color: hsl(38, 92%, 50%); }
+  50% { box-shadow: 0 0 0 12px hsl(38, 92%, 50%, 0); border-color: hsl(38, 92%, 50%, 0.5); }
+  100% { box-shadow: 0 0 0 0px hsl(38, 92%, 50%, 0); }
+}
+@keyframes flash-blue {
+  0% { box-shadow: 0 0 0 0px hsl(217, 91%, 60%, 0.7); border-color: hsl(217, 91%, 60%); }
+  50% { box-shadow: 0 0 0 12px hsl(217, 91%, 60%, 0); border-color: hsl(217, 91%, 60%, 0.5); }
+  100% { box-shadow: 0 0 0 0px hsl(217, 91%, 60%, 0); }
+}
+
+.animate-flash-green {
+  animation: flash-green 2s ease-out;
+}
+.animate-flash-amber {
+  animation: flash-amber 2s ease-out;
+}
+.animate-flash-blue {
+  animation: flash-blue 2s ease-out;
+}
