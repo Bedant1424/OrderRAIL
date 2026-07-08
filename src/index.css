@@ -224,6 +224,11 @@
   50% { box-shadow: 0 0 0 12px hsl(217, 91%, 60%, 0); border-color: hsl(217, 91%, 60%, 0.5); }
   100% { box-shadow: 0 0 0 0px hsl(217, 91%, 60%, 0); }
 }
+@keyframes flash-red {
+  0% { box-shadow: 0 0 0 0px hsl(0, 84%, 60%, 0.7); border-color: hsl(0, 84%, 60%); }
+  50% { box-shadow: 0 0 0 12px hsl(0, 84%, 60%, 0); border-color: hsl(0, 84%, 60%, 0.5); }
+  100% { box-shadow: 0 0 0 0px hsl(0, 84%, 60%, 0); }
+}
 
 .animate-flash-green {
   animation: flash-green 2s ease-out;
@@ -233,4 +238,7 @@
 }
 .animate-flash-blue {
   animation: flash-blue 2s ease-out;
+}
+.animate-flash-red {
+  animation: flash-red 2s ease-out;
 }

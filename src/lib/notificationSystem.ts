@@ -3,7 +3,7 @@
 interface NotificationTask {
   id: string;
   orderId?: string;
-  type: "new" | "updated" | "sr";
+  type: "new" | "updated" | "sr" | "cancelled";
   title: string;
   body: string;
   vibratePattern: number | number[];
@@ -224,7 +224,7 @@ async function processQueue() {
 /**
  * Enqueue a notification task
  */
-export function triggerNotification(task: Omit<NotificationTask, "id">) {
+export function triggerNotification(task: Omit<NotificationTask, "id">): boolean {
   const now = Date.now();
 
   // Avoid duplicate notifications for the same order/event within 5 seconds
@@ -232,7 +232,7 @@ export function triggerNotification(task: Omit<NotificationTask, "id">) {
     const dupeKey = `${task.orderId}:${task.type}`;
     const lastTime = recentNotifications.get(dupeKey);
     if (lastTime && now - lastTime < 5000) {
-      return; // Ignore duplicate
+      return false; // Ignore duplicate
     }
     recentNotifications.set(dupeKey, now);
   }
@@ -244,4 +244,5 @@ export function triggerNotification(task: Omit<NotificationTask, "id">) {
 
   queue.push(fullTask);
   void processQueue();
+  return true;
 }

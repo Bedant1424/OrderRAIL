@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle } from "lucide-react";
@@ -61,12 +61,57 @@ export default function StaffDashboardPage() {
   const { cafe, cafeId } = useCafe();
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
   const [reviewingOrder, setReviewingOrder] = useState<OrderWithItems | null>(null);
-  const [flashingIds, setFlashingIds] = useState<Record<string, "new" | "updated" | "sr">>({});
+  const [flashingIds, setFlashingIds] = useState<Record<string, "new" | "updated" | "sr" | "cancelled">>({});
 
   // Notification States
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [flashCardsEnabled, setFlashCardsEnabled] = useState(true);
+
+  // Idle Activity Detection
+  const lastActivityRef = useRef(Date.now());
+  useEffect(() => {
+    const updateActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+    const events = [
+      "mousemove",
+      "keydown",
+      "keyup",
+      "mousedown",
+      "click",
+      "scroll",
+      "touchstart",
+      "touchmove",
+      "touchend",
+      "focus",
+      "visibilitychange"
+    ];
+    events.forEach((e) => window.addEventListener(e, updateActivity, { passive: true }));
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, updateActivity));
+    };
+  }, []);
+
+  const isIdle = () => {
+    const idleTimeThresholdMs = 10000; // 10 seconds threshold
+    return Date.now() - lastActivityRef.current >= idleTimeThresholdMs;
+  };
+
+  // Prevent duplicate scrolls tracker
+  const lastScrolledIdRef = useRef<string | null>(null);
+  const executeScroll = (id: string, runScroll: () => void) => {
+    if (lastScrolledIdRef.current === id) return;
+    lastScrolledIdRef.current = id;
+    
+    setTimeout(() => {
+      if (lastScrolledIdRef.current === id) {
+        lastScrolledIdRef.current = null;
+      }
+    }, 5000);
+
+    runScroll();
+  };
 
   useEffect(() => {
     initNotificationSystem();
@@ -163,8 +208,8 @@ export default function StaffDashboardPage() {
         if (payload.eventType === "INSERT") {
           const newOrder = payload.new as Order;
           
-          // Trigger notification
-          triggerNotification({
+          // Trigger notification via the queue
+          const isNewEvent = triggerNotification({
             type: "new",
             title: "New Order",
             body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} received.`,
@@ -172,33 +217,20 @@ export default function StaffDashboardPage() {
             orderId: newOrder.id
           });
 
-          // Flash card if enabled
-          if (getNotificationSetting("flashCards")) {
-            setFlashingIds(prev => ({ ...prev, [newOrder.id]: "new" }));
-            setTimeout(() => {
-              setFlashingIds(prev => {
-                const copy = { ...prev };
-                delete copy[newOrder.id];
-                return copy;
+          if (isNewEvent) {
+            // Show toast notification
+            void (async () => {
+              const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
+              const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
+              toast.success("🛒 New Order", {
+                description: `Order #${newOrder.id.slice(0, 6).toUpperCase()} has been placed.`,
+                duration: 5000,
               });
-            }, 2000);
-          }
-        } else if (payload.eventType === "UPDATE") {
-          const newOrder = payload.new as Order;
-          // check if version incremented by customer
-          if (newOrder.version > newOrder.last_reviewed_version && newOrder.last_updated_by === 'customer') {
-            // Trigger notification
-            triggerNotification({
-              type: "updated",
-              title: "Order Updated",
-              body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} updated.`,
-              vibratePattern: [120, 80, 120],
-              orderId: newOrder.id
-            });
+            })();
 
-            // Flash card if enabled
+            // Flash card green (pulse) if enabled
             if (getNotificationSetting("flashCards")) {
-              setFlashingIds(prev => ({ ...prev, [newOrder.id]: "updated" }));
+              setFlashingIds(prev => ({ ...prev, [newOrder.id]: "new" }));
               setTimeout(() => {
                 setFlashingIds(prev => {
                   const copy = { ...prev };
@@ -208,14 +240,125 @@ export default function StaffDashboardPage() {
               }, 2000);
             }
 
-            void (async () => {
-              const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
-              const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
-              toast.info(`${label} updated by customer`, {
-                description: "Items or note changed. Please review.",
-                duration: 5000,
-              });
-            })();
+            // Scroll if idle
+            if (isIdle()) {
+              setTimeout(() => {
+                if (!isIdle()) return;
+                const el = document.getElementById(`order-card-${newOrder.id}`);
+                if (el) {
+                  executeScroll(newOrder.id, () => {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  });
+                }
+              }, 1000);
+            }
+          }
+        } else if (payload.eventType === "UPDATE") {
+          const newOrder = payload.new as Order;
+          
+          // Case A: Cancelled by customer
+          if (newOrder.status === 'cancelled' && newOrder.last_updated_by === 'customer') {
+            const isNewEvent = triggerNotification({
+              type: "cancelled",
+              title: "Order Cancelled",
+              body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} was cancelled.`,
+              vibratePattern: [150, 100, 150],
+              orderId: newOrder.id
+            });
+
+            if (isNewEvent) {
+              // Show toast
+              void (async () => {
+                const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
+                const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
+                toast.error("Order Cancelled", {
+                  description: `${label} was CANCELLED by the customer.`,
+                  duration: 5000,
+                });
+              })();
+
+              // Briefly highlight card as cancelled (red flash) for 2 seconds
+              if (getNotificationSetting("flashCards")) {
+                setFlashingIds(prev => ({ ...prev, [newOrder.id]: "cancelled" }));
+                setTimeout(() => {
+                  setFlashingIds(prev => {
+                    const copy = { ...prev };
+                    delete copy[newOrder.id];
+                    return copy;
+                  });
+                }, 2000);
+              }
+
+              if (isIdle()) {
+                // Scroll immediately to the current card location (before it moves)
+                setTimeout(() => {
+                  if (!isIdle()) return;
+                  const el = document.getElementById(`order-card-${newOrder.id}`);
+                  if (el) {
+                    executeScroll(newOrder.id + "-cancel-pre", () => {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    });
+                  }
+                }, 100);
+
+                // Scroll again after transition to "Recently done" column
+                setTimeout(() => {
+                  if (!isIdle()) return;
+                  const el = document.getElementById(`order-card-${newOrder.id}`);
+                  if (el) {
+                    executeScroll(newOrder.id + "-cancel-post", () => {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    });
+                  }
+                }, 1200);
+              }
+            }
+          }
+          // Case B: Normal update by customer
+          else if (newOrder.status !== 'cancelled' && newOrder.version > newOrder.last_reviewed_version && newOrder.last_updated_by === 'customer') {
+            // Trigger notification
+            const isNewEvent = triggerNotification({
+              type: "updated",
+              title: "Order Updated",
+              body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} updated.`,
+              vibratePattern: [120, 80, 120],
+              orderId: newOrder.id
+            });
+
+            if (isNewEvent) {
+              // Flash card if enabled
+              if (getNotificationSetting("flashCards")) {
+                setFlashingIds(prev => ({ ...prev, [newOrder.id]: "updated" }));
+                setTimeout(() => {
+                  setFlashingIds(prev => {
+                    const copy = { ...prev };
+                    delete copy[newOrder.id];
+                    return copy;
+                  });
+                }, 2000);
+              }
+
+              void (async () => {
+                const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
+                const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
+                toast.info("Order Updated", {
+                  description: `${label} updated by customer. Please review.`,
+                  duration: 5000,
+                });
+              })();
+
+              if (isIdle()) {
+                setTimeout(() => {
+                  if (!isIdle()) return;
+                  const el = document.getElementById(`order-card-${newOrder.id}`);
+                  if (el) {
+                    executeScroll(newOrder.id, () => {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    });
+                  }
+                }, 1000);
+              }
+            }
           }
         }
       })
@@ -233,7 +376,7 @@ export default function StaffDashboardPage() {
             const label = SR_META[t]?.label ?? t;
             
             // Trigger notification
-            triggerNotification({
+            const isNewEvent = triggerNotification({
               type: "sr",
               title: "Service Request",
               body: label,
@@ -241,19 +384,49 @@ export default function StaffDashboardPage() {
               orderId: req.id
             });
 
-            // Flash card if enabled
-            if (getNotificationSetting("flashCards")) {
-              setFlashingIds(prev => ({ ...prev, [req.id]: "sr" }));
-              setTimeout(() => {
-                setFlashingIds(prev => {
-                  const copy = { ...prev };
-                  delete copy[req.id];
-                  return copy;
-                });
-              }, 2000);
-            }
+            if (isNewEvent) {
+              // Flash card if enabled
+              if (getNotificationSetting("flashCards")) {
+                setFlashingIds(prev => ({ ...prev, [req.id]: "sr" }));
+                setTimeout(() => {
+                  setFlashingIds(prev => {
+                    const copy = { ...prev };
+                    delete copy[req.id];
+                    return copy;
+                  });
+                }, 2000);
+              }
 
-            toast(`New request: ${label}`);
+              void (async () => {
+                const { data: tbl } = await supabase.from("tables").select("label").eq("id", req.table_id).maybeSingle();
+                const tableLabel = tbl ? `Table ${tbl.label}` : 'Unknown table';
+                toast.warning(`Service Request: ${label}`, {
+                  description: `${tableLabel} is calling for attention.`,
+                  duration: 5000,
+                });
+              })();
+
+              // Scroll if idle
+              if (isIdle()) {
+                setTimeout(() => {
+                  if (!isIdle()) return;
+                  executeScroll(req.id, () => {
+                    const section = document.getElementById("service-requests-section");
+                    if (section) {
+                      section.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                    
+                    setTimeout(() => {
+                      if (!isIdle()) return;
+                      const card = document.getElementById(`sr-card-${req.id}`);
+                      if (card) {
+                        card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                      }
+                    }, 300);
+                  });
+                }, 1000);
+              }
+            }
           }
         },
       )
@@ -367,13 +540,13 @@ export default function StaffDashboardPage() {
            The SR strip itself is correct: overflow-x:auto scrolls internally
            once its grid-item parent is properly constrained. */}
       {(srQ.data?.length ?? 0) > 0 && (
-        <section>
+        <section id="service-requests-section">
           <h2 className="mb-3 font-display text-lg font-semibold">Service requests</h2>
           {/* no-scrollbar hides the native scrollbar; the strip is still
               scrollable via mouse-wheel, touch-swipe and trackpad.
               scroll-snap-type x mandatory + snap-start on cards gives
               the snapping behaviour. */}
-          <div className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
+          <div id="service-requests-container" className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
             <AnimatePresence initial={false}>
               {srQ.data!.map((s) => {
                 const meta = SR_META[s.type] ?? { label: s.type, icon: Bell };
@@ -381,6 +554,7 @@ export default function StaffDashboardPage() {
                 return (
                   <motion.div
                     key={s.id}
+                    id={`sr-card-${s.id}`}
                     layout
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -687,7 +861,7 @@ function OrderColumn({
   onCancel?: (o: OrderWithItems) => void;
   emptyLabel: string;
   onReviewChanges?: (o: OrderWithItems) => void;
-  flashingIds: Record<string, "new" | "updated" | "sr">;
+  flashingIds: Record<string, "new" | "updated" | "sr" | "cancelled">;
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
@@ -723,6 +897,7 @@ function OrderColumn({
           {orders.map((o) => (
             <motion.article
               key={o.id}
+              id={`order-card-${o.id}`}
               layout
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -735,7 +910,8 @@ function OrderColumn({
               className={cn(
                 "w-full min-w-0 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition-all duration-300",
                 flashingIds[o.id] === "new" && "animate-flash-green",
-                flashingIds[o.id] === "updated" && "animate-flash-amber"
+                flashingIds[o.id] === "updated" && "animate-flash-amber",
+                flashingIds[o.id] === "cancelled" && "animate-flash-red"
               )}
             >
               {/* Order header row */}
