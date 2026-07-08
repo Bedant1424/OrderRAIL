@@ -34,7 +34,7 @@ export default function OwnerReviewsPage() {
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 overflow-x-hidden min-w-0">
       <header>
         <h1 className="font-display text-3xl font-semibold tracking-tight">Reviews</h1>
         <p className="mt-1 text-sm text-muted-foreground">Feedback from customers who scanned & ordered.</p>
@@ -61,7 +61,7 @@ export default function OwnerReviewsPage() {
           </li>
         )}
         {reviews.map((r) => (
-          <li key={r.id} className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <li key={r.id} className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 min-w-0 overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((i) => (
@@ -76,7 +76,7 @@ export default function OwnerReviewsPage() {
               </span>
             </div>
             {r.comment ? (
-              <p className="mt-2 text-sm">{r.comment}</p>
+              <p className="mt-2 text-sm" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{r.comment}</p>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">No comment.</p>
             )}
