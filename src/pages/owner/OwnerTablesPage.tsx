@@ -6,12 +6,16 @@ import { toast } from "sonner";
 import { supabase, type Cafe, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 
-function TableQRCard({ table }: { table: TableRow }) {
+/* ── QR size: reduced ~28% from 200→144. Canvas stays square. ── */
+const QR_SIZE = 144;
+const QR_PADDING = 12; // consistent whitespace around the QR
+
+function TableQRCard({ table, onDelete }: { table: TableRow; onDelete: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (!ref.current) return;
     const url = `${window.location.origin}/t/${table.id}`;
-    void QRCode.toCanvas(ref.current, url, { margin: 1, width: 200, color: { dark: "#1a1210", light: "#ffffff" } });
+    void QRCode.toCanvas(ref.current, url, { margin: 1, width: QR_SIZE, color: { dark: "#1a1210", light: "#ffffff" } });
   }, [table.id]);
 
   const downloadSingle = () => {
@@ -23,16 +27,43 @@ function TableQRCard({ table }: { table: TableRow }) {
   };
 
   return (
-    <div className="rounded-3xl bg-card p-4 text-center shadow-soft ring-1 ring-border/60 print:break-inside-avoid print:shadow-none print:ring-0 print:border">
-      <canvas ref={ref} className="mx-auto rounded-xl" />
-      <div className="mt-3 font-display text-xl font-semibold">Table {table.label}</div>
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3 print:mb-0">Scan to order</div>
-      <button
-        onClick={downloadSingle}
-        className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground transition hover:bg-secondary/80 print:hidden"
+    <div className="rounded-2xl bg-card text-center shadow-soft ring-1 ring-border/60 print:break-inside-avoid print:shadow-none print:ring-0 print:border">
+      {/* QR container — enforces square + padding, prevents clipping */}
+      <div
+        className="mx-auto flex items-center justify-center overflow-visible"
+        style={{ padding: QR_PADDING }}
       >
-        <Download className="h-3 w-3" /> Download
-      </button>
+        <canvas
+          ref={ref}
+          className="block rounded-lg"
+          style={{ width: QR_SIZE, height: QR_SIZE }}
+        />
+      </div>
+
+      {/* Label + tagline */}
+      <div className="px-3 pb-1 font-display text-lg font-semibold leading-tight">
+        Table {table.label}
+      </div>
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground px-3 print:mb-0">
+        Scan to order
+      </div>
+
+      {/* Actions row — download + delete side by side, away from QR */}
+      <div className="flex items-center justify-center gap-2 px-3 py-2.5 print:hidden">
+        <button
+          onClick={downloadSingle}
+          className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground transition hover:bg-secondary/80"
+        >
+          <Download className="h-3 w-3" /> Download
+        </button>
+        <button
+          onClick={onDelete}
+          className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive transition hover:bg-destructive/20"
+          aria-label="Remove table"
+        >
+          <Trash2 className="h-3 w-3" /> Delete
+        </button>
+      </div>
     </div>
   );
 }
@@ -107,12 +138,14 @@ export default function OwnerTablesPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* ── Header + CTA buttons ── */}
       <header className="flex flex-wrap items-end justify-between gap-3 print:hidden">
         <div>
           <h1 className="font-display text-3xl font-semibold tracking-tight">Tables & QR</h1>
           <p className="mt-1 text-sm text-muted-foreground">Print a code for every table — customers scan to order.</p>
         </div>
+        {/* CTA stack: Print = primary, Download = secondary */}
         <div className="flex gap-2">
           <button
             onClick={() => void downloadAll()}
@@ -129,43 +162,36 @@ export default function OwnerTablesPage() {
         </div>
       </header>
 
-      <section className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 print:hidden">
-        <h2 className="mb-3 font-display text-base font-semibold">Add a table</h2>
-        <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto]">
+      {/* ── Add-table section (compact) ── */}
+      <section className="rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60 print:hidden">
+        <h2 className="mb-2 font-display text-sm font-semibold">Add a table</h2>
+        <div className="flex flex-wrap items-center gap-2">
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Label (e.g. 12 or Patio-3)"
-            className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+            className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60"
           />
           <input
             type="number"
             value={seats}
             min={1}
             onChange={(e) => setSeats(Number(e.target.value))}
-            className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+            className="w-20 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60"
           />
           <button
             onClick={() => void add()}
-            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
+            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground whitespace-nowrap"
           >
             <Plus className="mr-1 inline h-4 w-4" /> Add
           </button>
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-6 print:w-full print:mx-auto">
+      {/* ── QR grid — increased gap, responsive columns ── */}
+      <section className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-6 print:w-full print:mx-auto">
         {(tablesQ.data ?? []).map((t) => (
-          <div key={t.id} className="relative">
-            <TableQRCard table={t} />
-            <button
-              onClick={() => void remove(t)}
-              className="absolute right-2 top-2 rounded-full bg-background/90 p-1.5 text-muted-foreground shadow-soft hover:text-destructive print:hidden"
-              aria-label="Remove table"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <TableQRCard key={t.id} table={t} onDelete={() => void remove(t)} />
         ))}
       </section>
     </div>
