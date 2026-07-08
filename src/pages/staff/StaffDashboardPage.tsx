@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings } from "lucide-react";
+import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import {
   supabase,
@@ -71,6 +71,49 @@ export default function StaffDashboardPage() {
   const [flashCardsEnabled, setFlashCardsEnabled] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Service Request Scroller States & Refs
+  const srContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = () => {
+    const el = srContainerRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  };
+
+  const scrollContainer = (direction: "left" | "right") => {
+    const el = srContainerRef.current;
+    if (!el) return;
+    const cardEl = el.firstElementChild as HTMLElement | null;
+    const cardWidth = cardEl ? cardEl.offsetWidth : 300;
+    const scrollAmount = cardWidth + 12;
+    el.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
+
+  useEffect(() => {
+    const el = srContainerRef.current;
+    if (!el) return;
+
+    checkScroll();
+
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    window.addEventListener("resize", checkScroll);
+
+    const ro = new ResizeObserver(() => checkScroll());
+    ro.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      window.removeEventListener("resize", checkScroll);
+      ro.disconnect();
+    };
+  }, [srQ.data]);
 
   // Idle Activity Detection
   const lastActivityRef = useRef(Date.now());
@@ -697,12 +740,44 @@ export default function StaffDashboardPage() {
            once its grid-item parent is properly constrained. */}
       {(srQ.data?.length ?? 0) > 0 && (
         <section id="service-requests-section">
-          <h2 className="mb-3 font-display text-lg font-semibold">Service requests</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display text-lg font-semibold">Service requests</h2>
+            {(canScrollLeft || canScrollRight) && (
+              <div className="flex items-center gap-1.5 print:hidden">
+                <button
+                  onClick={() => scrollContainer("left")}
+                  disabled={!canScrollLeft}
+                  className={cn(
+                    "grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground transition active:scale-95 shadow-sm",
+                    canScrollLeft ? "hover:text-foreground hover:bg-secondary cursor-pointer" : "opacity-40 cursor-not-allowed"
+                  )}
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => scrollContainer("right")}
+                  disabled={!canScrollRight}
+                  className={cn(
+                    "grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground transition active:scale-95 shadow-sm",
+                    canScrollRight ? "hover:text-foreground hover:bg-secondary cursor-pointer" : "opacity-40 cursor-not-allowed"
+                  )}
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
           {/* no-scrollbar hides the native scrollbar; the strip is still
               scrollable via mouse-wheel, touch-swipe and trackpad.
               scroll-snap-type x mandatory + snap-start on cards gives
               the snapping behaviour. */}
-          <div id="service-requests-container" className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1">
+          <div 
+            ref={srContainerRef}
+            id="service-requests-container" 
+            className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1"
+          >
             <AnimatePresence initial={false}>
               {srQ.data!.map((s) => {
                 const meta = SR_META[s.type] ?? { label: s.type, icon: Bell };
