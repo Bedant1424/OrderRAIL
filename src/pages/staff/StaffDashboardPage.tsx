@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle } from "lucide-react";
+import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings } from "lucide-react";
 import { toast } from "sonner";
 import {
   supabase,
@@ -53,6 +53,7 @@ const SR_META: Record<string, { label: string; icon: React.ComponentType<{ class
 };
 
 import { useCafe } from "@/lib/cafe";
+import { Overlay } from "@/components/ui/overlay";
 
 type OrderWithItems = Order & { order_items: OrderItem[]; tables: { label: string } | null };
 type TableWithSession = TableRow & { dining_sessions: { status: string } | null };
@@ -68,6 +69,7 @@ export default function StaffDashboardPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [flashCardsEnabled, setFlashCardsEnabled] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Idle Activity Detection
   const lastActivityRef = useRef(Date.now());
@@ -627,30 +629,102 @@ export default function StaffDashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header and Notification Settings */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Header and Settings Icon */}
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold">Dashboard</h1>
           <p className="text-xs text-muted-foreground">Manage active orders and service requests in real-time.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-card p-3 shadow-soft">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Staff Notifications</span>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <Switch id="notify-sound" checked={soundEnabled} onCheckedChange={handleSoundToggle} />
-              <label htmlFor="notify-sound" className="text-xs font-semibold cursor-pointer text-foreground select-none">Sound</label>
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
+          aria-label="Notification settings"
+        >
+          <Settings className="h-5 w-5" />
+        </button>
+      </div>
+
+      <Overlay open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} aria-label="Notification Settings">
+        <div 
+          className="fixed inset-0 flex items-center justify-center p-4 z-50"
+          onClick={() => setIsSettingsOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-float transition-all duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Panel Header */}
+            <div className="flex items-center justify-between border-b border-border/40 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
+                  <Settings className="h-4 w-4" />
+                </div>
+                <div className="leading-tight">
+                  <div className="text-[9px] uppercase tracking-widest text-muted-foreground">Preferences</div>
+                  <h3 className="font-display text-base font-semibold">Notification Settings</h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-full bg-secondary/80 text-muted-foreground hover:bg-secondary hover:text-foreground transition"
+                aria-label="Close settings"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Switch id="notify-vibrate" checked={vibrationEnabled} onCheckedChange={handleVibrationToggle} />
-              <label htmlFor="notify-vibrate" className="text-xs font-semibold cursor-pointer text-foreground select-none">Vibrate</label>
+
+            {/* Panel Controls */}
+            <div className="mt-5 space-y-4">
+              <div className="flex items-center justify-between rounded-xl border border-border bg-muted/10 p-3">
+                <div className="leading-tight">
+                  <div className="text-xs font-bold text-foreground">Sound Alerts</div>
+                  <div className="text-[10px] text-muted-foreground">Play chime for incoming events</div>
+                </div>
+                <Switch id="notify-sound" checked={soundEnabled} onCheckedChange={handleSoundToggle} />
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-border bg-muted/10 p-3">
+                <div className="leading-tight">
+                  <div className="text-xs font-bold text-foreground">Vibrate Alerts</div>
+                  <div className="text-[10px] text-muted-foreground">Trigger device haptic feedback</div>
+                </div>
+                <Switch id="notify-vibrate" checked={vibrationEnabled} onCheckedChange={handleVibrationToggle} />
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-border bg-muted/10 p-3">
+                <div className="leading-tight">
+                  <div className="text-xs font-bold text-foreground">Flash Cards</div>
+                  <div className="text-[10px] text-muted-foreground">Color pulse animations on update</div>
+                </div>
+                <Switch id="notify-flash" checked={flashCardsEnabled} onCheckedChange={handleFlashCardsToggle} />
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Switch id="notify-flash" checked={flashCardsEnabled} onCheckedChange={handleFlashCardsToggle} />
-              <label htmlFor="notify-flash" className="text-xs font-semibold cursor-pointer text-foreground select-none">Flash Cards</label>
+
+            {/* Future Placeholder Options Layout */}
+            <div className="mt-6 border-t border-border/40 pt-4">
+              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Future Options</div>
+              <div className="grid grid-cols-2 gap-2 opacity-50 select-none pointer-events-none">
+                <div className="rounded-xl border border-dashed border-border/60 p-2.5 text-left">
+                  <div className="text-[10px] font-bold text-foreground">Test Sound</div>
+                  <div className="text-[8px] text-muted-foreground">Play a sample alert sound</div>
+                </div>
+                <div className="rounded-xl border border-dashed border-border/60 p-2.5 text-left">
+                  <div className="text-[10px] font-bold text-foreground">Alert Volume</div>
+                  <div className="text-[8px] text-muted-foreground">Change relative sound level</div>
+                </div>
+                <div className="rounded-xl border border-dashed border-border/60 p-2.5 text-left">
+                  <div className="text-[10px] font-bold text-foreground">Auto Scroll</div>
+                  <div className="text-[8px] text-muted-foreground">Focus automatically on alerts</div>
+                </div>
+                <div className="rounded-xl border border-dashed border-border/60 p-2.5 text-left">
+                  <div className="text-[10px] font-bold text-foreground">Quiet Hours</div>
+                  <div className="text-[8px] text-muted-foreground">Deactivate alerts on schedule</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </Overlay>
 
       {/* Top stats */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
