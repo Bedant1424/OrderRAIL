@@ -23,7 +23,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { getNotificationSetting } from "@/lib/notificationSystem";
+import { getNotificationSetting, initNotificationSystem } from "@/lib/notificationSystem";
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   pending: "preparing",

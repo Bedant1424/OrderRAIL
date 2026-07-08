@@ -37,7 +37,8 @@ import {
   loadNotificationSettings,
   saveNotificationSettings,
   getNotificationSetting,
-  triggerNotification
+  triggerNotification,
+  initNotificationSystem
 } from "@/lib/notificationSystem";
 import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
@@ -77,6 +78,7 @@ export default function OwnerLayout() {
   const unreadCount = getUnreadCount(notifications);
 
   useEffect(() => {
+    initNotificationSystem();
     setNotifications(loadNotifications());
   }, []);
 
