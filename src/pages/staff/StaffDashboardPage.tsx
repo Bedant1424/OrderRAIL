@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   supabase,
   formatMoney,
+  formatOrderLabel,
   type Cafe,
   type Order,
   type OrderItem,
@@ -100,6 +101,7 @@ export default function StaffDashboardPage() {
 
   // Prevent duplicate scrolls tracker
   const lastScrolledIdRef = useRef<string | null>(null);
+  const pendingScrollRequestIdRef = useRef<string | null>(null);
   const executeScroll = (id: string, runScroll: () => void) => {
     if (lastScrolledIdRef.current === id) return;
     lastScrolledIdRef.current = id;
@@ -212,7 +214,7 @@ export default function StaffDashboardPage() {
           const isNewEvent = triggerNotification({
             type: "new",
             title: "New Order",
-            body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} received.`,
+            body: `${formatOrderLabel(newOrder.order_number)} received.`,
             vibratePattern: 300,
             orderId: newOrder.id
           });
@@ -221,9 +223,9 @@ export default function StaffDashboardPage() {
             // Show toast notification
             void (async () => {
               const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
-              const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
+              const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
               toast.success("🛒 New Order", {
-                description: `Order #${newOrder.id.slice(0, 6).toUpperCase()} has been placed.`,
+                description: `${formatOrderLabel(newOrder.order_number)} has been placed.`,
                 duration: 5000,
               });
             })();
@@ -261,7 +263,7 @@ export default function StaffDashboardPage() {
             const isNewEvent = triggerNotification({
               type: "cancelled",
               title: "Order Cancelled",
-              body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} was cancelled.`,
+              body: `${formatOrderLabel(newOrder.order_number)} was cancelled.`,
               vibratePattern: [150, 100, 150],
               orderId: newOrder.id
             });
@@ -270,7 +272,7 @@ export default function StaffDashboardPage() {
               // Show toast
               void (async () => {
                 const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
-                const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
+                const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
                 toast.error("Order Cancelled", {
                   description: `${label} was CANCELLED by the customer.`,
                   duration: 5000,
@@ -320,7 +322,7 @@ export default function StaffDashboardPage() {
             const isNewEvent = triggerNotification({
               type: "updated",
               title: "Order Updated",
-              body: `Order #${newOrder.id.slice(0, 6).toUpperCase()} updated.`,
+              body: `${formatOrderLabel(newOrder.order_number)} updated.`,
               vibratePattern: [120, 80, 120],
               orderId: newOrder.id
             });
@@ -340,7 +342,7 @@ export default function StaffDashboardPage() {
 
               void (async () => {
                 const { data: tbl } = await supabase.from("tables").select("label").eq("id", newOrder.table_id).maybeSingle();
-                const label = tbl ? `Table ${tbl.label}` : `Order #${newOrder.id.slice(0, 6).toUpperCase()}`;
+                const label = tbl ? `Table ${tbl.label}` : formatOrderLabel(newOrder.order_number);
                 toast.info("Order Updated", {
                   description: `${label} updated by customer. Please review.`,
                   duration: 5000,
@@ -385,18 +387,20 @@ export default function StaffDashboardPage() {
             });
 
             if (isNewEvent) {
-              // Flash card if enabled
-              if (getNotificationSetting("flashCards")) {
-                setFlashingIds(prev => ({ ...prev, [req.id]: "sr" }));
-                setTimeout(() => {
-                  setFlashingIds(prev => {
-                    const copy = { ...prev };
-                    delete copy[req.id];
-                    return copy;
-                  });
-                }, 2000);
-              }
+              const triggerBlueFlash = (id: string) => {
+                if (getNotificationSetting("flashCards")) {
+                  setFlashingIds(prev => ({ ...prev, [id]: "sr" }));
+                  setTimeout(() => {
+                    setFlashingIds(prev => {
+                      const copy = { ...prev };
+                      delete copy[id];
+                      return copy;
+                    });
+                  }, 2000);
+                }
+              };
 
+              // Show toast immediately
               void (async () => {
                 const { data: tbl } = await supabase.from("tables").select("label").eq("id", req.table_id).maybeSingle();
                 const tableLabel = tbl ? `Table ${tbl.label}` : 'Unknown table';
@@ -406,25 +410,12 @@ export default function StaffDashboardPage() {
                 });
               })();
 
-              // Scroll if idle
               if (isIdle()) {
-                setTimeout(() => {
-                  if (!isIdle()) return;
-                  executeScroll(req.id, () => {
-                    const section = document.getElementById("service-requests-section");
-                    if (section) {
-                      section.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }
-                    
-                    setTimeout(() => {
-                      if (!isIdle()) return;
-                      const card = document.getElementById(`sr-card-${req.id}`);
-                      if (card) {
-                        card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-                      }
-                    }, 300);
-                  });
-                }, 1000);
+                // Set pending ID to scroll after React renders the new card in the DOM
+                pendingScrollRequestIdRef.current = req.id;
+              } else {
+                // If active, flash card immediately without scrolling
+                triggerBlueFlash(req.id);
               }
             }
           }
@@ -442,6 +433,143 @@ export default function StaffDashboardPage() {
       void supabase.removeChannel(channel);
     };
   }, [cafeId, qc]);
+
+  // Service Request Auto-Scroll Effect: Executes sequentially based on real-time DOM rendering events
+  useEffect(() => {
+    const pendingId = pendingScrollRequestIdRef.current;
+    if (!pendingId) return;
+
+    // Wait until the new service request card has been rendered into the DOM
+    const cardEl = document.getElementById(`sr-card-${pendingId}`);
+    if (!cardEl) return;
+
+    // Clear target once found to prevent double scroll triggers on subsequent updates
+    pendingScrollRequestIdRef.current = null;
+
+    const triggerBlueFlash = (id: string) => {
+      if (getNotificationSetting("flashCards")) {
+        setFlashingIds(prev => ({ ...prev, [id]: "sr" }));
+        setTimeout(() => {
+          setFlashingIds(prev => {
+            const copy = { ...prev };
+            delete copy[id];
+            return copy;
+          });
+        }, 2000);
+      }
+    };
+
+    if (!isIdle()) {
+      triggerBlueFlash(pendingId);
+      return;
+    }
+
+    executeScroll(pendingId, () => {
+      const section = document.getElementById("service-requests-section");
+      if (!section) {
+        triggerBlueFlash(pendingId);
+        return;
+      }
+
+      // Event-driven vertical scroll helper
+      const scrollToVertical = (targetEl: HTMLElement, callback: () => void) => {
+        const rect = targetEl.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const isCentered = Math.abs((rect.top + rect.bottom) / 2 - viewportHeight / 2) < 15;
+
+        if (isCentered) {
+          callback();
+          return;
+        }
+
+        let isDone = false;
+        const done = () => {
+          if (isDone) return;
+          isDone = true;
+          window.removeEventListener("scroll", handleScroll);
+          window.removeEventListener("scrollend", handleScrollEnd);
+          if (scrollTimeout) clearTimeout(scrollTimeout);
+          callback();
+        };
+
+        let scrollTimeout: any = null;
+        const handleScroll = () => {
+          if (scrollTimeout) clearTimeout(scrollTimeout);
+          scrollTimeout = setTimeout(done, 100);
+        };
+
+        const handleScrollEnd = () => {
+          done();
+        };
+
+        window.addEventListener("scroll", handleScroll, { passive: true });
+        window.addEventListener("scrollend", handleScrollEnd, { once: true });
+
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        scrollTimeout = setTimeout(done, 1500); // safety fallback
+      };
+
+      // Event-driven horizontal scroll helper
+      const scrollToHorizontal = (container: HTMLElement, targetEl: HTMLElement, callback: () => void) => {
+        const containerRect = container.getBoundingClientRect();
+        const targetRect = targetEl.getBoundingClientRect();
+        const targetCenter = targetRect.left + targetRect.width / 2;
+        const containerCenter = containerRect.left + containerRect.width / 2;
+        const isCentered = Math.abs(targetCenter - containerCenter) < 15;
+
+        if (isCentered) {
+          callback();
+          return;
+        }
+
+        let isDone = false;
+        const done = () => {
+          if (isDone) return;
+          isDone = true;
+          container.removeEventListener("scroll", handleScroll);
+          container.removeEventListener("scrollend", handleScrollEnd);
+          if (scrollTimeout) clearTimeout(scrollTimeout);
+          callback();
+        };
+
+        let scrollTimeout: any = null;
+        const handleScroll = () => {
+          if (scrollTimeout) clearTimeout(scrollTimeout);
+          scrollTimeout = setTimeout(done, 100);
+        };
+
+        const handleScrollEnd = () => {
+          done();
+        };
+
+        container.addEventListener("scroll", handleScroll, { passive: true });
+        container.addEventListener("scrollend", handleScrollEnd, { once: true });
+
+        targetEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        scrollTimeout = setTimeout(done, 1500); // safety fallback
+      };
+
+      // Phase 1: Scroll Vertically
+      scrollToVertical(section, () => {
+        if (!isIdle()) {
+          triggerBlueFlash(pendingId);
+          return;
+        }
+
+        const container = document.getElementById("service-requests-container");
+        if (!container) {
+          triggerBlueFlash(pendingId);
+          return;
+        }
+
+        // Phase 2: Scroll Horizontally
+        scrollToHorizontal(container, cardEl, () => {
+          // Phase 3: Blue flash animation
+          triggerBlueFlash(pendingId);
+        });
+      });
+    });
+  }, [srQ.data]);
 
   const grouped = useMemo(() => {
     const orders = ordersQ.data ?? [];
@@ -560,7 +688,7 @@ export default function StaffDashboardPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     className={cn(
-                      "min-w-[280px] max-w-[320px] shrink-0 snap-start rounded-2xl border p-4 shadow-soft transition-all duration-300",
+                      "min-w-[280px] max-w-[320px] shrink-0 snap-center rounded-2xl border p-4 shadow-soft transition-all duration-300",
                       s.status === "open"
                         ? "border-destructive/40 bg-destructive/5"
                         : "border-accent/40 bg-accent/5",
@@ -729,7 +857,7 @@ export default function StaffDashboardPage() {
                   Review Changes
                 </DialogTitle>
                 <DialogDescription>
-                  Table {reviewingOrder.tables?.label ?? "?"} · Order #{reviewingOrder.id.slice(0, 6).toUpperCase()} has been updated.
+                  Table {reviewingOrder.tables?.label ?? "?"} · {formatOrderLabel(reviewingOrder.order_number)} has been updated.
                 </DialogDescription>
               </DialogHeader>
 
@@ -922,7 +1050,7 @@ function OrderColumn({
                  */}
                 <div className="min-w-0 flex-1">
                   <div className="break-anywhere font-display text-sm font-semibold flex items-center flex-wrap gap-1">
-                    <span>Table {o.tables?.label ?? "?"} · #{o.id.slice(0, 6).toUpperCase()}</span>
+                    <span>Table {o.tables?.label ?? "?"} · {formatOrderLabel(o.order_number)}</span>
                     {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
                         UPDATED

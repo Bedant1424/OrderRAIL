@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
-import { supabase, type Order } from "@/lib/db";
+import { supabase, formatOrderLabel, type Order } from "@/lib/db";
 
 /**
  * Global, session-scoped realtime subscription for order status changes.
@@ -46,7 +46,7 @@ export function useOrderNotifications({
             console.log("[useOrderNotifications callback] Order is ready! Displaying toast for", order.id);
             notifiedRef.current.add(order.id);
             toast.success("Your order is ready! 🎉", {
-              description: `Order #${order.id.slice(0, 8).toUpperCase()}`,
+              description: formatOrderLabel(order.order_number),
               duration: 10000,
               action: {
                 label: "View order",

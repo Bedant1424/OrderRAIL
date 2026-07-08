@@ -32,15 +32,41 @@ let pendingNotificationCount = 0;
 
 const recentNotifications = new Map<string, number>(); // key: `orderId:type` or `type`, value: timestamp
 
+// Module-level early activation to catch the first user interaction
+if (typeof window !== "undefined") {
+  const earlyInit = () => {
+    initAudio();
+    try {
+      if (audioCtx && audioCtx.state === "suspended") {
+        void audioCtx.resume();
+      }
+    } catch {}
+    window.removeEventListener("click", earlyInit, true);
+    window.removeEventListener("touchstart", earlyInit, true);
+    window.removeEventListener("keydown", earlyInit, true);
+  };
+  window.addEventListener("click", earlyInit, true);
+  window.addEventListener("touchstart", earlyInit, true);
+  window.addEventListener("keydown", earlyInit, true);
+}
+
 /**
  * Initialize AudioContext on first user interaction to satisfy autoplay policies
  */
 export function initAudio() {
-  if (audioCtx) return;
+  if (audioCtx) {
+    if (audioCtx.state === "suspended") {
+      void audioCtx.resume();
+    }
+    return;
+  }
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (AudioContextClass) {
       audioCtx = new AudioContextClass();
+      if (audioCtx.state === "suspended") {
+        void audioCtx.resume();
+      }
     }
   } catch (e) {
     console.warn("Could not create AudioContext:", e);
@@ -91,42 +117,49 @@ function playChime() {
       initAudio();
     }
     if (!audioCtx) return;
+
+    const playNodeChimes = () => {
+      const now = audioCtx!.currentTime;
+
+      // Chime 1 (Primary warm tone)
+      const osc1 = audioCtx!.createOscillator();
+      const gain1 = audioCtx!.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(880, now); // A5
+      osc1.frequency.exponentialRampToValueAtTime(1174.66, now + 0.08); // slide to D6
+
+      gain1.gain.setValueAtTime(0.001, now);
+      gain1.gain.linearRampToValueAtTime(0.12, now + 0.03);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc1.connect(gain1);
+      gain1.connect(audioCtx!.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+
+      // Chime 2 (Harmony, slightly delayed)
+      const osc2 = audioCtx!.createOscillator();
+      const gain2 = audioCtx!.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(1396.91, now + 0.06); // F6
+
+      gain2.gain.setValueAtTime(0.001, now + 0.06);
+      gain2.gain.linearRampToValueAtTime(0.08, now + 0.09);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+      osc2.connect(gain2);
+      gain2.connect(audioCtx!.destination);
+      osc2.start(now + 0.06);
+      osc2.stop(now + 0.5);
+    };
+
     if (audioCtx.state === "suspended") {
-      void audioCtx.resume();
+      audioCtx.resume().then(playNodeChimes).catch((e) => {
+        console.warn("Failed to resume AudioContext in playChime:", e);
+      });
+    } else {
+      playNodeChimes();
     }
-
-    const now = audioCtx.currentTime;
-
-    // Chime 1 (Primary warm tone)
-    const osc1 = audioCtx.createOscillator();
-    const gain1 = audioCtx.createGain();
-    osc1.type = "sine";
-    osc1.frequency.setValueAtTime(880, now); // A5
-    osc1.frequency.exponentialRampToValueAtTime(1174.66, now + 0.08); // slide to D6
-
-    gain1.gain.setValueAtTime(0.001, now);
-    gain1.gain.linearRampToValueAtTime(0.12, now + 0.03);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
-    osc1.connect(gain1);
-    gain1.connect(audioCtx.destination);
-    osc1.start(now);
-    osc1.stop(now + 0.35);
-
-    // Chime 2 (Harmony, slightly delayed)
-    const osc2 = audioCtx.createOscillator();
-    const gain2 = audioCtx.createGain();
-    osc2.type = "sine";
-    osc2.frequency.setValueAtTime(1396.91, now + 0.06); // F6
-
-    gain2.gain.setValueAtTime(0.001, now + 0.06);
-    gain2.gain.linearRampToValueAtTime(0.08, now + 0.09);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-
-    osc2.connect(gain2);
-    gain2.connect(audioCtx.destination);
-    osc2.start(now + 0.06);
-    osc2.stop(now + 0.5);
   } catch (e) {
     console.warn("Chime generation failed:", e);
   }
@@ -175,16 +208,32 @@ export function initNotificationSystem() {
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       resetNotificationTitle();
+      if (audioCtx && audioCtx.state === "suspended") {
+        void audioCtx.resume();
+      }
+    }
+  });
+
+  window.addEventListener("focus", () => {
+    if (audioCtx && audioCtx.state === "suspended") {
+      void audioCtx.resume();
     }
   });
 
   const initOnInteraction = () => {
     initAudio();
-    window.removeEventListener("click", initOnInteraction);
-    window.removeEventListener("touchstart", initOnInteraction);
+    try {
+      if (audioCtx && audioCtx.state === "suspended") {
+        void audioCtx.resume();
+      }
+    } catch {}
+    window.removeEventListener("click", initOnInteraction, true);
+    window.removeEventListener("touchstart", initOnInteraction, true);
+    window.removeEventListener("keydown", initOnInteraction, true);
   };
-  window.addEventListener("click", initOnInteraction);
-  window.addEventListener("touchstart", initOnInteraction);
+  window.addEventListener("click", initOnInteraction, true);
+  window.addEventListener("touchstart", initOnInteraction, true);
+  window.addEventListener("keydown", initOnInteraction, true);
 
   loadNotificationSettings();
 }

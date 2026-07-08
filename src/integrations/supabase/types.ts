@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       cafes: {
@@ -47,41 +72,66 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_order_counters: {
+        Row: {
+          counter: number
+          date: string
+        }
+        Insert: {
+          counter?: number
+          date: string
+        }
+        Update: {
+          counter?: number
+          date?: string
+        }
+        Relationships: []
+      }
       dining_sessions: {
         Row: {
-          id: string
-          table_id: string
-          status: string
-          opened_at: string
           closed_at: string | null
           closed_by_staff_id: string | null
-          total_amount: number
           created_at: string
+          id: string
+          last_activity_at: string
+          opened_at: string
+          status: string
+          table_id: string
+          total_amount: number
           updated_at: string
         }
         Insert: {
-          id?: string
-          table_id: string
-          status?: string
-          opened_at?: string
           closed_at?: string | null
           closed_by_staff_id?: string | null
-          total_amount?: number
           created_at?: string
+          id?: string
+          last_activity_at?: string
+          opened_at?: string
+          status?: string
+          table_id: string
+          total_amount?: number
           updated_at?: string
         }
         Update: {
-          id?: string
-          table_id?: string
-          status?: string
-          opened_at?: string
           closed_at?: string | null
           closed_by_staff_id?: string | null
-          total_amount?: number
           created_at?: string
+          id?: string
+          last_activity_at?: string
+          opened_at?: string
+          status?: string
+          table_id?: string
+          total_amount?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "dining_sessions_closed_by_staff_id_fkey"
+            columns: ["closed_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dining_sessions_table_id_fkey"
             columns: ["table_id"]
@@ -89,13 +139,6 @@ export type Database = {
             referencedRelation: "tables"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "dining_sessions_closed_by_staff_id_fkey"
-            columns: ["closed_by_staff_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
         ]
       }
       menu_categories: {
@@ -193,6 +236,38 @@ export type Database = {
           },
         ]
       }
+      order_audits: {
+        Row: {
+          change_summary: string
+          created_at: string
+          editor: string
+          id: string
+          order_id: string
+        }
+        Insert: {
+          change_summary: string
+          created_at?: string
+          editor: string
+          id?: string
+          order_id: string
+        }
+        Update: {
+          change_summary?: string
+          created_at?: string
+          editor?: string
+          id?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_audits_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string
@@ -247,48 +322,51 @@ export type Database = {
           created_at: string
           dining_session_id: string | null
           id: string
+          last_reviewed_version: number
+          last_updated_by: string
           note: string | null
+          order_number: number
+          previous_items: Json | null
           session_id: string
           status: Database["public"]["Enums"]["order_status"]
           table_id: string
           total_cents: number
           updated_at: string
           version: number
-          last_updated_by: string
-          last_reviewed_version: number
-          previous_items: any | null
         }
         Insert: {
           cafe_id: string
           created_at?: string
           dining_session_id?: string | null
           id?: string
+          last_reviewed_version?: number
+          last_updated_by?: string
           note?: string | null
+          order_number: number
+          previous_items?: Json | null
           session_id: string
           status?: Database["public"]["Enums"]["order_status"]
           table_id: string
           total_cents?: number
           updated_at?: string
           version?: number
-          last_updated_by?: string
-          last_reviewed_version?: number
-          previous_items?: any | null
         }
         Update: {
           cafe_id?: string
           created_at?: string
           dining_session_id?: string | null
           id?: string
+          last_reviewed_version?: number
+          last_updated_by?: string
           note?: string | null
+          order_number?: number
+          previous_items?: Json | null
           session_id?: string
           status?: Database["public"]["Enums"]["order_status"]
           table_id?: string
           total_cents?: number
           updated_at?: string
           version?: number
-          last_updated_by?: string
-          last_reviewed_version?: number
-          previous_items?: any | null
         }
         Relationships: [
           {
@@ -296,6 +374,13 @@ export type Database = {
             columns: ["cafe_id"]
             isOneToOne: false
             referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_dining_session_id_fkey"
+            columns: ["dining_session_id"]
+            isOneToOne: false
+            referencedRelation: "dining_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -506,6 +591,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "tables_active_session_id_fkey"
+            columns: ["active_session_id"]
+            isOneToOne: false
+            referencedRelation: "dining_sessions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tables_cafe_id_fkey"
             columns: ["cafe_id"]
             isOneToOne: false
@@ -564,6 +656,11 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: undefined
       }
+      cleanup_expired_browsing_sessions: { Args: never; Returns: undefined }
+      free_table: {
+        Args: { p_staff_id?: string; p_table_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _cafe_id?: string
@@ -571,6 +668,21 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      review_order_changes: {
+        Args: { p_order_id: string; p_version: number }
+        Returns: undefined
+      }
+      update_order: {
+        Args: {
+          p_expected_version: number
+          p_items: Json
+          p_note: string
+          p_order_id: string
+          p_session_id: string
+          p_total_cents: number
+        }
+        Returns: undefined
       }
     }
     Enums: {
@@ -704,6 +816,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["owner", "staff"],

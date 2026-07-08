@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Check, ChefHat, Clock, Coffee, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
-import { supabase, formatMoney, type Order, type OrderItem, type OrderStatus, type Cafe } from "@/lib/db";
+import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type OrderStatus, type Cafe } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -112,7 +112,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
     <div className="pb-32">
       <div className="px-4 pt-4">
         <h1 className="font-display text-3xl font-semibold">Order status</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Order #{order.id.slice(0, 8).toUpperCase()}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{formatOrderLabel(order.order_number)}</p>
       </div>
 
       {order.status === "cancelled" ? (

@@ -16,3 +16,7 @@ export { supabase };
 
 export const formatMoney = (cents: number, currency = "USD") =>
   new Intl.NumberFormat(undefined, { style: "currency", currency }).format(cents / 100);
+
+/** Standard display label for an order: "Order #27". Never expose raw UUIDs. */
+export const formatOrderLabel = (orderNumber: number): string =>
+  `Order #${orderNumber}`;

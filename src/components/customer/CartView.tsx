@@ -3,7 +3,7 @@ import { Minus, Plus, Trash2, ShoppingBag, History, ChevronRight, Star, PhoneCal
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useCart } from "@/lib/cart";
-import { supabase, formatMoney, type Cafe, type TableRow, type Order, type OrderItem, type ServiceRequestType } from "@/lib/db";
+import { supabase, formatMoney, formatOrderLabel, type Cafe, type TableRow, type Order, type OrderItem, type ServiceRequestType } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { generateUUID } from "@/lib/uuid";
 import { cancelOrder } from "@/lib/orders";
@@ -249,7 +249,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         className="group flex flex-col gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition hover:ring-accent/40 cursor-pointer"
       >
         <div className="flex items-center justify-between border-b border-border/60 pb-2 text-xs font-semibold text-muted-foreground">
-          <span>Order #{o.id.slice(0, 8).toUpperCase()}</span>
+          <span>{formatOrderLabel(o.order_number)}</span>
           <span className="flex items-center gap-1.5">
             <span className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium", details.colorClass)}>
               <StatusIcon className="h-3 w-3 shrink-0" />
