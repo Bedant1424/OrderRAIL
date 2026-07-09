@@ -60,6 +60,25 @@ import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 type OrderWithItems = Order & { order_items: OrderItem[]; tables: { label: string } | null };
 type TableWithSession = TableRow & { dining_sessions: { status: string } | null };
 
+function formatElapsedTime(diffMin: number): string {
+  if (diffMin < 1) {
+    return "just now";
+  }
+  if (diffMin < 60) {
+    return `${diffMin} min`;
+  }
+  if (diffMin < 1440) {
+    const hours = Math.floor(diffMin / 60);
+    const mins = diffMin % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours} hr`;
+  }
+  if (diffMin < 2880) {
+    return "Yesterday";
+  }
+  const days = Math.floor(diffMin / 1440);
+  return `${days} days`;
+}
+
 function OrderAgeDisplay({ 
   createdAt, 
   status, 
@@ -75,7 +94,7 @@ function OrderAgeDisplay({
     return null;
   }
 
-  const elapsed = diffMin < 1 ? "just now" : `${diffMin} min ago`;
+  const elapsed = formatElapsedTime(diffMin);
 
   const dotColors = {
     green: "bg-green-500",
@@ -1042,7 +1061,7 @@ export default function StaffDashboardPage() {
                       )} />
                       <span className={cn("font-semibold", priorityColor)}>{priorityText}</span>
                     </div>
-                    <span className="text-muted-foreground">{diffMin < 1 ? "just now" : `${diffMin} min ago`}</span>
+                    <span className="text-muted-foreground">{formatElapsedTime(diffMin)}</span>
                   </div>
 
                   {/* Customer Review Changes Alert */}
