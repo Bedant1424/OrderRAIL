@@ -23,6 +23,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { getNotificationSetting, initNotificationSystem } from "@/lib/notificationSystem";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
@@ -92,6 +99,44 @@ function OrderAgeDisplay({
   );
 }
 
+function OrderTimeline({ orderId, createdAt }: { orderId: string; createdAt: string }) {
+  const { data: audits, isLoading } = useQuery({
+    queryKey: ["order-audits", orderId],
+    enabled: !!orderId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("order_audits")
+        .select("*")
+        .eq("order_id", orderId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  if (isLoading) {
+    return <p className="text-xs text-muted-foreground animate-pulse">Loading timeline...</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 text-xs">
+        <span className="text-muted-foreground shrink-0">{new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <span className="text-muted-foreground font-semibold">Order placed by customer</span>
+      </div>
+      {audits?.map((audit) => (
+        <div key={audit.id} className="flex gap-2 text-xs border-t border-border/40 pt-2">
+          <span className="text-muted-foreground shrink-0">{new Date(audit.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          <div className="flex-1">
+            <span className="font-medium text-foreground">{audit.change_summary}</span>
+            <span className="text-[10px] text-muted-foreground ml-1">({audit.editor})</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function StaffDashboardPage() {
   const qc = useQueryClient();
   const { cafe, cafeId } = useCafe();
@@ -100,6 +145,7 @@ export default function StaffDashboardPage() {
   const [flashingIds, setFlashingIds] = useState<Record<string, "new" | "updated" | "sr" | "cancelled">>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [tick, setTick] = useState(0);
+  const [selectedDrawerOrder, setSelectedDrawerOrder] = useState<OrderWithItems | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 30000);
@@ -715,6 +761,7 @@ export default function StaffDashboardPage() {
           onReviewChanges={setReviewingOrder}
           flashingIds={flashingIds}
           emptyLabel="No new orders."
+          onSelectOrder={setSelectedDrawerOrder}
         />
         <OrderColumn
           title="In progress"
@@ -726,6 +773,7 @@ export default function StaffDashboardPage() {
           onReviewChanges={setReviewingOrder}
           flashingIds={flashingIds}
           emptyLabel="Nothing in the kitchen right now."
+          onSelectOrder={setSelectedDrawerOrder}
         />
         <OrderColumn
           title="Recently done"
@@ -736,6 +784,7 @@ export default function StaffDashboardPage() {
           onReviewChanges={setReviewingOrder}
           flashingIds={flashingIds}
           emptyLabel="No completed orders yet."
+          onSelectOrder={setSelectedDrawerOrder}
         />
       </section>
 
@@ -913,6 +962,201 @@ export default function StaffDashboardPage() {
           );
         })()}
       </Dialog>
+
+      {/* Order Details Drawer */}
+      <Sheet open={!!selectedDrawerOrder} onOpenChange={(open) => !open && setSelectedDrawerOrder(null)}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto flex flex-col justify-between p-6">
+          {selectedDrawerOrder && (() => {
+            const diffMs = Date.now() - new Date(selectedDrawerOrder.created_at).getTime();
+            const diffMin = Math.floor(diffMs / 60000);
+            
+            let priority: "green" | "yellow" | "red" = "green";
+            if (selectedDrawerOrder.status !== "served" && selectedDrawerOrder.status !== "cancelled") {
+              if (diffMin >= 10) {
+                priority = "red";
+              } else if (diffMin >= 5) {
+                priority = "yellow";
+              }
+            }
+
+            const priorityText = {
+              green: "Normal Priority",
+              yellow: "Attention Needed",
+              red: "Immediate Attention Required"
+            }[priority];
+
+            const priorityColor = {
+              green: "text-green-600 dark:text-green-400",
+              yellow: "text-amber-600 dark:text-amber-400 font-semibold",
+              red: "text-destructive font-bold"
+            }[priority];
+
+            const isUpdated = selectedDrawerOrder.version > selectedDrawerOrder.last_reviewed_version && selectedDrawerOrder.last_updated_by === 'customer';
+
+            return (
+              <div className="flex-1 flex flex-col justify-between h-full space-y-6">
+                <div className="space-y-6">
+                  <SheetHeader className="text-left border-b border-border pb-4">
+                    <div className="flex items-center justify-between">
+                      <SheetTitle className="font-display text-xl font-bold">
+                        Table {selectedDrawerOrder.tables?.label ?? "?"}
+                      </SheetTitle>
+                      <StatusBadge status={selectedDrawerOrder.status} />
+                    </div>
+                    <SheetDescription className="text-xs text-muted-foreground">
+                      {formatOrderLabel(selectedDrawerOrder.order_number)} · Received {new Date(selectedDrawerOrder.created_at).toLocaleTimeString()}
+                    </SheetDescription>
+                  </SheetHeader>
+
+                  {/* Priority & Age Banner */}
+                  <div className="flex items-center justify-between rounded-2xl bg-muted/50 p-3 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn(
+                        "h-2 w-2 rounded-full",
+                        priority === "green" && "bg-green-500",
+                        priority === "yellow" && "bg-amber-500",
+                        priority === "red" && "bg-destructive animate-pulse"
+                      )} />
+                      <span className={cn("font-semibold", priorityColor)}>{priorityText}</span>
+                    </div>
+                    <span className="text-muted-foreground">{diffMin < 1 ? "just now" : `${diffMin} min ago`}</span>
+                  </div>
+
+                  {/* Customer Review Changes Alert */}
+                  {isUpdated && (
+                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                        <Sparkles className="h-4 w-4 animate-pulse" />
+                        Customer Modified Order
+                      </div>
+                      <div className="space-y-2">
+                        {(() => {
+                          const diff = getOrderDiff(selectedDrawerOrder.previous_items, selectedDrawerOrder.order_items);
+                          return diff.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No item quantity changes (notes updated).</p>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {diff.map((item, idx) => {
+                                const isAdded = item.qtyDiff > 0;
+                                return (
+                                  <li
+                                    key={idx}
+                                    className={cn(
+                                      "flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-medium border",
+                                      isAdded
+                                        ? "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"
+                                        : "bg-destructive/10 border-destructive/20 text-destructive"
+                                    )}
+                                  >
+                                    <span>{item.name}</span>
+                                    <span className="tabular-nums">
+                                      {isAdded ? `+${item.qtyDiff}` : item.qtyDiff} (Now: {item.currQty})
+                                    </span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          );
+                        })()}
+                      </div>
+                      <button
+                        onClick={async () => {
+                          await handleAcknowledge(selectedDrawerOrder.id, selectedDrawerOrder.version);
+                          const updatedOrders = await ordersQ.refetch();
+                          const latest = updatedOrders.data?.find(o => o.id === selectedDrawerOrder.id);
+                          if (latest) setSelectedDrawerOrder(latest);
+                        }}
+                        className="w-full rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition shadow-soft"
+                      >
+                        Acknowledge Changes
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Order Items Receipt List */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Receipt Items</h4>
+                    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                      <ul className="space-y-2 text-sm divide-y divide-border/40">
+                        {selectedDrawerOrder.order_items?.map((it, idx) => (
+                          <li key={it.id} className={cn("flex justify-between py-1.5", idx > 0 && "pt-2")}>
+                            <div className="min-w-0 flex-1 pr-2">
+                              <span className="font-medium tabular-nums">{it.qty}×</span> {it.name}
+                            </div>
+                            <span className="shrink-0 text-muted-foreground tabular-nums">
+                              {formatMoney(it.price_cents * it.qty, currency)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex justify-between pt-3 border-t border-border text-sm font-bold">
+                        <span>Total Amount</span>
+                        <span className="tabular-nums">{formatMoney(selectedDrawerOrder.total_cents, currency)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Notes */}
+                  {selectedDrawerOrder.note && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Customer Notes</h4>
+                      <div className="rounded-2xl border border-border bg-muted/40 p-4">
+                        <p className="text-xs text-foreground italic">"{selectedDrawerOrder.note}"</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Timeline History */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Order Timeline</h4>
+                    <div className="rounded-2xl border border-border bg-card p-4">
+                      <OrderTimeline orderId={selectedDrawerOrder.id} createdAt={selectedDrawerOrder.created_at} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Drawer Footer Actions */}
+                <div className="border-t border-border pt-4 mt-6 space-y-2">
+                  {NEXT_STATUS[selectedDrawerOrder.status] && (
+                    <button
+                      onClick={async () => {
+                        await advance(selectedDrawerOrder);
+                        const updatedOrders = await ordersQ.refetch();
+                        const latest = updatedOrders.data?.find(o => o.id === selectedDrawerOrder.id);
+                        if (latest) setSelectedDrawerOrder(latest);
+                      }}
+                      className="w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition"
+                    >
+                      {NEXT_LABEL[selectedDrawerOrder.status]}
+                    </button>
+                  )}
+                  
+                  {selectedDrawerOrder.status !== "served" && selectedDrawerOrder.status !== "cancelled" && (
+                    <button
+                      onClick={async () => {
+                        if (confirm("Are you sure you want to cancel this order?")) {
+                          await cancel(selectedDrawerOrder);
+                          setSelectedDrawerOrder(null);
+                        }
+                      }}
+                      className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
+                    >
+                      Cancel Order
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setSelectedDrawerOrder(null)}
+                    className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
+                  >
+                    Close Workspace
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -957,6 +1201,7 @@ function OrderColumn({
   emptyLabel,
   onReviewChanges,
   flashingIds,
+  onSelectOrder,
 }: {
   title: string;
   accent: "warning" | "accent" | "success";
@@ -967,6 +1212,7 @@ function OrderColumn({
   emptyLabel: string;
   onReviewChanges?: (o: OrderWithItems) => void;
   flashingIds: Record<string, "new" | "updated" | "sr" | "cancelled">;
+  onSelectOrder: (o: OrderWithItems) => void;
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
@@ -1026,13 +1272,14 @@ function OrderColumn({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98 }}
+                onClick={() => onSelectOrder(o)}
                 /*
                  * w-full          → card always fills 100% of column width
                  * min-w-0         → redundant safety in case article is flex child somewhere
                  * No overflow:hidden — clipping is never the answer
                  */
                 className={cn(
-                  "w-full min-w-0 rounded-2xl p-4 transition-all duration-300",
+                  "w-full min-w-0 rounded-2xl p-4 transition-all duration-300 cursor-pointer hover:shadow-md hover:ring-primary/45",
                   priorityRing,
                   flashingIds[o.id] === "new" && "animate-flash-green",
                   flashingIds[o.id] === "updated" && "animate-flash-amber",
@@ -1075,47 +1322,6 @@ function OrderColumn({
                     </li>
                   ))}
                 </ul>
-
-                {/* Order-level note — long notes wrap, never overflow */}
-                {o.note && (
-                  <p className="break-anywhere mt-2 rounded-xl bg-muted/60 p-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Note:</span> {o.note}
-                  </p>
-                )}
-
-                {/* Review changes button */}
-                {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && onReviewChanges && (
-                  <button
-                    onClick={() => onReviewChanges(o)}
-                    className="mt-3 w-full rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition flex items-center justify-center gap-1.5"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Review changes
-                  </button>
-                )}
-
-                {/* Action buttons */}
-                {(NEXT_STATUS[o.status] || onCancel) && (
-                  <div className="mt-3 flex gap-2">
-                    {NEXT_STATUS[o.status] && (
-                      <button
-                        onClick={() => onAdvance(o)}
-                        className="flex-1 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft"
-                      >
-                        {NEXT_LABEL[o.status]}
-                      </button>
-                    )}
-                    {onCancel && o.status !== "served" && o.status !== "cancelled" && (
-                      <button
-                        onClick={() => onCancel(o)}
-                        className="rounded-full bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground hover:bg-destructive/15 hover:text-destructive"
-                        aria-label="Cancel order"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )}
               </motion.article>
             );
           })}
