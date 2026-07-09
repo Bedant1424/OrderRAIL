@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone } from "lucide-react";
+import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   supabase,
@@ -52,55 +52,42 @@ import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 type OrderWithItems = Order & { order_items: OrderItem[]; tables: { label: string } | null };
 type TableWithSession = TableRow & { dining_sessions: { status: string } | null };
 
-function OrderAgeDisplay({ createdAt, status }: { createdAt: string; status: string }) {
-  const [elapsed, setElapsed] = useState("");
-  const [priority, setPriority] = useState<"green" | "yellow" | "red">("green");
-
-  useEffect(() => {
-    const calculateAge = () => {
-      const diffMs = Date.now() - new Date(createdAt).getTime();
-      const diffMin = Math.floor(diffMs / 60000);
-      
-      if (diffMin < 1) {
-        setElapsed("just now");
-      } else {
-        setElapsed(`${diffMin} min ago`);
-      }
-
-      if (diffMin < 5) {
-        setPriority("green");
-      } else if (diffMin < 10) {
-        setPriority("yellow");
-      } else {
-        setPriority("red");
-      }
-    };
-
-    calculateAge();
-    const timer = setInterval(calculateAge, 30000);
-    return () => clearInterval(timer);
-  }, [createdAt]);
-
+function OrderAgeDisplay({ 
+  createdAt, 
+  status, 
+  priority, 
+  diffMin 
+}: { 
+  createdAt: string; 
+  status: string; 
+  priority: "green" | "yellow" | "red"; 
+  diffMin: number; 
+}) {
   if (status === "served" || status === "cancelled") {
     return null;
   }
 
+  const elapsed = diffMin < 1 ? "just now" : `${diffMin} min ago`;
+
   const dotColors = {
     green: "bg-green-500",
-    yellow: "bg-yellow-500 animate-pulse",
-    red: "bg-red-500 animate-bounce shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+    yellow: "bg-amber-500",
+    red: "bg-destructive"
   };
 
   const textColors = {
     green: "text-green-600 dark:text-green-400",
-    yellow: "text-yellow-600 dark:text-yellow-400",
-    red: "text-red-600 dark:text-red-400 font-semibold"
+    yellow: "text-amber-600 dark:text-amber-400 font-medium",
+    red: "text-destructive font-semibold flex items-center gap-1"
   };
 
   return (
     <div className="flex items-center gap-1.5 mt-1 text-[11px]">
       <span className={cn("h-2 w-2 rounded-full shrink-0", dotColors[priority])} />
-      <span className={cn("font-medium", textColors[priority])}>{elapsed}</span>
+      <span className={textColors[priority]}>
+        {priority === "red" && <AlertTriangle className="h-3.5 w-3.5 inline shrink-0" />}
+        {elapsed}
+      </span>
     </div>
   );
 }
@@ -111,6 +98,13 @@ export default function StaffDashboardPage() {
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
   const [reviewingOrder, setReviewingOrder] = useState<OrderWithItems | null>(null);
   const [flashingIds, setFlashingIds] = useState<Record<string, "new" | "updated" | "sr" | "cancelled">>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Listen to cross-page card flashing requests from the global layout notifications trigger
   useEffect(() => {
@@ -1005,105 +999,126 @@ function OrderColumn({
               {emptyLabel}
             </p>
           )}
-          {orders.map((o) => (
-            <motion.article
-              key={o.id}
-              id={`order-card-${o.id}`}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              /*
-               * w-full          → card always fills 100% of column width
-               * min-w-0         → redundant safety in case article is flex child somewhere
-               * No overflow:hidden — clipping is never the answer
-               */
-              className={cn(
-                "w-full min-w-0 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition-all duration-300",
-                flashingIds[o.id] === "new" && "animate-flash-green",
-                flashingIds[o.id] === "updated" && "animate-flash-amber",
-                flashingIds[o.id] === "cancelled" && "animate-flash-red"
-              )}
-            >
-              {/* Order header row */}
-              <div className="flex items-start justify-between gap-2">
-                {/*
-                 * min-w-0 lets the left side shrink so the price on the right
-                 * never pushes content outside the card.
-                 */}
-                <div className="min-w-0 flex-1">
-                  <div className="break-anywhere font-display text-sm font-semibold flex items-center flex-wrap gap-1">
-                    <span>Table {o.tables?.label ?? "?"} · {formatOrderLabel(o.order_number)}</span>
-                    {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
-                        UPDATED
+          {orders.map((o) => {
+            const diffMs = Date.now() - new Date(o.created_at).getTime();
+            const diffMin = Math.floor(diffMs / 60000);
+            
+            let priority: "green" | "yellow" | "red" = "green";
+            if (o.status !== "served" && o.status !== "cancelled") {
+              if (diffMin >= 10) {
+                priority = "red";
+              } else if (diffMin >= 5) {
+                priority = "yellow";
+              }
+            }
+
+            const priorityRing = {
+              green: "ring-border/60 shadow-soft bg-card",
+              yellow: "ring-amber-500/40 bg-amber-500/[0.04] shadow-soft ring-2",
+              red: "ring-destructive/50 bg-destructive/[0.02] shadow-md ring-2"
+            }[priority];
+
+            return (
+              <motion.article
+                key={o.id}
+                id={`order-card-${o.id}`}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                /*
+                 * w-full          → card always fills 100% of column width
+                 * min-w-0         → redundant safety in case article is flex child somewhere
+                 * No overflow:hidden — clipping is never the answer
+                 */
+                className={cn(
+                  "w-full min-w-0 rounded-2xl p-4 transition-all duration-300",
+                  priorityRing,
+                  flashingIds[o.id] === "new" && "animate-flash-green",
+                  flashingIds[o.id] === "updated" && "animate-flash-amber",
+                  flashingIds[o.id] === "cancelled" && "animate-flash-red"
+                )}
+              >
+                {/* Order header row */}
+                <div className="flex items-start justify-between gap-2">
+                  {/*
+                   * min-w-0 lets the left side shrink so the price on the right
+                   * never pushes content outside the card.
+                   */}
+                  <div className="min-w-0 flex-1">
+                    <div className="break-anywhere font-display text-sm font-semibold flex items-center flex-wrap gap-1">
+                      <span>Table {o.tables?.label ?? "?"} · {formatOrderLabel(o.order_number)}</span>
+                      {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
+                          UPDATED
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                      {new Date(o.created_at).toLocaleTimeString()} ·{" "}
+                      <StatusBadge status={o.status} />
+                    </div>
+                    <OrderAgeDisplay createdAt={o.created_at} status={o.status} priority={priority} diffMin={diffMin} />
+                  </div>
+                  <div className="shrink-0 text-right font-display text-base font-semibold tabular-nums">
+                    {formatMoney(o.total_cents, currency)}
+                  </div>
+                </div>
+
+                {/* Order items list — no per-item notes, names wrap */}
+                <ul className="mt-3 space-y-1 text-sm">
+                  {o.order_items?.map((it) => (
+                    <li key={it.id} className="flex items-baseline gap-2">
+                      <span className="break-anywhere flex-1">
+                        <span className="font-medium tabular-nums">{it.qty}×</span> {it.name}
                       </span>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Order-level note — long notes wrap, never overflow */}
+                {o.note && (
+                  <p className="break-anywhere mt-2 rounded-xl bg-muted/60 p-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Note:</span> {o.note}
+                  </p>
+                )}
+
+                {/* Review changes button */}
+                {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && onReviewChanges && (
+                  <button
+                    onClick={() => onReviewChanges(o)}
+                    className="mt-3 w-full rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition flex items-center justify-center gap-1.5"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Review changes
+                  </button>
+                )}
+
+                {/* Action buttons */}
+                {(NEXT_STATUS[o.status] || onCancel) && (
+                  <div className="mt-3 flex gap-2">
+                    {NEXT_STATUS[o.status] && (
+                      <button
+                        onClick={() => onAdvance(o)}
+                        className="flex-1 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft"
+                      >
+                        {NEXT_LABEL[o.status]}
+                      </button>
+                    )}
+                    {onCancel && o.status !== "served" && o.status !== "cancelled" && (
+                      <button
+                        onClick={() => onCancel(o)}
+                        className="rounded-full bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground hover:bg-destructive/15 hover:text-destructive"
+                        aria-label="Cancel order"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
                     )}
                   </div>
-                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                    {new Date(o.created_at).toLocaleTimeString()} ·{" "}
-                    <StatusBadge status={o.status} />
-                  </div>
-                  <OrderAgeDisplay createdAt={o.created_at} status={o.status} />
-                </div>
-                <div className="shrink-0 text-right font-display text-base font-semibold tabular-nums">
-                  {formatMoney(o.total_cents, currency)}
-                </div>
-              </div>
-
-              {/* Order items list — no per-item notes, names wrap */}
-              <ul className="mt-3 space-y-1 text-sm">
-                {o.order_items?.map((it) => (
-                  <li key={it.id} className="flex items-baseline gap-2">
-                    <span className="break-anywhere flex-1">
-                      <span className="font-medium tabular-nums">{it.qty}×</span> {it.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Order-level note — long notes wrap, never overflow */}
-              {o.note && (
-                <p className="break-anywhere mt-2 rounded-xl bg-muted/60 p-2 text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Note:</span> {o.note}
-                </p>
-              )}
-
-              {/* Review changes button */}
-              {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && onReviewChanges && (
-                <button
-                  onClick={() => onReviewChanges(o)}
-                  className="mt-3 w-full rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition flex items-center justify-center gap-1.5"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Review changes
-                </button>
-              )}
-
-              {/* Action buttons */}
-              {(NEXT_STATUS[o.status] || onCancel) && (
-                <div className="mt-3 flex gap-2">
-                  {NEXT_STATUS[o.status] && (
-                    <button
-                      onClick={() => onAdvance(o)}
-                      className="flex-1 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft"
-                    >
-                      {NEXT_LABEL[o.status]}
-                    </button>
-                  )}
-                  {onCancel && o.status !== "served" && o.status !== "cancelled" && (
-                    <button
-                      onClick={() => onCancel(o)}
-                      className="rounded-full bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground hover:bg-destructive/15 hover:text-destructive"
-                      aria-label="Cancel order"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
-            </motion.article>
-          ))}
+                )}
+              </motion.article>
+            );
+          })}
         </AnimatePresence>
       </div>
     </div>
