@@ -623,7 +623,7 @@ export default function StaffDashboardPage() {
     } catch (e: any) {
       console.error(e);
       const friendlyMsg = e.message?.includes("active orders")
-        ? "This table still has active orders."
+        ? "Cannot free this table because active orders still exist."
         : "Could not free table. Please try again.";
       toast.error(friendlyMsg);
     }
