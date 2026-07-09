@@ -119,7 +119,7 @@ function OrderAgeDisplay({
   );
 }
 
-function DiningSessionTimeline({ diningSessionId }: { diningSessionId: string | null }) {
+function DiningSessionTimeline({ diningSessionId, currentStatus }: { diningSessionId: string | null; currentStatus?: OrderStatus }) {
   const { data: timelineEvents, isLoading } = useQuery({
     queryKey: ["dining-session-timeline", diningSessionId],
     enabled: !!diningSessionId,
@@ -197,22 +197,10 @@ function DiningSessionTimeline({ diningSessionId }: { diningSessionId: string | 
           type: "customer",
         });
 
-        // Status transitions
-        if (o.status !== "pending") {
-          const statusLabels: Record<string, string> = {
-            preparing: "Order preparing",
-            ready: "Order ready",
-            served: "Order served",
-            cancelled: "Order cancelled",
-          };
-          events.push({
-            id: `order-status-${o.id}-${o.status}`,
-            title: `${statusLabels[o.status] || o.status} (Order ${formatOrderLabel(o.order_number)})`,
-            timestamp: new Date(o.updated_at),
-            actor: "Staff",
-            type: "staff",
-          });
-        }
+        // TODO: Status transition history (preparing, ready, served, cancelled) 
+        // is not explicitly tracked as historical events in the current schema. 
+        // We only store the active order status. In a future migration, status transition 
+        // history will be powered by the order_status_history table.
       });
 
       // Order Audits
@@ -272,42 +260,52 @@ function DiningSessionTimeline({ diningSessionId }: { diningSessionId: string | 
     return <p className="text-xs text-muted-foreground animate-pulse">Loading timeline...</p>;
   }
 
-  if (!timelineEvents || timelineEvents.length === 0) {
-    return <p className="text-xs text-muted-foreground">No events recorded.</p>;
-  }
-
   return (
-    <div className="relative pl-4 border-l border-border/60 ml-2 space-y-4">
-      {timelineEvents.map((event) => {
-        const dotColors = {
-          system: "bg-muted-foreground/35 ring-muted-foreground/15",
-          customer: "bg-warning ring-warning/15",
-          staff: "bg-accent ring-accent/15",
-        }[event.type];
+    <div className="space-y-4">
+      {/* Current order status shown separately */}
+      {currentStatus && (
+        <div className="flex items-center justify-between border-b border-border/40 pb-3 text-xs">
+          <span className="text-muted-foreground font-semibold">Current Order Status</span>
+          <StatusBadge status={currentStatus} />
+        </div>
+      )}
 
-        const timeStr = event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      {!timelineEvents || timelineEvents.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No events recorded.</p>
+      ) : (
+        <div className="relative pl-4 border-l border-border/60 ml-2 space-y-4">
+          {timelineEvents.map((event) => {
+            const dotColors = {
+              system: "bg-muted-foreground/35 ring-muted-foreground/15",
+              customer: "bg-warning ring-warning/15",
+              staff: "bg-accent ring-accent/15",
+            }[event.type];
 
-        return (
-          <div key={event.id} className="relative flex flex-col gap-1 text-xs">
-            <span className={cn("absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ring-4", dotColors)} />
-            
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-semibold text-foreground break-anywhere">
-                {event.title}
-              </span>
-              <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
-                {timeStr} ({getRelativeTime(event.timestamp)})
-              </span>
-            </div>
-            
-            {event.actor && (
-              <div className="text-[10px] text-muted-foreground">
-                By <span className="font-medium capitalize">{event.actor}</span>
+            const timeStr = event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            return (
+              <div key={event.id} className="relative flex flex-col gap-1 text-xs">
+                <span className={cn("absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ring-4", dotColors)} />
+                
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold text-foreground break-anywhere">
+                    {event.title}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                    {timeStr} ({getRelativeTime(event.timestamp)})
+                  </span>
+                </div>
+                
+                {event.actor && (
+                  <div className="text-[10px] text-muted-foreground">
+                    By <span className="font-medium capitalize">{event.actor}</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1307,7 +1305,7 @@ export default function StaffDashboardPage() {
                   <div className="space-y-2">
                     <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Session Timeline</h4>
                     <div className="rounded-2xl border border-border bg-card p-4">
-                      <DiningSessionTimeline diningSessionId={selectedDrawerOrder.dining_session_id} />
+                      <DiningSessionTimeline diningSessionId={selectedDrawerOrder.dining_session_id} currentStatus={selectedDrawerOrder.status} />
                     </div>
                   </div>
                 </div>
