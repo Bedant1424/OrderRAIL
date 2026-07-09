@@ -50,9 +50,11 @@ export interface OwnerLayoutContextType {
   isNotificationsOpen: boolean;
   setIsNotificationsOpen: (open: boolean) => void;
   notificationsTriggerRef: React.RefObject<HTMLButtonElement>;
+  notificationsTriggerRefDesktop: React.RefObject<HTMLButtonElement>;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
   settingsTriggerRef: React.RefObject<HTMLButtonElement>;
+  settingsTriggerRefDesktop: React.RefObject<HTMLButtonElement>;
   soundEnabled: boolean;
   handleSoundToggle: (val: boolean) => void;
   vibrationEnabled: boolean;
@@ -92,13 +94,26 @@ export default function OwnerLayout() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsTriggerRef = useRef<HTMLButtonElement>(null);
+  const notificationsTriggerRefDesktop = useRef<HTMLButtonElement>(null);
 
   // Settings states and refs
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const settingsTriggerRefDesktop = useRef<HTMLButtonElement>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [flashCardsEnabled, setFlashCardsEnabled] = useState(true);
+
+  const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const { cafe, cafeId } = useCafe();
   const unreadCount = getUnreadCount(notifications);
@@ -375,9 +390,11 @@ export default function OwnerLayout() {
         isNotificationsOpen,
         setIsNotificationsOpen,
         notificationsTriggerRef,
+        notificationsTriggerRefDesktop,
         isSettingsOpen,
         setIsSettingsOpen,
         settingsTriggerRef,
+        settingsTriggerRefDesktop,
         soundEnabled,
         handleSoundToggle,
         vibrationEnabled,
@@ -438,7 +455,7 @@ export default function OwnerLayout() {
       <AnchoredPopover
         open={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
-        triggerRef={notificationsTriggerRef}
+        triggerRef={isDesktop ? notificationsTriggerRefDesktop : notificationsTriggerRef}
         className="w-[320px] max-w-[90vw]"
       >
         <NotificationCenter
@@ -454,7 +471,7 @@ export default function OwnerLayout() {
       <AnchoredPopover
         open={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        triggerRef={settingsTriggerRef}
+        triggerRef={isDesktop ? settingsTriggerRefDesktop : settingsTriggerRef}
         className="w-[280px] max-w-[90vw]"
       >
         <div className="flex flex-col text-card-foreground">

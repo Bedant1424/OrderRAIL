@@ -9,16 +9,16 @@ export function GlobalNotificationControls() {
     unreadCount,
     isNotificationsOpen,
     setIsNotificationsOpen,
-    notificationsTriggerRef,
+    notificationsTriggerRefDesktop,
     isSettingsOpen,
     setIsSettingsOpen,
-    settingsTriggerRef,
+    settingsTriggerRefDesktop,
   } = ctx;
 
   return (
     <div className="hidden lg:flex items-center gap-2">
       <button
-        ref={notificationsTriggerRef}
+        ref={notificationsTriggerRefDesktop}
         onClick={() => {
           setIsNotificationsOpen(!isNotificationsOpen);
         }}
@@ -34,7 +34,7 @@ export function GlobalNotificationControls() {
       </button>
 
       <button
-        ref={settingsTriggerRef}
+        ref={settingsTriggerRefDesktop}
         onClick={() => setIsSettingsOpen(!isSettingsOpen)}
         className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0"
         aria-label="Notification settings"
