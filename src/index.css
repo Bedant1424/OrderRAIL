@@ -231,35 +231,47 @@
 }
 
 @keyframes flash-green {
-  0% { box-shadow: 0 0 0 0px hsl(142, 70%, 45%, 0.7); border-color: hsl(142, 70%, 45%); }
-  50% { box-shadow: 0 0 0 12px hsl(142, 70%, 45%, 0); border-color: hsl(142, 70%, 45%, 0.5); }
-  100% { box-shadow: 0 0 0 0px hsl(142, 70%, 45%, 0); }
+  0% {
+    box-shadow: 0 0 12px 3px hsl(142 70% 45% / 0.4), inset 0 0 0 2px hsl(142 70% 45%);
+  }
+  100% {
+    box-shadow: 0 0 0 0px transparent, inset 0 0 0 1px hsl(var(--border) / 0.6);
+  }
 }
 @keyframes flash-amber {
-  0% { box-shadow: 0 0 0 0px hsl(38, 92%, 50%, 0.7); border-color: hsl(38, 92%, 50%); }
-  50% { box-shadow: 0 0 0 12px hsl(38, 92%, 50%, 0); border-color: hsl(38, 92%, 50%, 0.5); }
-  100% { box-shadow: 0 0 0 0px hsl(38, 92%, 50%, 0); }
+  0% {
+    box-shadow: 0 0 12px 3px hsl(38 92% 50% / 0.4), inset 0 0 0 2px hsl(38 92% 50%);
+  }
+  100% {
+    box-shadow: 0 0 0 0px transparent, inset 0 0 0 1px hsl(var(--border) / 0.6);
+  }
 }
 @keyframes flash-blue {
-  0% { box-shadow: 0 0 0 0px hsl(217, 91%, 60%, 0.7); border-color: hsl(217, 91%, 60%); }
-  50% { box-shadow: 0 0 0 12px hsl(217, 91%, 60%, 0); border-color: hsl(217, 91%, 60%, 0.5); }
-  100% { box-shadow: 0 0 0 0px hsl(217, 91%, 60%, 0); }
+  0% {
+    box-shadow: 0 0 12px 3px hsl(217 91% 60% / 0.4), inset 0 0 0 2px hsl(217 91% 60%);
+  }
+  100% {
+    box-shadow: 0 0 0 0px transparent, inset 0 0 0 1px hsl(var(--border) / 0.6);
+  }
 }
 @keyframes flash-red {
-  0% { box-shadow: 0 0 0 0px hsl(0, 84%, 60%, 0.7); border-color: hsl(0, 84%, 60%); }
-  50% { box-shadow: 0 0 0 12px hsl(0, 84%, 60%, 0); border-color: hsl(0, 84%, 60%, 0.5); }
-  100% { box-shadow: 0 0 0 0px hsl(0, 84%, 60%, 0); }
+  0% {
+    box-shadow: 0 0 12px 3px hsl(0 84% 60% / 0.4), inset 0 0 0 2px hsl(0 84% 60%);
+  }
+  100% {
+    box-shadow: 0 0 0 0px transparent, inset 0 0 0 1px hsl(var(--border) / 0.6);
+  }
 }
 
 .animate-flash-green {
-  animation: flash-green 2s ease-out;
+  animation: flash-green 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .animate-flash-amber {
-  animation: flash-amber 2s ease-out;
+  animation: flash-amber 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .animate-flash-blue {
-  animation: flash-blue 2s ease-out;
+  animation: flash-blue 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .animate-flash-red {
-  animation: flash-red 2s ease-out;
+  animation: flash-red 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

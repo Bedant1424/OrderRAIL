@@ -164,7 +164,7 @@ export default function StaffDashboardPage() {
             delete copy[detail.id];
             return copy;
           });
-        }, 2000);
+        }, 400);
       }
     };
     window.addEventListener("flash-card", handleFlash);
@@ -306,7 +306,7 @@ export default function StaffDashboardPage() {
                 delete copy[newOrder.id];
                 return copy;
               });
-            }, 2000);
+            }, 400);
           }
 
           // Scroll if idle
@@ -335,7 +335,7 @@ export default function StaffDashboardPage() {
                   delete copy[newOrder.id];
                   return copy;
                 });
-              }, 2000);
+              }, 400);
             }
 
             if (isIdle()) {
@@ -373,7 +373,7 @@ export default function StaffDashboardPage() {
                   delete copy[newOrder.id];
                   return copy;
                 });
-              }, 2000);
+              }, 400);
             }
 
             if (isIdle()) {
@@ -409,7 +409,7 @@ export default function StaffDashboardPage() {
                   delete copy[req.id];
                   return copy;
                 });
-              }, 2000);
+              }, 400);
             }
 
             if (isIdle()) {
@@ -453,7 +453,7 @@ export default function StaffDashboardPage() {
             delete copy[id];
             return copy;
           });
-        }, 2000);
+        }, 400);
       }
     };
 
