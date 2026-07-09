@@ -119,40 +119,195 @@ function OrderAgeDisplay({
   );
 }
 
-function OrderTimeline({ orderId, createdAt }: { orderId: string; createdAt: string }) {
-  const { data: audits, isLoading } = useQuery({
-    queryKey: ["order-audits", orderId],
-    enabled: !!orderId,
+function DiningSessionTimeline({ diningSessionId }: { diningSessionId: string | null }) {
+  const { data: timelineEvents, isLoading } = useQuery({
+    queryKey: ["dining-session-timeline", diningSessionId],
+    enabled: !!diningSessionId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("order_audits")
+      if (!diningSessionId) return [];
+
+      // 1. Fetch dining session
+      const { data: sessionData, error: sessionErr } = await supabase
+        .from("dining_sessions")
         .select("*")
-        .eq("order_id", orderId)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data;
+        .eq("id", diningSessionId)
+        .maybeSingle();
+      if (sessionErr) throw sessionErr;
+
+      // 2. Fetch orders
+      const { data: ordersData, error: ordersErr } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("dining_session_id", diningSessionId);
+      if (ordersErr) throw ordersErr;
+
+      // 3. Fetch service requests
+      const { data: requestsData, error: requestsErr } = await supabase
+        .from("service_requests")
+        .select("*")
+        .eq("dining_session_id", diningSessionId);
+      if (requestsErr) throw requestsErr;
+
+      // 4. Fetch order audits
+      let auditsData: any[] = [];
+      if (ordersData && ordersData.length > 0) {
+        const orderIds = ordersData.map(o => o.id);
+        const { data: audits, error: auditsErr } = await supabase
+          .from("order_audits")
+          .select("*")
+          .in("order_id", orderIds);
+        if (!auditsErr && audits) {
+          auditsData = audits;
+        }
+      }
+
+      // 5. Combine and format events
+      const events: { id: string; title: string; timestamp: Date; actor?: string; type: "system" | "customer" | "staff" }[] = [];
+
+      // Dining Session Started
+      if (sessionData?.opened_at) {
+        events.push({
+          id: `session-start-${sessionData.id}`,
+          title: "Dining session started",
+          timestamp: new Date(sessionData.opened_at),
+          actor: "Customer",
+          type: "system",
+        });
+      }
+
+      // Dining Session Ended (Table Freed)
+      if (sessionData?.closed_at) {
+        events.push({
+          id: `session-end-${sessionData.id}`,
+          title: "Dining session ended (Table freed)",
+          timestamp: new Date(sessionData.closed_at),
+          actor: "Staff",
+          type: "system",
+        });
+      }
+
+      // Orders
+      ordersData?.forEach(o => {
+        // Order Placed
+        events.push({
+          id: `order-placed-${o.id}`,
+          title: `Order placed (Order ${formatOrderLabel(o.order_number)})`,
+          timestamp: new Date(o.created_at),
+          actor: "Customer",
+          type: "customer",
+        });
+
+        // Status transitions
+        if (o.status !== "pending") {
+          const statusLabels: Record<string, string> = {
+            preparing: "Order preparing",
+            ready: "Order ready",
+            served: "Order served",
+            cancelled: "Order cancelled",
+          };
+          events.push({
+            id: `order-status-${o.id}-${o.status}`,
+            title: `${statusLabels[o.status] || o.status} (Order ${formatOrderLabel(o.order_number)})`,
+            timestamp: new Date(o.updated_at),
+            actor: "Staff",
+            type: "staff",
+          });
+        }
+      });
+
+      // Order Audits
+      auditsData.forEach(a => {
+        const order = ordersData?.find(o => o.id === a.order_id);
+        const orderNum = order ? `Order ${formatOrderLabel(order.order_number)}` : "Order";
+        events.push({
+          id: `audit-${a.id}`,
+          title: `${orderNum} updated: ${a.change_summary}`,
+          timestamp: new Date(a.created_at),
+          actor: a.editor === "customer" ? "Customer" : "Staff",
+          type: a.editor === "customer" ? "customer" : "staff",
+        });
+      });
+
+      // Service Requests
+      requestsData?.forEach(sr => {
+        const meta = SR_META[sr.type] || { label: sr.type };
+        events.push({
+          id: `sr-create-${sr.id}`,
+          title: `Service request created: ${meta.label}`,
+          timestamp: new Date(sr.created_at),
+          actor: "Customer",
+          type: "customer",
+        });
+
+        if (sr.status !== "open") {
+          const statusLabels: Record<string, string> = {
+            acknowledged: "Service request acknowledged",
+            resolved: "Service request resolved",
+          };
+          events.push({
+            id: `sr-status-${sr.id}-${sr.status}`,
+            title: `${statusLabels[sr.status] || sr.status}: ${meta.label}`,
+            timestamp: new Date(sr.updated_at),
+            actor: "Staff",
+            type: "staff",
+          });
+        }
+      });
+
+      // Sort chronologically ascending
+      return events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     }
   });
+
+  const getRelativeTime = (date: Date) => {
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffMin < 24 * 60) return `${Math.floor(diffMin / 60)}h ago`;
+    return `${Math.floor(diffMin / 1440)}d ago`;
+  };
 
   if (isLoading) {
     return <p className="text-xs text-muted-foreground animate-pulse">Loading timeline...</p>;
   }
 
+  if (!timelineEvents || timelineEvents.length === 0) {
+    return <p className="text-xs text-muted-foreground">No events recorded.</p>;
+  }
+
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2 text-xs">
-        <span className="text-muted-foreground shrink-0">{new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-        <span className="text-muted-foreground font-semibold">Order placed by customer</span>
-      </div>
-      {audits?.map((audit) => (
-        <div key={audit.id} className="flex gap-2 text-xs border-t border-border/40 pt-2">
-          <span className="text-muted-foreground shrink-0">{new Date(audit.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          <div className="flex-1">
-            <span className="font-medium text-foreground">{audit.change_summary}</span>
-            <span className="text-[10px] text-muted-foreground ml-1">({audit.editor})</span>
+    <div className="relative pl-4 border-l border-border/60 ml-2 space-y-4">
+      {timelineEvents.map((event) => {
+        const dotColors = {
+          system: "bg-muted-foreground/35 ring-muted-foreground/15",
+          customer: "bg-warning ring-warning/15",
+          staff: "bg-accent ring-accent/15",
+        }[event.type];
+
+        const timeStr = event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        return (
+          <div key={event.id} className="relative flex flex-col gap-1 text-xs">
+            <span className={cn("absolute -left-[21px] top-1.5 h-2 w-2 rounded-full ring-4", dotColors)} />
+            
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-semibold text-foreground break-anywhere">
+                {event.title}
+              </span>
+              <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                {timeStr} ({getRelativeTime(event.timestamp)})
+              </span>
+            </div>
+            
+            {event.actor && (
+              <div className="text-[10px] text-muted-foreground">
+                By <span className="font-medium capitalize">{event.actor}</span>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1150,9 +1305,9 @@ export default function StaffDashboardPage() {
 
                   {/* Timeline History */}
                   <div className="space-y-2">
-                    <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Order Timeline</h4>
+                    <h4 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Session Timeline</h4>
                     <div className="rounded-2xl border border-border bg-card p-4">
-                      <OrderTimeline orderId={selectedDrawerOrder.id} createdAt={selectedDrawerOrder.created_at} />
+                      <DiningSessionTimeline diningSessionId={selectedDrawerOrder.dining_session_id} />
                     </div>
                   </div>
                 </div>
