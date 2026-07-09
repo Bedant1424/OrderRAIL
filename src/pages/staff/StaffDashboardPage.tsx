@@ -105,15 +105,15 @@ function OrderAgeDisplay({
   const textColors = {
     green: "text-green-600 dark:text-green-400",
     yellow: "text-amber-600 dark:text-amber-400 font-medium",
-    red: "text-destructive font-semibold flex items-center gap-1"
+    red: "text-destructive font-semibold"
   };
 
   return (
-    <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+    <div className="flex items-center gap-2 mt-1 text-[11px]">
       <span className={cn("h-2 w-2 rounded-full shrink-0", dotColors[priority])} />
-      <span className={textColors[priority]}>
-        {priority === "red" && <AlertTriangle className="h-3.5 w-3.5 inline shrink-0" />}
-        {elapsed}
+      <span className={cn("flex items-center gap-2", textColors[priority])}>
+        {priority === "red" && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
+        <span>{elapsed}</span>
       </span>
     </div>
   );
