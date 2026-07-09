@@ -140,17 +140,16 @@ export function NotificationCenter({
         </div>
       </div>
 
-      {/* List */}
-      <div className="max-h-[380px] overflow-y-auto p-1.5 scrollbar-thin">
-        {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-muted/40 text-muted-foreground mb-2">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <p className="text-xs font-medium text-foreground">All caught up</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">No notifications today.</p>
+      {notifications.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-muted/40 text-muted-foreground mb-3">
+            <CheckCircle2 className="h-5 w-5" />
           </div>
-        ) : (
+          <p className="text-sm font-semibold text-foreground">All caught up</p>
+          <p className="text-xs text-muted-foreground mt-1">No notifications today.</p>
+        </div>
+      ) : (
+        <div className="max-h-[380px] overflow-y-auto p-1.5 scrollbar-thin">
           <div className="space-y-0.5 overflow-x-hidden">
             <AnimatePresence initial={false}>
               {notifications.map((n) => {
@@ -220,8 +219,8 @@ export function NotificationCenter({
               })}
             </AnimatePresence>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

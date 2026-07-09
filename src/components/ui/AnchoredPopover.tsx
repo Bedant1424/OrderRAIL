@@ -61,6 +61,17 @@ export function AnchoredPopover({
         frameId = requestAnimationFrame(checkMount);
       }
 
+      // Use ResizeObserver to detect layout/size changes of the popover after initial mount or during transition/resizing
+      let resizeObserver: ResizeObserver | null = null;
+      if (typeof window !== "undefined" && "ResizeObserver" in window) {
+        resizeObserver = new ResizeObserver(() => {
+          updateCoords();
+        });
+        if (popoverRef.current) {
+          resizeObserver.observe(popoverRef.current);
+        }
+      }
+
       window.addEventListener("resize", updateCoords);
       window.addEventListener("scroll", updateCoords, true);
       
@@ -68,6 +79,9 @@ export function AnchoredPopover({
       const animTimer = setTimeout(() => setAnimate(true), 10);
 
       return () => {
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
         window.removeEventListener("resize", updateCoords);
         window.removeEventListener("scroll", updateCoords, true);
         clearTimeout(animTimer);
@@ -78,7 +92,7 @@ export function AnchoredPopover({
     } else {
       setAnimate(false);
     }
-  }, [open, triggerRef]);
+  }, [open, triggerRef, className]);
 
   return (
     <Overlay open={open} onClose={onClose} zClass={zClass}>

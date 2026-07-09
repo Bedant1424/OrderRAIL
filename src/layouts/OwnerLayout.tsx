@@ -456,7 +456,7 @@ export default function OwnerLayout() {
         open={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         triggerRef={isDesktop ? notificationsTriggerRefDesktop : notificationsTriggerRef}
-        className="w-[320px] max-w-[90vw]"
+        className="w-[300px] max-w-[90vw]"
       >
         <NotificationCenter
           notifications={notifications}
