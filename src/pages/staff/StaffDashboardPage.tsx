@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sheet";
 import { getNotificationSetting, initNotificationSystem } from "@/lib/notificationSystem";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
+import { useAuth } from "@/lib/auth";
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   pending: "preparing",
@@ -140,6 +141,7 @@ function OrderTimeline({ orderId, createdAt }: { orderId: string; createdAt: str
 export default function StaffDashboardPage() {
   const qc = useQueryClient();
   const { cafe, cafeId } = useCafe();
+  const { session } = useAuth();
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
   const [reviewingOrder, setReviewingOrder] = useState<OrderWithItems | null>(null);
   const [flashingIds, setFlashingIds] = useState<Record<string, "new" | "updated" | "sr" | "cancelled">>({});
@@ -613,6 +615,7 @@ export default function StaffDashboardPage() {
     try {
       const { error: rpcErr } = await supabase.rpc("free_table", {
         p_table_id: table.id,
+        p_staff_id: session?.user?.id,
       });
 
       if (rpcErr) throw rpcErr;
@@ -622,9 +625,29 @@ export default function StaffDashboardPage() {
       setSelectedTable(null);
     } catch (e: any) {
       console.error(e);
-      const friendlyMsg = e.message?.includes("active orders")
-        ? "Cannot free this table because active orders still exist."
-        : "Could not free table. Please try again.";
+      let friendlyMsg = "Could not free table. Please try again.";
+
+      if (e.message?.includes("active orders")) {
+        const activeOrdersCount = (ordersQ.data ?? []).filter((o) =>
+          o.dining_session_id === table.active_session_id &&
+          (o.status === "pending" || o.status === "preparing" || o.status === "ready")
+        ).length;
+
+        if (activeOrdersCount > 0) {
+          friendlyMsg = `Cannot free this table because ${activeOrdersCount} active ${
+            activeOrdersCount === 1 ? "order still exists" : "orders still exist"
+          }.`;
+        } else {
+          friendlyMsg = "Cannot free this table because active orders still exist.";
+        }
+      } else if (e.message?.includes("not currently occupied") || e.message?.includes("no active session")) {
+        friendlyMsg = "Cannot free this table because no active dining session is open.";
+      } else if (e.code === "42501" || e.message?.toLowerCase().includes("permission")) {
+        friendlyMsg = "You do not have permission to perform this action.";
+      } else if (e.message) {
+        friendlyMsg = e.message;
+      }
+
       toast.error(friendlyMsg);
     }
   };
