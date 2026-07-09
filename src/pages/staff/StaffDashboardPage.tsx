@@ -52,6 +52,59 @@ import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 type OrderWithItems = Order & { order_items: OrderItem[]; tables: { label: string } | null };
 type TableWithSession = TableRow & { dining_sessions: { status: string } | null };
 
+function OrderAgeDisplay({ createdAt, status }: { createdAt: string; status: string }) {
+  const [elapsed, setElapsed] = useState("");
+  const [priority, setPriority] = useState<"green" | "yellow" | "red">("green");
+
+  useEffect(() => {
+    const calculateAge = () => {
+      const diffMs = Date.now() - new Date(createdAt).getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      
+      if (diffMin < 1) {
+        setElapsed("just now");
+      } else {
+        setElapsed(`${diffMin} min ago`);
+      }
+
+      if (diffMin < 5) {
+        setPriority("green");
+      } else if (diffMin < 10) {
+        setPriority("yellow");
+      } else {
+        setPriority("red");
+      }
+    };
+
+    calculateAge();
+    const timer = setInterval(calculateAge, 30000);
+    return () => clearInterval(timer);
+  }, [createdAt]);
+
+  if (status === "served" || status === "cancelled") {
+    return null;
+  }
+
+  const dotColors = {
+    green: "bg-green-500",
+    yellow: "bg-yellow-500 animate-pulse",
+    red: "bg-red-500 animate-bounce shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+  };
+
+  const textColors = {
+    green: "text-green-600 dark:text-green-400",
+    yellow: "text-yellow-600 dark:text-yellow-400",
+    red: "text-red-600 dark:text-red-400 font-semibold"
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+      <span className={cn("h-2 w-2 rounded-full shrink-0", dotColors[priority])} />
+      <span className={cn("font-medium", textColors[priority])}>{elapsed}</span>
+    </div>
+  );
+}
+
 export default function StaffDashboardPage() {
   const qc = useQueryClient();
   const { cafe, cafeId } = useCafe();
@@ -478,12 +531,22 @@ export default function StaffDashboardPage() {
 
   const grouped = useMemo(() => {
     const orders = ordersQ.data ?? [];
+    const query = searchQuery.trim().toLowerCase();
+    
+    const filteredOrders = query
+      ? orders.filter(
+          (o) =>
+            o.tables?.label?.toLowerCase().includes(query) ||
+            o.order_number.toString().includes(query)
+        )
+      : orders;
+
     return {
-      incoming: orders.filter((o) => o.status === "pending"),
-      active: orders.filter((o) => o.status === "preparing" || o.status === "ready"),
-      done: orders.filter((o) => o.status === "served" || o.status === "cancelled").slice(0, 20),
+      incoming: filteredOrders.filter((o) => o.status === "pending"),
+      active: filteredOrders.filter((o) => o.status === "preparing" || o.status === "ready"),
+      done: filteredOrders.filter((o) => o.status === "served" || o.status === "cancelled").slice(0, 20),
     };
-  }, [ordersQ.data]);
+  }, [ordersQ.data, searchQuery]);
 
   const advance = async (o: OrderWithItems) => {
     const next = NEXT_STATUS[o.status];
@@ -617,6 +680,34 @@ export default function StaffDashboardPage() {
           </div>
         </section>
       )}
+
+      {/* Search Bar */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-xs">
+          <input
+            type="text"
+            placeholder="Search by table or order #..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-full border border-border bg-card pl-4 pr-10 py-1.5 text-xs shadow-soft focus:outline-none focus:ring-1 focus:ring-primary/50 transition"
+          />
+          {searchQuery ? (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-2 text-muted-foreground hover:text-foreground transition"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <span className="absolute right-3 top-2.5 text-muted-foreground/60">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Orders kanban — CSS Grid, each column min-width:0 to respect track width */}
       <section className="grid gap-4 lg:grid-cols-3">
@@ -953,6 +1044,7 @@ function OrderColumn({
                     {new Date(o.created_at).toLocaleTimeString()} ·{" "}
                     <StatusBadge status={o.status} />
                   </div>
+                  <OrderAgeDisplay createdAt={o.created_at} status={o.status} />
                 </div>
                 <div className="shrink-0 text-right font-display text-base font-semibold tabular-nums">
                   {formatMoney(o.total_cents, currency)}
