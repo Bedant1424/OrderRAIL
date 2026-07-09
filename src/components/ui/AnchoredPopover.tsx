@@ -32,7 +32,7 @@ export function AnchoredPopover({
 
         // Prevent overflowing off the left edge of the screen on narrow/mobile viewports
         if (popoverRef.current) {
-          const popoverWidth = popoverRef.current.getBoundingClientRect().width;
+          const popoverWidth = popoverRef.current.offsetWidth;
           const minLeft = 12; // 12px minimum margin from the left edge of the viewport
           const maxRight = window.innerWidth - popoverWidth - minLeft;
           if (rightVal > maxRight) {
