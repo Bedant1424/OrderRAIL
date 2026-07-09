@@ -1306,6 +1306,14 @@ function OrderColumn({
               red: "ring-destructive/50 bg-destructive/[0.02] shadow-md ring-2"
             }[priority];
 
+            const nextLabel = {
+              pending: "Start Preparing",
+              preparing: "Mark Ready",
+              ready: "Mark Served",
+              served: null,
+              cancelled: null,
+            }[o.status];
+
             return (
               <motion.article
                 key={o.id}
@@ -1364,6 +1372,19 @@ function OrderColumn({
                     </li>
                   ))}
                 </ul>
+
+                {nextLabel && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAdvance(o);
+                    }}
+                    className="mt-3 w-full rounded-xl bg-primary py-2 px-3 text-center text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  >
+                    {nextLabel}
+                  </button>
+                )}
               </motion.article>
             );
           })}
