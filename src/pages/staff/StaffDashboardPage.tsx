@@ -1238,7 +1238,7 @@ function OrderColumn({
        *   - min-h-[80px]      → empty columns show a sensible height instead of collapsing
        * This is the ONLY element that scrolls vertically; horizontal scroll is impossible.
               */}
-      <div className="kanban-scroll max-h-[520px] min-h-[80px] space-y-3 pr-1 py-1">
+      <div className="kanban-scroll max-h-[520px] min-h-[80px] space-y-3 px-1 py-1">
         <AnimatePresence initial={false}>
           {orders.length === 0 && (
             <p className="rounded-2xl border border-dashed border-border bg-card/50 p-4 text-center text-xs text-muted-foreground">
