@@ -1263,7 +1263,7 @@ export default function StaffDashboardPage() {
                           const latest = updatedOrders.data?.find(o => o.id === selectedDrawerOrder.id);
                           if (latest) setSelectedDrawerOrder(latest);
                         }}
-                        className="w-full rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition shadow-soft"
+                        className="w-full rounded-full border border-transparent bg-amber-500 py-2.5 text-sm font-semibold text-white shadow-soft hover:bg-amber-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
                       >
                         Acknowledge Changes
                       </button>
