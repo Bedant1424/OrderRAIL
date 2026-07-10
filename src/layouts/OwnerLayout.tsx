@@ -152,6 +152,8 @@ export default function OwnerLayout() {
     setVibrationEnabled(settings.vibration);
     setFlashCardsEnabled(settings.flashCards);
 
+    // Guard: Prevent duplicate database subscriptions by using layout-level channel and cleanup handlers.
+    // Distinct channel name `owner-global-${cafeId}` avoids conflict with other connections.
     const channel = supabase
       .channel(`owner-global-${cafeId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `cafe_id=eq.${cafeId}` }, (payload) => {
