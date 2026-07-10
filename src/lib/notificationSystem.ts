@@ -13,6 +13,9 @@ interface NotificationSettings {
   sound: boolean;
   vibration: boolean;
   flashCards: boolean;
+  popupAlerts: boolean;
+  orderNotifications: boolean;
+  srNotifications: boolean;
 }
 
 const SETTINGS_KEY = "orderrail.staff.notification_settings";
@@ -21,6 +24,9 @@ let currentSettings: NotificationSettings = {
   sound: true,
   vibration: true,
   flashCards: true,
+  popupAlerts: true,
+  orderNotifications: true,
+  srNotifications: true,
 };
 
 let audioCtx: AudioContext | null = null;

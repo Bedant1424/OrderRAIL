@@ -194,6 +194,7 @@ export default function StaffDashboardPage() {
 
 
 
+
   // Idle Activity Detection
   const lastActivityRef = useRef(Date.now());
   useEffect(() => {
@@ -273,6 +274,21 @@ export default function StaffDashboardPage() {
       return (data ?? []) as unknown as OrderWithItems[];
     },
   });
+
+  // Listen to open-order-drawer requests from notification clicks
+  useEffect(() => {
+    const handleOpenDrawer = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.orderId) {
+        const order = ordersQ.data?.find(o => o.id === detail.orderId);
+        if (order) {
+          setSelectedDrawerOrder(order);
+        }
+      }
+    };
+    window.addEventListener("open-order-drawer", handleOpenDrawer);
+    return () => window.removeEventListener("open-order-drawer", handleOpenDrawer);
+  }, [ordersQ.data]);
 
   const srQ = useQuery({
     queryKey: ["staff-sr", cafeId],
