@@ -1394,6 +1394,21 @@ function OrderColumn({
                     </li>
                   ))}
                 </ul>
+
+                {/* Primary Action Button */}
+                {NEXT_STATUS[o.status] && (
+                  <div className="mt-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAdvance(o);
+                      }}
+                      className="w-full h-9 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/95 transition-colors"
+                    >
+                      {NEXT_LABEL[o.status]}
+                    </button>
+                  </div>
+                )}
               </motion.article>
             );
           })}
