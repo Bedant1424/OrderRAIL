@@ -1349,8 +1349,22 @@ function OrderColumn({
                     </div>
                     <OrderAgeDisplay createdAt={o.created_at} status={o.status} priority={priority} diffMin={diffMin} />
                   </div>
-                  <div className="shrink-0 text-right font-display text-base font-semibold tabular-nums">
-                    {formatMoney(o.total_cents, currency)}
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    <span className="text-right font-display text-base font-semibold tabular-nums">
+                      {formatMoney(o.total_cents, currency)}
+                    </span>
+                    {onCancel && o.status !== "served" && o.status !== "cancelled" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCancel(o);
+                        }}
+                        className="rounded-full p-1 text-muted-foreground/60 hover:bg-destructive/15 hover:text-destructive transition-colors"
+                        aria-label="Cancel order"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
