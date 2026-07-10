@@ -1,8 +1,11 @@
 import { useOwnerLayout } from "@/layouts/OwnerLayout";
+import { useStaffLayout } from "@/layouts/StaffLayout";
 import { Bell, Settings } from "lucide-react";
 
 export function GlobalNotificationControls() {
-  const ctx = useOwnerLayout();
+  const ownerCtx = useOwnerLayout();
+  const staffCtx = useStaffLayout();
+  const ctx = ownerCtx || staffCtx;
   if (!ctx) return null;
 
   const {
