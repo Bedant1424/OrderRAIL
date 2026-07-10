@@ -1369,18 +1369,6 @@ function OrderColumn({
                     <span className="text-right font-display text-base font-semibold tabular-nums">
                       {formatMoney(o.total_cents, currency)}
                     </span>
-                    {onCancel && o.status !== "served" && o.status !== "cancelled" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCancel(o);
-                        }}
-                        className="rounded-full p-1 text-muted-foreground/60 hover:bg-destructive/15 hover:text-destructive transition-colors"
-                        aria-label="Cancel order"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -1395,18 +1383,32 @@ function OrderColumn({
                   ))}
                 </ul>
 
-                {/* Primary Action Button */}
-                {NEXT_STATUS[o.status] && (
-                  <div className="mt-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAdvance(o);
-                      }}
-                      className="w-full h-9 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/95 transition-colors"
-                    >
-                      {NEXT_LABEL[o.status]}
-                    </button>
+                {/* Action buttons bottom row */}
+                {(NEXT_STATUS[o.status] || (onCancel && o.status !== "served" && o.status !== "cancelled")) && (
+                  <div className="mt-4 flex gap-2">
+                    {NEXT_STATUS[o.status] && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAdvance(o);
+                        }}
+                        className="flex-1 h-9 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/95 transition-colors"
+                      >
+                        {NEXT_LABEL[o.status]}
+                      </button>
+                    )}
+                    {onCancel && o.status !== "served" && o.status !== "cancelled" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCancel(o);
+                        }}
+                        className="w-9 h-9 rounded-xl bg-secondary hover:bg-destructive/15 hover:text-destructive text-secondary-foreground transition-colors shrink-0 flex items-center justify-center"
+                        aria-label="Cancel order"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 )}
               </motion.article>
