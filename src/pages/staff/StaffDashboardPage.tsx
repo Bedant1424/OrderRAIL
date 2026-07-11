@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone, AlertTriangle } from "lucide-react";
+import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone, AlertTriangle, Filter } from "lucide-react";
 import { toast } from "sonner";
 import {
   supabase,
@@ -33,6 +33,13 @@ import {
 import { getNotificationSetting, initNotificationSystem } from "@/lib/notificationSystem";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { useAuth } from "@/lib/auth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   pending: "preparing",
@@ -251,6 +258,15 @@ export default function StaffDashboardPage() {
   const { cafe, cafeId } = useCafe();
   const { session } = useAuth();
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
+  const [recentlyDoneFilter, setRecentlyDoneFilter] = useState<"all" | "completed" | "cancelled_customer" | "cancelled_staff">(
+    () => (sessionStorage.getItem("orderrail.recently_done_filter") as any) || "all"
+  );
+
+  const setFilterAndRemember = (filter: "all" | "completed" | "cancelled_customer" | "cancelled_staff") => {
+    setRecentlyDoneFilter(filter);
+    sessionStorage.setItem("orderrail.recently_done_filter", filter);
+  };
+
   const [reviewingOrder, setReviewingOrder] = useState<OrderWithItems | null>(null);
   const [flashingIds, setFlashingIds] = useState<Record<string, "new" | "updated" | "sr" | "cancelled">>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -715,20 +731,31 @@ export default function StaffDashboardPage() {
     }));
 
     const sortByActivity = (a: any, b: any) => b.lastActivity - a.lastActivity;
+    const sortByCompletionTime = (a: any, b: any) =>
+      new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+
+    let doneOrders = ordersWithActivity.filter((o) => o.status === "served" || o.status === "cancelled");
+    if (recentlyDoneFilter === "completed") {
+      doneOrders = doneOrders.filter((o) => o.status === "served");
+    } else if (recentlyDoneFilter === "cancelled_customer") {
+      doneOrders = doneOrders.filter((o) => o.status === "cancelled" && o.last_updated_by === "customer");
+    } else if (recentlyDoneFilter === "cancelled_staff") {
+      doneOrders = doneOrders.filter((o) => o.status === "cancelled" && o.last_updated_by === "staff");
+    }
 
     return {
       incoming: ordersWithActivity.filter((o) => o.status === "pending").sort(sortByActivity),
       active: ordersWithActivity.filter((o) => o.status === "preparing" || o.status === "ready").sort(sortByActivity),
-      done: ordersWithActivity.filter((o) => o.status === "served" || o.status === "cancelled").sort(sortByActivity).slice(0, 20),
+      done: doneOrders.sort(sortByCompletionTime).slice(0, 20),
     };
-  }, [ordersQ.data, srQ.data, searchQuery]);
+  }, [ordersQ.data, srQ.data, searchQuery, recentlyDoneFilter]);
 
   const advance = async (o: OrderWithItems) => {
     const next = NEXT_STATUS[o.status];
     if (!next) return;
     const { error } = await supabase
       .from("orders")
-      .update({ status: next, updated_at: new Date().toISOString() })
+      .update({ status: next, last_updated_by: "staff", updated_at: new Date().toISOString() })
       .eq("id", o.id);
     if (error) toast.error(error.message);
   };
@@ -736,7 +763,7 @@ export default function StaffDashboardPage() {
   const cancel = async (o: OrderWithItems) => {
     const { error } = await supabase
       .from("orders")
-      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .update({ status: "cancelled", last_updated_by: "staff", updated_at: new Date().toISOString() })
       .eq("id", o.id);
     if (error) toast.error(error.message);
   };
@@ -953,6 +980,30 @@ export default function StaffDashboardPage() {
           flashingIds={flashingIds}
           emptyLabel="No completed orders yet."
           onSelectOrder={setSelectedDrawerOrder}
+          headerAction={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  id="recently-done-filter-btn"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  aria-label="Filter recently done orders"
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuRadioGroup
+                  value={recentlyDoneFilter}
+                  onValueChange={(val) => setFilterAndRemember(val as any)}
+                >
+                  <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="completed">Completed</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="cancelled_customer">Cancelled by Customer</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="cancelled_staff">Cancelled by Staff</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
         />
       </section>
 
@@ -1370,6 +1421,7 @@ function OrderColumn({
   onReviewChanges,
   flashingIds,
   onSelectOrder,
+  headerAction,
 }: {
   title: string;
   accent: "warning" | "accent" | "success";
@@ -1381,6 +1433,7 @@ function OrderColumn({
   onReviewChanges?: (o: OrderWithItems) => void;
   flashingIds: Record<string, "new" | "updated" | "sr" | "cancelled">;
   onSelectOrder: (o: OrderWithItems) => void;
+  headerAction?: React.ReactNode;
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
@@ -1396,7 +1449,10 @@ function OrderColumn({
           <span className={cn("h-2 w-2 rounded-full", dot)} />
           <h3 className="font-display text-base font-semibold">{title}</h3>
         </div>
-        <span className="text-xs text-muted-foreground tabular-nums">{orders.length}</span>
+        <div className="flex items-center gap-2">
+          {headerAction}
+          <span className="text-xs text-muted-foreground tabular-nums">{orders.length}</span>
+        </div>
       </div>
 
       {/*
