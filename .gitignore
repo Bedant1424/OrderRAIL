@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# QA certification reports (local only)
+*_report.md
+RC1_*_Certification_Report.md
+
+# QA scratch files
+test_mobile_popover.js
