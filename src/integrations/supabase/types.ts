@@ -476,9 +476,10 @@ export type Database = {
         Row: {
           cafe_id: string
           created_at: string
+          dining_session_id: string | null
           id: string
           note: string | null
-          session_id: string
+          browser_session_id: string
           status: Database["public"]["Enums"]["service_request_status"]
           table_id: string
           type: Database["public"]["Enums"]["service_request_type"]
@@ -487,9 +488,10 @@ export type Database = {
         Insert: {
           cafe_id: string
           created_at?: string
+          dining_session_id?: string | null
           id?: string
           note?: string | null
-          session_id: string
+          browser_session_id: string
           status?: Database["public"]["Enums"]["service_request_status"]
           table_id: string
           type: Database["public"]["Enums"]["service_request_type"]
@@ -498,9 +500,10 @@ export type Database = {
         Update: {
           cafe_id?: string
           created_at?: string
+          dining_session_id?: string | null
           id?: string
           note?: string | null
-          session_id?: string
+          browser_session_id?: string
           status?: Database["public"]["Enums"]["service_request_status"]
           table_id?: string
           type?: Database["public"]["Enums"]["service_request_type"]
@@ -519,6 +522,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_requests_dining_session_id_fkey"
+            columns: ["dining_session_id"]
+            isOneToOne: false
+            referencedRelation: "dining_sessions"
             referencedColumns: ["id"]
           },
         ]
