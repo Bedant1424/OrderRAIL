@@ -25,6 +25,7 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       const { error } = await supabase.from("service_requests").insert({
         cafe_id: cafe.id,
         table_id: table.id,
+        // Align payload with schema refactor: use browser_session_id and dining_session_id instead of session_id
         browser_session_id: getSessionId(),
         dining_session_id: table.active_session_id,
         type,
