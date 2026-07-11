@@ -268,6 +268,64 @@ export type Database = {
           },
         ]
       }
+      order_events: {
+        Row: {
+          actor: string
+          created_at: string
+          dining_session_id: string
+          event_type: string
+          id: string
+          metadata: Json
+          order_id: string | null
+          service_request_id: string | null
+          title: string
+        }
+        Insert: {
+          actor: string
+          created_at?: string
+          dining_session_id: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          order_id?: string | null
+          service_request_id?: string | null
+          title: string
+        }
+        Update: {
+          actor?: string
+          created_at?: string
+          dining_session_id?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          order_id?: string | null
+          service_request_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_events_dining_session_id_fkey"
+            columns: ["dining_session_id"]
+            isOneToOne: false
+            referencedRelation: "dining_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_events_service_request_id_fkey"
+            columns: ["service_request_id"]
+            isOneToOne: false
+            referencedRelation: "service_requests"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       order_items: {
         Row: {
           created_at: string

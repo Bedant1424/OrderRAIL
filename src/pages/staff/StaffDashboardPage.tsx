@@ -120,130 +120,45 @@ function OrderAgeDisplay({
 }
 
 function DiningSessionTimeline({ diningSessionId, currentStatus }: { diningSessionId: string | null; currentStatus?: OrderStatus }) {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!diningSessionId) return;
+    const channel = supabase
+      .channel(`timeline-${diningSessionId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_events", filter: `dining_session_id=eq.${diningSessionId}` },
+        () => {
+          void qc.invalidateQueries({ queryKey: ["dining-session-timeline", diningSessionId] });
+        }
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [diningSessionId, qc]);
+
   const { data: timelineEvents, isLoading } = useQuery({
     queryKey: ["dining-session-timeline", diningSessionId],
     enabled: !!diningSessionId,
     queryFn: async () => {
       if (!diningSessionId) return [];
 
-      // 1. Fetch dining session
-      const { data: sessionData, error: sessionErr } = await supabase
-        .from("dining_sessions")
+      const { data: eventsData, error } = await supabase
+        .from("order_events")
         .select("*")
-        .eq("id", diningSessionId)
-        .maybeSingle();
-      if (sessionErr) throw sessionErr;
+        .eq("dining_session_id", diningSessionId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
 
-      // 2. Fetch orders
-      const { data: ordersData, error: ordersErr } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("dining_session_id", diningSessionId);
-      if (ordersErr) throw ordersErr;
-
-      // 3. Fetch service requests
-      const { data: requestsData, error: requestsErr } = await supabase
-        .from("service_requests")
-        .select("*")
-        .eq("dining_session_id", diningSessionId);
-      if (requestsErr) throw requestsErr;
-
-      // 4. Fetch order audits
-      let auditsData: any[] = [];
-      if (ordersData && ordersData.length > 0) {
-        const orderIds = ordersData.map(o => o.id);
-        const { data: audits, error: auditsErr } = await supabase
-          .from("order_audits")
-          .select("*")
-          .in("order_id", orderIds);
-        if (!auditsErr && audits) {
-          auditsData = audits;
-        }
-      }
-
-      // 5. Combine and format events
-      const events: { id: string; title: string; timestamp: Date; actor?: string; type: "system" | "customer" | "staff" }[] = [];
-
-      // Dining Session Started
-      if (sessionData?.opened_at) {
-        events.push({
-          id: `session-start-${sessionData.id}`,
-          title: "Dining session started",
-          timestamp: new Date(sessionData.opened_at),
-          actor: "Customer",
-          type: "system",
-        });
-      }
-
-      // Dining Session Ended (Table Freed)
-      if (sessionData?.closed_at) {
-        events.push({
-          id: `session-end-${sessionData.id}`,
-          title: "Dining session ended (Table freed)",
-          timestamp: new Date(sessionData.closed_at),
-          actor: "Staff",
-          type: "system",
-        });
-      }
-
-      // Orders
-      ordersData?.forEach(o => {
-        // Order Placed
-        events.push({
-          id: `order-placed-${o.id}`,
-          title: `Order placed (Order ${formatOrderLabel(o.order_number)})`,
-          timestamp: new Date(o.created_at),
-          actor: "Customer",
-          type: "customer",
-        });
-
-        // TODO: Status transition history (preparing, ready, served, cancelled) 
-        // is not explicitly tracked as historical events in the current schema. 
-        // We only store the active order status. In a future migration, status transition 
-        // history will be powered by the order_status_history table.
-      });
-
-      // Order Audits
-      auditsData.forEach(a => {
-        const order = ordersData?.find(o => o.id === a.order_id);
-        const orderNum = order ? `Order ${formatOrderLabel(order.order_number)}` : "Order";
-        events.push({
-          id: `audit-${a.id}`,
-          title: `${orderNum} updated: ${a.change_summary}`,
-          timestamp: new Date(a.created_at),
-          actor: a.editor === "customer" ? "Customer" : "Staff",
-          type: a.editor === "customer" ? "customer" : "staff",
-        });
-      });
-
-      // Service Requests
-      requestsData?.forEach(sr => {
-        const meta = SR_META[sr.type] || { label: sr.type };
-        events.push({
-          id: `sr-create-${sr.id}`,
-          title: `Service request created: ${meta.label}`,
-          timestamp: new Date(sr.created_at),
-          actor: "Customer",
-          type: "customer",
-        });
-
-        if (sr.status !== "open") {
-          const statusLabels: Record<string, string> = {
-            acknowledged: "Service request acknowledged",
-            resolved: "Service request resolved",
-          };
-          events.push({
-            id: `sr-status-${sr.id}-${sr.status}`,
-            title: `${statusLabels[sr.status] || sr.status}: ${meta.label}`,
-            timestamp: new Date(sr.updated_at),
-            actor: "Staff",
-            type: "staff",
-          });
-        }
-      });
-
-      // Sort chronologically ascending
-      return events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      return (eventsData ?? []).map(event => ({
+        id: event.id,
+        title: event.title,
+        timestamp: new Date(event.created_at),
+        actor: event.actor === "system" ? undefined : (event.actor === "customer" ? "Customer" : "Staff"),
+        type: event.actor as "system" | "customer" | "staff",
+      }));
     }
   });
 
