@@ -49,26 +49,42 @@ export async function submitOrder(payload: Omit<QueuedOrder, "queuedAt">): Promi
 }
 
 async function pushOne(o: QueuedOrder) {
-  const { error: orderErr } = await supabase.from("orders").insert({
-    id: o.id,
-    cafe_id: o.cafe_id,
-    table_id: o.table_id,
-    session_id: o.session_id,
-    dining_session_id: o.dining_session_id || null,
-    total_cents: o.total_cents,
-    note: o.note ?? null,
-  });
-  if (orderErr) throw orderErr;
-  const { error: itemsErr } = await supabase.from("order_items").insert(
-    o.items.map((i) => ({
-      order_id: o.id,
-      menu_item_id: i.menu_item_id,
-      name: i.name,
-      price_cents: i.price_cents,
-      qty: i.qty,
-    })),
-  );
-  if (itemsErr) throw itemsErr;
+  const { data: existingOrder } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("id", o.id)
+    .maybeSingle();
+
+  if (!existingOrder) {
+    const { error: orderErr } = await supabase.from("orders").insert({
+      id: o.id,
+      cafe_id: o.cafe_id,
+      table_id: o.table_id,
+      session_id: o.session_id,
+      dining_session_id: o.dining_session_id || null,
+      total_cents: o.total_cents,
+      note: o.note ?? null,
+    });
+    if (orderErr && orderErr.code !== "23505") throw orderErr;
+  }
+
+  const { data: existingItems } = await supabase
+    .from("order_items")
+    .select("id")
+    .eq("order_id", o.id);
+
+  if (!existingItems || existingItems.length === 0) {
+    const { error: itemsErr } = await supabase.from("order_items").insert(
+      o.items.map((i) => ({
+        order_id: o.id,
+        menu_item_id: i.menu_item_id,
+        name: i.name,
+        price_cents: i.price_cents,
+        qty: i.qty,
+      })),
+    );
+    if (itemsErr) throw itemsErr;
+  }
 
   // If order matches a dining session, check if it's currently 'browsing' and activate it
   if (o.dining_session_id) {
