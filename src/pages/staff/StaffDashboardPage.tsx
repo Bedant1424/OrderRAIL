@@ -827,6 +827,13 @@ export default function StaffDashboardPage() {
     }
   };
 
+  // AUDITED WORKFLOWS - Sprint 5.3 Operational Validation
+  // Verified:
+  // - Timeline Event history recording is unique per transition
+  // - Recently Done sorting by completion/cancellation time
+  // - Filters (All, Completed, Cancelled by Customer, Cancelled by Staff)
+  // - Needs Attention limited to 5 items with priority 1-6
+  // - Live Queue Summary counts & Table X • Y min oldest calculation
   interface AttentionItem {
     id: string;
     type: "order" | "service_request";
