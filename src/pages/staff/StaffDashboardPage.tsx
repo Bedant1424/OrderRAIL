@@ -1170,12 +1170,17 @@ export default function StaffDashboardPage() {
                 >
                   Close
                 </button>
-                <button
-                  onClick={() => void handleAcknowledge(reviewingOrder.id, reviewingOrder.version)}
-                  className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/95 shadow-soft transition"
-                >
-                  Acknowledge Changes
-                </button>
+                {reviewingOrder.version > reviewingOrder.last_reviewed_version &&
+                  reviewingOrder.last_updated_by === 'customer' &&
+                  reviewingOrder.status !== 'served' &&
+                  reviewingOrder.status !== 'cancelled' && (
+                    <button
+                      onClick={() => void handleAcknowledge(reviewingOrder.id, reviewingOrder.version)}
+                      className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/95 shadow-soft transition"
+                    >
+                      Acknowledge Changes
+                    </button>
+                  )}
               </DialogFooter>
             </DialogContent>
           );
@@ -1242,7 +1247,7 @@ export default function StaffDashboardPage() {
                   </div>
 
                   {/* Customer Review Changes Alert */}
-                  {isUpdated && (
+                  {isUpdated && selectedDrawerOrder.status !== "served" && selectedDrawerOrder.status !== "cancelled" && (
                     <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
                       <div className="flex items-center gap-2 text-sm font-semibold text-amber-600 dark:text-amber-400">
                         <Sparkles className="h-4 w-4 animate-pulse" />
