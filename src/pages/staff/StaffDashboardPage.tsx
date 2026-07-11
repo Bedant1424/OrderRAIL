@@ -948,6 +948,28 @@ export default function StaffDashboardPage() {
     }
   };
 
+  const handleSummaryCardClick = (category: "incoming" | "preparing" | "ready" | "service_requests" | "overdue") => {
+    if (focusedSummary === category) {
+      setFocusedSummary(null);
+    } else {
+      setFocusedSummary(category);
+      let elementId = "";
+      if (category === "incoming") elementId = "column-incoming";
+      else if (category === "preparing") elementId = "column-preparing";
+      else if (category === "ready") elementId = "column-ready";
+      else if (category === "service_requests") elementId = "service-requests-section";
+
+      if (elementId) {
+        setTimeout(() => {
+          const el = document.getElementById(elementId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 100);
+      }
+    }
+  };
+
   const liveQueueSummary = useMemo(() => {
     const orders = ordersQ.data ?? [];
     const srs = srQ.data ?? [];
@@ -966,14 +988,15 @@ export default function StaffDashboardPage() {
       return diffMs >= 10 * 60000;
     });
 
-    const getOldestTime = (items: { created_at: string }[]) => {
-      if (items.length === 0) return "-";
+    const getOldestTime = (items: { created_at: string; tables?: { label: string } | null }[]) => {
+      if (items.length === 0) return "Table - • -";
       const oldestItem = items.reduce((oldest, current) => {
         return new Date(current.created_at) < new Date(oldest.created_at) ? current : oldest;
       });
       const diffMs = now - new Date(oldestItem.created_at).getTime();
       const diffMin = Math.floor(diffMs / 60000);
-      return `Oldest: ${formatElapsedTime(diffMin)}`;
+      const oldestTableLabel = oldestItem.tables?.label ?? "-";
+      return `Table ${oldestTableLabel} • ${formatElapsedTime(diffMin)}`;
     };
 
     return {
@@ -1016,7 +1039,13 @@ export default function StaffDashboardPage() {
            The SR strip itself is correct: overflow-x:auto scrolls internally
            once its grid-item parent is properly constrained. */}
       {(srQ.data?.length ?? 0) > 0 && (
-        <section id="service-requests-section">
+        <section
+          id="service-requests-section"
+          className={cn(
+            "transition-opacity duration-300",
+            focusedSummary && focusedSummary !== "service_requests" && "opacity-35"
+          )}
+        >
           <h2 className="mb-3 font-display text-lg font-semibold">Service requests</h2>
           {/* horizontal-thin-scrollbar shows a thin custom scrollbar on desktop,
               and native overlay scrollbar on mobile.
@@ -1079,11 +1108,13 @@ export default function StaffDashboardPage() {
       {/* Live Queue Summary Row */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div
-          onClick={() => {
-            console.log("Toggle focus incoming");
-          }}
+          onClick={() => handleSummaryCardClick("incoming")}
           className={cn(
-            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            focusedSummary === "incoming"
+              ? "ring-2 ring-warning border-transparent bg-warning/5"
+              : "border-border bg-card",
+            focusedSummary && focusedSummary !== "incoming" && "opacity-60"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Incoming</div>
@@ -1098,11 +1129,13 @@ export default function StaffDashboardPage() {
         </div>
 
         <div
-          onClick={() => {
-            console.log("Toggle focus preparing");
-          }}
+          onClick={() => handleSummaryCardClick("preparing")}
           className={cn(
-            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            focusedSummary === "preparing"
+              ? "ring-2 ring-accent border-transparent bg-accent/5"
+              : "border-border bg-card",
+            focusedSummary && focusedSummary !== "preparing" && "opacity-60"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Preparing</div>
@@ -1117,11 +1150,13 @@ export default function StaffDashboardPage() {
         </div>
 
         <div
-          onClick={() => {
-            console.log("Toggle focus ready");
-          }}
+          onClick={() => handleSummaryCardClick("ready")}
           className={cn(
-            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            focusedSummary === "ready"
+              ? "ring-2 ring-success border-transparent bg-success/5"
+              : "border-border bg-card",
+            focusedSummary && focusedSummary !== "ready" && "opacity-60"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ready</div>
@@ -1136,11 +1171,13 @@ export default function StaffDashboardPage() {
         </div>
 
         <div
-          onClick={() => {
-            console.log("Toggle focus service requests");
-          }}
+          onClick={() => handleSummaryCardClick("service_requests")}
           className={cn(
-            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            focusedSummary === "service_requests"
+              ? "ring-2 ring-destructive border-transparent bg-destructive/5"
+              : "border-border bg-card",
+            focusedSummary && focusedSummary !== "service_requests" && "opacity-60"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Requests</div>
@@ -1155,11 +1192,13 @@ export default function StaffDashboardPage() {
         </div>
 
         <div
-          onClick={() => {
-            console.log("Toggle focus overdue");
-          }}
+          onClick={() => handleSummaryCardClick("overdue")}
           className={cn(
-            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            focusedSummary === "overdue"
+              ? "ring-2 ring-destructive border-transparent bg-destructive/10 text-destructive"
+              : "border-border bg-card",
+            focusedSummary && focusedSummary !== "overdue" && "opacity-60"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Overdue</div>
@@ -1309,65 +1348,92 @@ export default function StaffDashboardPage() {
 
       {/* Orders kanban — CSS Grid, each column min-width:0 to respect track width */}
       <section className="grid gap-4 lg:grid-cols-3">
-        <OrderColumn
-          title="Incoming"
-          accent="warning"
-          orders={grouped.incoming}
-          currency={currency}
-          onAdvance={advance}
-          onCancel={cancel}
-          onReviewChanges={setReviewingOrder}
-          flashingIds={flashingIds}
-          emptyLabel="No new orders."
-          onSelectOrder={setSelectedDrawerOrder}
-        />
-        <OrderColumn
-          title="In progress"
-          accent="accent"
-          orders={grouped.active}
-          currency={currency}
-          onAdvance={advance}
-          onCancel={cancel}
-          onReviewChanges={setReviewingOrder}
-          flashingIds={flashingIds}
-          emptyLabel="Nothing in the kitchen right now."
-          onSelectOrder={setSelectedDrawerOrder}
-        />
-        <OrderColumn
-          title="Recently done"
-          accent="success"
-          orders={grouped.done}
-          currency={currency}
-          onAdvance={advance}
-          onReviewChanges={setReviewingOrder}
-          flashingIds={flashingIds}
-          emptyLabel="No completed orders yet."
-          onSelectOrder={setSelectedDrawerOrder}
-          headerAction={
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  id="recently-done-filter-btn"
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  aria-label="Filter recently done orders"
-                >
-                  <Filter className="h-3.5 w-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuRadioGroup
-                  value={recentlyDoneFilter}
-                  onValueChange={(val) => setFilterAndRemember(val as any)}
-                >
-                  <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="completed">Completed</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="cancelled_customer">Cancelled by Customer</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="cancelled_staff">Cancelled by Staff</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          }
-        />
+        <div
+          id="column-incoming"
+          className={cn(
+            "transition-opacity duration-300",
+            focusedSummary && focusedSummary !== "incoming" && "opacity-35"
+          )}
+        >
+          <OrderColumn
+            title="Incoming"
+            accent="warning"
+            orders={grouped.incoming}
+            currency={currency}
+            onAdvance={advance}
+            onCancel={cancel}
+            onReviewChanges={setReviewingOrder}
+            flashingIds={flashingIds}
+            emptyLabel="No new orders."
+            onSelectOrder={setSelectedDrawerOrder}
+            focusedSummary={focusedSummary}
+          />
+        </div>
+        <div
+          id="column-preparing"
+          className={cn(
+            "transition-opacity duration-300",
+            focusedSummary && focusedSummary !== "preparing" && focusedSummary !== "ready" && "opacity-35"
+          )}
+        >
+          <OrderColumn
+            title="In progress"
+            accent="accent"
+            orders={grouped.active}
+            currency={currency}
+            onAdvance={advance}
+            onCancel={cancel}
+            onReviewChanges={setReviewingOrder}
+            flashingIds={flashingIds}
+            emptyLabel="Nothing in the kitchen right now."
+            onSelectOrder={setSelectedDrawerOrder}
+            focusedSummary={focusedSummary}
+          />
+        </div>
+        <div
+          id="column-done"
+          className={cn(
+            "transition-opacity duration-300",
+            focusedSummary && "opacity-35"
+          )}
+        >
+          <OrderColumn
+            title="Recently done"
+            accent="success"
+            orders={grouped.done}
+            currency={currency}
+            onAdvance={advance}
+            onReviewChanges={setReviewingOrder}
+            flashingIds={flashingIds}
+            emptyLabel="No completed orders yet."
+            onSelectOrder={setSelectedDrawerOrder}
+            focusedSummary={focusedSummary}
+            headerAction={
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    id="recently-done-filter-btn"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    aria-label="Filter recently done orders"
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuRadioGroup
+                    value={recentlyDoneFilter}
+                    onValueChange={(val) => setFilterAndRemember(val as any)}
+                  >
+                    <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="completed">Completed</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="cancelled_customer">Cancelled by Customer</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="cancelled_staff">Cancelled by Staff</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            }
+          />
+        </div>
       </section>
 
       {/* Tables grid */}
@@ -1790,6 +1856,7 @@ function OrderColumn({
   flashingIds,
   onSelectOrder,
   headerAction,
+  focusedSummary,
 }: {
   title: string;
   accent: "warning" | "accent" | "success";
@@ -1802,6 +1869,7 @@ function OrderColumn({
   flashingIds: Record<string, "new" | "updated" | "sr" | "cancelled">;
   onSelectOrder: (o: OrderWithItems) => void;
   headerAction?: React.ReactNode;
+  focusedSummary?: "incoming" | "preparing" | "ready" | "service_requests" | "overdue" | null;
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
@@ -1856,13 +1924,16 @@ function OrderColumn({
               red: "ring-destructive/50 bg-destructive/[0.02] shadow-md ring-2"
             }[priority];
 
-            const nextLabel = {
+             const nextLabel = {
               pending: "Start Preparing",
               preparing: "Mark Ready",
               ready: "Mark Served",
               served: null,
               cancelled: null,
             }[o.status];
+
+            const isOverdue = (o.status === "pending" || o.status === "preparing" || o.status === "ready") && diffMin >= 10;
+            const isDimmed = focusedSummary === "overdue" && !isOverdue;
 
             return (
               <motion.article
@@ -1883,7 +1954,9 @@ function OrderColumn({
                   priorityRing,
                   flashingIds[o.id] === "new" && "animate-flash-green",
                   flashingIds[o.id] === "updated" && "animate-flash-amber",
-                  flashingIds[o.id] === "cancelled" && "animate-flash-red"
+                  flashingIds[o.id] === "cancelled" && "animate-flash-red",
+                  isDimmed && "opacity-30 scale-[0.98]",
+                  focusedSummary === "overdue" && isOverdue && "ring-destructive/80 ring-2"
                 )}
               >
                 {/* Order header row */}
