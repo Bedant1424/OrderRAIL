@@ -1532,7 +1532,7 @@ function OrderColumn({
                   <div className="min-w-0 flex-1">
                     <div className="break-anywhere font-display text-sm font-semibold flex items-center flex-wrap gap-1">
                       <span>Table {o.tables?.label ?? "?"} · {formatOrderLabel(o.order_number)}</span>
-                      {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && (
+                      {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && o.status !== 'served' && o.status !== 'cancelled' && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
                           UPDATED
                         </span>
