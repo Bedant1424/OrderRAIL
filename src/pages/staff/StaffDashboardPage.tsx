@@ -126,6 +126,15 @@ function OrderAgeDisplay({
   );
 }
 
+export const getRelativeTime = (date: Date) => {
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 24 * 60) return `${Math.floor(diffMin / 60)}h ago`;
+  return `${Math.floor(diffMin / 1440)}d ago`;
+};
+
 function DiningSessionTimeline({ diningSessionId, currentStatus }: { diningSessionId: string | null; currentStatus?: OrderStatus }) {
   const qc = useQueryClient();
 
@@ -169,14 +178,7 @@ function DiningSessionTimeline({ diningSessionId, currentStatus }: { diningSessi
     }
   });
 
-  const getRelativeTime = (date: Date) => {
-    const diffMs = Date.now() - date.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "just now";
-    if (diffMin < 60) return `${diffMin}m ago`;
-    if (diffMin < 24 * 60) return `${Math.floor(diffMin / 60)}h ago`;
-    return `${Math.floor(diffMin / 1440)}d ago`;
-  };
+
 
   if (isLoading) {
     return <p className="text-xs text-muted-foreground animate-pulse">Loading timeline...</p>;
@@ -824,6 +826,86 @@ export default function StaffDashboardPage() {
     }
   };
 
+  interface AttentionItem {
+    id: string;
+    type: "order" | "service_request";
+    priority: number;
+    title: string;
+    timestamp: string;
+    tableLabel: string;
+    originalData: any;
+  }
+
+  const attentionItems = useMemo(() => {
+    const orders = ordersQ.data ?? [];
+    const srs = srQ.data ?? [];
+    
+    const items: AttentionItem[] = [];
+
+    // Process Orders
+    orders.forEach((o) => {
+      if (o.status === "ready") {
+        items.push({
+          id: `order-${o.id}`,
+          type: "order",
+          priority: 1,
+          title: `Order ready to serve (Order #${o.order_number})`,
+          timestamp: o.created_at,
+          tableLabel: o.tables?.label ?? "?",
+          originalData: o,
+        });
+      } else if (
+        o.status !== "served" &&
+        o.status !== "cancelled" &&
+        o.version > o.last_reviewed_version &&
+        o.last_updated_by === "customer"
+      ) {
+        items.push({
+          id: `order-${o.id}`,
+          type: "order",
+          priority: 2,
+          title: `Customer updated order (Order #${o.order_number})`,
+          timestamp: o.updated_at || o.created_at,
+          tableLabel: o.tables?.label ?? "?",
+          originalData: o,
+        });
+      }
+    });
+
+    // Process Service Requests
+    srs.forEach((sr) => {
+      if (sr.status !== "resolved") {
+        let priority = 5;
+        if (sr.type === "bill") {
+          priority = 3;
+        } else if (sr.type === "waiter") {
+          priority = 4;
+        } else if (sr.type === "help") {
+          priority = 5;
+        } else if (sr.type === "water") {
+          priority = 6;
+        }
+
+        items.push({
+          id: `sr-${sr.id}`,
+          type: "service_request",
+          priority,
+          title: `Service requested: ${SR_META[sr.type]?.label || sr.type}`,
+          timestamp: sr.created_at,
+          tableLabel: sr.tables?.label ?? "?",
+          originalData: sr,
+        });
+      }
+    });
+
+    return items.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  }, [ordersQ.data, srQ.data]);
+
   const currency = cafe?.currency ?? "USD";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
   const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => (t as any).dining_sessions?.status === "active").length;
@@ -915,6 +997,97 @@ export default function StaffDashboardPage() {
           </div>
         </section>
       )}
+      {/* Needs Attention Panel */}
+      <section className="rounded-3xl border border-border bg-card/60 backdrop-blur-md p-5 shadow-soft ring-1 ring-border/50 transition-all">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              {attentionItems.length > 0 && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+              )}
+              <span className={cn("relative inline-flex rounded-full h-2 w-2", attentionItems.length > 0 ? "bg-destructive" : "bg-success")}></span>
+            </span>
+            <h2 className="font-display text-base font-semibold text-foreground">Needs Attention</h2>
+          </div>
+          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">
+            {attentionItems.length} {attentionItems.length === 1 ? "task" : "tasks"}
+          </span>
+        </div>
+
+        {attentionItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/15 text-success">
+              <Check className="h-5 w-5" />
+            </div>
+            <p className="mt-2 text-xs font-semibold text-foreground">Everything is under control</p>
+          </div>
+        ) : (
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {attentionItems.map((item) => {
+              const priorityColors = {
+                1: "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400 font-bold",
+                2: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold",
+                3: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold",
+                4: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400",
+                5: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400",
+                6: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400",
+              }[item.priority as 1|2|3|4|5|6];
+
+              const priorityLabel = {
+                1: "Critical",
+                2: "High",
+                3: "High",
+                4: "Medium",
+                5: "Medium",
+                6: "Medium",
+              }[item.priority as 1|2|3|4|5|6];
+
+              const Icon = {
+                1: Utensils,
+                2: Sparkles,
+                3: Receipt,
+                4: HandPlatter,
+                5: HelpCircle,
+                6: Droplet,
+              }[item.priority as 1|2|3|4|5|6];
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    if (item.type === "order") {
+                      setSelectedDrawerOrder(item.originalData);
+                    } else {
+                      console.log("Clicked service request: ", item.originalData.id);
+                    }
+                  }}
+                  className="flex flex-col justify-between gap-3 rounded-2xl border border-border bg-card/40 p-3.5 shadow-sm transition-all hover:bg-card hover:scale-[1.01] hover:shadow-soft cursor-pointer"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-xl", priorityColors)}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-display text-xs font-bold text-foreground">
+                        Table {item.tableLabel}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground break-anywhere leading-snug">
+                        {item.title}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border/40 pt-2 text-[10px]">
+                    <span className="text-muted-foreground">{getRelativeTime(new Date(item.timestamp))}</span>
+                    <span className={cn("rounded-full border px-2 py-0.5 font-bold uppercase tracking-wider text-[8px]", priorityColors)}>
+                      {priorityLabel}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       {/* Search Bar */}
       <div className="flex items-center justify-between gap-4">
