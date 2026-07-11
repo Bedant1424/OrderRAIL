@@ -469,6 +469,10 @@ export default function StaffDashboardPage() {
         } else if (payload.eventType === "UPDATE") {
           const newOrder = payload.new as Order;
           
+          if (newOrder.dining_session_id) {
+            void qc.invalidateQueries({ queryKey: ["dining-session-timeline", newOrder.dining_session_id] });
+          }
+          
           // Case A: Cancelled by customer
           if (newOrder.status === 'cancelled' && newOrder.last_updated_by === 'customer') {
             // Briefly highlight card as cancelled (red flash) for 2 seconds
