@@ -274,6 +274,7 @@ export default function StaffDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [tick, setTick] = useState(0);
   const [selectedDrawerOrder, setSelectedDrawerOrder] = useState<OrderWithItems | null>(null);
+  const [focusedSummary, setFocusedSummary] = useState<"incoming" | "preparing" | "ready" | "service_requests" | "overdue" | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 30000);
@@ -947,6 +948,43 @@ export default function StaffDashboardPage() {
     }
   };
 
+  const liveQueueSummary = useMemo(() => {
+    const orders = ordersQ.data ?? [];
+    const srs = srQ.data ?? [];
+    const now = Date.now();
+
+    const incoming = orders.filter((o) => o.status === "pending");
+    const preparing = orders.filter((o) => o.status === "preparing");
+    const ready = orders.filter((o) => o.status === "ready");
+    const activeSRs = srs.filter((sr) => sr.status !== "resolved");
+
+    const activeOrders = orders.filter(
+      (o) => o.status === "pending" || o.status === "preparing" || o.status === "ready"
+    );
+    const overdue = activeOrders.filter((o) => {
+      const diffMs = now - new Date(o.created_at).getTime();
+      return diffMs >= 10 * 60000;
+    });
+
+    const getOldestTime = (items: { created_at: string }[]) => {
+      if (items.length === 0) return "-";
+      const oldestItem = items.reduce((oldest, current) => {
+        return new Date(current.created_at) < new Date(oldest.created_at) ? current : oldest;
+      });
+      const diffMs = now - new Date(oldestItem.created_at).getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      return `Oldest: ${formatElapsedTime(diffMin)}`;
+    };
+
+    return {
+      incoming: { count: incoming.length, oldest: getOldestTime(incoming) },
+      preparing: { count: preparing.length, oldest: getOldestTime(preparing) },
+      ready: { count: ready.length, oldest: getOldestTime(ready) },
+      serviceRequests: { count: activeSRs.length, oldest: getOldestTime(activeSRs) },
+      overdue: { count: overdue.length, oldest: getOldestTime(overdue) },
+    };
+  }, [ordersQ.data, srQ.data, tick]);
+
   const currency = cafe?.currency ?? "USD";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
   const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => (t as any).dining_sessions?.status === "active").length;
@@ -1038,6 +1076,104 @@ export default function StaffDashboardPage() {
           </div>
         </section>
       )}
+      {/* Live Queue Summary Row */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div
+          onClick={() => {
+            console.log("Toggle focus incoming");
+          }}
+          className={cn(
+            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+          )}
+        >
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Incoming</div>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-xl font-bold font-display tabular-nums text-foreground">
+              {liveQueueSummary.incoming.count}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {liveQueueSummary.incoming.oldest}
+            </span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            console.log("Toggle focus preparing");
+          }}
+          className={cn(
+            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+          )}
+        >
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Preparing</div>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-xl font-bold font-display tabular-nums text-foreground">
+              {liveQueueSummary.preparing.count}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {liveQueueSummary.preparing.oldest}
+            </span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            console.log("Toggle focus ready");
+          }}
+          className={cn(
+            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+          )}
+        >
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ready</div>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-xl font-bold font-display tabular-nums text-foreground">
+              {liveQueueSummary.ready.count}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {liveQueueSummary.ready.oldest}
+            </span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            console.log("Toggle focus service requests");
+          }}
+          className={cn(
+            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+          )}
+        >
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Requests</div>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-xl font-bold font-display tabular-nums text-foreground">
+              {liveQueueSummary.serviceRequests.count}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {liveQueueSummary.serviceRequests.oldest}
+            </span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            console.log("Toggle focus overdue");
+          }}
+          className={cn(
+            "rounded-2xl border border-border bg-card p-3 shadow-soft cursor-pointer transition-colors hover:bg-muted/50 flex flex-col justify-between"
+          )}
+        >
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Overdue</div>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-xl font-bold font-display tabular-nums text-foreground">
+              {liveQueueSummary.overdue.count}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {liveQueueSummary.overdue.oldest}
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* Needs Attention Panel */}
       <section className="rounded-3xl border border-border bg-card/60 backdrop-blur-md p-5 shadow-soft ring-1 ring-border/50 transition-all">
         <div className="mb-4 flex items-center justify-between">
