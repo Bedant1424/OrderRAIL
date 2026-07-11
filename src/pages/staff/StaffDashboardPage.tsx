@@ -1043,9 +1043,6 @@ export default function StaffDashboardPage() {
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
-              {attentionItems.length > 0 && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-              )}
               <span className={cn("relative inline-flex rounded-full h-2 w-2", attentionItems.length > 0 ? "bg-destructive" : "bg-success")}></span>
             </span>
             <h2 className="font-display text-base font-semibold text-foreground">Needs Attention</h2>
@@ -1110,7 +1107,7 @@ export default function StaffDashboardPage() {
                         handleScrollToServiceRequest(item.originalData.id);
                       }
                     }}
-                    className="flex flex-col justify-between gap-3 rounded-2xl border border-border bg-card/40 p-3.5 shadow-sm transition-all hover:bg-card hover:scale-[1.01] hover:shadow-soft cursor-pointer"
+                    className="flex flex-col justify-between gap-3 rounded-2xl border border-border bg-card/40 p-3.5 shadow-sm cursor-pointer hover:bg-card/70 transition-colors"
                   >
                     <div className="flex items-start gap-3">
                       <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-xl", priorityColors)}>
