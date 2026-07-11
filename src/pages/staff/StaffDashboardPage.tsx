@@ -906,6 +906,38 @@ export default function StaffDashboardPage() {
     });
   }, [ordersQ.data, srQ.data]);
 
+  const triggerServiceRequestFlash = (id: string) => {
+    if (getNotificationSetting("flashCards")) {
+      setFlashingIds(prev => ({ ...prev, [id]: "sr" }));
+      setTimeout(() => {
+        setFlashingIds(prev => {
+          const copy = { ...prev };
+          delete copy[id];
+          return copy;
+        });
+      }, 400);
+    }
+  };
+
+  const handleScrollToServiceRequest = (srId: string) => {
+    const section = document.getElementById("service-requests-section");
+    const container = document.getElementById("service-requests-container");
+    const cardEl = document.getElementById(`sr-card-${srId}`);
+
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    if (container && cardEl) {
+      setTimeout(() => {
+        cardEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        triggerServiceRequestFlash(srId);
+      }, 300);
+    } else if (cardEl) {
+      triggerServiceRequestFlash(srId);
+    }
+  };
+
   const currency = cafe?.currency ?? "USD";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
   const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => (t as any).dining_sessions?.status === "active").length;
@@ -1058,7 +1090,7 @@ export default function StaffDashboardPage() {
                     if (item.type === "order") {
                       setSelectedDrawerOrder(item.originalData);
                     } else {
-                      console.log("Clicked service request: ", item.originalData.id);
+                      handleScrollToServiceRequest(item.originalData.id);
                     }
                   }}
                   className="flex flex-col justify-between gap-3 rounded-2xl border border-border bg-card/40 p-3.5 shadow-sm transition-all hover:bg-card hover:scale-[1.01] hover:shadow-soft cursor-pointer"
