@@ -310,6 +310,27 @@ function DiningSessionTimeline({ diningSessionId, currentStatus }: { diningSessi
   );
 }
 
+export function getOrderLastActivity(
+  o: { created_at: string; updated_at?: string | null; dining_session_id?: string | null; session_id?: string | null },
+  serviceRequests: { created_at: string; updated_at?: string | null; session_id: string }[]
+): number {
+  const dates = [
+    new Date(o.created_at).getTime(),
+    new Date(o.updated_at || o.created_at).getTime()
+  ];
+  
+  const sessionId = o.dining_session_id || o.session_id;
+  if (sessionId) {
+    const srs = serviceRequests.filter(sr => sr.session_id === sessionId);
+    srs.forEach(sr => {
+      dates.push(new Date(sr.created_at).getTime());
+      dates.push(new Date(sr.updated_at || sr.created_at).getTime());
+    });
+  }
+  
+  return Math.max(...dates);
+}
+
 export default function StaffDashboardPage() {
   const qc = useQueryClient();
   const { cafe, cafeId } = useCafe();
@@ -761,6 +782,7 @@ export default function StaffDashboardPage() {
 
   const grouped = useMemo(() => {
     const orders = ordersQ.data ?? [];
+    const serviceRequests = srQ.data ?? [];
     const query = searchQuery.trim().toLowerCase();
     
     const filteredOrders = query
@@ -771,31 +793,51 @@ export default function StaffDashboardPage() {
         )
       : orders;
 
+    // Attach lastActivity to each order and sort descending
+    const ordersWithActivity = filteredOrders.map((o) => ({
+      ...o,
+      lastActivity: getOrderLastActivity(o, serviceRequests),
+    }));
+
+    const sortByActivity = (a: any, b: any) => b.lastActivity - a.lastActivity;
+
     return {
-      incoming: filteredOrders.filter((o) => o.status === "pending"),
-      active: filteredOrders.filter((o) => o.status === "preparing" || o.status === "ready"),
-      done: filteredOrders.filter((o) => o.status === "served" || o.status === "cancelled").slice(0, 20),
+      incoming: ordersWithActivity.filter((o) => o.status === "pending").sort(sortByActivity),
+      active: ordersWithActivity.filter((o) => o.status === "preparing" || o.status === "ready").sort(sortByActivity),
+      done: ordersWithActivity.filter((o) => o.status === "served" || o.status === "cancelled").sort(sortByActivity).slice(0, 20),
     };
-  }, [ordersQ.data, searchQuery]);
+  }, [ordersQ.data, srQ.data, searchQuery]);
 
   const advance = async (o: OrderWithItems) => {
     const next = NEXT_STATUS[o.status];
     if (!next) return;
-    const { error } = await supabase.from("orders").update({ status: next }).eq("id", o.id);
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: next, updated_at: new Date().toISOString() })
+      .eq("id", o.id);
     if (error) toast.error(error.message);
   };
 
   const cancel = async (o: OrderWithItems) => {
-    const { error } = await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("id", o.id);
     if (error) toast.error(error.message);
   };
 
   const resolveSR = async (id: string) => {
-    const { error } = await supabase.from("service_requests").update({ status: "resolved" }).eq("id", id);
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ status: "resolved", updated_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) toast.error(error.message);
   };
   const ackSR = async (id: string) => {
-    const { error } = await supabase.from("service_requests").update({ status: "acknowledged" }).eq("id", id);
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ status: "acknowledged", updated_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) toast.error(error.message);
   };
 
