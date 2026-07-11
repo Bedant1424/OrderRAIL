@@ -27,5 +27,8 @@ dist-ssr
 *_report.md
 RC1_*_Certification_Report.md
 
-# QA scratch files
+# QA scratch and script files
 test_mobile_popover.js
+login_and_screenshot.js
+repro_regression.js
+verify_customer_ui.js
