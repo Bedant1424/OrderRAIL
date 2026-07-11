@@ -953,19 +953,38 @@ export default function StaffDashboardPage() {
       setFocusedSummary(null);
     } else {
       setFocusedSummary(category);
-      let elementId = "";
-      if (category === "incoming") elementId = "column-incoming";
-      else if (category === "preparing") elementId = "column-preparing";
-      else if (category === "ready") elementId = "column-ready";
-      else if (category === "service_requests") elementId = "service-requests-section";
-
-      if (elementId) {
+      
+      if (category === "service_requests") {
         setTimeout(() => {
-          const el = document.getElementById(elementId);
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          const section = document.getElementById("service-requests-section");
+          if (section) {
+            section.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+          const activeSrs = srQ.data?.filter(sr => sr.status !== 'resolved') ?? [];
+          const firstActiveId = activeSrs[0]?.id;
+          if (firstActiveId) {
+            const cardEl = document.getElementById(`sr-card-${firstActiveId}`);
+            if (cardEl) {
+              setTimeout(() => {
+                cardEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+              }, 200);
+            }
           }
         }, 100);
+      } else {
+        let elementId = "";
+        if (category === "incoming") elementId = "column-incoming";
+        else if (category === "preparing") elementId = "column-preparing";
+        else if (category === "ready") elementId = "column-ready";
+
+        if (elementId) {
+          setTimeout(() => {
+            const el = document.getElementById(elementId);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }, 100);
+        }
       }
     }
   };
@@ -1043,7 +1062,7 @@ export default function StaffDashboardPage() {
           id="service-requests-section"
           className={cn(
             "transition-opacity duration-300",
-            focusedSummary && focusedSummary !== "service_requests" && "opacity-35"
+            focusedSummary && focusedSummary !== "service_requests" && "opacity-80"
           )}
         >
           <h2 className="mb-3 font-display text-lg font-semibold">Service requests</h2>
@@ -1106,15 +1125,15 @@ export default function StaffDashboardPage() {
         </section>
       )}
       {/* Live Queue Summary Row */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <section className="horizontal-thin-scrollbar flex gap-3 overflow-x-auto pb-3.5 snap-x snap-mandatory sm:grid sm:grid-cols-5 sm:pb-0 sm:overflow-x-visible">
         <div
           onClick={() => handleSummaryCardClick("incoming")}
           className={cn(
-            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
             focusedSummary === "incoming"
-              ? "ring-2 ring-warning border-transparent bg-warning/5"
+              ? "ring-2 ring-warning border-transparent bg-warning/5 font-semibold"
               : "border-border bg-card",
-            focusedSummary && focusedSummary !== "incoming" && "opacity-60"
+            focusedSummary && focusedSummary !== "incoming" && "opacity-80"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Incoming</div>
@@ -1131,11 +1150,11 @@ export default function StaffDashboardPage() {
         <div
           onClick={() => handleSummaryCardClick("preparing")}
           className={cn(
-            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
             focusedSummary === "preparing"
-              ? "ring-2 ring-accent border-transparent bg-accent/5"
+              ? "ring-2 ring-accent border-transparent bg-accent/5 font-semibold"
               : "border-border bg-card",
-            focusedSummary && focusedSummary !== "preparing" && "opacity-60"
+            focusedSummary && focusedSummary !== "preparing" && "opacity-80"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Preparing</div>
@@ -1152,11 +1171,11 @@ export default function StaffDashboardPage() {
         <div
           onClick={() => handleSummaryCardClick("ready")}
           className={cn(
-            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
             focusedSummary === "ready"
-              ? "ring-2 ring-success border-transparent bg-success/5"
+              ? "ring-2 ring-success border-transparent bg-success/5 font-semibold"
               : "border-border bg-card",
-            focusedSummary && focusedSummary !== "ready" && "opacity-60"
+            focusedSummary && focusedSummary !== "ready" && "opacity-80"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ready</div>
@@ -1173,11 +1192,11 @@ export default function StaffDashboardPage() {
         <div
           onClick={() => handleSummaryCardClick("service_requests")}
           className={cn(
-            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
             focusedSummary === "service_requests"
-              ? "ring-2 ring-destructive border-transparent bg-destructive/5"
+              ? "ring-2 ring-destructive border-transparent bg-destructive/5 font-semibold"
               : "border-border bg-card",
-            focusedSummary && focusedSummary !== "service_requests" && "opacity-60"
+            focusedSummary && focusedSummary !== "service_requests" && "opacity-80"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Requests</div>
@@ -1194,11 +1213,11 @@ export default function StaffDashboardPage() {
         <div
           onClick={() => handleSummaryCardClick("overdue")}
           className={cn(
-            "rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
             focusedSummary === "overdue"
-              ? "ring-2 ring-destructive border-transparent bg-destructive/10 text-destructive"
+              ? "ring-2 ring-destructive border-transparent bg-destructive/10 text-destructive font-semibold"
               : "border-border bg-card",
-            focusedSummary && focusedSummary !== "overdue" && "opacity-60"
+            focusedSummary && focusedSummary !== "overdue" && "opacity-80"
           )}
         >
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Overdue</div>
@@ -1352,7 +1371,7 @@ export default function StaffDashboardPage() {
           id="column-incoming"
           className={cn(
             "transition-opacity duration-300",
-            focusedSummary && focusedSummary !== "incoming" && "opacity-35"
+            focusedSummary && focusedSummary !== "incoming" && "opacity-80"
           )}
         >
           <OrderColumn
@@ -1373,7 +1392,7 @@ export default function StaffDashboardPage() {
           id="column-preparing"
           className={cn(
             "transition-opacity duration-300",
-            focusedSummary && focusedSummary !== "preparing" && focusedSummary !== "ready" && "opacity-35"
+            focusedSummary && focusedSummary !== "preparing" && focusedSummary !== "ready" && "opacity-80"
           )}
         >
           <OrderColumn
@@ -1394,7 +1413,7 @@ export default function StaffDashboardPage() {
           id="column-done"
           className={cn(
             "transition-opacity duration-300",
-            focusedSummary && "opacity-35"
+            focusedSummary && "opacity-80"
           )}
         >
           <OrderColumn
@@ -1933,7 +1952,31 @@ function OrderColumn({
             }[o.status];
 
             const isOverdue = (o.status === "pending" || o.status === "preparing" || o.status === "ready") && diffMin >= 10;
-            const isDimmed = focusedSummary === "overdue" && !isOverdue;
+            
+            let isDimmed = false;
+            let isFocused = false;
+
+            if (focusedSummary) {
+              if (focusedSummary === "preparing") {
+                if (o.status !== "preparing") {
+                  isDimmed = true;
+                } else {
+                  isFocused = true;
+                }
+              } else if (focusedSummary === "ready") {
+                if (o.status !== "ready") {
+                  isDimmed = true;
+                } else {
+                  isFocused = true;
+                }
+              } else if (focusedSummary === "overdue") {
+                if (!isOverdue) {
+                  isDimmed = true;
+                } else {
+                  isFocused = true;
+                }
+              }
+            }
 
             return (
               <motion.article
@@ -1955,8 +1998,8 @@ function OrderColumn({
                   flashingIds[o.id] === "new" && "animate-flash-green",
                   flashingIds[o.id] === "updated" && "animate-flash-amber",
                   flashingIds[o.id] === "cancelled" && "animate-flash-red",
-                  isDimmed && "opacity-30 scale-[0.98]",
-                  focusedSummary === "overdue" && isOverdue && "ring-destructive/80 ring-2"
+                  isDimmed && "opacity-80",
+                  focusedSummary === "overdue" && isOverdue && "ring-destructive/80 ring-2 shadow-lg"
                 )}
               >
                 {/* Order header row */}
