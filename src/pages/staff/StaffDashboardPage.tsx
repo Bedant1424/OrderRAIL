@@ -1953,6 +1953,68 @@ export default function StaffDashboardPage() {
           })()}
         </SheetContent>
       </Sheet>
+
+      {isSpecialsDialogOpen && (
+        <Dialog open={isSpecialsDialogOpen} onOpenChange={setIsSpecialsDialogOpen}>
+          <DialogContent className="max-w-md w-full max-h-[85vh] flex flex-col p-6 rounded-3xl bg-card border border-border">
+            <DialogHeader>
+              <DialogTitle className="font-display text-lg font-bold">Today's Specials</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Toggle "Today's Special" label for your menu items. Customers will see these highlighted on the menu.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto pr-1 py-4 space-y-4">
+              {menuItemsQ.isLoading ? (
+                <div className="text-center text-xs py-8 text-muted-foreground">Loading items...</div>
+              ) : !menuItemsQ.data || menuItemsQ.data.length === 0 ? (
+                <div className="text-center text-xs py-8 text-muted-foreground">No menu items found.</div>
+              ) : (
+                <div className="space-y-2">
+                  {menuItemsQ.data.map((item) => {
+                    const isSpecial = item.tags?.includes("Today's Special") ?? false;
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3 rounded-2xl border border-border bg-card/50 hover:bg-card hover:shadow-soft transition-all"
+                      >
+                        <div>
+                          <div className="text-xs font-semibold text-foreground">{item.name}</div>
+                          {item.description && (
+                            <div className="text-[10px] text-muted-foreground line-clamp-1">{item.description}</div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void toggleTodaySpecial(item.id, item.tags)}
+                          className={cn(
+                            "rounded-full px-3 py-1 text-[10px] font-semibold border transition-all active:scale-95",
+                            isSpecial
+                              ? "bg-rose-500 border-rose-500 text-white shadow-sm"
+                              : "bg-background border-border text-muted-foreground hover:bg-secondary"
+                          )}
+                        >
+                          {isSpecial ? "Special" : "Normal"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            <DialogFooter className="mt-4">
+              <button
+                type="button"
+                onClick={() => setIsSpecialsDialogOpen(false)}
+                className="w-full rounded-full bg-secondary py-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              >
+                Close
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -2198,68 +2260,6 @@ function OrderColumn({
           })}
         </AnimatePresence>
       </div>
-
-      {isSpecialsDialogOpen && (
-        <Dialog open={isSpecialsDialogOpen} onOpenChange={setIsSpecialsDialogOpen}>
-          <DialogContent className="max-w-md w-full max-h-[85vh] flex flex-col p-6 rounded-3xl bg-card border border-border">
-            <DialogHeader>
-              <DialogTitle className="font-display text-lg font-bold">Today's Specials</DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Toggle "Today's Special" label for your menu items. Customers will see these highlighted on the menu.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex-1 overflow-y-auto pr-1 py-4 space-y-4">
-              {menuItemsQ.isLoading ? (
-                <div className="text-center text-xs py-8 text-muted-foreground">Loading items...</div>
-              ) : !menuItemsQ.data || menuItemsQ.data.length === 0 ? (
-                <div className="text-center text-xs py-8 text-muted-foreground">No menu items found.</div>
-              ) : (
-                <div className="space-y-2">
-                  {menuItemsQ.data.map((item) => {
-                    const isSpecial = item.tags?.includes("Today's Special") ?? false;
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-3 rounded-2xl border border-border bg-card/50 hover:bg-card hover:shadow-soft transition-all"
-                      >
-                        <div>
-                          <div className="text-xs font-semibold text-foreground">{item.name}</div>
-                          {item.description && (
-                            <div className="text-[10px] text-muted-foreground line-clamp-1">{item.description}</div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => void toggleTodaySpecial(item.id, item.tags)}
-                          className={cn(
-                            "rounded-full px-3 py-1 text-[10px] font-semibold border transition-all active:scale-95",
-                            isSpecial
-                              ? "bg-rose-500 border-rose-500 text-white shadow-sm"
-                              : "bg-background border-border text-muted-foreground hover:bg-secondary"
-                          )}
-                        >
-                          {isSpecial ? "Special" : "Normal"}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            
-            <DialogFooter className="mt-4">
-              <button
-                type="button"
-                onClick={() => setIsSpecialsDialogOpen(false)}
-                className="w-full rounded-full bg-secondary py-2.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
-              >
-                Close
-              </button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
