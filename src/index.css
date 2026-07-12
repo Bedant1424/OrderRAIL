@@ -227,6 +227,11 @@
   font-family: inherit !important;
 }
 
+[data-sonner-toast] > div {
+  transform: none !important;
+  opacity: 1 !important;
+}
+
 [data-sonner-toast][data-type="success"] {
   border-color: hsl(var(--success) / 0.4) !important;
   background: linear-gradient(to right, hsl(var(--card)), hsl(145 55% 98%)) !important;
