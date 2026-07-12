@@ -63,7 +63,7 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
               disabled={isSending || remaining > 0}
               className="group relative flex items-start gap-4 overflow-hidden rounded-3xl bg-card p-5 text-left shadow-soft ring-1 ring-border/60 transition hover:ring-accent/40 disabled:opacity-70"
             >
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-accent text-accent-foreground">
                 {isPending ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
               </span>
               <span className="min-w-0">

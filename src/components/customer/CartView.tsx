@@ -558,7 +558,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           <button
             onClick={editingOrderId ? updateExistingOrder : placeOrder}
             disabled={placing}
-            className="w-full rounded-full bg-primary py-2.5 text-base font-semibold text-primary-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
+            className="w-full rounded-full bg-gradient-accent py-2.5 text-base font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
           >
             {placing ? "Sending…" : editingOrderId ? "Update Order" : "Place Order"}
           </button>
