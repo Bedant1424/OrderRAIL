@@ -26,6 +26,8 @@ dist-ssr
 # QA certification reports (local only)
 *_report.md
 RC1_*_Certification_Report.md
+about_cafe_sheet.jpg
+*.jpg
 
 # QA scratch and script files
 test_mobile_popover.js
