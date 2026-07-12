@@ -116,7 +116,7 @@ export default function Index() {
               {firstTable && (
                 <Link
                   to={`/t/${firstTable.id}`}
-                  className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90"
+                  className="inline-flex items-center gap-2 rounded-full btn-primary-action px-6 py-3 text-sm font-semibold"
                 >
                   Try the customer app <ArrowRight className="h-4 w-4" />
                 </Link>

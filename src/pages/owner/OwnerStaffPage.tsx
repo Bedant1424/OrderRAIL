@@ -126,7 +126,7 @@ export default function OwnerStaffPage() {
           <button
             onClick={() => void invite()}
             disabled={busy || !email.trim()}
-            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            className="rounded-full btn-primary-action px-5 py-2 text-sm font-semibold"
           >
             {busy ? "Assigning…" : "Assign"}
           </button>

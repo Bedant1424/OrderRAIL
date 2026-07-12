@@ -106,7 +106,7 @@ export default function TableLayout() {
           <p className="mt-2 text-muted-foreground">
             This QR code doesn't match an active table. Please ask a staff member.
           </p>
-          <Link to="/" className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground">
+          <Link to="/" className="mt-6 inline-block rounded-full btn-primary-action px-6 py-3 text-sm font-semibold">
             Go home
           </Link>
         </div>
@@ -258,7 +258,7 @@ export default function TableLayout() {
                       href={cafe.google_maps_review_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="w-full rounded-full bg-primary hover:bg-primary/95 text-primary-foreground py-3 text-xs font-semibold shadow-soft transition active:scale-[0.99] flex items-center justify-center gap-2"
+                      className="w-full rounded-full btn-primary-action py-3 text-xs font-semibold flex items-center justify-center gap-2"
                     >
                       <Star className="h-4 w-4 fill-warning text-warning" />
                       Leave a Google Review

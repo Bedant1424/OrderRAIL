@@ -1748,7 +1748,7 @@ export default function StaffDashboardPage() {
                   reviewingOrder.status !== 'cancelled' && (
                     <button
                       onClick={() => void handleAcknowledge(reviewingOrder.id, reviewingOrder.version)}
-                      className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/95 shadow-soft transition"
+                      className="rounded-full btn-primary-action px-4 py-2 text-sm font-semibold"
                     >
                       Acknowledge Changes
                     </button>
@@ -1921,7 +1921,7 @@ export default function StaffDashboardPage() {
                         const latest = updatedOrders.data?.find(o => o.id === selectedDrawerOrder.id);
                         if (latest) setSelectedDrawerOrder(latest);
                       }}
-                      className="w-full rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition"
+                      className="w-full rounded-full btn-primary-action py-2.5 text-sm font-semibold"
                     >
                       {NEXT_LABEL[selectedDrawerOrder.status]}
                     </button>
@@ -2236,7 +2236,7 @@ function OrderColumn({
                           e.stopPropagation();
                           onAdvance(o);
                         }}
-                        className="flex-1 h-9 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-soft hover:bg-primary/95 transition-colors"
+                        className="flex-1 h-9 rounded-xl btn-primary-action px-4 text-xs font-semibold"
                       >
                         {NEXT_LABEL[o.status]}
                       </button>

@@ -143,7 +143,7 @@ export default function StaffLoginPage() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft disabled:opacity-60"
+                  className="w-full rounded-full btn-primary-action px-6 py-3 text-sm font-semibold"
                 >
                   {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
                 </button>
@@ -209,7 +209,7 @@ export default function StaffLoginPage() {
                 <div className="mt-4 flex gap-2">
                   <Link
                     to="/staff"
-                    className="flex-1 rounded-full bg-primary px-4 py-2.5 text-center text-sm font-semibold text-primary-foreground"
+                    className="flex-1 rounded-full btn-primary-action px-4 py-2.5 text-center text-sm font-semibold"
                   >
                     Open staff dashboard
                   </Link>

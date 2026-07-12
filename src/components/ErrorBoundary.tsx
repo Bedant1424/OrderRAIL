@@ -44,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="mt-6 flex flex-col gap-3">
               <button
                 onClick={this.handleReload}
-                className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition active:scale-[0.99]"
+                className="w-full rounded-full btn-primary-action px-6 py-3 text-sm font-semibold"
               >
                 Reload Application
               </button>
