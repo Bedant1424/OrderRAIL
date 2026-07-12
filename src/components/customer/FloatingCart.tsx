@@ -25,11 +25,11 @@ export function FloatingCart({ currency }: { currency: string }) {
           <Link
             to={`/t/${tableId}/cart`}
             className={cn(
-              "pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-4 rounded-full px-5 py-3.5 bg-primary text-primary-foreground shadow-none"
+              "pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-4 rounded-full px-5 py-3.5 btn-primary-action"
             )}
           >
             <span className="flex items-center gap-3">
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-primary-foreground/15">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-accent-foreground/15">
                 <ShoppingBag className="h-4 w-4" />
               </span>
               <span className="text-base font-semibold">
