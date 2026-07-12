@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { cancelOrder } from "@/lib/orders";
 import { ReviewForm } from "./ReviewForm";
 import { useCart } from "@/lib/cart";
+import { useCustomerNavigate } from "@/hooks/useCustomerBack";
 
 const STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "pending", label: "Received", icon: Clock },
@@ -20,6 +21,7 @@ const STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ clas
 export function OrderStatusView({ cafe }: { cafe: Cafe }) {
   const { orderId, tableId } = useParams();
   const navigate = useNavigate();
+  const customerNavigate = useCustomerNavigate();
   const [searchParams] = useSearchParams();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<(OrderItem & { menu_items?: { image_url: string | null } | null })[]>([]);
@@ -90,7 +92,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
     }));
     startEditing(order.id, order.version, cartLines, order.note);
     toast.success("Order loaded in basket for editing.");
-    navigate(`/t/${tableId}/cart`);
+    customerNavigate(`/t/${tableId}/cart`);
   };
 
   const handleCancel = async () => {
@@ -207,14 +209,14 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
           <ReviewForm
             cafe={cafe}
             orderId={order.id}
-            onComplete={() => navigate(`/t/${tableId}/cart`)}
+            onComplete={() => customerNavigate(`/t/${tableId}/cart`)}
           />
         </div>
       )}
 
       <div className="mt-6 px-4">
         <button
-          onClick={() => navigate(`/t/${tableId}`)}
+          onClick={() => customerNavigate(`/t/${tableId}`)}
           className="w-full rounded-full bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground"
         >
           Back to menu
