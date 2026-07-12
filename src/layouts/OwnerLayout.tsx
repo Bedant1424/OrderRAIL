@@ -702,7 +702,7 @@ export default function OwnerLayout() {
                   cn(
                     "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-soft"
+                      ? "bg-gradient-accent text-accent-foreground shadow-soft"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                   )
                 }
@@ -752,7 +752,7 @@ export default function OwnerLayout() {
                   cn(
                     "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-soft"
+                      ? "bg-gradient-accent text-accent-foreground shadow-soft"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                   )
                 }
