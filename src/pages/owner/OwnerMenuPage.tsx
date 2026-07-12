@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Camera, Check, Pencil, Plus, Trash2, X, MoreVertical } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase, formatMoney, type Cafe, type MenuCategory, type MenuItem } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { generateUUID } from "@/lib/uuid";
+import { useCafe } from "@/lib/cafe";
+import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
+import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
 
@@ -13,9 +22,6 @@ async function urlForPath(path: string) {
   const { data } = await supabase.storage.from("menu-images").createSignedUrl(path, SIGNED_YEARS);
   return data?.signedUrl ?? null;
 }
-
-import { useCafe } from "@/lib/cafe";
-import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 export default function OwnerMenuPage() {
   const qc = useQueryClient();
@@ -73,30 +79,37 @@ export default function OwnerMenuPage() {
   };
 
   const removeCat = async (cat: MenuCategory) => {
-    // Prevent deleting category if it still has menu items
-    const { data: items, error: checkError } = await supabase
-      .from("menu_items")
-      .select("id")
-      .eq("category_id", cat.id)
-      .limit(1);
-
-    if (checkError) {
-      toast.error(checkError.message);
-      return;
+    const catItems = grouped.get(cat.id) ?? [];
+    
+    if (catItems.length > 0) {
+      const message = `Warning: The category "${cat.name}" contains ${catItems.length} menu items.\n\n` +
+                      `Deleting this category will also permanently delete all of these menu items.\n\n` +
+                      `Are you sure you want to delete Category "${cat.name}" and all its items?`;
+      if (!confirm(message)) return;
+    } else {
+      if (!confirm(`Are you sure you want to remove the category "${cat.name}"?`)) return;
     }
 
-    if (items && items.length > 0) {
-      toast.error(`Cannot delete category "${cat.name}" because it still contains menu items. Please delete or move the items first.`);
-      return;
-    }
+    try {
+      if (catItems.length > 0) {
+        const { error: itemsError } = await supabase
+          .from("menu_items")
+          .delete()
+          .eq("category_id", cat.id);
+        if (itemsError) throw itemsError;
+      }
+      
+      const { error: catError } = await supabase
+        .from("menu_categories")
+        .delete()
+        .eq("id", cat.id);
+      if (catError) throw catError;
 
-    if (!confirm(`Remove category "${cat.name}"?`)) return;
-    const { error } = await supabase.from("menu_categories").delete().eq("id", cat.id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Category removed");
+      toast.success("Category and its items removed");
       void qc.invalidateQueries({ queryKey: ["owner-cats", cafeId] });
       void qc.invalidateQueries({ queryKey: ["owner-items", cafeId] });
+    } catch (error: any) {
+      toast.error(error.message);
     }
   };
 
@@ -142,20 +155,24 @@ export default function OwnerMenuPage() {
           <section key={cat.id}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-xl font-semibold">{cat.name}</h2>
-              <div className="flex gap-2 text-xs">
-                <button
-                  className="rounded-full bg-secondary px-3 py-1 text-muted-foreground hover:text-foreground"
-                  onClick={() => setEditingCat(cat)}
-                >
-                  <Pencil className="mr-1 inline h-3 w-3" /> Rename
-                </button>
-                <button
-                  className="rounded-full bg-secondary px-3 py-1 text-muted-foreground hover:text-destructive"
-                  onClick={() => void removeCat(cat)}
-                >
-                  <Trash2 className="mr-1 inline h-3 w-3" /> Delete
-                </button>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="h-11 w-11 flex items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition active:scale-95 shrink-0"
+                    aria-label="Category options"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setEditingCat(cat)} className="cursor-pointer">
+                    <Pencil className="mr-2 h-4 w-4" /> Rename Category
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void removeCat(cat)} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Category
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <AnimatePresence initial={false}>
@@ -218,6 +235,30 @@ export default function OwnerMenuPage() {
   );
 }
 
+const getTagColorClass = (tag: string): string => {
+  switch (tag) {
+    case "Best Seller":
+    case "Bestseller":
+      return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300";
+    case "New":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300";
+    case "Popular":
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300";
+    case "Chef's Choice":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300";
+    case "Today's Special":
+      return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
+    case "Spicy":
+      return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300";
+    case "Veg":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
+    case "Non-Veg":
+      return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
+    default:
+      return "bg-secondary text-secondary-foreground";
+  }
+};
+
 function ItemCard({
   item,
   currency,
@@ -244,6 +285,13 @@ function ItemCard({
     };
   }, [item.image_url]);
 
+  const tagsToRender = (item.tags || []).filter((t) => t !== "Veg" && t !== "Non-Veg");
+  if (item.veg_type === "veg") {
+    tagsToRender.unshift("Veg");
+  } else if (item.veg_type === "non_veg") {
+    tagsToRender.unshift("Non-Veg");
+  }
+
   return (
     <motion.article
       layout
@@ -260,38 +308,61 @@ function ItemCard({
       ) : (
         <div className="h-20 w-20 flex-shrink-0 rounded-xl bg-gradient-warm" aria-hidden />
       )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate font-medium">{item.name}</p>
-            <p className="text-xs text-muted-foreground tabular-nums">{formatMoney(item.price_cents, currency)}</p>
+      <div className="min-w-0 flex-1 flex flex-col justify-between">
+        <div>
+          {tagsToRender.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {tagsToRender.map((tag) => (
+                <span
+                  key={tag}
+                  className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTagColorClass(tag)}`}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate font-medium">{item.name}</p>
+              <p className="text-xs text-muted-foreground tabular-nums">{formatMoney(item.price_cents, currency)}</p>
+            </div>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0",
+                item.is_available ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+              )}
+            >
+              {item.is_available ? "Available" : "Unavailable"}
+            </span>
           </div>
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] font-medium",
-              item.is_available ? "bg-success/15 text-foreground" : "bg-muted text-muted-foreground",
-            )}
-          >
-            {item.is_available ? "Live" : "Off"}
-          </span>
+          {item.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
         </div>
-        {item.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
-        <div className="mt-2 flex gap-1 text-xs">
-          <button onClick={onEdit} className="rounded-full bg-secondary px-2.5 py-1 hover:bg-secondary/80">
-            <Pencil className="h-3 w-3" />
-          </button>
-          <button
-            onClick={onToggle}
-            className="rounded-full bg-secondary px-2.5 py-1 hover:bg-secondary/80"
-            title={item.is_available ? "Take off menu" : "Put back on menu"}
-          >
-            {item.is_available ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
-          </button>
+
+        {/* Actions row */}
+        <div className="mt-3 flex items-center justify-between text-xs border-t border-border/40 pt-2.5">
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer text-xs select-none h-11">
+              <Switch
+                checked={item.is_available}
+                onCheckedChange={onToggle}
+              />
+              <span className="font-semibold text-muted-foreground">Available</span>
+            </label>
+            <button
+              onClick={onEdit}
+              className="h-11 w-11 flex items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-foreground transition active:scale-95 shrink-0"
+              title="Edit item"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
           <button
             onClick={onDelete}
-            className="rounded-full bg-secondary px-2.5 py-1 hover:bg-destructive/15 hover:text-destructive"
+            className="h-11 w-11 flex items-center justify-center rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive transition active:scale-95 shrink-0"
+            title="Delete item"
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
