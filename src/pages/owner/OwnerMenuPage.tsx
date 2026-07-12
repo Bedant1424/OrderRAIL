@@ -129,7 +129,16 @@ export default function OwnerMenuPage() {
       </header>
 
       <div className="space-y-8">
-        {cats.map((cat) => (
+        {(catsQ.isLoading || itemsQ.isLoading) ? (
+          <div className="flex flex-col items-center justify-center p-12 gap-3 text-muted-foreground">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+            <span className="text-sm font-medium">Loading menu…</span>
+          </div>
+        ) : cats.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            No categories added yet. Click "+ Category" to start.
+          </div>
+        ) : cats.map((cat) => (
           <section key={cat.id}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-xl font-semibold">{cat.name}</h2>
