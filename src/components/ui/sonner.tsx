@@ -25,6 +25,49 @@ function CustomToastWrapper({
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-150, 0, 150], [0, 1, 0]);
   const controls = useAnimation();
+  const elementRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const toastElement = elementRef.current?.closest("[data-sonner-toast]") as HTMLElement;
+    if (!toastElement) return;
+
+    const unsubscribeX = x.on("change", (latestX) => {
+      const toastEl = elementRef.current?.closest("[data-sonner-toast]") as HTMLElement;
+      if (toastEl) {
+        toastEl.style.setProperty("transform", `translateX(${latestX}px)`, "important");
+        if (latestX !== 0) {
+          toastEl.style.setProperty("transition", "none", "important");
+        } else {
+          toastEl.style.removeProperty("transition");
+        }
+      }
+      if (elementRef.current) {
+        elementRef.current.style.transform = "none";
+      }
+    });
+
+    const unsubscribeOpacity = opacity.on("change", (latestOpacity) => {
+      const toastEl = elementRef.current?.closest("[data-sonner-toast]") as HTMLElement;
+      if (toastEl) {
+        toastEl.style.setProperty("opacity", String(latestOpacity), "important");
+        if (latestOpacity !== 1) {
+          toastEl.style.setProperty("transition", "none", "important");
+        } else {
+          if (x.get() === 0) {
+            toastEl.style.removeProperty("transition");
+          }
+        }
+      }
+      if (elementRef.current) {
+        elementRef.current.style.opacity = "1";
+      }
+    });
+
+    return () => {
+      unsubscribeX();
+      unsubscribeOpacity();
+    };
+  }, [x, opacity]);
 
   const handleDragEnd = async (event: any, info: any) => {
     const offset = info.offset.x;
@@ -59,6 +102,7 @@ function CustomToastWrapper({
 
   return (
     <motion.div
+      ref={elementRef}
       drag="x"
       dragDirectionLock
       onDragEnd={handleDragEnd}
