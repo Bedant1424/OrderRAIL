@@ -1,17 +1,43 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { supabase, type MenuCategory, type MenuItem } from "@/lib/db";
 import { MenuItemCard } from "@/components/customer/MenuItemCard";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
 import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, FLOATING_CART_HEIGHT } from "@/lib/constants";
+import { toast } from "@/components/ui/sonner";
 
 export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: string }) {
-  const { count } = useCart();
+  const { count, lines, setQty } = useCart();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  // Real-time synchronization for menu items availability
+  useEffect(() => {
+    if (!cafeId) return;
+    const channel = supabase
+      .channel(`menu-items-realtime-${cafeId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "menu_items",
+          filter: `cafe_id=eq.${cafeId}`,
+        },
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ["menu_items", cafeId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [cafeId, queryClient]);
 
   const { data: categories = [], isLoading: loadingCats } = useQuery({
     queryKey: ["menu_categories", cafeId],
@@ -39,6 +65,18 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
       return data as MenuItem[];
     },
   });
+
+  // Remove unavailable items from cart
+  useEffect(() => {
+    if (loadingItems || items.length === 0) return;
+    const availableIds = new Set(items.map((i) => i.id));
+    for (const line of lines) {
+      if (!availableIds.has(line.item.id)) {
+        setQty(line.item.id, 0);
+        toast.error(`"${line.item.name}" is no longer available and was removed from your cart.`);
+      }
+    }
+  }, [items, loadingItems, lines, setQty]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

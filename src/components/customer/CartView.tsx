@@ -90,6 +90,39 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     if (!lines.length) return;
     setPlacing(true);
     try {
+      // Revalidate every item before placing an order
+      const itemIds = lines.map((l) => l.item.id);
+      const { data: dbItems, error: fetchError } = await supabase
+        .from("menu_items")
+        .select("id, name, is_available")
+        .in("id", itemIds);
+
+      if (fetchError) throw fetchError;
+
+      const dbItemsMap = new Map<string, { name: string; is_available: boolean }>();
+      if (dbItems) {
+        for (const item of dbItems) {
+          dbItemsMap.set(item.id, { name: item.name, is_available: item.is_available });
+        }
+      }
+
+      const unavailableNames: string[] = [];
+      for (const line of lines) {
+        const dbItem = dbItemsMap.get(line.item.id);
+        if (!dbItem || !dbItem.is_available) {
+          unavailableNames.push(line.item.name);
+          setQty(line.item.id, 0);
+        }
+      }
+
+      if (unavailableNames.length > 0) {
+        toast.error(
+          `Some items are no longer available and were removed from your cart: ${unavailableNames.join(", ")}. Please review your order.`
+        );
+        setPlacing(false);
+        return;
+      }
+
       const orderId = generateUUID();
       const { queued } = await submitOrder({
         id: orderId,

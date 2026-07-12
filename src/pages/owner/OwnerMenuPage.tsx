@@ -155,7 +155,7 @@ export default function OwnerMenuPage() {
           <section key={cat.id}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-xl font-semibold">{cat.name}</h2>
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
                     className="h-11 w-11 flex items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition active:scale-95 shrink-0"
@@ -400,27 +400,34 @@ function CategoryDialog({
   };
 
   return (
-    <Dialog title={initial ? "Edit category" : "New category"} onClose={onClose}>
-      <label className="block text-xs font-medium text-muted-foreground">Name</label>
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-      />
-      <label className="mt-3 block text-xs font-medium text-muted-foreground">Sort order</label>
-      <input
-        type="number"
-        value={sort}
-        onChange={(e) => setSort(Number(e.target.value))}
-        className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-      />
-      <button
-        onClick={() => void save()}
-        disabled={busy || !name.trim()}
-        className="mt-4 w-full rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
-      >
-        {busy ? "Saving…" : "Save"}
-      </button>
+    <Dialog
+      title={initial ? "Edit category" : "New category"}
+      onClose={onClose}
+      footer={
+        <button
+          onClick={() => void save()}
+          disabled={busy || !name.trim()}
+          className="w-full rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+      }
+    >
+      <div>
+        <label className="block text-xs font-medium text-muted-foreground">Name</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+        />
+        <label className="mt-3 block text-xs font-medium text-muted-foreground">Sort order</label>
+        <input
+          type="number"
+          value={sort}
+          onChange={(e) => setSort(Number(e.target.value))}
+          className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+        />
+      </div>
     </Dialog>
   );
 }
@@ -509,138 +516,172 @@ function ItemDialog({
   };
 
   return (
-    <Dialog title={isEdit ? "Edit item" : "New item"} onClose={onClose}>
-      <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+    <Dialog
+      title={isEdit ? "Edit item" : "New item"}
+      onClose={onClose}
+      footer={
         <button
-          onClick={() => fileRef.current?.click()}
-          className="grid aspect-square w-full place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground"
+          onClick={() => void save()}
+          disabled={busy || !name.trim()}
+          className="w-full rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
         >
-          {preview ? (
-            <img src={preview} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex flex-col items-center gap-1 text-xs">
-              <Camera className="h-5 w-5" /> {uploading ? "Uploading…" : "Photo"}
-            </div>
-          )}
+          {busy ? "Saving…" : "Save"}
         </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void upload(f);
-          }}
-        />
-        <div className="space-y-2">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Name</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+      }
+    >
+      <div className="space-y-4 pb-2">
+        <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="grid aspect-square w-full place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground"
+          >
+            {preview ? (
+              <img src={preview} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-xs">
+                <Camera className="h-5 w-5" /> {uploading ? "Uploading…" : "Photo"}
+              </div>
+            )}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void upload(f);
+            }}
+          />
+          <div className="space-y-2">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Price</label>
+              <label className="text-xs font-medium text-muted-foreground">Name</label>
               <input
-                inputMode="decimal"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
               />
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Price</label>
+                <input
+                  inputMode="decimal"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Category</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <label className="mt-3 block text-xs font-medium text-muted-foreground">Description</label>
-      <textarea
-        value={desc}
-        onChange={(e) => setDesc(e.target.value)}
-        rows={3}
-        className="mt-1 w-full resize-none rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-      />
-      <label className="mt-3 flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={available} onChange={(e) => setAvailable(e.target.checked)} />
-        Available on menu
-      </label>
-      <div className="mt-3">
-        <label className="text-xs font-medium text-muted-foreground">Veg / Non-Veg</label>
-        <select
-          value={vegType}
-          onChange={(e) => setVegType(e.target.value as typeof vegType)}
-          className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-        >
-          <option value="unspecified">Not specified</option>
-          <option value="veg">Veg</option>
-          <option value="non_veg">Non-Veg</option>
-        </select>
-      </div>
-      <div className="mt-3">
-        <label className="text-xs font-medium text-muted-foreground">Labels</label>
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          {["Best Seller", "Chef's Choice", "Today's Special", "New"].map((lbl) => {
-            const active = tags.includes(lbl);
-            return (
-              <button
-                key={lbl}
-                type="button"
-                onClick={() => {
-                  setTags((prev) =>
-                    prev.includes(lbl) ? prev.filter((t) => t !== lbl) : [...prev, lbl]
-                  );
-                }}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium border transition-all active:scale-95",
-                  active
-                    ? "bg-primary border-primary text-primary-foreground font-semibold"
-                    : "bg-background border-border text-muted-foreground hover:bg-secondary"
-                )}
-              >
-                {lbl}
-              </button>
-            );
-          })}
+        <div>
+          <label className="block text-xs font-medium text-muted-foreground">Description</label>
+          <textarea
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            rows={3}
+            className="mt-1 w-full resize-none rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={available}
+            onChange={(e) => setAvailable(e.target.checked)}
+            className="rounded border-border text-primary focus:ring-ring"
+          />
+          <span>Available on menu</span>
+        </label>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Veg / Non-Veg</label>
+          <select
+            value={vegType}
+            onChange={(e) => setVegType(e.target.value as typeof vegType)}
+            className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+          >
+            <option value="unspecified">Not specified</option>
+            <option value="veg">Veg</option>
+            <option value="non_veg">Non-Veg</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Labels</label>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {["Best Seller", "Chef's Choice", "Today's Special", "New"].map((lbl) => {
+              const active = tags.includes(lbl);
+              return (
+                <button
+                  key={lbl}
+                  type="button"
+                  onClick={() => {
+                    setTags((prev) =>
+                      prev.includes(lbl) ? prev.filter((t) => t !== lbl) : [...prev, lbl]
+                    );
+                  }}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium border transition-all active:scale-95",
+                    active
+                      ? "bg-primary border-primary text-primary-foreground font-semibold"
+                      : "bg-background border-border text-muted-foreground hover:bg-secondary"
+                  )}
+                >
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
-      <button
-        onClick={() => void save()}
-        disabled={busy || !name.trim()}
-        className="mt-4 w-full rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
-      >
-        {busy ? "Saving…" : "Save"}
-      </button>
     </Dialog>
   );
 }
 
-function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Dialog({
+  title,
+  onClose,
+  children,
+  footer,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background/70 p-4 backdrop-blur-sm flex justify-center items-start sm:items-center">
-      <div className="my-auto flex max-h-[90vh] sm:max-h-[85vh] w-full max-w-md flex-col rounded-3xl bg-card p-5 shadow-float ring-1 ring-border">
+    <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex justify-center items-end sm:items-center p-4 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))]">
+      <div className="flex flex-col w-full max-w-md bg-card rounded-3xl p-5 shadow-float ring-1 ring-border max-h-[85vh] sm:max-h-[80vh] overflow-hidden">
+        {/* Fixed Header */}
         <div className="mb-4 flex items-center justify-between shrink-0">
           <h3 className="font-display text-lg font-semibold">{title}</h3>
-          <button onClick={onClose} className="rounded-full bg-secondary p-1.5" aria-label="Close dialog">
+          <button onClick={onClose} className="rounded-full bg-secondary p-1.5 active:scale-95 transition" aria-label="Close dialog">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 pr-1 -mr-1 min-h-0">
+        
+        {/* Scrollable Body */}
+        <div className="overflow-y-auto flex-1 pr-1 -mr-1 min-h-0 space-y-4">
           {children}
         </div>
+        
+        {/* Fixed Footer */}
+        {footer && (
+          <div className="mt-4 shrink-0 pt-3 border-t border-border/40 pb-[env(safe-area-inset-bottom)]">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
