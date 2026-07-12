@@ -283,6 +283,21 @@ export default function StaffDashboardPage() {
   });
 
   const [isSpecialsDialogOpen, setIsSpecialsDialogOpen] = useState(false);
+  const [specialsSearchQuery, setSpecialsSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (!isSpecialsDialogOpen) {
+      setSpecialsSearchQuery("");
+    }
+  }, [isSpecialsDialogOpen]);
+
+  useEffect(() => {
+    const handleOpenSpecials = () => {
+      setIsSpecialsDialogOpen(true);
+    };
+    window.addEventListener("open-specials-dialog", handleOpenSpecials);
+    return () => window.removeEventListener("open-specials-dialog", handleOpenSpecials);
+  }, []);
 
   const menuItemsQ = useQuery({
     queryKey: ["staff-menu-items", cafeId],
@@ -1130,14 +1145,6 @@ export default function StaffDashboardPage() {
           <p className="text-xs text-muted-foreground">Manage active orders and service requests in real-time.</p>
         </div>
         <div className="flex items-center gap-2">
-          {cafe?.staff_can_manage_specials && (
-            <button
-              onClick={() => setIsSpecialsDialogOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 border border-accent/20 px-3.5 py-2 text-xs font-semibold text-accent hover:bg-accent/20 transition active:scale-95 shrink-0"
-            >
-              <Sparkles className="h-4 w-4" /> Manage Specials
-            </button>
-          )}
           <GlobalNotificationControls />
         </div>
       </div>
@@ -1964,43 +1971,65 @@ export default function StaffDashboardPage() {
               </DialogDescription>
             </DialogHeader>
 
+            <div className="mt-2">
+              <input
+                type="text"
+                placeholder="Search items by name..."
+                value={specialsSearchQuery}
+                onChange={(e) => setSpecialsSearchQuery(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-card pl-4 pr-4 py-2 text-xs shadow-soft focus:outline-none focus:ring-1 focus:ring-primary/50 transition"
+              />
+            </div>
+
             <div className="flex-1 overflow-y-auto pr-1 py-4 space-y-4">
               {menuItemsQ.isLoading ? (
                 <div className="text-center text-xs py-8 text-muted-foreground">Loading items...</div>
               ) : !menuItemsQ.data || menuItemsQ.data.length === 0 ? (
                 <div className="text-center text-xs py-8 text-muted-foreground">No menu items found.</div>
-              ) : (
-                <div className="space-y-2">
-                  {menuItemsQ.data.map((item) => {
-                    const isSpecial = item.tags?.includes("Today's Special") ?? false;
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-3 rounded-2xl border border-border bg-card/50 hover:bg-card hover:shadow-soft transition-all"
-                      >
-                        <div>
-                          <div className="text-xs font-semibold text-foreground">{item.name}</div>
-                          {item.description && (
-                            <div className="text-[10px] text-muted-foreground line-clamp-1">{item.description}</div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => void toggleTodaySpecial(item.id, item.tags)}
-                          className={cn(
-                            "rounded-full px-3 py-1 text-[10px] font-semibold border transition-all active:scale-95",
-                            isSpecial
-                              ? "bg-rose-500 border-rose-500 text-white shadow-sm"
-                              : "bg-background border-border text-muted-foreground hover:bg-secondary"
-                          )}
+              ) : (() => {
+                const filtered = menuItemsQ.data.filter((item) =>
+                  item.name.toLowerCase().includes(specialsSearchQuery.toLowerCase())
+                );
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center text-xs py-8 text-muted-foreground">
+                      No menu items match your search.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-2">
+                    {filtered.map((item) => {
+                      const isSpecial = item.tags?.includes("Today's Special") ?? false;
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between p-3 rounded-2xl border border-border bg-card/50 hover:bg-card hover:shadow-soft transition-all"
                         >
-                          {isSpecial ? "Special" : "Normal"}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                          <div>
+                            <div className="text-xs font-semibold text-foreground">{item.name}</div>
+                            {item.description && (
+                              <div className="text-[10px] text-muted-foreground line-clamp-1">{item.description}</div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void toggleTodaySpecial(item.id, item.tags)}
+                            className={cn(
+                              "rounded-full px-3 py-1 text-[10px] font-semibold border transition-all active:scale-95",
+                              isSpecial
+                                ? "bg-rose-500 border-rose-500 text-white shadow-sm"
+                                : "bg-background border-border text-muted-foreground hover:bg-secondary"
+                            )}
+                          >
+                            {isSpecial ? "Special" : "Normal"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
             
             <DialogFooter className="mt-4">

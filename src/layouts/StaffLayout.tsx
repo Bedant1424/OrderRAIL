@@ -640,6 +640,28 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
                 />
               </div>
 
+              {/* Manage Today's Specials */}
+              {cafe?.staff_can_manage_specials && (
+                <div className="pt-2 px-1">
+                  <button
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      if (location.pathname !== "/staff") {
+                        navigate("/staff");
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent("open-specials-dialog"));
+                        }, 500);
+                      } else {
+                        window.dispatchEvent(new CustomEvent("open-specials-dialog"));
+                      }
+                    }}
+                    className="w-full rounded-xl bg-accent/10 border border-accent/20 py-2 text-xs font-semibold text-accent hover:bg-accent/20 transition active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Sparkles className="h-4 w-4" /> Manage Today's Specials
+                  </button>
+                </div>
+              )}
+
               {/* Test Notification Button */}
               <div className="pt-2 px-1">
                 <button
