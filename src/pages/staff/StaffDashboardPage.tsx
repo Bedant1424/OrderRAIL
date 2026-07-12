@@ -275,6 +275,12 @@ export default function StaffDashboardPage() {
   const [tick, setTick] = useState(0);
   const [selectedDrawerOrder, setSelectedDrawerOrder] = useState<OrderWithItems | null>(null);
   const [focusedSummary, setFocusedSummary] = useState<"incoming" | "preparing" | "ready" | "service_requests" | "overdue" | null>(null);
+  const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("orderrail.staff.summary_collapsed") === "true";
+    }
+    return false;
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 30000);
@@ -982,11 +988,48 @@ export default function StaffDashboardPage() {
             }
           }
         }, 100);
+      } else if (category === "ready") {
+        setTimeout(() => {
+          const readyOrders = ordersQ.data?.filter((o) => o.status === "ready") ?? [];
+          const oldestReady = readyOrders.reduce((oldest, current) => {
+            return new Date(current.created_at) < new Date(oldest.created_at) ? current : oldest;
+          }, readyOrders[0]);
+          if (oldestReady) {
+            const el = document.getElementById(`order-card-${oldestReady.id}`);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              return;
+            }
+          }
+          const col = document.getElementById("column-preparing");
+          if (col) {
+            col.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 100);
+      } else if (category === "overdue") {
+        setTimeout(() => {
+          const activeOrders = ordersQ.data?.filter(
+            (o) => o.status === "pending" || o.status === "preparing" || o.status === "ready"
+          ) ?? [];
+          const overdue = activeOrders.filter((o) => {
+            const diffMs = Date.now() - new Date(o.created_at).getTime();
+            return diffMs >= 10 * 60000;
+          });
+          const oldestOverdue = overdue.reduce((oldest, current) => {
+            return new Date(current.created_at) < new Date(oldest.created_at) ? current : oldest;
+          }, overdue[0]);
+          if (oldestOverdue) {
+            const el = document.getElementById(`order-card-${oldestOverdue.id}`);
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              return;
+            }
+          }
+        }, 100);
       } else {
         let elementId = "";
         if (category === "incoming") elementId = "column-incoming";
         else if (category === "preparing") elementId = "column-preparing";
-        else if (category === "ready") elementId = "column-ready";
 
         if (elementId) {
           setTimeout(() => {
@@ -1136,112 +1179,136 @@ export default function StaffDashboardPage() {
         </section>
       )}
       {/* Live Queue Summary Row */}
-      <section className="horizontal-thin-scrollbar flex gap-3 overflow-x-auto pb-3.5 snap-x snap-mandatory sm:grid sm:grid-cols-5 sm:pb-0 sm:overflow-x-visible">
-        <div
-          onClick={() => handleSummaryCardClick("incoming")}
-          className={cn(
-            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
-            focusedSummary === "incoming"
-              ? "ring-2 ring-warning border-transparent bg-warning/5 font-semibold"
-              : "border-border bg-card",
-            focusedSummary && focusedSummary !== "incoming" && "opacity-80"
-          )}
+      <div className="flex items-center justify-between px-1 mt-4 mb-2">
+        <h3 className="font-display text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75"></span>
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-success"></span>
+          </span>
+          Live Queue Summary
+        </h3>
+        <button
+          onClick={() => {
+            setIsSummaryCollapsed((prev) => {
+              const next = !prev;
+              localStorage.setItem("orderrail.staff.summary_collapsed", String(next));
+              return next;
+            });
+          }}
+          className="text-xs font-semibold text-accent hover:underline transition-colors"
         >
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Incoming</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-display tabular-nums text-foreground">
-              {liveQueueSummary.incoming.count}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {liveQueueSummary.incoming.oldest}
-            </span>
-          </div>
-        </div>
+          {isSummaryCollapsed ? "Expand" : "Collapse"}
+        </button>
+      </div>
 
-        <div
-          onClick={() => handleSummaryCardClick("preparing")}
-          className={cn(
-            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
-            focusedSummary === "preparing"
-              ? "ring-2 ring-accent border-transparent bg-accent/5 font-semibold"
-              : "border-border bg-card",
-            focusedSummary && focusedSummary !== "preparing" && "opacity-80"
-          )}
-        >
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Preparing</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-display tabular-nums text-foreground">
-              {liveQueueSummary.preparing.count}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {liveQueueSummary.preparing.oldest}
-            </span>
+      {!isSummaryCollapsed && (
+        <section className="horizontal-thin-scrollbar flex gap-3 overflow-x-auto pb-3.5 snap-x snap-mandatory sm:grid sm:grid-cols-5 sm:pb-0 sm:overflow-x-visible">
+          <div
+            onClick={() => handleSummaryCardClick("incoming")}
+            className={cn(
+              "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+              focusedSummary === "incoming"
+                ? "ring-2 ring-warning border-transparent bg-warning/5 font-semibold"
+                : "border-border bg-card",
+              focusedSummary && focusedSummary !== "incoming" && "opacity-80"
+            )}
+          >
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Incoming</div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xl font-bold font-display tabular-nums text-foreground">
+                {liveQueueSummary.incoming.count}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {liveQueueSummary.incoming.oldest}
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div
-          onClick={() => handleSummaryCardClick("ready")}
-          className={cn(
-            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
-            focusedSummary === "ready"
-              ? "ring-2 ring-success border-transparent bg-success/5 font-semibold"
-              : "border-border bg-card",
-            focusedSummary && focusedSummary !== "ready" && "opacity-80"
-          )}
-        >
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ready</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-display tabular-nums text-foreground">
-              {liveQueueSummary.ready.count}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {liveQueueSummary.ready.oldest}
-            </span>
+          <div
+            onClick={() => handleSummaryCardClick("preparing")}
+            className={cn(
+              "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+              focusedSummary === "preparing"
+                ? "ring-2 ring-accent border-transparent bg-accent/5 font-semibold"
+                : "border-border bg-card",
+              focusedSummary && focusedSummary !== "preparing" && "opacity-80"
+            )}
+          >
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Preparing</div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xl font-bold font-display tabular-nums text-foreground">
+                {liveQueueSummary.preparing.count}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {liveQueueSummary.preparing.oldest}
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div
-          onClick={() => handleSummaryCardClick("service_requests")}
-          className={cn(
-            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
-            focusedSummary === "service_requests"
-              ? "ring-2 ring-destructive border-transparent bg-destructive/5 font-semibold"
-              : "border-border bg-card",
-            focusedSummary && focusedSummary !== "service_requests" && "opacity-80"
-          )}
-        >
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Requests</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-display tabular-nums text-foreground">
-              {liveQueueSummary.serviceRequests.count}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {liveQueueSummary.serviceRequests.oldest}
-            </span>
+          <div
+            onClick={() => handleSummaryCardClick("ready")}
+            className={cn(
+              "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+              focusedSummary === "ready"
+                ? "ring-2 ring-success border-transparent bg-success/5 font-semibold"
+                : "border-border bg-card",
+              focusedSummary && focusedSummary !== "ready" && "opacity-80"
+            )}
+          >
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ready</div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xl font-bold font-display tabular-nums text-foreground">
+                {liveQueueSummary.ready.count}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {liveQueueSummary.ready.oldest}
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div
-          onClick={() => handleSummaryCardClick("overdue")}
-          className={cn(
-            "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
-            focusedSummary === "overdue"
-              ? "ring-2 ring-destructive border-transparent bg-destructive/10 text-destructive font-semibold"
-              : "border-border bg-card",
-            focusedSummary && focusedSummary !== "overdue" && "opacity-80"
-          )}
-        >
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Overdue</div>
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-xl font-bold font-display tabular-nums text-foreground">
-              {liveQueueSummary.overdue.count}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {liveQueueSummary.overdue.oldest}
-            </span>
+          <div
+            onClick={() => handleSummaryCardClick("service_requests")}
+            className={cn(
+              "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+              focusedSummary === "service_requests"
+                ? "ring-2 ring-destructive border-transparent bg-destructive/5 font-semibold"
+                : "border-border bg-card",
+              focusedSummary && focusedSummary !== "service_requests" && "opacity-80"
+            )}
+          >
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Requests</div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xl font-bold font-display tabular-nums text-foreground">
+                {liveQueueSummary.serviceRequests.count}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {liveQueueSummary.serviceRequests.oldest}
+              </span>
+            </div>
           </div>
-        </div>
-      </section>
+
+          <div
+            onClick={() => handleSummaryCardClick("overdue")}
+            className={cn(
+              "min-w-[140px] shrink-0 snap-center sm:min-w-0 sm:shrink-0 rounded-2xl border p-3 shadow-soft cursor-pointer transition-all hover:bg-muted/50 flex flex-col justify-between",
+              focusedSummary === "overdue"
+                ? "ring-2 ring-destructive border-transparent bg-destructive/10 text-destructive font-semibold"
+                : "border-border bg-card",
+              focusedSummary && focusedSummary !== "overdue" && "opacity-80"
+            )}
+          >
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Overdue</div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-xl font-bold font-display tabular-nums text-foreground">
+                {liveQueueSummary.overdue.count}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {liveQueueSummary.overdue.oldest}
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Needs Attention Panel */}
       <section className="rounded-3xl border border-border bg-card/60 backdrop-blur-md p-5 shadow-soft ring-1 ring-border/50 transition-all">
