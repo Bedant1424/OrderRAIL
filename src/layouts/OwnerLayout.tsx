@@ -15,7 +15,8 @@ import {
   Bell,
   Volume2,
   Smartphone,
-  Sparkles
+  Sparkles,
+  CheckSquare
 } from "lucide-react";
 import { useAuth, hasRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,12 @@ export interface OwnerLayoutContextType {
   handleVibrationToggle: (val: boolean) => void;
   flashCardsEnabled: boolean;
   handleFlashCardsToggle: (val: boolean) => void;
+  popupAlertsEnabled: boolean;
+  handlePopupAlertsToggle: (val: boolean) => void;
+  orderNotificationsEnabled: boolean;
+  handleOrderNotificationsToggle: (val: boolean) => void;
+  srNotificationsEnabled: boolean;
+  handleSrNotificationsToggle: (val: boolean) => void;
   handleClearAllNotifications: () => void;
 }
 
@@ -103,6 +110,9 @@ export default function OwnerLayout() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [flashCardsEnabled, setFlashCardsEnabled] = useState(true);
+  const [popupAlertsEnabled, setPopupAlertsEnabled] = useState(true);
+  const [orderNotificationsEnabled, setOrderNotificationsEnabled] = useState(true);
+  const [srNotificationsEnabled, setSrNotificationsEnabled] = useState(true);
 
   const [isDesktop, setIsDesktop] = useState(typeof window !== "undefined" ? window.innerWidth >= 1024 : true);
 
@@ -142,6 +152,18 @@ export default function OwnerLayout() {
     setFlashCardsEnabled(val);
     saveNotificationSettings({ flashCards: val });
   };
+  const handlePopupAlertsToggle = (val: boolean) => {
+    setPopupAlertsEnabled(val);
+    saveNotificationSettings({ popupAlerts: val });
+  };
+  const handleOrderNotificationsToggle = (val: boolean) => {
+    setOrderNotificationsEnabled(val);
+    saveNotificationSettings({ orderNotifications: val });
+  };
+  const handleSrNotificationsToggle = (val: boolean) => {
+    setSrNotificationsEnabled(val);
+    saveNotificationSettings({ srNotifications: val });
+  };
 
   useEffect(() => {
     if (!cafeId) return;
@@ -151,12 +173,18 @@ export default function OwnerLayout() {
     setSoundEnabled(settings.sound);
     setVibrationEnabled(settings.vibration);
     setFlashCardsEnabled(settings.flashCards);
+    setPopupAlertsEnabled(settings.popupAlerts ?? true);
+    setOrderNotificationsEnabled(settings.orderNotifications ?? true);
+    setSrNotificationsEnabled(settings.srNotifications ?? true);
 
     // Guard: Prevent duplicate database subscriptions by using layout-level channel and cleanup handlers.
     // Distinct channel name `owner-global-${cafeId}` avoids conflict with other connections.
     const channel = supabase
       .channel(`owner-global-${cafeId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `cafe_id=eq.${cafeId}` }, (payload) => {
+        const settingsLatest = loadNotificationSettings();
+        if (!settingsLatest.orderNotifications) return;
+
         if (payload.eventType === "INSERT") {
           const newOrder = payload.new as Order;
           
@@ -181,10 +209,12 @@ export default function OwnerLayout() {
               );
               setNotifications(updatedList);
 
-              toast.success("🛒 New Order", {
-                description: `${formatOrderLabel(newOrder.order_number)} has been placed.`,
-                duration: 5000,
-              });
+              if (settingsLatest.popupAlerts) {
+                toast.success("🛒 New Order", {
+                  description: `${formatOrderLabel(newOrder.order_number)} has been placed.`,
+                  duration: 5000,
+                });
+              }
             })();
           }
         } else if (payload.eventType === "UPDATE") {
@@ -226,10 +256,12 @@ export default function OwnerLayout() {
                 );
                 setNotifications(updatedList);
 
-                toast.error("Order Cancelled", {
-                  description: `Table ${tbl?.label ?? "?"} was CANCELLED by the customer.`,
-                  duration: 5000,
-                });
+                if (settingsLatest.popupAlerts) {
+                  toast.error("Order Cancelled", {
+                    description: `Table ${tbl?.label ?? "?"} was CANCELLED by the customer.`,
+                    duration: 5000,
+                  });
+                }
               })();
             }
           }
@@ -255,16 +287,21 @@ export default function OwnerLayout() {
                 );
                 setNotifications(updatedList);
 
-                toast.info("Order Updated", {
-                  description: `Table ${tbl?.label ?? "?"} updated by customer. Please review.`,
-                  duration: 5000,
-                });
+                if (settingsLatest.popupAlerts) {
+                  toast.info("Order Updated", {
+                    description: `Table ${tbl?.label ?? "?"} updated by customer. Please review.`,
+                    duration: 5000,
+                  });
+                }
               })();
             }
           }
         }
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "service_requests", filter: `cafe_id=eq.${cafeId}` }, (payload) => {
+        const settingsLatest = loadNotificationSettings();
+        if (!settingsLatest.srNotifications) return;
+
         const req = payload.new as ServiceRequest;
         const t = req.type;
         const SR_META: Record<string, { label: string }> = {
@@ -303,10 +340,12 @@ export default function OwnerLayout() {
             );
             setNotifications(updatedList);
 
-            toast.warning(`Service Request: ${label}`, {
-              description: `${tableLabel} is calling for attention.`,
-              duration: 5000,
-            });
+            if (settingsLatest.popupAlerts) {
+              toast.warning(`Service Request: ${label}`, {
+                description: `${tableLabel} is calling for attention.`,
+                duration: 5000,
+              });
+            }
           })();
         }
       })
@@ -403,6 +442,12 @@ export default function OwnerLayout() {
         handleVibrationToggle,
         flashCardsEnabled,
         handleFlashCardsToggle,
+        popupAlertsEnabled,
+        handlePopupAlertsToggle,
+        orderNotificationsEnabled,
+        handleOrderNotificationsToggle,
+        srNotificationsEnabled,
+        handleSrNotificationsToggle,
         handleClearAllNotifications
       }}
     >
@@ -410,7 +455,7 @@ export default function OwnerLayout() {
         {/* Global header bar (visible on mobile and tablet, hidden on desktop) */}
         <header className="lg:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/85 px-4 backdrop-blur print:hidden shrink-0">
           <Link to="/owner" className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
               <span className="font-display text-sm font-bold">OR</span>
             </span>
             <span className="font-display text-sm font-semibold">Owner</span>
@@ -547,6 +592,63 @@ export default function OwnerLayout() {
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
+
+            {/* Popup Alerts */}
+            <div
+              onClick={() => handlePopupAlertsToggle(!popupAlertsEnabled)}
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-success/8 text-success">
+                  <Volume2 className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Popup Alerts</span>
+              </div>
+              <Switch
+                id="notify-popups"
+                checked={popupAlertsEnabled}
+                onCheckedChange={handlePopupAlertsToggle}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Order Notifications */}
+            <div
+              onClick={() => handleOrderNotificationsToggle(!orderNotificationsEnabled)}
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-500/8 text-blue-500">
+                  <CheckSquare className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Orders</span>
+              </div>
+              <Switch
+                id="notify-orders"
+                checked={orderNotificationsEnabled}
+                onCheckedChange={handleOrderNotificationsToggle}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Service Request Notifications */}
+            <div
+              onClick={() => handleSrNotificationsToggle(!srNotificationsEnabled)}
+              className="flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-warning/8 text-warning">
+                  <Bell className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Service Requests</span>
+              </div>
+              <Switch
+                id="notify-sr"
+                checked={srNotificationsEnabled}
+                onCheckedChange={handleSrNotificationsToggle}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
           </div>
         </div>
       </AnchoredPopover>
@@ -571,7 +673,7 @@ export default function OwnerLayout() {
           {/* Drawer header */}
           <div className="flex items-center justify-between border-b border-border/60 px-4 py-4">
             <div className="flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
                 <span className="font-display text-sm font-bold">OR</span>
               </span>
               <div className="leading-tight">
@@ -632,7 +734,7 @@ export default function OwnerLayout() {
         {/* Sidebar — desktop (unchanged) */}
         <aside className="hidden border-r border-border/60 bg-card/40 lg:flex lg:flex-col print:hidden">
           <Link to="/owner" className="flex items-center gap-2 px-5 py-5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
               <span className="font-display text-sm font-bold">OR</span>
             </span>
             <div className="leading-tight">
