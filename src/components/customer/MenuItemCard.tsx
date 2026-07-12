@@ -128,7 +128,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     e.stopPropagation();
                     add({ id: item.id, name: item.name, price_cents: item.price_cents, image_url: item.image_url });
                   }}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft transition-transform active:scale-90"
+                  className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft transition-all hover:bg-primary/90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   <Plus className="h-5 w-5" strokeWidth={2.5} />
                 </motion.button>
@@ -148,7 +148,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                       e.stopPropagation();
                       setQty(item.id, cartQty - 1);
                     }}
-                    className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                    className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition-all hover:bg-background active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     <Minus className="h-4 w-4" />
                   </button>
@@ -165,7 +165,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                       e.stopPropagation();
                       setQty(item.id, cartQty + 1);
                     }}
-                    className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                    className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition-all hover:bg-background active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -233,7 +233,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     transition={{ duration: 0.15 }}
                     type="button"
                     onClick={() => setQuantity(1)}
-                    className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition-transform active:scale-95"
+                    className="rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:bg-primary/90 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     ADD
                   </motion.button>
@@ -249,7 +249,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(0, q - 1))}
-                      className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                      className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition-all hover:bg-background active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
@@ -257,7 +257,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => q + 1)}
-                      className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                      className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition-all hover:bg-background active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -272,7 +272,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               type="button"
               onClick={handleAddToCart}
               disabled={displayQty === 0}
-              className="w-full rounded-full bg-gradient-accent py-3.5 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+              className="w-full rounded-full bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:bg-primary/95 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <span>{isEditing ? "Update Order" : "Add to Cart"}</span>
               <span>·</span>

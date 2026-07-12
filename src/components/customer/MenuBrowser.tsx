@@ -159,10 +159,10 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
               id={`chip-${c.id}`}
               onClick={() => scrollToCat(c.id)}
               className={cn(
-                "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 shadow-sm",
                 activeCat === c.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-muted",
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "bg-secondary/70 text-secondary-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
               {c.name}
