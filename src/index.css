@@ -17,9 +17,13 @@
     --popover: 36 45% 99%;
     --popover-foreground: 20 25% 12%;
 
-    /* Primary = espresso */
-    --primary: 20 30% 15%;
-    --primary-foreground: 36 45% 97%;
+    /* Primary = warm orange (action) */
+    --primary: 24 85% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Brand = espresso (branding only) */
+    --brand: 20 30% 15%;
+    --brand-foreground: 36 45% 97%;
 
     /* Secondary = warm sand */
     --secondary: 34 30% 90%;
@@ -55,8 +59,8 @@
 
     --sidebar-background: 36 40% 96%;
     --sidebar-foreground: 20 25% 12%;
-    --sidebar-primary: 20 30% 15%;
-    --sidebar-primary-foreground: 36 45% 97%;
+    --sidebar-primary: 24 85% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 34 30% 90%;
     --sidebar-accent-foreground: 20 25% 15%;
     --sidebar-border: 30 20% 86%;
@@ -73,8 +77,11 @@
     --popover: 20 22% 11%;
     --popover-foreground: 36 30% 94%;
 
-    --primary: 36 45% 94%;
-    --primary-foreground: 20 25% 12%;
+    --primary: 24 85% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --brand: 36 45% 94%;
+    --brand-foreground: 20 25% 12%;
 
     --secondary: 20 15% 18%;
     --secondary-foreground: 36 30% 94%;
@@ -105,8 +112,8 @@
 
     --sidebar-background: 20 20% 8%;
     --sidebar-foreground: 36 30% 94%;
-    --sidebar-primary: 36 45% 94%;
-    --sidebar-primary-foreground: 20 25% 12%;
+    --sidebar-primary: 24 85% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 20 15% 18%;
     --sidebar-accent-foreground: 36 30% 94%;
     --sidebar-border: 20 15% 20%;

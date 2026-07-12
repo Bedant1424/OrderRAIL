@@ -455,7 +455,7 @@ export default function OwnerLayout() {
         {/* Global header bar (visible on mobile and tablet, hidden on desktop) */}
         <header className="lg:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/85 px-4 backdrop-blur print:hidden shrink-0">
           <Link to="/owner" className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
               <span className="font-display text-sm font-bold">OR</span>
             </span>
             <span className="font-display text-sm font-semibold">Owner</span>
@@ -673,7 +673,7 @@ export default function OwnerLayout() {
           {/* Drawer header */}
           <div className="flex items-center justify-between border-b border-border/60 px-4 py-4">
             <div className="flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
                 <span className="font-display text-sm font-bold">OR</span>
               </span>
               <div className="leading-tight">
@@ -734,7 +734,7 @@ export default function OwnerLayout() {
         {/* Sidebar — desktop (unchanged) */}
         <aside className="hidden border-r border-border/60 bg-card/40 lg:flex lg:flex-col print:hidden">
           <Link to="/owner" className="flex items-center gap-2 px-5 py-5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
               <span className="font-display text-sm font-bold">OR</span>
             </span>
             <div className="leading-tight">

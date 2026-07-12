@@ -129,7 +129,7 @@ export default function TableLayout() {
               }}
               className="flex items-center gap-2"
             >
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
                 <span className="font-display text-sm font-bold">OR</span>
               </span>
               <span>
