@@ -83,7 +83,7 @@ const App = () => {
                                         </Route>
                                         <Route path="*" element={<NotFound />} />
                                       </Routes>
-                                      <Sonner position="top-center" duration={3500} />
+                                      <Sonner position="top-center" duration={3500} expand={false} visibleToasts={3} closeButton={true} />
                                       <Toaster />
                                     </>
                                   );
