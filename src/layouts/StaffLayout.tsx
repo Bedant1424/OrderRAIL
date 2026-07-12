@@ -4,6 +4,7 @@ import { useAuth, hasRole } from "@/lib/auth";
 import * as React from "react";
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { useCafe } from "@/lib/cafe";
+import { useImageUrl } from "@/lib/useImageUrl";
 import { supabase, formatOrderLabel, type Order, type ServiceRequest } from "@/lib/db";
 import { toast } from "@/components/ui/sonner";
 import { NotificationCenter, type NotificationItem } from "@/components/staff/NotificationCenter";
@@ -93,6 +94,7 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
   }, []);
 
   const { cafe, cafeId } = useCafe();
+  const logoSrc = useImageUrl(cafe?.logo_url);
   const unreadCount = getUnreadCount(notifications);
 
   useEffect(() => {
@@ -434,11 +436,17 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
             <Link to="/staff" className="flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
-                <span className="font-display text-sm font-bold">OR</span>
-              </span>
+              {logoSrc ? (
+                <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-border shadow-soft bg-card shrink-0">
+                  <img src={logoSrc} alt={cafe?.name} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft shrink-0">
+                  <span className="font-display text-sm font-bold">OR</span>
+                </span>
+              )}
               <div className="leading-tight">
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">OrderRail</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{cafe?.name ?? "OrderRail"}</div>
                 <div className="font-display text-sm font-semibold">Staff console</div>
               </div>
             </Link>

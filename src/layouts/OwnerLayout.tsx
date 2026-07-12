@@ -22,6 +22,7 @@ import { useAuth, hasRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Overlay } from "@/components/ui/overlay";
 import { useCafe } from "@/lib/cafe";
+import { useImageUrl } from "@/lib/useImageUrl";
 import { supabase, formatOrderLabel, type Order, type ServiceRequest } from "@/lib/db";
 import { toast } from "@/components/ui/sonner";
 import { NotificationCenter, type NotificationItem } from "@/components/staff/NotificationCenter";
@@ -126,6 +127,7 @@ export default function OwnerLayout() {
   }, []);
 
   const { cafe, cafeId } = useCafe();
+  const logoSrc = useImageUrl(cafe?.logo_url);
   const unreadCount = getUnreadCount(notifications);
 
   useEffect(() => {
@@ -455,10 +457,16 @@ export default function OwnerLayout() {
         {/* Global header bar (visible on mobile and tablet, hidden on desktop) */}
         <header className="lg:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/85 px-4 backdrop-blur print:hidden shrink-0">
           <Link to="/owner" className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
-              <span className="font-display text-sm font-bold">OR</span>
-            </span>
-            <span className="font-display text-sm font-semibold">Owner</span>
+            {logoSrc ? (
+              <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-border shadow-soft bg-card shrink-0">
+                <img src={logoSrc} alt={cafe?.name} className="h-full w-full object-cover" />
+              </div>
+            ) : (
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft shrink-0">
+                <span className="font-display text-sm font-bold">OR</span>
+              </span>
+            )}
+            <span className="font-display text-sm font-semibold">{cafe?.name ?? "Owner"}</span>
           </Link>
           <div className="flex items-center gap-3">
             {/* Notification History Center */}
@@ -673,11 +681,17 @@ export default function OwnerLayout() {
           {/* Drawer header */}
           <div className="flex items-center justify-between border-b border-border/60 px-4 py-4">
             <div className="flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
-                <span className="font-display text-sm font-bold">OR</span>
-              </span>
+              {logoSrc ? (
+                <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-border shadow-soft bg-card shrink-0">
+                  <img src={logoSrc} alt={cafe?.name} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft shrink-0">
+                  <span className="font-display text-sm font-bold">OR</span>
+                </span>
+              )}
               <div className="leading-tight">
-                <div className="text-[9px] uppercase tracking-widest text-muted-foreground">OrderRail</div>
+                <div className="text-[9px] uppercase tracking-widest text-muted-foreground">{cafe?.name ?? "OrderRail"}</div>
                 <div className="font-display text-sm font-semibold">Navigation</div>
               </div>
             </div>
@@ -734,11 +748,17 @@ export default function OwnerLayout() {
         {/* Sidebar — desktop (unchanged) */}
         <aside className="hidden border-r border-border/60 bg-card/40 lg:flex lg:flex-col print:hidden">
           <Link to="/owner" className="flex items-center gap-2 px-5 py-5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
-              <span className="font-display text-sm font-bold">OR</span>
-            </span>
+            {logoSrc ? (
+              <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-border shadow-soft bg-card shrink-0">
+                <img src={logoSrc} alt={cafe?.name} className="h-full w-full object-cover" />
+              </div>
+            ) : (
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft shrink-0">
+                <span className="font-display text-sm font-bold">OR</span>
+              </span>
+            )}
             <div className="leading-tight">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">OrderRail</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{cafe?.name ?? "OrderRail"}</div>
               <div className="font-display text-sm font-semibold">Owner console</div>
             </div>
           </Link>

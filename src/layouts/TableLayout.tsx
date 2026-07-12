@@ -129,9 +129,15 @@ export default function TableLayout() {
               }}
               className="flex items-center gap-2"
             >
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
-                <span className="font-display text-sm font-bold">OR</span>
-              </span>
+              {logoSrc ? (
+                <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-border shadow-soft bg-card shrink-0">
+                  <img src={logoSrc} alt={cafe.name} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft shrink-0">
+                  <span className="font-display text-sm font-bold">OR</span>
+                </span>
+              )}
               <span>
                 <span className="block text-xs uppercase tracking-widest text-muted-foreground">Table {table.label}</span>
                 <span className="block font-display text-sm font-semibold leading-none">{cafe.name}</span>

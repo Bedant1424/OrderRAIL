@@ -4,6 +4,8 @@ import { Coffee, ShieldCheck } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, hasRole } from "@/lib/auth";
+import { useCafe } from "@/lib/cafe";
+import { useImageUrl } from "@/lib/useImageUrl";
 
 export default function StaffLoginPage() {
   const nav = useNavigate();
@@ -12,6 +14,8 @@ export default function StaffLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const { cafe } = useCafe();
+  const logoSrc = useImageUrl(cafe?.logo_url);
 
   useEffect(() => {
     console.log("StaffLoginPage: Redirect check evaluation:", {
@@ -98,10 +102,16 @@ export default function StaffLoginPage() {
     <div className="min-h-screen bg-gradient-warm">
       <header className="mx-auto flex max-w-md items-center justify-between px-6 py-6">
         <Link to="/" className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
-            <span className="font-display text-sm font-bold">OR</span>
-          </span>
-          <span className="font-display text-lg font-semibold">OrderRail</span>
+          {logoSrc ? (
+            <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-border shadow-soft bg-card shrink-0">
+              <img src={logoSrc} alt={cafe?.name} className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft shrink-0">
+              <span className="font-display text-sm font-bold">OR</span>
+            </span>
+          )}
+          <span className="font-display text-lg font-semibold">{cafe?.name ?? "OrderRail"}</span>
         </Link>
         <span className="text-xs text-muted-foreground">Staff & owner</span>
       </header>
