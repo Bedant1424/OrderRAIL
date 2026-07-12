@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCustomerNavigate } from "@/hooks/useCustomerBack";
 import { toast } from "@/components/ui/sonner";
 import { supabase, formatOrderLabel, type Order } from "@/lib/db";
 
@@ -21,7 +21,7 @@ export function useOrderNotifications({
   tableId: string;
   sessionId: string | null;
 }) {
-  const navigate = useNavigate();
+  const navigate = useCustomerNavigate();
   const notifiedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
