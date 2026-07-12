@@ -121,7 +121,7 @@ export default function TableLayout() {
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">
             <Link to={`/t/${tableId}`} className="flex items-center gap-2">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-accent text-accent-foreground shadow-soft">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
                 <span className="font-display text-sm font-bold">OR</span>
               </span>
               <span>
