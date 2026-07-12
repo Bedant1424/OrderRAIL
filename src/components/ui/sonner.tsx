@@ -27,14 +27,11 @@ function CustomToastWrapper({
   const elementRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    const toastElement = elementRef.current?.closest("[data-sonner-toast]") as HTMLElement;
-    if (!toastElement) return;
-
     const unsubscribeX = x.on("change", (latestX) => {
       const toastEl = elementRef.current?.closest("[data-sonner-toast]") as HTMLElement;
       if (toastEl) {
         if (latestX !== 0) {
-          toastEl.style.setProperty("transform", `translate3d(${latestX}px, var(--y), 0) scale(var(--scale, 1))`, "important");
+          toastEl.style.setProperty("transform", `translate3d(${latestX}px, 0, 0) var(--y)`, "important");
           toastEl.style.setProperty("transition", "none", "important");
         } else {
           toastEl.style.removeProperty("transform");
