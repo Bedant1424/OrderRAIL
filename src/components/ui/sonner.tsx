@@ -82,8 +82,8 @@ function CustomToastWrapper({
     if (Math.abs(offset) > 100 || Math.abs(velocity) > 500) {
       const targetX = offset > 0 ? 400 : -400;
       await Promise.all([
-        animate(x, targetX, { duration: 0.2 }),
-        animate(opacity, 0, { duration: 0.2 })
+        animate(x, targetX, { duration: 0.3 }),
+        animate(opacity, 0, { duration: 0.3 })
       ]);
       rawToast.dismiss(id);
     } else {
