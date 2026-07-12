@@ -2,7 +2,7 @@ import { useTheme } from "next-themes";
 import { Toaster as Sonner, toast as rawToast } from "sonner";
 import { motion, useMotionValue, useTransform, useAnimation } from "framer-motion";
 import React from "react";
-import { CheckCircle2, AlertCircle, Info as InfoIcon, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, Info as InfoIcon, X, AlertTriangle } from "lucide-react";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
@@ -16,7 +16,7 @@ function CustomToastWrapper({
   id: string | number;
   message: React.ReactNode;
   description?: React.ReactNode;
-  type: "success" | "error" | "info";
+  type: "success" | "error" | "info" | "warning";
   action?: {
     label: string;
     onClick: () => void;
@@ -44,6 +44,8 @@ function CustomToastWrapper({
       ? CheckCircle2
       : type === "error"
       ? AlertCircle
+      : type === "warning"
+      ? AlertTriangle
       : InfoIcon;
 
   const iconColor =
@@ -51,6 +53,8 @@ function CustomToastWrapper({
       ? "text-emerald-500"
       : type === "error"
       ? "text-destructive"
+      : type === "warning"
+      ? "text-amber-500"
       : "text-blue-500";
 
   return (
@@ -60,7 +64,7 @@ function CustomToastWrapper({
       onDragEnd={handleDragEnd}
       animate={controls}
       style={{ x, opacity }}
-      className="flex w-full select-none items-center justify-between rounded-2xl border border-border/80 bg-card p-4 shadow-float ring-1 ring-border/50 cursor-grab active:cursor-grabbing touch-none"
+      className="flex w-full select-none items-center justify-between cursor-grab active:cursor-grabbing touch-none"
     >
       <div className="flex items-start gap-3">
         <Icon className={`h-5 w-5 shrink-0 mt-0.5 ${iconColor}`} />
@@ -134,7 +138,7 @@ const customToast = {
           action={options?.action}
         />
       ),
-      { ...options, id }
+      { ...options, id, type: "success" }
     );
   },
   error: (message: React.ReactNode, options?: any) => {
@@ -149,7 +153,22 @@ const customToast = {
           action={options?.action}
         />
       ),
-      { ...options, id }
+      { ...options, id, type: "error" }
+    );
+  },
+  warning: (message: React.ReactNode, options?: any) => {
+    const id = options?.id || Math.random().toString();
+    return rawToast.custom(
+      (tId) => (
+        <CustomToastWrapper
+          id={tId}
+          message={message}
+          description={options?.description}
+          type="warning"
+          action={options?.action}
+        />
+      ),
+      { ...options, id, type: "warning" }
     );
   },
   info: (message: React.ReactNode, options?: any) => {
@@ -164,7 +183,7 @@ const customToast = {
           action={options?.action}
         />
       ),
-      { ...options, id }
+      { ...options, id, type: "info" }
     );
   },
   dismiss: (id?: string | number) => {
