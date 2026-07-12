@@ -365,6 +365,7 @@ function ItemDialog({
   const [category, setCategory] = useState(initial.category_id ?? categories[0].id);
   const [available, setAvailable] = useState(initial.is_available ?? true);
   const [vegType, setVegType] = useState(initial.veg_type ?? "unspecified");
+  const [tags, setTags] = useState<string[]>(initial.tags ?? []);
   const [imagePath, setImagePath] = useState<string | null>(initial.image_url ?? null);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -414,6 +415,7 @@ function ItemDialog({
       is_available: available,
       veg_type: vegType,
       image_url: imagePath,
+      tags: tags,
     };
     const q = isEdit
       ? supabase.from("menu_items").update(payload).eq("id", initial.id)
@@ -507,6 +509,33 @@ function ItemDialog({
           <option value="veg">Veg</option>
           <option value="non_veg">Non-Veg</option>
         </select>
+      </div>
+      <div className="mt-3">
+        <label className="text-xs font-medium text-muted-foreground">Labels</label>
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {["Best Seller", "Chef's Choice", "Today's Special", "New"].map((lbl) => {
+            const active = tags.includes(lbl);
+            return (
+              <button
+                key={lbl}
+                type="button"
+                onClick={() => {
+                  setTags((prev) =>
+                    prev.includes(lbl) ? prev.filter((t) => t !== lbl) : [...prev, lbl]
+                  );
+                }}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium border transition-all active:scale-95",
+                  active
+                    ? "bg-primary border-primary text-primary-foreground font-semibold"
+                    : "bg-background border-border text-muted-foreground hover:bg-secondary"
+                )}
+              >
+                {lbl}
+              </button>
+            );
+          })}
+        </div>
       </div>
       <button
         onClick={() => void save()}

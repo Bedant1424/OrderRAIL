@@ -43,32 +43,56 @@ export type Database = {
         Row: {
           created_at: string
           currency: string
-          description: string | null
+          tagline: string | null
           id: string
           logo_url: string | null
           name: string
           slug: string
           updated_at: string
+          phone: string | null
+          whatsapp: string | null
+          address: string | null
+          google_maps_review_url: string | null
+          website: string | null
+          instagram: string | null
+          operating_hours: string | null
+          staff_can_manage_specials: boolean
         }
         Insert: {
           created_at?: string
           currency?: string
-          description?: string | null
+          tagline?: string | null
           id?: string
           logo_url?: string | null
           name: string
           slug: string
           updated_at?: string
+          phone?: string | null
+          whatsapp?: string | null
+          address?: string | null
+          google_maps_review_url?: string | null
+          website?: string | null
+          instagram?: string | null
+          operating_hours?: string | null
+          staff_can_manage_specials?: boolean
         }
         Update: {
           created_at?: string
           currency?: string
-          description?: string | null
+          tagline?: string | null
           id?: string
           logo_url?: string | null
           name?: string
           slug?: string
           updated_at?: string
+          phone?: string | null
+          whatsapp?: string | null
+          address?: string | null
+          google_maps_review_url?: string | null
+          website?: string | null
+          instagram?: string | null
+          operating_hours?: string | null
+          staff_can_manage_specials?: boolean
         }
         Relationships: []
       }
