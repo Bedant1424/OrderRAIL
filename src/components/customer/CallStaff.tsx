@@ -3,7 +3,7 @@ import { Droplet, Hand, Receipt, HelpCircle, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase, type Cafe, type TableRow, type ServiceRequestType } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app";
 import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
 

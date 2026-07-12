@@ -5,7 +5,7 @@ import * as React from "react";
 import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { useCafe } from "@/lib/cafe";
 import { supabase, formatOrderLabel, type Order, type ServiceRequest } from "@/lib/db";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { NotificationCenter, type NotificationItem } from "@/components/staff/NotificationCenter";
 import {
   loadNotifications,
