@@ -61,11 +61,11 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
               <div className="text-xs text-muted-foreground">We appreciate your feedback.</div>
             </div>
           </div>
-          {APP_CONFIG.googleReviewUrl && (
+          {cafe.google_maps_review_url && (
             <div className="border-t border-border/60 pt-3">
               <p className="text-xs text-muted-foreground mb-2">Mind sharing it on Google too?</p>
               <a
-                href={APP_CONFIG.googleReviewUrl}
+                href={cafe.google_maps_review_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-secondary"
@@ -144,9 +144,9 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
           Skip
         </button>
 
-        {APP_CONFIG.googleReviewUrl && (
+        {cafe.google_maps_review_url && (
           <a
-            href={APP_CONFIG.googleReviewUrl}
+            href={cafe.google_maps_review_url}
             target="_blank"
             rel="noopener noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition hover:bg-secondary"
