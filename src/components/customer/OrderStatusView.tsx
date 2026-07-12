@@ -144,7 +144,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
                   className={cn(
                     "grid h-11 w-11 place-items-center rounded-full",
                     active
-                      ? "bg-gradient-accent text-accent-foreground animate-pulse-ring"
+                      ? "bg-primary text-primary-foreground animate-pulse-ring"
                       : done
                       ? "bg-success text-success-foreground"
                       : "bg-secondary text-muted-foreground",
@@ -188,7 +188,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         <div className="mx-4 mt-4 space-y-2">
           <button
             onClick={handleStartEdit}
-            className="w-full rounded-full bg-gradient-accent py-3 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99]"
+            className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-soft transition active:scale-[0.99]"
           >
             Edit Order
           </button>

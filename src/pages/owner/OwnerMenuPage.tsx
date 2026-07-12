@@ -129,7 +129,16 @@ export default function OwnerMenuPage() {
       </header>
 
       <div className="space-y-8">
-        {cats.map((cat) => (
+        {(catsQ.isLoading || itemsQ.isLoading) ? (
+          <div className="flex flex-col items-center justify-center p-12 gap-3 text-muted-foreground">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+            <span className="text-sm font-medium">Loading menu…</span>
+          </div>
+        ) : cats.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            No categories added yet. Click "+ Category" to start.
+          </div>
+        ) : cats.map((cat) => (
           <section key={cat.id}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-xl font-semibold">{cat.name}</h2>
@@ -550,15 +559,15 @@ function ItemDialog({
 
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background/70 p-4 backdrop-blur-sm">
-      <div className="flex min-h-full items-center justify-center">
-        <div className="w-full max-w-md rounded-3xl bg-card p-5 shadow-float ring-1 ring-border">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-display text-lg font-semibold">{title}</h3>
-            <button onClick={onClose} className="rounded-full bg-secondary p-1.5" aria-label="Close dialog">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-3xl bg-card p-5 shadow-float ring-1 ring-border">
+        <div className="mb-4 flex items-center justify-between shrink-0">
+          <h3 className="font-display text-lg font-semibold">{title}</h3>
+          <button onClick={onClose} className="rounded-full bg-secondary p-1.5" aria-label="Close dialog">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 pr-1 -mr-1">
           {children}
         </div>
       </div>

@@ -27,14 +27,14 @@ export function BottomNav() {
               className={({ isActive }) =>
                 cn(
                   "relative flex flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition-colors",
-                  isActive ? "text-accent" : "text-muted-foreground hover:text-foreground",
+                  isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground",
                 )
               }
             >
               <span className="relative">
                 <Icon className="h-6 w-6" strokeWidth={2} />
                 {badge && badge > 0 ? (
-                  <span className="absolute -right-2 -top-2 grid h-5 min-w-[1.25rem] place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground shadow-soft">
+                  <span className="absolute -right-2 -top-2 grid h-5 min-w-[1.25rem] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-soft">
                     {badge}
                   </span>
                 ) : null}

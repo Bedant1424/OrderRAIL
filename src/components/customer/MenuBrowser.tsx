@@ -13,7 +13,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
   const [activeCat, setActiveCat] = useState<string | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [], isLoading: loadingCats } = useQuery({
     queryKey: ["menu_categories", cafeId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -26,7 +26,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
     },
   });
 
-  const { data: items = [] } = useQuery({
+  const { data: items = [], isLoading: loadingItems } = useQuery({
     queryKey: ["menu_items", cafeId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -197,7 +197,12 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
             </section>
           );
         })}
-        {!categories.length && (
+        {(loadingCats || loadingItems) ? (
+          <div className="flex flex-col items-center justify-center p-12 gap-3 text-muted-foreground">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+            <span className="text-sm font-medium">Loading menu…</span>
+          </div>
+        ) : !categories.length && (
           <p className="text-center text-muted-foreground">Menu is being prepared…</p>
         )}
       </div>

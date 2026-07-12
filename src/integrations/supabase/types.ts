@@ -212,6 +212,8 @@ export type Database = {
           tags: string[] | null
           updated_at: string
           veg_type: Database["public"]["Enums"]["veg_type"]
+          station: Database["public"]["Enums"]["prep_station"]
+          base_prep_time_minutes: number
         }
         Insert: {
           cafe_id: string
@@ -227,6 +229,8 @@ export type Database = {
           tags?: string[] | null
           updated_at?: string
           veg_type?: Database["public"]["Enums"]["veg_type"]
+          station?: Database["public"]["Enums"]["prep_station"]
+          base_prep_time_minutes?: number
         }
         Update: {
           cafe_id?: string
@@ -242,6 +246,8 @@ export type Database = {
           tags?: string[] | null
           updated_at?: string
           veg_type?: Database["public"]["Enums"]["veg_type"]
+          station?: Database["public"]["Enums"]["prep_station"]
+          base_prep_time_minutes?: number
         }
         Relationships: [
           {
@@ -360,6 +366,14 @@ export type Database = {
           order_id: string
           price_cents: number
           qty: number
+          status: Database["public"]["Enums"]["order_item_status"]
+          prep_station: Database["public"]["Enums"]["prep_station"]
+          base_prep_time_minutes: number
+          prep_started_at: string | null
+          ready_at: string | null
+          served_at: string | null
+          predicted_duration_minutes: number | null
+          actual_duration_minutes: number | null
         }
         Insert: {
           created_at?: string
@@ -370,6 +384,14 @@ export type Database = {
           order_id: string
           price_cents: number
           qty?: number
+          status?: Database["public"]["Enums"]["order_item_status"]
+          prep_station?: Database["public"]["Enums"]["prep_station"]
+          base_prep_time_minutes?: number
+          prep_started_at?: string | null
+          ready_at?: string | null
+          served_at?: string | null
+          predicted_duration_minutes?: number | null
+          actual_duration_minutes?: number | null
         }
         Update: {
           created_at?: string
@@ -380,6 +402,14 @@ export type Database = {
           order_id?: string
           price_cents?: number
           qty?: number
+          status?: Database["public"]["Enums"]["order_item_status"]
+          prep_station?: Database["public"]["Enums"]["prep_station"]
+          base_prep_time_minutes?: number
+          prep_started_at?: string | null
+          ready_at?: string | null
+          served_at?: string | null
+          predicted_duration_minutes?: number | null
+          actual_duration_minutes?: number | null
         }
         Relationships: [
           {
@@ -415,6 +445,8 @@ export type Database = {
           total_cents: number
           updated_at: string
           version: number
+          eta_timestamp: string | null
+          eta_calculated_at: string | null
         }
         Insert: {
           cafe_id: string
@@ -432,6 +464,8 @@ export type Database = {
           total_cents?: number
           updated_at?: string
           version?: number
+          eta_timestamp?: string | null
+          eta_calculated_at?: string | null
         }
         Update: {
           cafe_id?: string
@@ -449,6 +483,8 @@ export type Database = {
           total_cents?: number
           updated_at?: string
           version?: number
+          eta_timestamp?: string | null
+          eta_calculated_at?: string | null
         }
         Relationships: [
           {
@@ -779,7 +815,9 @@ export type Database = {
     }
     Enums: {
       app_role: "owner" | "staff"
+      order_item_status: "pending" | "preparing" | "ready" | "served" | "cancelled"
       order_status: "pending" | "preparing" | "ready" | "served" | "cancelled"
+      prep_station: "coffee" | "kitchen" | "other"
       service_request_status: "open" | "acknowledged" | "resolved"
       service_request_type: "water" | "waiter" | "bill" | "help"
       veg_type: "veg" | "non_veg" | "unspecified"
@@ -914,7 +952,9 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["owner", "staff"],
+      order_item_status: ["pending", "preparing", "ready", "served", "cancelled"],
       order_status: ["pending", "preparing", "ready", "served", "cancelled"],
+      prep_station: ["coffee", "kitchen", "other"],
       service_request_status: ["open", "acknowledged", "resolved"],
       service_request_type: ["water", "waiter", "bill", "help"],
       veg_type: ["veg", "non_veg", "unspecified"],
