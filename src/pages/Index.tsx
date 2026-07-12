@@ -83,7 +83,7 @@ export default function Index() {
       {/* Nav */}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
             <span className="font-display text-sm font-bold">OR</span>
           </span>
           <span className="font-display text-lg font-semibold">OrderRail</span>

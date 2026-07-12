@@ -158,7 +158,7 @@ export default function OwnerAnalyticsPage() {
                     fontSize: 12,
                   }}
                 />
-                <Bar dataKey="orders" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="orders" fill="hsl(var(--brand))" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
