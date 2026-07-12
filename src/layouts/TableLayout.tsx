@@ -6,13 +6,14 @@ import { supabase, type Cafe, type TableRow } from "@/lib/db";
 import { CartProvider } from "@/lib/cart";
 import { BottomNav } from "@/components/customer/BottomNav";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
-import { useCustomerBackNavigation, useCustomerOverlay } from "@/hooks/useCustomerBack";
+import { useCustomerBackNavigation, useCustomerOverlay, useCustomerNavigate } from "@/hooks/useCustomerBack";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
 
 export default function TableLayout() {
   const { tableId } = useParams();
   useCustomerBackNavigation();
+  const customerNavigate = useCustomerNavigate();
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -120,7 +121,14 @@ export default function TableLayout() {
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">
-            <Link to={`/t/${tableId}`} className="flex items-center gap-2">
+            <Link
+              to={`/t/${tableId}`}
+              onClick={(e) => {
+                e.preventDefault();
+                customerNavigate(`/t/${tableId}`);
+              }}
+              className="flex items-center gap-2"
+            >
               <span className="grid h-8 w-8 place-items-center rounded-xl bg-primary text-primary-foreground shadow-soft">
                 <span className="font-display text-sm font-bold">OR</span>
               </span>
