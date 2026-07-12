@@ -81,6 +81,13 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
   const displayQty = quantity;
   const totalPrice = item.price_cents * (displayQty > 0 ? displayQty : 1);
 
+  const tagsToRender = (item.tags || []).filter((t) => t !== "Veg" && t !== "Non-Veg");
+  if (item.veg_type === "veg") {
+    tagsToRender.unshift("Veg");
+  } else if (item.veg_type === "non_veg") {
+    tagsToRender.unshift("Non-Veg");
+  }
+
   return (
     <>
       <motion.article
@@ -99,20 +106,9 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          {item.veg_type !== "unspecified" && (
-            <span
-              aria-label={item.veg_type === "veg" ? "Vegetarian" : "Non-vegetarian"}
-              title={item.veg_type === "veg" ? "Vegetarian" : "Non-vegetarian"}
-              className={`mb-1 inline-block h-2.5 w-2.5 shrink-0 self-start rounded-full ring-1 ${
-                item.veg_type === "veg"
-                  ? "bg-emerald-500 ring-emerald-600"
-                  : "bg-rose-500 ring-rose-600"
-              }`}
-            />
-          )}
-          {item.tags && item.tags.length > 0 && (
+          {tagsToRender.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-1">
-              {item.tags.map((tag) => (
+              {tagsToRender.map((tag) => (
                 <span
                   key={tag}
                   className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTagColorClass(tag)}`}
@@ -204,16 +200,18 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
           )}
 
           <div className="p-5 flex-1 overflow-y-auto max-h-[45vh]">
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {item.tags?.map((tag) => (
-                <span
-                  key={tag}
-                  className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTagColorClass(tag)}`}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+            {tagsToRender.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {tagsToRender.map((tag) => (
+                  <span
+                    key={tag}
+                    className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTagColorClass(tag)}`}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <h2 className="font-display text-2xl font-bold text-foreground leading-tight">{item.name}</h2>
 
