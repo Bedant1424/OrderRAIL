@@ -10,7 +10,6 @@ const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN
 export default function OwnerSettingsPage() {
   const qc = useQueryClient();
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [busy, setBusy] = useState(false);
 
@@ -19,7 +18,6 @@ export default function OwnerSettingsPage() {
   useEffect(() => {
     if (cafe) {
       setName(cafe.name);
-      setDescription(cafe.description ?? "");
       setCurrency(cafe.currency);
     }
   }, [cafe]);
@@ -29,7 +27,7 @@ export default function OwnerSettingsPage() {
     setBusy(true);
     const { error } = await supabase
       .from("cafes")
-      .update({ name: name.trim(), description: description.trim() || null, currency })
+      .update({ name: name.trim(), currency })
       .eq("id", cafe.id);
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -53,14 +51,6 @@ export default function OwnerSettingsPage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-        />
-
-        <label className="mt-4 block text-xs font-medium text-muted-foreground">Short description</label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          className="mt-1 w-full resize-none rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
         />
 
         <label className="mt-4 block text-xs font-medium text-muted-foreground">Currency</label>
