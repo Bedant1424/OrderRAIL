@@ -1,17 +1,22 @@
 import { Outlet, useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { WifiOff } from "lucide-react";
+import { WifiOff, Info, Globe, Instagram, Phone, MapPin, Clock, Star, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase, type Cafe, type TableRow } from "@/lib/db";
 import { CartProvider } from "@/lib/cart";
 import { BottomNav } from "@/components/customer/BottomNav";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
-import { useCustomerBackNavigation } from "@/hooks/useCustomerBack";
+import { useCustomerBackNavigation, useCustomerOverlay } from "@/hooks/useCustomerBack";
+import { useImageUrl } from "@/lib/useImageUrl";
+import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
 
 export default function TableLayout() {
   const { tableId } = useParams();
   useCustomerBackNavigation();
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
+
+  useCustomerOverlay(isAboutOpen, setIsAboutOpen, "about-cafe");
 
   useEffect(() => {
     const up = () => setOnline(true);
@@ -86,6 +91,8 @@ export default function TableLayout() {
 
   useOrderNotifications({ tableId: tableId!, sessionId: data?.table.active_session_id ?? null });
 
+  const logoSrc = useImageUrl(data?.cafe.logo_url);
+
   if (isLoading) {
     return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   }
@@ -122,11 +129,20 @@ export default function TableLayout() {
                 <span className="block font-display text-sm font-semibold leading-none">{cafe.name}</span>
               </span>
             </Link>
-            {!online && (
-              <span className="flex items-center gap-1.5 rounded-full bg-warning/20 px-2.5 py-1 text-xs font-medium text-foreground">
-                <WifiOff className="h-3 w-3" /> Offline
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {!online && (
+                <span className="flex items-center gap-1.5 rounded-full bg-warning/20 px-2.5 py-1 text-xs font-medium text-foreground">
+                  <WifiOff className="h-3 w-3" /> Offline
+                </span>
+              )}
+              <button
+                onClick={() => setIsAboutOpen(true)}
+                className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-secondary-foreground hover:bg-muted active:scale-95 transition-all shadow-sm"
+                aria-label="About Café"
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -135,8 +151,126 @@ export default function TableLayout() {
         </main>
 
         <BottomNav />
+
+        {isAboutOpen && (
+          <Drawer open={isAboutOpen} onOpenChange={setIsAboutOpen}>
+            <DrawerContent className="max-w-md mx-auto p-6 flex flex-col focus:outline-none">
+              <div className="flex flex-col items-center text-center space-y-3">
+                {logoSrc ? (
+                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-border shadow-soft bg-card">
+                    <img src={logoSrc} alt={cafe.name} className="h-full w-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-warm flex items-center justify-center text-3xl shadow-soft">
+                    ☕
+                  </div>
+                )}
+                
+                <div>
+                  <h2 className="font-display text-lg font-bold text-foreground leading-tight">{cafe.name}</h2>
+                  {cafe.tagline && (
+                    <p className="mt-1 text-xs text-muted-foreground italic leading-relaxed">{cafe.tagline}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 flex-1 overflow-y-auto space-y-4 pr-1 py-1">
+                {cafe.address && (
+                  <div className="flex gap-3 text-sm">
+                    <MapPin className="h-4.5 w-4.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-foreground text-xs uppercase tracking-wider">Address</div>
+                      <div className="mt-0.5 text-muted-foreground">{cafe.address}</div>
+                    </div>
+                  </div>
+                )}
+
+                {cafe.phone && (
+                  <div className="flex gap-3 text-sm">
+                    <Phone className="h-4.5 w-4.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-foreground text-xs uppercase tracking-wider">Phone</div>
+                      <a href={`tel:${cafe.phone}`} className="mt-0.5 block text-primary hover:underline font-medium">
+                        {cafe.phone}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {cafe.operating_hours && (
+                  <div className="flex gap-3 text-sm">
+                    <Clock className="h-4.5 w-4.5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-foreground text-xs uppercase tracking-wider">Operating Hours</div>
+                      <div className="mt-0.5 text-muted-foreground">{cafe.operating_hours}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Socials / Links row */}
+                {(cafe.website || cafe.instagram || cafe.whatsapp) && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {cafe.website && (
+                      <a
+                        href={cafe.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 rounded-full bg-secondary/60 hover:bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground transition"
+                      >
+                        <Globe className="h-3.5 w-3.5" /> Website
+                      </a>
+                    )}
+                    {cafe.instagram && (
+                      <a
+                        href={cafe.instagram}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 rounded-full bg-secondary/60 hover:bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground transition"
+                      >
+                        <Instagram className="h-3.5 w-3.5" /> Instagram
+                      </a>
+                    )}
+                    {cafe.whatsapp && (
+                      <a
+                        href={`https://wa.me/${cafe.whatsapp.replace(/[^0-9]/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" /> WhatsApp
+                      </a>
+                    )}
+                  </div>
+                )}
+                
+                {/* Google Reviews Button */}
+                {cafe.google_maps_review_url && (
+                  <div className="pt-4">
+                    <a
+                      href={cafe.google_maps_review_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full rounded-full bg-primary hover:bg-primary/95 text-primary-foreground py-3 text-xs font-semibold shadow-soft transition active:scale-[0.99] flex items-center justify-center gap-2"
+                    >
+                      <Star className="h-4 w-4 fill-warning text-warning" />
+                      Leave a Google Review
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <DrawerFooter className="pt-6 px-0 pb-0">
+                <button
+                  onClick={() => setIsAboutOpen(false)}
+                  className="w-full rounded-full bg-secondary py-3 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
+                >
+                  Close
+                </button>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
+        )}
       </div>
     </CartProvider>
   );
 }
-
