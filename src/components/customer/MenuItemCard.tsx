@@ -6,7 +6,7 @@ import { formatMoney } from "@/lib/db";
 import { useCart } from "@/lib/cart";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { useCustomerOverlay } from "@/hooks/useCustomerBack";
 
 import { MenuImage } from "./MenuImage";

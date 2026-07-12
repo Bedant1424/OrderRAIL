@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Check, Pencil, Plus, Trash2, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { supabase, formatMoney, type Cafe, type MenuCategory, type MenuItem } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { generateUUID } from "@/lib/uuid";

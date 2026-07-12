@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, ShieldCheck, Trash2, UserPlus } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { supabase, type Cafe } from "@/lib/db";
 import type { Database } from "@/integrations/supabase/types";
 

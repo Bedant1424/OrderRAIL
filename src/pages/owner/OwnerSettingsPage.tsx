@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { Camera } from "lucide-react";
 import { useCafe } from "@/lib/cafe";
 import { supabase } from "@/lib/db";

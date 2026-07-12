@@ -9,7 +9,7 @@ import { generateUUID } from "@/lib/uuid";
 import { cancelOrder } from "@/lib/orders";
 import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { MenuImage } from "./MenuImage";
 import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, STICKY_FOOTER_GAP, STICKY_FOOTER_HEIGHT } from "@/lib/constants";
 import { cn } from "@/lib/utils";

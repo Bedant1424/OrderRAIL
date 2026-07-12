@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type OrderStatus, type Cafe } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { cancelOrder } from "@/lib/orders";
 import { ReviewForm } from "./ReviewForm";
 import { useCart } from "@/lib/cart";

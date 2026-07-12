@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { supabase, type Cafe } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app";
 
 export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId: string; onComplete: () => void }) {
