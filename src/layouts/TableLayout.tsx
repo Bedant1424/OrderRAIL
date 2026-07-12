@@ -167,9 +167,9 @@ export default function TableLayout() {
                 )}
                 
                 <div>
-                  <h2 className="font-display text-lg font-bold text-foreground leading-tight">{cafe.name}</h2>
+                  <h2 className="font-display text-lg font-bold text-foreground leading-tight break-words">{cafe.name}</h2>
                   {cafe.tagline && (
-                    <p className="mt-1 text-xs text-muted-foreground italic leading-relaxed">{cafe.tagline}</p>
+                    <p className="mt-1 text-xs text-muted-foreground italic leading-relaxed break-words">{cafe.tagline}</p>
                   )}
                 </div>
               </div>
@@ -180,7 +180,7 @@ export default function TableLayout() {
                     <MapPin className="h-4.5 w-4.5 text-muted-foreground shrink-0 mt-0.5" />
                     <div>
                       <div className="font-semibold text-foreground text-xs uppercase tracking-wider">Address</div>
-                      <div className="mt-0.5 text-muted-foreground">{cafe.address}</div>
+                      <div className="mt-0.5 text-muted-foreground break-words">{cafe.address}</div>
                     </div>
                   </div>
                 )}
@@ -190,7 +190,7 @@ export default function TableLayout() {
                     <Phone className="h-4.5 w-4.5 text-muted-foreground shrink-0 mt-0.5" />
                     <div>
                       <div className="font-semibold text-foreground text-xs uppercase tracking-wider">Phone</div>
-                      <a href={`tel:${cafe.phone}`} className="mt-0.5 block text-primary hover:underline font-medium">
+                      <a href={`tel:${cafe.phone}`} className="mt-0.5 block text-primary hover:underline font-medium break-all">
                         {cafe.phone}
                       </a>
                     </div>
@@ -202,7 +202,7 @@ export default function TableLayout() {
                     <Clock className="h-4.5 w-4.5 text-muted-foreground shrink-0 mt-0.5" />
                     <div>
                       <div className="font-semibold text-foreground text-xs uppercase tracking-wider">Operating Hours</div>
-                      <div className="mt-0.5 text-muted-foreground">{cafe.operating_hours}</div>
+                      <div className="mt-0.5 text-muted-foreground whitespace-pre-line break-words">{cafe.operating_hours}</div>
                     </div>
                   </div>
                 )}

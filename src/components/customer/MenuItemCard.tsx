@@ -11,6 +11,30 @@ import { useCustomerOverlay } from "@/hooks/useCustomerBack";
 
 import { MenuImage } from "./MenuImage";
 
+const getTagColorClass = (tag: string): string => {
+  switch (tag) {
+    case "Best Seller":
+    case "Bestseller":
+      return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300";
+    case "New":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300";
+    case "Popular":
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300";
+    case "Chef's Choice":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300";
+    case "Today's Special":
+      return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
+    case "Spicy":
+      return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300";
+    case "Veg":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
+    case "Non-Veg":
+      return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
+    default:
+      return "bg-secondary text-secondary-foreground";
+  }
+};
+
 export function MenuItemCard({ item, currency }: { item: MenuItem; currency: string }) {
   const { add, lines, setQty, editingOrderId } = useCart();
   const imgUrl = useImageUrl(item.image_url);
@@ -91,17 +115,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               {item.tags.map((tag) => (
                 <span
                   key={tag}
-                  className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                    tag === "Best Seller" || tag === "Bestseller" ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" :
-                    tag === "New" ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" :
-                    tag === "Popular" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300" :
-                    tag === "Chef's Choice" ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300" :
-                    tag === "Today's Special" ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" :
-                    tag === "Spicy" ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" :
-                    tag === "Veg" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" :
-                    tag === "Non-Veg" ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" :
-                    "bg-secondary text-secondary-foreground"
-                  }`}
+                  className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTagColorClass(tag)}`}
                 >
                   {tag}
                 </span>
@@ -194,17 +208,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               {item.tags?.map((tag) => (
                 <span
                   key={tag}
-                  className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                    tag === "Best Seller" || tag === "Bestseller" ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" :
-                    tag === "New" ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" :
-                    tag === "Popular" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300" :
-                    tag === "Chef's Choice" ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300" :
-                    tag === "Today's Special" ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" :
-                    tag === "Spicy" ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" :
-                    tag === "Veg" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" :
-                    tag === "Non-Veg" ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" :
-                    "bg-secondary text-secondary-foreground"
-                  }`}
+                  className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTagColorClass(tag)}`}
                 >
                   {tag}
                 </span>

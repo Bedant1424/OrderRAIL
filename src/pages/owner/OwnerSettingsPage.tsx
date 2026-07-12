@@ -88,6 +88,21 @@ export default function OwnerSettingsPage() {
 
   const save = async () => {
     if (!cafe) return;
+
+    if (googleMapsReviewUrl.trim()) {
+      const url = googleMapsReviewUrl.trim();
+      try {
+        const parsed = new URL(url);
+        const validHosts = ["google.com", "g.page", "goo.gl", "maps.google.com", "search.google.com"];
+        const isGoogle = validHosts.some((host) => parsed.hostname.endsWith(host));
+        if (!isGoogle) {
+          return toast.error("Invalid review URL. Must be a valid Google Maps or Google Reviews link (e.g. google.com, g.page, goo.gl).");
+        }
+      } catch (e) {
+        return toast.error("Please enter a valid Google Maps Review URL starting with http:// or https://");
+      }
+    }
+
     setBusy(true);
     const { error } = await supabase
       .from("cafes")
@@ -148,6 +163,18 @@ export default function OwnerSettingsPage() {
               if (f) void upload(f);
             }}
           />
+          {logoUrl && (
+            <button
+              onClick={() => {
+                setLogoUrl("");
+                setPreview(null);
+                if (fileRef.current) fileRef.current.value = "";
+              }}
+              className="text-xs font-semibold text-destructive hover:underline mt-1"
+            >
+              Remove logo
+            </button>
+          )}
           <p className="text-[10px] text-center text-muted-foreground">PNG or JPG. Square image recommended.</p>
         </section>
 
