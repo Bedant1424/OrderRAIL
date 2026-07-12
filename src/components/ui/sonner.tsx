@@ -1,6 +1,6 @@
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, toast as rawToast } from "sonner";
-import { motion, useMotionValue, useTransform, useAnimation } from "framer-motion";
+import { motion, useMotionValue, useTransform, useAnimation, animate } from "framer-motion";
 import React from "react";
 import { CheckCircle2, AlertCircle, Info as InfoIcon, X, AlertTriangle } from "lucide-react";
 
@@ -24,7 +24,6 @@ function CustomToastWrapper({
 }) {
   const x = useMotionValue(0);
   const opacity = useTransform(x, [-150, 0, 150], [0, 1, 0]);
-  const controls = useAnimation();
   const elementRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
@@ -34,32 +33,42 @@ function CustomToastWrapper({
     const unsubscribeX = x.on("change", (latestX) => {
       const toastEl = elementRef.current?.closest("[data-sonner-toast]") as HTMLElement;
       if (toastEl) {
-        toastEl.style.setProperty("transform", `translateX(${latestX}px)`, "important");
         if (latestX !== 0) {
+          toastEl.style.setProperty("transform", `translate3d(${latestX}px, var(--y), 0) scale(var(--scale, 1))`, "important");
           toastEl.style.setProperty("transition", "none", "important");
         } else {
+          toastEl.style.removeProperty("transform");
           toastEl.style.removeProperty("transition");
         }
       }
       if (elementRef.current) {
-        elementRef.current.style.transform = "none";
+        if (latestX !== 0) {
+          elementRef.current.style.setProperty("transform", "none", "important");
+        } else {
+          elementRef.current.style.removeProperty("transform");
+        }
       }
     });
 
     const unsubscribeOpacity = opacity.on("change", (latestOpacity) => {
       const toastEl = elementRef.current?.closest("[data-sonner-toast]") as HTMLElement;
       if (toastEl) {
-        toastEl.style.setProperty("opacity", String(latestOpacity), "important");
         if (latestOpacity !== 1) {
+          toastEl.style.setProperty("opacity", String(latestOpacity), "important");
           toastEl.style.setProperty("transition", "none", "important");
         } else {
+          toastEl.style.removeProperty("opacity");
           if (x.get() === 0) {
             toastEl.style.removeProperty("transition");
           }
         }
       }
       if (elementRef.current) {
-        elementRef.current.style.opacity = "1";
+        if (latestOpacity !== 1) {
+          elementRef.current.style.setProperty("opacity", "1", "important");
+        } else {
+          elementRef.current.style.removeProperty("opacity");
+        }
       }
     });
 
@@ -75,10 +84,16 @@ function CustomToastWrapper({
 
     if (Math.abs(offset) > 100 || Math.abs(velocity) > 500) {
       const targetX = offset > 0 ? 400 : -400;
-      await controls.start({ x: targetX, opacity: 0, transition: { duration: 0.2 } });
+      await Promise.all([
+        animate(x, targetX, { duration: 0.2 }),
+        animate(opacity, 0, { duration: 0.2 })
+      ]);
       rawToast.dismiss(id);
     } else {
-      controls.start({ x: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 25 } });
+      await Promise.all([
+        animate(x, 0, { type: "spring", stiffness: 300, damping: 25 }),
+        animate(opacity, 1, { duration: 0.2 })
+      ]);
     }
   };
 
@@ -106,7 +121,6 @@ function CustomToastWrapper({
       drag="x"
       dragDirectionLock
       onDragEnd={handleDragEnd}
-      animate={controls}
       style={{ x, opacity }}
       className="flex w-full select-none items-center justify-between cursor-grab active:cursor-grabbing touch-none"
     >
