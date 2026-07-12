@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 export interface OverlayRegistration {
@@ -13,42 +13,86 @@ declare global {
   }
 }
 
-const getParentRoute = (pathname: string, tableId: string): string | null => {
+export const getPathDepth = (pathname: string, tableId: string): number => {
   const path = pathname.replace(/\/$/, "");
-  
-  if (path === `/t/${tableId}/cart`) {
-    return `/t/${tableId}`;
-  }
-  if (path === `/t/${tableId}/call`) {
-    return `/t/${tableId}`;
-  }
-  if (path.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))) {
-    return `/t/${tableId}/cart`;
-  }
-  if (path.match(new RegExp(`^/t/${tableId}/service-request/[^/]+$`))) {
-    return `/t/${tableId}/call`;
-  }
-  
-  return null;
+  if (path === `/t/${tableId}`) return 0;
+  if (path === `/t/${tableId}/cart` || path === `/t/${tableId}/call`) return 1;
+  if (path.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))) return 2;
+  return 0;
 };
 
-export function useCustomerBackNavigation() {
-  const location = useLocation();
+export function useCustomerNavigate() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { tableId } = useParams();
 
+  const customerNavigate = (targetPath: string, options?: { replace?: boolean }) => {
+    if (!tableId) {
+      navigate(targetPath, options);
+      return;
+    }
+
+    const currentPath = location.pathname.replace(/\/$/, "");
+    const normTarget = targetPath.replace(/\/$/, "");
+
+    if (currentPath === normTarget) {
+      return;
+    }
+
+    const currentDepth = getPathDepth(location.pathname, tableId);
+    const targetDepth = getPathDepth(targetPath, tableId);
+
+    if (targetDepth === 0) {
+      // Going to Menu: go back in history to pop all subpages
+      navigate(-currentDepth);
+    } else if (currentDepth === 0) {
+      // Going from Menu to subpage: push
+      navigate(targetPath, options);
+    } else if (targetDepth > currentDepth) {
+      // Going deeper (e.g. Cart -> Order Details): push
+      navigate(targetPath, options);
+    } else {
+      // Switching between peer subpages/tabs (depth 1 <-> depth 1): replace
+      // Or going shallower: go back
+      const diff = currentDepth - targetDepth;
+      if (diff > 0) {
+        navigate(-diff);
+      } else {
+        navigate(targetPath, { ...options, replace: true });
+      }
+    }
+  };
+
+  return customerNavigate;
+}
+
+export function useCustomerBackNavigation() {
+  const { tableId } = useParams();
+
+  // Rebuild the history stack if a user lands on a subpage directly
   useEffect(() => {
     if (!tableId) return;
 
-    const parentRoute = getParentRoute(location.pathname, tableId);
-    if (parentRoute) {
-      // If we are on a page that has a parent route, push a dummy page state if not already present
-      if (!window.history.state?.isPageDummy) {
-        window.history.pushState({ isPageDummy: true, path: location.pathname }, "");
+    const sessionKey = `orderrail.nav_initialized.${tableId}`;
+    const isInitialized = sessionStorage.getItem(sessionKey);
+    if (!isInitialized) {
+      sessionStorage.setItem(sessionKey, "true");
+
+      const currentPath = window.location.pathname;
+      const search = window.location.search;
+
+      if (currentPath === `/t/${tableId}/cart` || currentPath === `/t/${tableId}/call`) {
+        window.history.replaceState(null, "", `/t/${tableId}`);
+        window.history.pushState(null, "", currentPath + search);
+      } else if (currentPath.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))) {
+        window.history.replaceState(null, "", `/t/${tableId}`);
+        window.history.pushState(null, "", `/t/${tableId}/cart`);
+        window.history.pushState(null, "", currentPath + search);
       }
     }
-  }, [location.pathname, tableId]);
+  }, [tableId]);
 
+  // Handle overlay closing on back button press
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (window.__ignoreNextPopstate) {
@@ -56,20 +100,12 @@ export function useCustomerBackNavigation() {
         return;
       }
 
-      // Check if we have any active overlays to close
+      // Close overlays if active
       if (window.__customerOverlays && window.__customerOverlays.length > 0) {
         const overlay = window.__customerOverlays[window.__customerOverlays.length - 1];
         if (overlay) {
           overlay.close();
           return;
-        }
-      }
-
-      // Perform parent-route back navigation if applicable
-      if (tableId) {
-        const parentRoute = getParentRoute(location.pathname, tableId);
-        if (parentRoute) {
-          navigate(parentRoute, { replace: true });
         }
       }
     };
@@ -78,7 +114,7 @@ export function useCustomerBackNavigation() {
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [location.pathname, tableId, navigate]);
+  }, []);
 }
 
 export function useCustomerOverlay(isOpen: boolean, setIsOpen: (open: boolean) => void, id: string) {

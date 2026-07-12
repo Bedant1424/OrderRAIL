@@ -15,11 +15,13 @@ import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, STICKY_FOOTER_GAP, STICKY_FOOTER_
 import { cn } from "@/lib/utils";
 import { APP_CONFIG } from "@/config/app";
 import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
+import { useCustomerNavigate } from "@/hooks/useCustomerBack";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { lines, setQty, remove, subtotalCents, clear, note, setNote, editingOrderId, editingOrderVersion, cancelEditing } = useCart();
   const { tableId } = useParams();
   const navigate = useNavigate();
+  const customerNavigate = useCustomerNavigate();
   const [placing, setPlacing] = useState(false);
   const [callingType, setCallingType] = useState<ServiceRequestType | null>(null);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -113,7 +115,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       } else {
         toast.success("Order sent to the kitchen ☕");
       }
-      navigate(`/t/${tableId}/order/${orderId}`);
+      customerNavigate(`/t/${tableId}/order/${orderId}`);
     } catch (e) {
       console.error(e);
       toast.error("Could not place order. Please try again.");
@@ -147,7 +149,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       toast.success("Order updated successfully! ☕");
       const savedId = editingOrderId;
       clear();
-      navigate(`/t/${tableId}/order/${savedId}`);
+      customerNavigate(`/t/${tableId}/order/${savedId}`);
     } catch (e: any) {
       console.error(e);
       toast.error(e.message || "Could not update order. Please try again.");
@@ -254,7 +256,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     return (
       <div
         key={o.id}
-        onClick={() => navigate(`/t/${tableId}/order/${o.id}`)}
+        onClick={() => customerNavigate(`/t/${tableId}/order/${o.id}`)}
         className="group flex flex-col gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition hover:ring-accent/40 cursor-pointer"
       >
         <div className="flex items-center justify-between border-b border-border/60 pb-2 text-xs font-semibold text-muted-foreground">
@@ -322,7 +324,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         toast.info("You're all caught up — no orders left to review!");
         return;
       }
-      navigate(`/t/${tableId}/order/${target.id}?scrollTo=review`);
+      customerNavigate(`/t/${tableId}/order/${target.id}?scrollTo=review`);
     } catch (e) {
       console.error(e);
       toast.error("Couldn't check review status. Please try again.");
@@ -346,7 +348,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             <h2 className="font-display text-2xl font-semibold">Your basket is empty</h2>
             <p className="mt-2 text-muted-foreground text-sm">Add something delicious from the menu.</p>
             <button
-              onClick={() => navigate(`/t/${tableId}`)}
+              onClick={() => customerNavigate(`/t/${tableId}`)}
               className="mt-6 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft"
             >
               Browse menu
@@ -390,7 +392,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => navigate(`/t/${tableId}`)}
+                  onClick={() => customerNavigate(`/t/${tableId}`)}
                   className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40"
                 >
                   <Plus className="h-5 w-5 text-primary" />
