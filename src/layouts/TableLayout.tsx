@@ -6,9 +6,11 @@ import { supabase, type Cafe, type TableRow } from "@/lib/db";
 import { CartProvider } from "@/lib/cart";
 import { BottomNav } from "@/components/customer/BottomNav";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
+import { useCustomerBackNavigation } from "@/hooks/useCustomerBack";
 
 export default function TableLayout() {
   const { tableId } = useParams();
+  useCustomerBackNavigation();
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
 
   useEffect(() => {

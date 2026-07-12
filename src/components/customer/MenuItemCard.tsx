@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
 import { toast } from "sonner";
+import { useCustomerOverlay } from "@/hooks/useCustomerBack";
 
 import { MenuImage } from "./MenuImage";
 
@@ -14,6 +15,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
   const { add, lines, setQty, editingOrderId } = useCart();
   const imgUrl = useImageUrl(item.image_url);
   const [isOpen, setIsOpen] = useState(false);
+  useCustomerOverlay(isOpen, setIsOpen, `item-details-${item.id}`);
   const [quantity, setQuantity] = useState(0);
   const cartLine = lines.find((l) => l.item.id === item.id);
   const cartQty = cartLine ? cartLine.qty : 0;
