@@ -11,7 +11,119 @@ import { GlobalNotificationControls } from "@/components/owner/GlobalNotificatio
 const QR_SIZE = 144;
 const QR_PADDING = 12; // consistent whitespace around the QR
 
-function TableQRCard({ table, onDelete }: { table: TableRow; onDelete: () => void }) {
+/*
+  IMPLEMENTATION NOTES FOR FUTURE STAND TEMPLATES:
+  To support additional templates (e.g., A6 Acrylic Stand, Round Coaster, Foldable Tent Card):
+  1. Add a template parameter to this function: template: 'minimal' | 'tent' | 'sticker'.
+  2. For 'tent': Increase canvas height (e.g., to 1800px), draw folding lines, copy artwork to top section rotated 180 degrees (upside down) for double-sided folding prints.
+  3. For 'sticker': Use a circular clipping path: ctx.arc(width/2, height/2, radius, 0, Math.PI*2) and draw layout centered within circle boundaries.
+  4. Allow owners to dynamically select brand primary/secondary colors and font styles from CafeContext, replacing hardcoded color hex values like "#E65F2B".
+*/
+export const generateQRArtwork = async (
+  tableLabel: string,
+  cafeName: string,
+  qrCanvas: HTMLCanvasElement
+): Promise<string> => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 900;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      resolve("");
+      return;
+    }
+
+    // 1. Draw Background
+    ctx.fillStyle = "#FAF8F6"; // Warm cream paper background
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Subtle border
+    ctx.strokeStyle = "#E3DDD5";
+    ctx.lineWidth = 16;
+    ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+
+    // 2. Draw Cafe Name / Branding
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Small tagline
+    ctx.fillStyle = "#8C8375";
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText("WELCOME TO", canvas.width / 2, 80);
+
+    // Cafe Name
+    ctx.fillStyle = "#1A1210";
+    ctx.font = "bold 32px Georgia, serif";
+    const displayCafe = cafeName.length > 25 ? cafeName.substring(0, 22) + "..." : cafeName;
+    ctx.fillText(displayCafe, canvas.width / 2, 125);
+
+    // Decorative line
+    ctx.strokeStyle = "#8C8375";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2 - 60, 165);
+    ctx.lineTo(canvas.width / 2 + 60, 165);
+    ctx.stroke();
+
+    // 3. Draw Table Number
+    ctx.fillStyle = "#E65F2B"; // Brand Orange
+    ctx.font = "bold 56px sans-serif";
+    ctx.fillText(`TABLE ${tableLabel.toUpperCase()}`, canvas.width / 2, 230);
+
+    // 4. Draw QR Code card
+    ctx.fillStyle = "#FFFFFF";
+    const qrCardSize = 340;
+    const qrCardX = (canvas.width - qrCardSize) / 2;
+    const qrCardY = 300;
+    
+    const r = 24;
+    ctx.beginPath();
+    ctx.moveTo(qrCardX + r, qrCardY);
+    ctx.lineTo(qrCardX + qrCardSize - r, qrCardY);
+    ctx.quadraticCurveTo(qrCardX + qrCardSize, qrCardY, qrCardX + qrCardSize, qrCardY + r);
+    ctx.lineTo(qrCardX + qrCardSize, qrCardY + qrCardSize - r);
+    ctx.quadraticCurveTo(qrCardX + qrCardSize, qrCardY + qrCardSize, qrCardX + qrCardSize - r, qrCardY + qrCardSize);
+    ctx.lineTo(qrCardX + r, qrCardY + qrCardSize);
+    ctx.quadraticCurveTo(qrCardX, qrCardY + qrCardSize, qrCardX, qrCardY + qrCardSize - r);
+    ctx.lineTo(qrCardX, qrCardY + r);
+    ctx.quadraticCurveTo(qrCardX, qrCardY, qrCardX + r, qrCardY);
+    ctx.closePath();
+    
+    ctx.shadowColor = "rgba(26, 18, 16, 0.08)";
+    ctx.shadowBlur = 30;
+    ctx.shadowOffsetY = 10;
+    ctx.fill();
+    
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Draw QR canvas image
+    const qrInnerSize = 280;
+    const qrInnerX = (canvas.width - qrInnerSize) / 2;
+    const qrInnerY = qrCardY + (qrCardSize - qrInnerSize) / 2;
+    ctx.drawImage(qrCanvas, qrInnerX, qrInnerY, qrInnerSize, qrInnerSize);
+
+    // 5. Draw Helper instructions
+    ctx.fillStyle = "#1A1210";
+    ctx.font = "bold 20px sans-serif";
+    ctx.fillText("Scan QR to Order & Pay", canvas.width / 2, 700);
+
+    ctx.fillStyle = "#8C8375";
+    ctx.font = "14px sans-serif";
+    ctx.fillText("No app download required · Pay at table", canvas.width / 2, 740);
+
+    // 6. Draw Footer branding
+    ctx.fillStyle = "#C2BCB2";
+    ctx.font = "11px sans-serif";
+    ctx.fillText("POWERED BY ORDERRAIL", canvas.width / 2, 830);
+
+    resolve(canvas.toDataURL("image/png"));
+  });
+};
+
+function TableQRCard({ table, cafeName, onDelete }: { table: TableRow; cafeName: string; onDelete: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (!ref.current) return;
@@ -25,6 +137,17 @@ function TableQRCard({ table, onDelete }: { table: TableRow; onDelete: () => voi
     link.download = `table-${table.label}-qr.png`;
     link.href = ref.current.toDataURL("image/png");
     link.click();
+  };
+
+  const downloadArtworkSingle = async () => {
+    if (!ref.current) return;
+    toast.info(`Generating artwork for Table ${table.label}...`);
+    const dataUrl = await generateQRArtwork(table.label, cafeName, ref.current);
+    const link = document.createElement("a");
+    link.download = `table-${table.label}-artwork.png`;
+    link.href = dataUrl;
+    link.click();
+    toast.success(`Artwork downloaded for Table ${table.label}`);
   };
 
   return (
@@ -55,14 +178,25 @@ function TableQRCard({ table, onDelete }: { table: TableRow; onDelete: () => voi
           onClick={downloadSingle}
           className="inline-flex items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-sm transition hover:bg-secondary/80 active:scale-95"
           style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+          title="Download raw QR code PNG"
           aria-label={`Download QR for table ${table.label}`}
         >
           <Download className="h-[18px] w-[18px]" />
         </button>
         <button
+          onClick={downloadArtworkSingle}
+          className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm transition hover:bg-primary/20 active:scale-95"
+          style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+          title="Download printable stand artwork"
+          aria-label={`Download artwork for table ${table.label}`}
+        >
+          <Printer className="h-[18px] w-[18px]" />
+        </button>
+        <button
           onClick={onDelete}
           className="inline-flex items-center justify-center rounded-full bg-destructive/10 text-destructive shadow-sm transition hover:bg-destructive/20 active:scale-95"
           style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+          title="Delete Table"
           aria-label={`Delete table ${table.label}`}
         >
           <Trash2 className="h-[18px] w-[18px]" />
@@ -141,6 +275,25 @@ export default function OwnerTablesPage() {
     toast.success("All QR downloads initiated");
   };
 
+  const downloadAllArtworks = async () => {
+    const list = tablesQ.data ?? [];
+    if (list.length === 0) return;
+    toast.info("Generating printable artworks...");
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      const canvas = document.createElement("canvas");
+      const url = `${window.location.origin}/t/${t.id}`;
+      await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
+      const artworkDataUrl = await generateQRArtwork(t.label, cafe?.name ?? "Cafe", canvas);
+      const link = document.createElement("a");
+      link.download = `table-${t.label}-artwork.png`;
+      link.href = artworkDataUrl;
+      link.click();
+      await new Promise((r) => setTimeout(r, 300)); // Throttling
+    }
+    toast.success("All artwork downloads initiated");
+  };
+
   return (
     <div className="space-y-6">
       {/* ── Header + CTA buttons ── */}
@@ -160,6 +313,12 @@ export default function OwnerTablesPage() {
             className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80"
           >
             <Download className="h-4 w-4" /> Download all PNGs
+          </button>
+          <button
+            onClick={() => void downloadAllArtworks()}
+            className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80"
+          >
+            <Printer className="h-4 w-4" /> Download all Artworks
           </button>
           <button
             onClick={() => window.print()}
@@ -200,7 +359,7 @@ export default function OwnerTablesPage() {
       {/* ── QR grid — increased gap, responsive columns ── */}
       <section className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-6 print:w-full print:mx-auto">
         {(tablesQ.data ?? []).map((t) => (
-          <TableQRCard key={t.id} table={t} onDelete={() => void remove(t)} />
+          <TableQRCard key={t.id} table={t} cafeName={cafe?.name ?? "Cafe"} onDelete={() => void remove(t)} />
         ))}
       </section>
     </div>
