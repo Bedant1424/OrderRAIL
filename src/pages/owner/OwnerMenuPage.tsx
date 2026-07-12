@@ -299,17 +299,17 @@ function ItemCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98 }}
       className={cn(
-        "flex gap-3 rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60",
+        "w-full min-w-0 flex flex-col rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60",
         !item.is_available && "opacity-60",
       )}
     >
-      {imgUrl ? (
-        <img src={imgUrl} alt="" className="h-20 w-20 flex-shrink-0 rounded-xl object-cover" />
-      ) : (
-        <div className="h-20 w-20 flex-shrink-0 rounded-xl bg-gradient-warm" aria-hidden />
-      )}
-      <div className="min-w-0 flex-1 flex flex-col justify-between">
-        <div>
+      <div className="flex gap-3">
+        {imgUrl ? (
+          <img src={imgUrl} alt="" className="h-20 w-20 flex-shrink-0 rounded-xl object-cover" />
+        ) : (
+          <div className="h-20 w-20 flex-shrink-0 rounded-xl bg-gradient-warm" aria-hidden />
+        )}
+        <div className="min-w-0 flex-1">
           {tagsToRender.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-1.5">
               {tagsToRender.map((tag) => (
@@ -338,33 +338,33 @@ function ItemCard({
           </div>
           {item.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>}
         </div>
+      </div>
 
-        {/* Actions row */}
-        <div className="mt-3 flex items-center justify-between text-xs border-t border-border/40 pt-2.5">
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer text-xs select-none h-11">
-              <Switch
-                checked={item.is_available}
-                onCheckedChange={onToggle}
-              />
-              <span className="font-semibold text-muted-foreground">Available</span>
-            </label>
-            <button
-              onClick={onEdit}
-              className="h-11 w-11 flex items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-foreground transition active:scale-95 shrink-0"
-              title="Edit item"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-          </div>
+      {/* Actions row */}
+      <div className="mt-3 flex items-center justify-between text-xs border-t border-border/40 pt-2.5">
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer text-xs select-none h-11">
+            <Switch
+              checked={item.is_available}
+              onCheckedChange={onToggle}
+            />
+            <span className="font-semibold text-muted-foreground">Available</span>
+          </label>
           <button
-            onClick={onDelete}
-            className="h-11 w-11 flex items-center justify-center rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive transition active:scale-95 shrink-0"
-            title="Delete item"
+            onClick={onEdit}
+            className="h-11 w-11 flex items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-foreground transition active:scale-95 shrink-0"
+            title="Edit item"
           >
-            <Trash2 className="h-4 w-4" />
+            <Pencil className="h-4 w-4" />
           </button>
         </div>
+        <button
+          onClick={onDelete}
+          className="h-11 w-11 flex items-center justify-center rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive transition active:scale-95 shrink-0"
+          title="Delete item"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
     </motion.article>
   );
@@ -672,7 +672,7 @@ function Dialog({
         </div>
         
         {/* Scrollable Body */}
-        <div className="overflow-y-auto flex-1 pr-1 -mr-1 min-h-0 space-y-4">
+        <div className="overflow-y-auto overflow-x-hidden flex-1 pr-1 min-h-0 space-y-4">
           {children}
         </div>
         
