@@ -150,7 +150,7 @@ BEGIN
     WHEN 'waiter' THEN 'Call waiter'
     WHEN 'bill' THEN 'Requests bill'
     WHEN 'help' THEN 'Needs help'
-    ELSE NEW.type
+    ELSE NEW.type::TEXT
   END;
 
   IF TG_OP = 'INSERT' THEN
