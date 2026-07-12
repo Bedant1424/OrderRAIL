@@ -322,7 +322,7 @@ export default function OwnerTablesPage() {
           </button>
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-soft"
+            className="inline-flex items-center gap-2 rounded-full btn-primary-action px-4 py-2 text-xs font-semibold"
           >
             <Printer className="h-4 w-4" /> Print all QR codes
           </button>
@@ -349,7 +349,7 @@ export default function OwnerTablesPage() {
           />
           <button
             onClick={() => void add()}
-            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground whitespace-nowrap"
+            className="rounded-full btn-primary-action px-4 py-2 text-sm font-semibold whitespace-nowrap"
           >
             <Plus className="mr-1 inline h-4 w-4" /> Add
           </button>

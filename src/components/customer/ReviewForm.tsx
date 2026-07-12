@@ -131,7 +131,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
         <button
           onClick={submit}
           disabled={busy || rating < 1}
-          className="w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft disabled:opacity-60"
+          className="w-full rounded-full btn-primary-action px-6 py-3 text-sm font-semibold"
         >
           {busy ? "Sending…" : "Submit review"}
         </button>

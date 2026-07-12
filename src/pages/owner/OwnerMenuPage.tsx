@@ -186,7 +186,7 @@ export default function OwnerMenuPage() {
             <p className="text-muted-foreground">No categories yet.</p>
             <button
               onClick={() => setAddingCat(true)}
-              className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+              className="mt-4 rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
             >
               Add your first category
             </button>
@@ -346,7 +346,7 @@ function CategoryDialog({
       <button
         onClick={() => void save()}
         disabled={busy || !name.trim()}
-        className="mt-4 w-full rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        className="mt-4 w-full rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
       >
         {busy ? "Saving…" : "Save"}
       </button>
@@ -549,7 +549,7 @@ function ItemDialog({
       <button
         onClick={() => void save()}
         disabled={busy || !name.trim()}
-        className="mt-4 w-full rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        className="mt-4 w-full rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
       >
         {busy ? "Saving…" : "Save"}
       </button>

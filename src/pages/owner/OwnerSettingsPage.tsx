@@ -302,7 +302,7 @@ export default function OwnerSettingsPage() {
           <button
             onClick={() => void save()}
             disabled={busy}
-            className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60 transition active:scale-[0.99]"
+            className="w-full rounded-full btn-primary-action py-3 text-sm font-semibold"
           >
             {busy ? "Saving…" : "Save changes"}
           </button>

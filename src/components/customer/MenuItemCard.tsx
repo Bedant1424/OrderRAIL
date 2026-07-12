@@ -138,7 +138,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     e.stopPropagation();
                     add({ id: item.id, name: item.name, price_cents: item.price_cents, image_url: item.image_url });
                   }}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-soft transition-all hover:bg-primary/90 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="grid h-10 w-10 place-items-center rounded-full btn-primary-action focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   <Plus className="h-5 w-5" strokeWidth={2.5} />
                 </motion.button>
@@ -235,7 +235,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     transition={{ duration: 0.15 }}
                     type="button"
                     onClick={() => setQuantity(1)}
-                    className="rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:bg-primary/90 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    className="rounded-full btn-primary-action px-6 py-2.5 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     ADD
                   </motion.button>
@@ -274,7 +274,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               type="button"
               onClick={handleAddToCart}
               disabled={displayQty === 0}
-              className="w-full rounded-full bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:bg-primary/95 active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="w-full rounded-full btn-primary-action py-3.5 text-sm font-bold flex items-center justify-center gap-2 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <span>{isEditing ? "Update Order" : "Add to Cart"}</span>
               <span>·</span>

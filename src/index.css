@@ -282,3 +282,9 @@
 .animate-flash-red {
   animation: flash-red 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@layer components {
+  .btn-primary-action {
+    @apply bg-gradient-accent text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60;
+  }
+}

@@ -349,7 +349,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             <p className="mt-2 text-muted-foreground text-sm">Add something delicious from the menu.</p>
             <button
               onClick={() => customerNavigate(`/t/${tableId}`)}
-              className="mt-6 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft"
+              className="mt-6 rounded-full btn-primary-action px-6 py-3 text-sm font-semibold"
             >
               Browse menu
             </button>
