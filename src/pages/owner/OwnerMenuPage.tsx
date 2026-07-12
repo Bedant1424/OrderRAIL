@@ -114,7 +114,7 @@ export default function OwnerMenuPage() {
         <div className="flex gap-2">
           <button
             onClick={() => setAddingCat(true)}
-            className="rounded-full bg-secondary px-4 py-2 text-xs font-medium"
+            className="rounded-full bg-gradient-accent px-4 py-2 text-xs font-medium text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
           >
             <Plus className="mr-1 inline h-3.5 w-3.5" /> Category
           </button>
