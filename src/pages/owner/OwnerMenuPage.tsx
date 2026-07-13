@@ -13,6 +13,7 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
 
@@ -164,7 +165,9 @@ export default function OwnerMenuPage() {
                     <MoreVertical className="h-4 w-4" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent />
+                <DropdownMenuContent>
+                  <DropdownMenuItem>Rename Category</DropdownMenuItem>
+                </DropdownMenuContent>
               </DropdownMenu>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
