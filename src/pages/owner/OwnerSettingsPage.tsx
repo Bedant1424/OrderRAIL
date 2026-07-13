@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/sonner";
-import { Camera } from "lucide-react";
+import { Camera, Pencil } from "lucide-react";
 import { useCafe } from "@/lib/cafe";
 import { supabase } from "@/lib/db";
 import { generateUUID } from "@/lib/uuid";
@@ -141,18 +141,32 @@ export default function OwnerSettingsPage() {
         {/* Logo upload left panel */}
         <section className="flex flex-col items-center gap-3 rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60 h-fit">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cafe Logo</label>
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="grid aspect-square w-32 place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground border border-dashed border-border hover:bg-secondary/75 transition-all shadow-inner relative"
-          >
-            {preview ? (
-              <img src={preview} alt="Logo" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex flex-col items-center gap-1 text-xs">
-                <Camera className="h-6 w-6" /> {uploading ? "Uploading…" : "Upload"}
-              </div>
-            )}
-          </button>
+          <div className="relative w-32 h-32">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="w-full h-full overflow-hidden rounded-2xl border border-border bg-secondary flex items-center justify-center hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              title="Edit Logo"
+            >
+              {preview ? (
+                <img src={preview} alt="Logo" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+                  <Camera className="h-6 w-6" />
+                  <span>{uploading ? "Uploading…" : "Upload logo"}</span>
+                </div>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft hover:bg-muted active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              title="Edit Logo"
+              aria-label="Edit Logo"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
           <input
             ref={fileRef}
             type="file"
