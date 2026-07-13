@@ -190,6 +190,24 @@ export default function OwnerMenuPage() {
         .eq("id", cat.id);
       if (catError) throw catError;
 
+      const remainingCats = cats.filter(c => c.id !== cat.id);
+      remainingCats.sort((a, b) => a.sort_order - b.sort_order);
+      
+      const updates = remainingCats.map((c, index) => {
+        const nextOrder = index + 1;
+        if (c.sort_order !== nextOrder) {
+          return supabase
+            .from("menu_categories")
+            .update({ sort_order: nextOrder })
+            .eq("id", c.id);
+        }
+        return null;
+      }).filter(Boolean);
+
+      if (updates.length > 0) {
+        await Promise.all(updates);
+      }
+
       toast.success("Category and its items removed");
       void qc.invalidateQueries({ queryKey: ["owner-cats", cafeId] });
       void qc.invalidateQueries({ queryKey: ["owner-items", cafeId] });
@@ -344,6 +362,7 @@ export default function OwnerMenuPage() {
         <CategoryDialog
           cafeId={cafeId}
           initial={editingCat}
+          categories={cats}
           onClose={() => {
             setAddingCat(false);
             setEditingCat(null);
@@ -502,30 +521,138 @@ function ItemCard({
 function CategoryDialog({
   cafeId,
   initial,
+  categories,
   onClose,
   onSaved,
 }: {
   cafeId: string;
   initial: MenuCategory | null;
+  categories: MenuCategory[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [sort, setSort] = useState(initial?.sort_order ?? 100);
+  const [sort, setSort] = useState<string | number>(
+    initial ? initial.sort_order : categories.length + 1
+  );
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    if (sort === "" || sort === null || sort === undefined) {
+      toast.error("Sort order cannot be empty.");
+      return;
+    }
+
+    const sortNum = Number(sort);
+    const finalMax = categories.length + (initial ? 0 : 1);
+    if (isNaN(sortNum) || sortNum < 1 || sortNum > finalMax) {
+      toast.error(`Sort order must be between 1 and ${finalMax}.`);
+      return;
+    }
+
     setBusy(true);
-    const payload = { cafe_id: cafeId, name: name.trim(), sort_order: sort };
-    const q = initial
-      ? supabase.from("menu_categories").update(payload).eq("id", initial.id)
-      : supabase.from("menu_categories").insert(payload);
-    const { error } = await q;
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Category saved");
-    onSaved();
-    onClose();
+    try {
+      let listToNormalize: { id: string; name: string; sort_order: number; isTemp?: boolean }[] = [];
+
+      if (!initial) {
+        const tempId = "TEMP_INSERT_ID";
+        listToNormalize = [
+          ...categories.map(c => ({ id: c.id, name: c.name, sort_order: c.sort_order })),
+          { id: tempId, name: trimmedName, sort_order: sortNum, isTemp: true }
+        ];
+        
+        listToNormalize.sort((a, b) => {
+          if (a.sort_order !== b.sort_order) {
+            return a.sort_order - b.sort_order;
+          }
+          if (a.id === tempId) return -1;
+          if (b.id === tempId) return 1;
+          return 0;
+        });
+      } else {
+        listToNormalize = categories.map(c => {
+          if (c.id === initial.id) {
+            return { id: c.id, name: trimmedName, sort_order: sortNum };
+          }
+          return { id: c.id, name: c.name, sort_order: c.sort_order };
+        });
+
+        listToNormalize.sort((a, b) => {
+          if (a.sort_order !== b.sort_order) {
+            return a.sort_order - b.sort_order;
+          }
+          if (a.id === initial.id) return -1;
+          if (b.id === initial.id) return 1;
+          return 0;
+        });
+      }
+
+      const normalizedList = listToNormalize.map((item, index) => ({
+        ...item,
+        final_sort_order: index + 1
+      }));
+
+      if (!initial) {
+        const newItem = normalizedList.find(item => item.isTemp)!;
+        const { error: insertError } = await supabase
+          .from("menu_categories")
+          .insert({
+            cafe_id: cafeId,
+            name: trimmedName,
+            sort_order: newItem.final_sort_order
+          });
+        if (insertError) throw insertError;
+
+        const updates = normalizedList
+          .filter(item => !item.isTemp)
+          .map(item => {
+            const orig = categories.find(c => c.id === item.id)!;
+            if (orig.sort_order !== item.final_sort_order) {
+              return supabase
+                .from("menu_categories")
+                .update({ sort_order: item.final_sort_order })
+                .eq("id", item.id);
+            }
+            return null;
+          })
+          .filter(Boolean);
+
+        if (updates.length > 0) {
+          await Promise.all(updates);
+        }
+      } else {
+        const updates = normalizedList.map(item => {
+          const orig = categories.find(c => c.id === item.id)!;
+          if (item.id === initial.id) {
+            return supabase
+              .from("menu_categories")
+              .update({ name: trimmedName, sort_order: item.final_sort_order })
+              .eq("id", item.id);
+          } else if (orig.sort_order !== item.final_sort_order) {
+            return supabase
+              .from("menu_categories")
+              .update({ sort_order: item.final_sort_order })
+              .eq("id", item.id);
+          }
+          return null;
+        }).filter(Boolean);
+
+        if (updates.length > 0) {
+          await Promise.all(updates);
+        }
+      }
+
+      toast.success("Category saved");
+      onSaved();
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save category");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -551,9 +678,24 @@ function CategoryDialog({
         />
         <label className="mt-3 block text-xs font-medium text-muted-foreground">Sort order</label>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={sort}
-          onChange={(e) => setSort(Number(e.target.value))}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "") {
+              setSort("");
+            } else {
+              const cleaned = val.replace(/\D/g, "");
+              if (cleaned === "") {
+                setSort("");
+              } else {
+                const parsed = parseInt(cleaned, 10);
+                setSort(parsed);
+              }
+            }
+          }}
           className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
         />
       </div>
