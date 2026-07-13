@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Check, Pencil, Plus, Trash2, X, MoreVertical } from "lucide-react";
+import { Camera, Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase, formatMoney, type Cafe, type MenuCategory, type MenuItem } from "@/lib/db";
 import { cn } from "@/lib/utils";
@@ -9,12 +9,7 @@ import { generateUUID } from "@/lib/uuid";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { Switch } from "@/components/ui/switch";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+
 
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
 
@@ -155,24 +150,20 @@ export default function OwnerMenuPage() {
           <section key={cat.id}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-xl font-semibold">{cat.name}</h2>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="h-11 w-11 flex items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition active:scale-95 shrink-0"
-                    aria-label="Category options"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setEditingCat(cat)} className="cursor-pointer">
-                    <Pencil className="mr-2 h-4 w-4" /> Rename Category
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void removeCat(cat)} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Category
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex gap-2 text-xs">
+                <button
+                  className="rounded-full bg-secondary px-3 py-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => setEditingCat(cat)}
+                >
+                  <Pencil className="mr-1 inline h-3 w-3" /> Rename
+                </button>
+                <button
+                  className="rounded-full bg-secondary px-3 py-1 text-muted-foreground hover:text-destructive"
+                  onClick={() => void removeCat(cat)}
+                >
+                  <Trash2 className="mr-1 inline h-3 w-3" /> Delete
+                </button>
+              </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <AnimatePresence initial={false}>
