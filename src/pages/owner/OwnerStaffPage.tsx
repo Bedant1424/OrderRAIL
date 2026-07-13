@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { Clock, ShieldCheck, Trash2, UserPlus, Pencil, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase, type Cafe } from "@/lib/db";
 import type { Database } from "@/integrations/supabase/types";
@@ -18,6 +18,8 @@ export default function OwnerStaffPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("staff");
   const [busy, setBusy] = useState(false);
+  const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
+  const [newRole, setNewRole] = useState<AppRole>("staff");
 
   const { cafe, cafeId } = useCafe();
 
@@ -82,10 +84,48 @@ export default function OwnerStaffPage() {
   };
 
   const revoke = async (r: RoleRow) => {
+    if (r.role === "owner") {
+      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner").length;
+      if (ownerCount <= 1) {
+        return toast.error("Cannot revoke this role. There must be at least one owner for this cafe.");
+      }
+    }
     if (!confirm("Revoke this role?")) return;
     const { error } = await supabase.from("user_roles").delete().eq("id", r.id);
     if (error) return toast.error(error.message);
     void qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] });
+  };
+
+  const startEdit = (r: RoleRow) => {
+    setEditingRole(r);
+    setNewRole(r.role);
+  };
+
+  const saveRole = async (r: RoleRow, targetRole: AppRole) => {
+    if (targetRole !== "staff" && targetRole !== "owner") {
+      return toast.error("Invalid role value.");
+    }
+    if (r.role === "owner" && targetRole === "staff") {
+      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner").length;
+      if (ownerCount <= 1) {
+        return toast.error("Cannot demote the last owner. There must be at least one owner for this cafe.");
+      }
+    }
+
+    setBusy(true);
+    const { error } = await supabase
+      .from("user_roles")
+      .update({ role: targetRole })
+      .eq("id", r.id);
+    setBusy(false);
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Role updated successfully");
+      setEditingRole(null);
+      void qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] });
+    }
   };
 
   const byUser = new Map<string, Profile>();
@@ -190,8 +230,15 @@ export default function OwnerStaffPage() {
                   <div className="flex items-center gap-2">
                     <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium capitalize">{r.role}</span>
                     <button
+                      onClick={() => startEdit(r)}
+                      className="rounded-full bg-secondary p-1.5 text-muted-foreground hover:text-foreground transition active:scale-95"
+                      aria-label="Edit role"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
                       onClick={() => void revoke(r)}
-                      className="rounded-full bg-secondary p-1.5 text-muted-foreground hover:text-destructive"
+                      className="rounded-full bg-secondary p-1.5 text-muted-foreground hover:text-destructive transition active:scale-95"
                       aria-label="Revoke"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -203,6 +250,49 @@ export default function OwnerStaffPage() {
           </ul>
         )}
       </section>
+
+      {editingRole && (
+        <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="flex flex-col w-full max-w-sm bg-card rounded-3xl p-5 shadow-float ring-1 ring-border">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-lg font-semibold">Edit Role</h3>
+              <button
+                onClick={() => setEditingRole(null)}
+                className="rounded-full bg-secondary p-1.5 active:scale-95 transition"
+                aria-label="Close dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Change role for {byUser.get(editingRole.user_id)?.email ?? "this user"}
+            </p>
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as AppRole)}
+              className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 mb-4"
+            >
+              <option value="staff">Staff</option>
+              <option value="owner">Owner</option>
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setEditingRole(null)}
+                className="flex-1 rounded-full bg-secondary py-2 text-xs font-semibold hover:bg-secondary/80 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void saveRole(editingRole, newRole)}
+                disabled={busy}
+                className="flex-1 rounded-full bg-brand text-brand-foreground py-2 text-xs font-semibold shadow-soft hover:bg-brand/90 transition"
+              >
+                {busy ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
