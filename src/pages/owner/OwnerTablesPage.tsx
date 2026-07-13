@@ -149,35 +149,41 @@ function TableQRCard({
         Scan to order
       </div>
 
-      <div className="flex items-center justify-between px-3 py-2.5 print:hidden">
-        <button
-          onClick={onDownloadQR}
-          className="inline-flex items-center justify-center gap-1 rounded-full bg-secondary text-secondary-foreground shadow-sm transition hover:bg-secondary/80 active:scale-95 px-3"
-          style={{ height: 44, minHeight: 44 }}
-          title="Download raw QR code PNG"
-          aria-label={`Download QR for table ${table.label}`}
-        >
-          <Download className="h-[18px] w-[18px]" />
-          <span className="text-xs font-semibold">QR</span>
-        </button>
-        <button
-          onClick={onDownloadCard}
-          className="inline-flex items-center justify-center gap-1 rounded-full bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/95 active:scale-95 px-3"
-          style={{ height: 44, minHeight: 44 }}
-          title="Download printable stand artwork"
-          aria-label={`Download artwork for table ${table.label}`}
-        >
-          <Download className="h-[18px] w-[18px]" />
-          <span className="text-xs font-semibold">Card</span>
-        </button>
+      {/* Simplified two-row action grid */}
+      <div className="px-3 pb-3 pt-2 space-y-2 print:hidden">
+        {/* Top row: QR & Card */}
+        <div className="flex gap-2">
+          <button
+            onClick={onDownloadQR}
+            className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-secondary text-secondary-foreground shadow-sm transition hover:bg-secondary/80 active:scale-95"
+            style={{ height: 44 }}
+            title="Download raw QR code PNG"
+            aria-label={`Download QR for table ${table.label}`}
+          >
+            <Download className="h-4 w-4" />
+            <span className="text-xs font-semibold">QR</span>
+          </button>
+          <button
+            onClick={onDownloadCard}
+            className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-primary/10 text-primary shadow-sm transition hover:bg-primary/20 active:scale-95"
+            style={{ height: 44 }}
+            title="Download printable stand artwork"
+            aria-label={`Download artwork for table ${table.label}`}
+          >
+            <Download className="h-4 w-4" />
+            <span className="text-xs font-semibold">Card</span>
+          </button>
+        </div>
+        {/* Bottom row: Full-width Delete Table */}
         <button
           onClick={onDelete}
-          className="inline-flex items-center justify-center rounded-full bg-destructive/10 text-destructive shadow-sm transition hover:bg-destructive/20 active:scale-95"
-          style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-destructive/10 text-destructive shadow-sm transition hover:bg-destructive/20 active:scale-95"
+          style={{ height: 44 }}
           title="Delete Table"
           aria-label={`Delete table ${table.label}`}
         >
-          <Trash2 className="h-[18px] w-[18px]" />
+          <Trash2 className="h-4 w-4" />
+          <span className="text-xs font-semibold">Delete Table</span>
         </button>
       </div>
     </div>
