@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import Cropper from "react-easy-crop";
 import { toast } from "@/components/ui/sonner";
 import { Camera, Pencil } from "lucide-react";
 import { useCafe } from "@/lib/cafe";
@@ -13,6 +14,54 @@ const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
 async function urlForPath(path: string) {
   const { data } = await supabase.storage.from("menu-images").createSignedUrl(path, SIGNED_YEARS);
   return data?.signedUrl ?? null;
+}
+
+function createImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (err) => reject(err));
+    image.setAttribute("crossOrigin", "anonymous");
+    image.src = url;
+  });
+}
+
+async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number }
+): Promise<Blob> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error("No 2d context");
+  }
+
+  canvas.width = 512;
+  canvas.height = 512;
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    512,
+    512
+  );
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((file) => {
+      if (file) {
+        resolve(file);
+      } else {
+        reject(new Error("Canvas toBlob failed"));
+      }
+    }, "image/png");
+  });
 }
 
 export default function OwnerSettingsPage() {
@@ -37,11 +86,21 @@ export default function OwnerSettingsPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Cropper states
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedPixels, setCroppedPixels] = useState<any>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (cafe) {
       setName(cafe.name);
       setTagline(cafe.tagline ?? "");
-      setCurrency(cafe.currency);
+      setCurrency(cafe.currency || "USD");
       setLogoUrl(cafe.logo_url ?? "");
       setPhone(cafe.phone ?? "");
       setWhatsapp(cafe.whatsapp ?? "");
@@ -66,21 +125,132 @@ export default function OwnerSettingsPage() {
     };
   }, [logoUrl]);
 
-  const upload = async (file: File) => {
-    if (!cafe) return;
+  // Esc key listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isCropOpen) {
+        setIsCropOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCropOpen]);
+
+  // Clean up object URLs
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (imageSrc && imageSrc.startsWith("blob:")) {
+        URL.revokeObjectURL(imageSrc);
+      }
+    };
+  }, [imageSrc]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedPixels(croppedAreaPixels);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(async () => {
+      if (!imageSrc) return;
+      try {
+        const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels);
+        const url = URL.createObjectURL(croppedImage);
+        setPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }, 150);
+  }, [imageSrc]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!validTypes.includes(f.type)) {
+      toast.error("Unsupported file format. Please upload PNG, JPG, or WEBP.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
+    if (f.size > 5 * 1024 * 1024) {
+      toast.error("The selected image exceeds the 5 MB limit.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(f);
+    setImageSrc(objectUrl);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setIsCropOpen(true);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handleSaveLogo = async () => {
+    if (!cafe || !croppedPixels || !imageSrc) return;
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
+      const croppedBlob = await getCroppedImg(imageSrc, croppedPixels);
+      const file = new File([croppedBlob], "logo.png", { type: "image/png" });
+      
+      const ext = "png";
       const path = `${cafe.id}/logo_${generateUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("menu-images").upload(path, file, {
+      const { error: uploadError } = await supabase.storage.from("menu-images").upload(path, file, {
         upsert: false,
         contentType: file.type,
       });
+      if (uploadError) throw uploadError;
+
+      const fullPath = `menu-images/${path}`;
+      const { error: updateError } = await supabase
+        .from("cafes")
+        .update({ logo_url: fullPath })
+        .eq("id", cafe.id);
+      if (updateError) throw updateError;
+
+      setLogoUrl(fullPath);
+      toast.success("Logo updated successfully!");
+      setIsCropOpen(false);
+      void refreshCafe();
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Unable to save logo.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!confirm("Remove your cafe logo?")) return;
+    setUploading(true);
+    try {
+      const { error } = await supabase
+        .from("cafes")
+        .update({ logo_url: null })
+        .eq("id", cafe?.id);
       if (error) throw error;
-      setLogoUrl(`menu-images/${path}`);
-      toast.success("Logo uploaded");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      setLogoUrl("");
+      setPreview(null);
+      if (fileRef.current) fileRef.current.value = "";
+      toast.success("Logo removed");
+      void refreshCafe();
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Unable to remove logo.");
     } finally {
       setUploading(false);
     }
@@ -145,8 +315,9 @@ export default function OwnerSettingsPage() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="w-full h-full overflow-hidden rounded-2xl border border-border bg-secondary flex items-center justify-center hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-full h-full overflow-hidden rounded-2xl border border-border bg-secondary flex items-center justify-center hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
               title="Edit Logo"
+              disabled={uploading}
             >
               {preview ? (
                 <img src={preview} alt="Logo" className="h-full w-full object-cover" />
@@ -160,9 +331,10 @@ export default function OwnerSettingsPage() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft hover:bg-muted active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft hover:bg-muted active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
               title="Edit Logo"
               aria-label="Edit Logo"
+              disabled={uploading}
             >
               <Pencil className="h-4 w-4" />
             </button>
@@ -172,19 +344,13 @@ export default function OwnerSettingsPage() {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void upload(f);
-            }}
+            onChange={handleFileChange}
           />
           {logoUrl && (
             <button
-              onClick={() => {
-                setLogoUrl("");
-                setPreview(null);
-                if (fileRef.current) fileRef.current.value = "";
-              }}
-              className="text-xs font-semibold text-destructive hover:underline mt-1"
+              onClick={() => void handleRemoveLogo()}
+              disabled={uploading}
+              className="text-xs font-semibold text-destructive hover:underline mt-1 disabled:opacity-50"
             >
               Remove logo
             </button>
@@ -300,7 +466,6 @@ export default function OwnerSettingsPage() {
             </div>
           </div>
 
-          {/* Staff permission toggle */}
           <div className="pt-2 border-t border-border/50">
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
@@ -322,6 +487,93 @@ export default function OwnerSettingsPage() {
           </button>
         </section>
       </div>
+
+      {isCropOpen && imageSrc && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex justify-center items-center p-4 print:hidden">
+          <div className="flex flex-col md:flex-row w-full max-w-3xl bg-card rounded-3xl overflow-hidden shadow-float ring-1 ring-border max-h-[90vh]">
+            
+            {/* Left panel: Cropper */}
+            <div className="relative flex-1 min-h-[300px] md:min-h-[400px] bg-neutral-950">
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+
+            {/* Right panel: Controls & Preview */}
+            <div className="w-full md:w-80 p-6 flex flex-col justify-between bg-card border-t md:border-t-0 md:border-l border-border overflow-y-auto">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-display text-lg font-semibold">Edit Logo</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Drag to reposition. Zoom to fit.
+                  </p>
+                </div>
+
+                {/* Zoom control slider */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground flex justify-between">
+                    <span>Zoom</span>
+                    <span>{Math.round(zoom * 100)}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    value={zoom}
+                    onChange={(e) => setZoom(parseFloat(e.target.value))}
+                    className="w-full accent-primary cursor-pointer"
+                  />
+                </div>
+
+                {/* Live Preview section */}
+                <div className="space-y-2 flex flex-col items-center">
+                  <span className="text-xs font-semibold text-muted-foreground self-start">Preview</span>
+                  <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-border shadow-inner bg-secondary flex items-center justify-center">
+                    {previewUrl ? (
+                      <img src={previewUrl} alt="Cropped preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">Generating...</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="space-y-3 mt-6">
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full py-2 rounded-full border border-border text-xs font-semibold hover:bg-secondary transition active:scale-95 text-center"
+                >
+                  Choose another photo
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsCropOpen(false)}
+                    className="flex-1 py-2.5 rounded-full border border-border text-xs font-semibold hover:bg-secondary transition active:scale-95 text-center"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => void handleSaveLogo()}
+                    disabled={uploading || !previewUrl}
+                    className="flex-1 py-2.5 rounded-full btn-primary-action text-xs font-semibold transition active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5"
+                  >
+                    {uploading ? "Saving…" : "Save Logo"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
