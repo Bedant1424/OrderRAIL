@@ -166,7 +166,7 @@ export default function OwnerMenuPage() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem className="cursor-pointer">
+                  <DropdownMenuItem onClick={() => setEditingCat(cat)} className="cursor-pointer">
                     <Pencil className="mr-2 h-4 w-4" /> Rename Category
                   </DropdownMenuItem>
                   <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
