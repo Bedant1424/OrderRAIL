@@ -147,6 +147,12 @@ export default function OwnerAnalyticsPage() {
           <div className="h-56">
             <ResponsiveContainer>
               <BarChart data={byHour} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="orderHourGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.08} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" interval={2} />
                 <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
@@ -158,7 +164,13 @@ export default function OwnerAnalyticsPage() {
                     fontSize: 12,
                   }}
                 />
-                <Bar dataKey="orders" fill="hsl(var(--brand))" radius={[6, 6, 0, 0]} />
+                <Bar 
+                  dataKey="orders" 
+                  fill="url(#orderHourGrad)" 
+                  stroke="hsl(var(--accent))" 
+                  strokeWidth={2} 
+                  radius={[6, 6, 0, 0]} 
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
