@@ -242,6 +242,44 @@
   background: linear-gradient(to right, hsl(var(--card)), hsl(0 72% 98%)) !important;
 }
 
+.clickable-toast-card {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-float);
+  border: 1px solid hsl(var(--border) / 0.8);
+  background-color: hsl(var(--card));
+  cursor: pointer;
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.clickable-toast-card.success {
+  border-color: hsl(var(--success) / 0.4);
+  background: linear-gradient(to right, hsl(var(--card)), hsl(145 55% 98%));
+}
+
+.clickable-toast-card.error {
+  border-color: hsl(var(--destructive) / 0.4);
+  background: linear-gradient(to right, hsl(var(--card)), hsl(0 72% 98%));
+}
+
+.clickable-toast-card.warning {
+  border-color: hsl(var(--warning) / 0.4);
+  background: linear-gradient(to right, hsl(var(--card)), hsl(45 55% 98%));
+}
+
+.clickable-toast-card.info {
+  border-color: hsl(var(--info) / 0.4);
+  background: linear-gradient(to right, hsl(var(--card)), hsl(200 55% 98%));
+}
+
+@media (hover: hover) {
+  .clickable-toast-card:hover {
+    box-shadow: var(--shadow-md), 0 10px 20px -5px rgba(0, 0, 0, 0.1);
+  }
+}
+
+
 @keyframes flash-green {
   0% {
     box-shadow: 0 0 12px 3px hsl(142 70% 45% / 0.4), inset 0 0 0 2px hsl(142 70% 45%);

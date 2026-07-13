@@ -75,6 +75,16 @@ function CustomToastWrapper({
     };
   }, [x, opacity]);
 
+  React.useEffect(() => {
+    const toastEl = elementRef.current?.closest("[data-sonner-toast]") as HTMLElement;
+    if (toastEl && action) {
+      toastEl.style.setProperty("padding", "0", "important");
+      toastEl.style.setProperty("background", "transparent", "important");
+      toastEl.style.setProperty("border", "none", "important");
+      toastEl.style.setProperty("box-shadow", "none", "important");
+    }
+  }, [action]);
+
   const handleDragEnd = async (event: any, info: any) => {
     const offset = info.offset.x;
     const velocity = info.velocity.x;
@@ -119,7 +129,27 @@ function CustomToastWrapper({
       dragDirectionLock
       onDragEnd={handleDragEnd}
       style={{ x, opacity }}
-      className="flex w-full select-none items-center justify-between cursor-grab active:cursor-grabbing touch-none"
+      whileHover={action ? { y: -2 } : undefined}
+      whileTap={action ? { scale: 0.98 } : undefined}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      role={action ? "button" : undefined}
+      tabIndex={action ? 0 : undefined}
+      onClick={action ? (e) => {
+        action.onClick();
+        rawToast.dismiss(id);
+      } : undefined}
+      onKeyDown={action ? (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          action.onClick();
+          rawToast.dismiss(id);
+        }
+      } : undefined}
+      className={
+        action
+          ? `clickable-toast-card ${type} flex w-full select-none items-center justify-between touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`
+          : "flex w-full select-none items-center justify-between cursor-grab active:cursor-grabbing touch-none"
+      }
     >
       <div className="flex items-start gap-3">
         <Icon className={`h-5 w-5 shrink-0 mt-0.5 ${iconColor}`} />
@@ -127,18 +157,6 @@ function CustomToastWrapper({
           <div className="text-sm font-semibold leading-snug text-foreground">{message}</div>
           {description && (
             <div className="text-xs text-muted-foreground leading-normal">{description}</div>
-          )}
-          {action && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                action.onClick();
-                rawToast.dismiss(id);
-              }}
-              className="mt-1.5 self-start rounded-full bg-primary px-3 py-1 text-[10px] font-semibold text-primary-foreground shadow-sm hover:bg-primary/95 transition active:scale-95"
-            >
-              {action.label}
-            </button>
           )}
         </div>
       </div>
