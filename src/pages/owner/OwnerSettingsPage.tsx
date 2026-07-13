@@ -93,6 +93,7 @@ export default function OwnerSettingsPage() {
   const [zoom, setZoom] = useState(1);
   const [croppedPixels, setCroppedPixels] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -489,11 +490,11 @@ export default function OwnerSettingsPage() {
       </div>
 
       {isCropOpen && imageSrc && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex justify-center items-center p-4 print:hidden">
-          <div className="flex flex-col md:flex-row w-full max-w-3xl bg-card rounded-3xl overflow-hidden shadow-float ring-1 ring-border max-h-[90vh]">
+        <div className="fixed inset-0 z-50 bg-background md:bg-background/80 md:backdrop-blur-sm flex justify-center items-center p-0 md:p-4 print:hidden">
+          <div className="flex flex-col md:flex-row w-full h-full md:h-auto md:max-h-[90vh] md:max-w-3xl bg-card md:rounded-3xl overflow-hidden shadow-float ring-1 ring-border">
             
             {/* Left panel: Cropper */}
-            <div className="relative flex-1 min-h-[300px] md:min-h-[400px] bg-neutral-950">
+            <div className="relative flex-1 bg-neutral-950 min-h-[50vh] md:min-h-[400px]">
               <Cropper
                 image={imageSrc}
                 crop={crop}
@@ -506,36 +507,49 @@ export default function OwnerSettingsPage() {
             </div>
 
             {/* Right panel: Controls & Preview */}
-            <div className="w-full md:w-80 p-6 flex flex-col justify-between bg-card border-t md:border-t-0 md:border-l border-border overflow-y-auto">
-              <div className="space-y-6">
+            <div className="w-full md:w-80 p-5 md:p-6 flex flex-col justify-between bg-card border-t md:border-t-0 md:border-l border-border overflow-y-auto pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:pb-6">
+              <div className="space-y-4 md:space-y-6">
                 <div>
                   <h3 className="font-display text-lg font-semibold">Edit Logo</h3>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Drag to reposition. Zoom to fit.
+                    Pinch to zoom. Drag to position.
                   </p>
                 </div>
 
-                {/* Zoom control slider */}
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground flex justify-between">
-                    <span>Zoom</span>
-                    <span>{Math.round(zoom * 100)}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={3}
-                    step={0.1}
-                    value={zoom}
-                    onChange={(e) => setZoom(parseFloat(e.target.value))}
-                    className="w-full accent-primary cursor-pointer"
-                  />
+                {/* Advanced Controls Toggle */}
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="text-[11px] font-semibold text-primary hover:underline flex items-center justify-between w-full"
+                  >
+                    <span>{showAdvanced ? "Hide manual zoom slider" : "Show manual zoom slider"}</span>
+                    <span className="text-xs">{showAdvanced ? "▲" : "▼"}</span>
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="space-y-2 p-3 bg-secondary/50 rounded-2xl border border-border">
+                      <label className="text-[10px] font-semibold text-muted-foreground flex justify-between">
+                        <span>Manual Zoom</span>
+                        <span>{Math.round(zoom * 100)}%</span>
+                      </label>
+                      <input
+                        type="range"
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        value={zoom}
+                        onChange={(e) => setZoom(parseFloat(e.target.value))}
+                        className="w-full accent-primary cursor-pointer"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Live Preview section */}
                 <div className="space-y-2 flex flex-col items-center">
                   <span className="text-xs font-semibold text-muted-foreground self-start">Preview</span>
-                  <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-border shadow-inner bg-secondary flex items-center justify-center">
+                  <div className="relative w-28 h-28 md:w-32 md:h-32 rounded-2xl overflow-hidden border border-border shadow-inner bg-secondary flex items-center justify-center">
                     {previewUrl ? (
                       <img src={previewUrl} alt="Cropped preview" className="w-full h-full object-cover" />
                     ) : (
@@ -546,7 +560,7 @@ export default function OwnerSettingsPage() {
               </div>
 
               {/* Action buttons */}
-              <div className="space-y-3 mt-6">
+              <div className="space-y-3 mt-4 md:mt-6">
                 <button
                   onClick={() => fileRef.current?.click()}
                   className="w-full py-2 rounded-full border border-border text-xs font-semibold hover:bg-secondary transition active:scale-95 text-center"
