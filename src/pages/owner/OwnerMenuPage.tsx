@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
+  DropdownMenuContent,
 } from "@/components/ui/dropdown-menu";
 
 
@@ -163,6 +164,7 @@ export default function OwnerMenuPage() {
                     <MoreVertical className="h-4 w-4" />
                   </button>
                 </DropdownMenuTrigger>
+                <DropdownMenuContent />
               </DropdownMenu>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
