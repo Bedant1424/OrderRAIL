@@ -1,24 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import QRCode from "qrcode";
-import { Plus, Printer, Trash2, Download } from "lucide-react";
+import { Plus, Trash2, Download, Eye } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { supabase, type Cafe, type TableRow } from "@/lib/db";
+import { supabase, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
-/* ── QR size: reduced ~28% from 200→144. Canvas stays square. ── */
 const QR_SIZE = 144;
-const QR_PADDING = 12; // consistent whitespace around the QR
+const QR_PADDING = 12;
 
-/*
-  IMPLEMENTATION NOTES FOR FUTURE STAND TEMPLATES:
-  To support additional templates (e.g., A6 Acrylic Stand, Round Coaster, Foldable Tent Card):
-  1. Add a template parameter to this function: template: 'minimal' | 'tent' | 'sticker'.
-  2. For 'tent': Increase canvas height (e.g., to 1800px), draw folding lines, copy artwork to top section rotated 180 degrees (upside down) for double-sided folding prints.
-  3. For 'sticker': Use a circular clipping path: ctx.arc(width/2, height/2, radius, 0, Math.PI*2) and draw layout centered within circle boundaries.
-  4. Allow owners to dynamically select brand primary/secondary colors and font styles from CafeContext, replacing hardcoded color hex values like "#E65F2B".
-*/
 export const generateQRArtwork = async (
   tableLabel: string,
   cafeName: string,
@@ -35,10 +26,9 @@ export const generateQRArtwork = async (
     }
 
     // 1. Draw Background
-    ctx.fillStyle = "#FAF8F6"; // Warm cream paper background
+    ctx.fillStyle = "#FAF8F6";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Subtle border
     ctx.strokeStyle = "#E3DDD5";
     ctx.lineWidth = 16;
     ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
@@ -47,18 +37,15 @@ export const generateQRArtwork = async (
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // Small tagline
     ctx.fillStyle = "#8C8375";
     ctx.font = "bold 13px sans-serif";
     ctx.fillText("WELCOME TO", canvas.width / 2, 80);
 
-    // Cafe Name
     ctx.fillStyle = "#1A1210";
     ctx.font = "bold 32px Georgia, serif";
     const displayCafe = cafeName.length > 25 ? cafeName.substring(0, 22) + "..." : cafeName;
     ctx.fillText(displayCafe, canvas.width / 2, 125);
 
-    // Decorative line
     ctx.strokeStyle = "#8C8375";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -67,7 +54,7 @@ export const generateQRArtwork = async (
     ctx.stroke();
 
     // 3. Draw Table Number
-    ctx.fillStyle = "#E65F2B"; // Brand Orange
+    ctx.fillStyle = "#E65F2B";
     ctx.font = "bold 56px sans-serif";
     ctx.fillText(`TABLE ${tableLabel.toUpperCase()}`, canvas.width / 2, 230);
 
@@ -99,7 +86,6 @@ export const generateQRArtwork = async (
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // Draw QR canvas image
     const qrInnerSize = 280;
     const qrInnerX = (canvas.width - qrInnerSize) / 2;
     const qrInnerY = qrCardY + (qrCardSize - qrInnerSize) / 2;
@@ -123,7 +109,19 @@ export const generateQRArtwork = async (
   });
 };
 
-function TableQRCard({ table, cafeName, onDelete }: { table: TableRow; cafeName: string; onDelete: () => void }) {
+function TableQRCard({ 
+  table, 
+  cafeName, 
+  onViewQR, 
+  onDownloadArtwork, 
+  onDelete 
+}: { 
+  table: TableRow; 
+  cafeName: string; 
+  onViewQR: () => void;
+  onDownloadArtwork: () => void;
+  onDelete: () => void;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     if (!ref.current) return;
@@ -131,28 +129,8 @@ function TableQRCard({ table, cafeName, onDelete }: { table: TableRow; cafeName:
     void QRCode.toCanvas(ref.current, url, { margin: 1, width: QR_SIZE, color: { dark: "#1a1210", light: "#ffffff" } });
   }, [table.id]);
 
-  const downloadSingle = () => {
-    if (!ref.current) return;
-    const link = document.createElement("a");
-    link.download = `table-${table.label}-qr.png`;
-    link.href = ref.current.toDataURL("image/png");
-    link.click();
-  };
-
-  const downloadArtworkSingle = async () => {
-    if (!ref.current) return;
-    toast.info(`Generating artwork for Table ${table.label}...`);
-    const dataUrl = await generateQRArtwork(table.label, cafeName, ref.current);
-    const link = document.createElement("a");
-    link.download = `table-${table.label}-artwork.png`;
-    link.href = dataUrl;
-    link.click();
-    toast.success(`Artwork downloaded for Table ${table.label}`);
-  };
-
   return (
     <div className="rounded-2xl bg-card text-center shadow-soft ring-1 ring-border/60 print:break-inside-avoid print:shadow-none print:ring-0 print:border">
-      {/* QR container — enforces square + padding, prevents clipping */}
       <div
         className="mx-auto flex items-center justify-center overflow-visible"
         style={{ padding: QR_PADDING }}
@@ -164,33 +142,31 @@ function TableQRCard({ table, cafeName, onDelete }: { table: TableRow; cafeName:
         />
       </div>
 
-      {/* Label + tagline */}
       <div className="px-3 pb-1 font-display text-lg font-semibold leading-tight">
         Table {table.label}
       </div>
-      <div className="text-[10px] uppercase tracking-widest text-muted-foreground px-3 print:mb-0">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground px-3">
         Scan to order
       </div>
 
-      {/* Actions row — icon-only buttons, space-between */}
       <div className="flex items-center justify-between px-3 py-2.5 print:hidden">
         <button
-          onClick={downloadSingle}
+          onClick={onViewQR}
           className="inline-flex items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-sm transition hover:bg-secondary/80 active:scale-95"
           style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
-          title="Download raw QR code PNG"
-          aria-label={`Download QR for table ${table.label}`}
+          title="View QR Code"
+          aria-label={`View QR for table ${table.label}`}
         >
-          <Download className="h-[18px] w-[18px]" />
+          <Eye className="h-[18px] w-[18px]" />
         </button>
         <button
-          onClick={downloadArtworkSingle}
+          onClick={onDownloadArtwork}
           className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm transition hover:bg-primary/20 active:scale-95"
           style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
           title="Download printable stand artwork"
           aria-label={`Download artwork for table ${table.label}`}
         >
-          <Printer className="h-[18px] w-[18px]" />
+          <Download className="h-[18px] w-[18px]" />
         </button>
         <button
           onClick={onDelete}
@@ -210,6 +186,7 @@ export default function OwnerTablesPage() {
   const qc = useQueryClient();
   const [label, setLabel] = useState("");
   const [seats, setSeats] = useState(2);
+  const [viewingTable, setViewingTable] = useState<TableRow | null>(null);
 
   const { cafe, cafeId } = useCafe();
 
@@ -232,7 +209,6 @@ export default function OwnerTablesPage() {
   };
 
   const remove = async (t: TableRow) => {
-    // Prevent deleting table if there are active orders
     const { data: activeOrds, error: checkError } = await supabase
       .from("orders")
       .select("id")
@@ -257,46 +233,57 @@ export default function OwnerTablesPage() {
     void qc.invalidateQueries({ queryKey: ["owner-tables", cafeId] });
   };
 
-  const downloadAll = async () => {
-    const list = tablesQ.data ?? [];
-    if (list.length === 0) return;
-    toast.info("Starting QR downloads...");
-    for (let i = 0; i < list.length; i++) {
-      const t = list[i];
-      const canvas = document.createElement("canvas");
-      const url = `${window.location.origin}/t/${t.id}`;
-      await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
-      const link = document.createElement("a");
-      link.download = `table-${t.label}-qr.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-      await new Promise((r) => setTimeout(r, 250)); // Throttling
-    }
-    toast.success("All QR downloads initiated");
+  const downloadArtworkSingle = async (t: TableRow) => {
+    const canvas = document.createElement("canvas");
+    const url = `${window.location.origin}/t/${t.id}`;
+    await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
+    toast.info(`Generating artwork for Table ${t.label}...`);
+    const dataUrl = await generateQRArtwork(t.label, cafe?.name ?? "Cafe", canvas);
+    const link = document.createElement("a");
+    link.download = `table-${t.label}-artwork.png`;
+    link.href = dataUrl;
+    link.click();
+    toast.success(`Artwork downloaded for Table ${t.label}`);
   };
 
   const downloadAllArtworks = async () => {
     const list = tablesQ.data ?? [];
     if (list.length === 0) return;
-    toast.info("Generating printable artworks...");
-    for (let i = 0; i < list.length; i++) {
-      const t = list[i];
-      const canvas = document.createElement("canvas");
-      const url = `${window.location.origin}/t/${t.id}`;
-      await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
-      const artworkDataUrl = await generateQRArtwork(t.label, cafe?.name ?? "Cafe", canvas);
+    
+    toast.info("Generating ZIP archive of all artworks...");
+    
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      
+      for (let i = 0; i < list.length; i++) {
+        const t = list[i];
+        const canvas = document.createElement("canvas");
+        const url = `${window.location.origin}/t/${t.id}`;
+        
+        await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
+        const artworkDataUrl = await generateQRArtwork(t.label, cafe?.name ?? "Cafe", canvas);
+        
+        const base64Data = artworkDataUrl.split(",")[1];
+        zip.file(`table-${t.label}-artwork.png`, base64Data, { base64: true });
+      }
+      
+      const content = await zip.generateAsync({ type: "blob" });
       const link = document.createElement("a");
-      link.download = `table-${t.label}-artwork.png`;
-      link.href = artworkDataUrl;
+      const filename = `${cafe?.name?.toLowerCase().replace(/\s+/g, "-") ?? "cafe"}-table-artworks.zip`;
+      link.download = filename;
+      link.href = URL.createObjectURL(content);
       link.click();
-      await new Promise((r) => setTimeout(r, 300)); // Throttling
+      
+      toast.success("Artworks ZIP downloaded successfully!");
+    } catch (error) {
+      console.error("ZIP Generation error:", error);
+      toast.error("Failed to generate ZIP archive of artworks.");
     }
-    toast.success("All artwork downloads initiated");
   };
 
   return (
     <div className="space-y-6">
-      {/* ── Header + CTA buttons ── */}
       <header className="flex flex-wrap items-end justify-between gap-3 print:hidden">
         <div className="flex items-center justify-between w-full lg:w-auto">
           <div>
@@ -306,31 +293,15 @@ export default function OwnerTablesPage() {
         </div>
         <div className="flex items-center gap-4">
           <GlobalNotificationControls />
-        {/* CTA stack: Print = primary, Download = secondary */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => void downloadAll()}
-            className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80"
-          >
-            <Download className="h-4 w-4" /> Download all PNGs
-          </button>
           <button
             onClick={() => void downloadAllArtworks()}
-            className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80"
-          >
-            <Printer className="h-4 w-4" /> Download all Artworks
-          </button>
-          <button
-            onClick={() => window.print()}
             className="inline-flex items-center gap-2 rounded-full btn-primary-action px-4 py-2 text-xs font-semibold"
           >
-            <Printer className="h-4 w-4" /> Print all QR codes
+            <Download className="h-4 w-4" /> Download all Artworks (ZIP)
           </button>
-        </div>
         </div>
       </header>
 
-      {/* ── Add-table section (compact) ── */}
       <section className="rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60 print:hidden">
         <h2 className="mb-2 font-display text-sm font-semibold">Add a table</h2>
         <div className="flex flex-wrap items-center gap-2">
@@ -356,12 +327,65 @@ export default function OwnerTablesPage() {
         </div>
       </section>
 
-      {/* ── QR grid — increased gap, responsive columns ── */}
       <section className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-6 print:w-full print:mx-auto">
         {(tablesQ.data ?? []).map((t) => (
-          <TableQRCard key={t.id} table={t} cafeName={cafe?.name ?? "Cafe"} onDelete={() => void remove(t)} />
+          <TableQRCard 
+            key={t.id} 
+            table={t} 
+            cafeName={cafe?.name ?? "Cafe"} 
+            onViewQR={() => setViewingTable(t)}
+            onDownloadArtwork={() => void downloadArtworkSingle(t)}
+            onDelete={() => void remove(t)} 
+          />
         ))}
       </section>
+
+      {/* ── View QR Modal ── */}
+      {viewingTable && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm print:hidden">
+          <div className="w-full max-w-sm rounded-3xl bg-card p-6 shadow-float ring-1 ring-border">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-lg font-semibold">Table {viewingTable.label} QR Code</h3>
+              <button 
+                onClick={() => setViewingTable(null)} 
+                className="rounded-full bg-secondary p-1.5 transition active:scale-95"
+              >
+                <span className="sr-only">Close</span>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex flex-col items-center gap-4">
+              <div className="rounded-2xl border border-border bg-white p-4">
+                <canvas
+                  ref={(canvas) => {
+                    if (canvas) {
+                      const url = `${window.location.origin}/t/${viewingTable.id}`;
+                      void QRCode.toCanvas(canvas, url, { margin: 1, width: 240, color: { dark: "#1a1210", light: "#ffffff" } });
+                    }
+                  }}
+                  className="block"
+                />
+              </div>
+              
+              <div className="text-center text-xs text-muted-foreground break-all px-2 select-all font-mono">
+                {`${window.location.origin}/t/${viewingTable.id}`}
+              </div>
+              
+              <a
+                href={`/t/${viewingTable.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full text-center rounded-full btn-primary-action px-4 py-2.5 text-sm font-semibold inline-block"
+              >
+                Open Customer Page
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
