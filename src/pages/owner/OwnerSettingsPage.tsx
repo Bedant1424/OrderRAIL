@@ -397,7 +397,7 @@ export default function OwnerSettingsPage() {
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. +1 555-0199"
+                placeholder="e.g. 987..."
                 className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
               />
             </div>
@@ -406,7 +406,7 @@ export default function OwnerSettingsPage() {
               <input
                 value={whatsapp}
                 onChange={(e) => setWhatsapp(e.target.value)}
-                placeholder="e.g. +1 555-0199"
+                placeholder="e.g. 987..."
                 className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
               />
             </div>
