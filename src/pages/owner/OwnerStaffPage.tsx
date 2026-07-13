@@ -9,6 +9,13 @@ type AppRole = Database["public"]["Enums"]["app_role"];
 type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Profile = { id: string; email: string | null; display_name: string | null };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
@@ -267,14 +274,15 @@ export default function OwnerStaffPage() {
             <p className="text-xs text-muted-foreground mb-3">
               Change role for {byUser.get(editingRole.user_id)?.email ?? "this user"}
             </p>
-            <select
-              value={newRole}
-              onChange={(e) => setNewRole(e.target.value as AppRole)}
-              className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 mb-4"
-            >
-              <option value="staff">Staff</option>
-              <option value="owner">Owner</option>
-            </select>
+            <Select value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
+              <SelectTrigger className="w-full rounded-2xl border border-border bg-background p-2.5 h-auto text-sm outline-none focus:ring-2 focus:ring-ring/60 mb-4">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="staff" className="cursor-pointer">Staff</SelectItem>
+                <SelectItem value="owner" className="cursor-pointer">Owner</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex gap-2">
               <button
                 onClick={() => setEditingRole(null)}
