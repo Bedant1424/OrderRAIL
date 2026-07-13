@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Check, Pencil, Plus, Trash2, X, MoreVertical } from "lucide-react";
+import { Camera, Check, Pencil, Plus, Trash2, X, MoreVertical, Search } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase, formatMoney, type Cafe, type MenuCategory, type MenuItem } from "@/lib/db";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,42 @@ export default function OwnerMenuPage() {
     }
     return map;
   }, [cats, items]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredCatsAndItems = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return {
+        categories: cats,
+        itemsMap: grouped
+      };
+    }
+
+    const filteredCategories: MenuCategory[] = [];
+    const filteredItemsMap = new Map<string, MenuItem[]>();
+
+    for (const cat of cats) {
+      const catMatches = cat.name.toLowerCase().includes(normalizedQuery);
+      if (catMatches) {
+        filteredCategories.push(cat);
+        filteredItemsMap.set(cat.id, grouped.get(cat.id) ?? []);
+      } else {
+        const matchingItems = (grouped.get(cat.id) ?? []).filter(
+          item => item.name.toLowerCase().includes(normalizedQuery)
+        );
+        if (matchingItems.length > 0) {
+          filteredCategories.push(cat);
+          filteredItemsMap.set(cat.id, matchingItems);
+        }
+      }
+    }
+
+    return {
+      categories: filteredCategories,
+      itemsMap: filteredItemsMap
+    };
+  }, [cats, grouped, searchQuery]);
 
   const toggleAvail = async (item: MenuItem) => {
     const { error } = await supabase.from("menu_items").update({ is_available: !item.is_available }).eq("id", item.id);
@@ -143,6 +179,26 @@ export default function OwnerMenuPage() {
       </header>
 
       <div className="space-y-8">
+        {!catsQ.isLoading && !itemsQ.isLoading && cats.length > 0 && (
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search items or categories..."
+              className="w-full rounded-2xl border border-border bg-card py-2.5 pl-11 pr-4 text-sm outline-none ring-ring/60 transition focus:ring-2"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
+
         {(catsQ.isLoading || itemsQ.isLoading) ? (
           <div className="flex flex-col items-center justify-center p-12 gap-3 text-muted-foreground">
             <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
@@ -152,7 +208,11 @@ export default function OwnerMenuPage() {
           <div className="p-8 text-center text-muted-foreground">
             No categories added yet. Click "+ Category" to start.
           </div>
-        ) : cats.map((cat) => (
+        ) : filteredCatsAndItems.categories.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            No menu items found.
+          </div>
+        ) : filteredCatsAndItems.categories.map((cat) => (
           <section key={cat.id}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-display text-xl font-semibold">{cat.name}</h2>
@@ -177,7 +237,7 @@ export default function OwnerMenuPage() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <AnimatePresence initial={false}>
-                {(grouped.get(cat.id) ?? []).map((i) => (
+                {(filteredCatsAndItems.itemsMap.get(cat.id) ?? []).map((i) => (
                   <ItemCard
                     key={i.id}
                     item={i}
