@@ -169,7 +169,7 @@ export default function OwnerMenuPage() {
                   <DropdownMenuItem onClick={() => setEditingCat(cat)} className="cursor-pointer">
                     <Pencil className="mr-2 h-4 w-4" /> Rename Category
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+                  <DropdownMenuItem onClick={() => void removeCat(cat)} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
                     <Trash2 className="mr-2 h-4 w-4" /> Delete Category
                   </DropdownMenuItem>
                 </DropdownMenuContent>
