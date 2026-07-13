@@ -148,17 +148,22 @@ export default function OwnerAnalyticsPage() {
             <ResponsiveContainer>
               <BarChart data={byHour} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                 <defs>
+                  <linearGradient id="orderHourGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#FF8A1F" />
+                    <stop offset="50%" stopColor="#FF9F3F" />
+                    <stop offset="100%" stopColor="#FFD9A8" />
+                  </linearGradient>
                   <filter id="barShadow" x="-20%" y="-10%" width="140%" height="120%">
                     <feDropShadow 
                       dx={0} 
-                      dy={4} 
+                      dy={6} 
                       stdDeviation={5} 
-                      floodColor="hsl(var(--accent))" 
-                      floodOpacity={0.18} 
+                      floodColor="#FF8A1F" 
+                      floodOpacity={0.12} 
                     />
                   </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.65} />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" interval={2} />
                 <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
                 <Tooltip
@@ -171,8 +176,7 @@ export default function OwnerAnalyticsPage() {
                 />
                 <Bar 
                   dataKey="orders" 
-                  fill="hsl(var(--accent))" 
-                  fillOpacity={0.9} 
+                  fill="url(#orderHourGrad)" 
                   radius={[8, 8, 0, 0]} 
                   filter="url(#barShadow)"
                 />
