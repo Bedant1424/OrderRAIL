@@ -79,7 +79,6 @@ export default function OwnerSettingsPage() {
   const [website, setWebsite] = useState("");
   const [instagram, setInstagram] = useState("");
   const [operatingHours, setOperatingHours] = useState("");
-  const [staffCanManageSpecials, setStaffCanManageSpecials] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -110,7 +109,6 @@ export default function OwnerSettingsPage() {
       setWebsite(cafe.website ?? "");
       setInstagram(cafe.instagram ?? "");
       setOperatingHours(cafe.operating_hours ?? "");
-      setStaffCanManageSpecials(cafe.staff_can_manage_specials ?? false);
     }
   }, [cafe]);
 
@@ -289,7 +287,6 @@ export default function OwnerSettingsPage() {
         website: website.trim() || null,
         instagram: instagram.trim() || null,
         operating_hours: operatingHours.trim() || null,
-        staff_can_manage_specials: staffCanManageSpecials,
       })
       .eq("id", cafe.id);
     setBusy(false);
@@ -467,17 +464,6 @@ export default function OwnerSettingsPage() {
             </div>
           </div>
 
-          <div className="pt-2 border-t border-border/50">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={staffCanManageSpecials}
-                onChange={(e) => setStaffCanManageSpecials(e.target.checked)}
-                className="rounded text-primary border-border focus:ring-ring"
-              />
-              <span className="text-xs font-semibold text-muted-foreground">Allow staff to manage "Today's Specials"</span>
-            </label>
-          </div>
 
           <button
             onClick={() => void save()}

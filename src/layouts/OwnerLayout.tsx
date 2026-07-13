@@ -126,7 +126,7 @@ export default function OwnerLayout() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const { cafe, cafeId } = useCafe();
+  const { cafe, cafeId, refreshCafe } = useCafe();
   const logoSrc = useImageUrl(cafe?.logo_url);
   const unreadCount = getUnreadCount(notifications);
 
@@ -165,6 +165,21 @@ export default function OwnerLayout() {
   const handleSrNotificationsToggle = (val: boolean) => {
     setSrNotificationsEnabled(val);
     saveNotificationSettings({ srNotifications: val });
+  };
+
+  const handleStaffManageSpecialsToggle = async (val: boolean) => {
+    if (!cafeId) return;
+    try {
+      const { error } = await supabase
+        .from("cafes")
+        .update({ staff_can_manage_specials: val })
+        .eq("id", cafeId);
+      if (error) throw error;
+      toast.success("Permissions updated");
+      void refreshCafe();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update permission");
+    }
   };
 
   useEffect(() => {
@@ -668,6 +683,30 @@ export default function OwnerLayout() {
                 onCheckedChange={handleSrNotificationsToggle}
                 onClick={(e) => e.stopPropagation()}
               />
+            </div>
+
+            <hr className="border-border/50 my-1.5 mx-2.5" />
+            
+            <div className="px-2.5 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Permissions
+            </div>
+
+            <div
+              onClick={() => void handleStaffManageSpecialsToggle(!(cafe?.staff_can_manage_specials ?? false))}
+              className="p-2.5 space-y-1.5 rounded-xl hover:bg-muted/30 transition duration-150 cursor-pointer select-none"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-foreground">Allow staff to manage Today's Specials</span>
+                <Switch
+                  id="permit-staff-specials"
+                  checked={cafe?.staff_can_manage_specials ?? false}
+                  onCheckedChange={(checked) => void handleStaffManageSpecialsToggle(checked)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-normal">
+                When enabled, staff members can add or remove menu items from Today's Specials without owner approval.
+              </p>
             </div>
           </div>
         </div>
