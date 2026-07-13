@@ -26,6 +26,8 @@ import OwnerSettingsPage from "./pages/owner/OwnerSettingsPage";
 import { AuthProvider } from "./lib/auth";
 import { CafeProvider } from "./lib/cafe";
 import { initOfflineSync } from "./lib/orderQueue";
+import ScrollToTop from "./components/ScrollToTop";
+
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
@@ -61,7 +63,9 @@ const App = () => {
                                   console.log("Inside CafeProvider, Before Routes");
                                   return (
                                     <>
+                                      <ScrollToTop />
                                       <Routes>
+
                                         <Route path="/" element={<Index />} />
                                         <Route path="/t/:tableId" element={<TableLayout />}>
                                           <Route index element={<TableMenuPage />} />
