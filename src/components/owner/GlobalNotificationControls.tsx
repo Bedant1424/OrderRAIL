@@ -30,8 +30,20 @@ export function GlobalNotificationControls() {
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-destructive text-[9.5px] font-bold text-destructive-foreground">
-            {unreadCount}
+          <span
+            className="absolute -top-1 -right-1 flex items-center justify-center bg-destructive text-destructive-foreground"
+            style={{
+              minWidth: "18px",
+              height: "18px",
+              borderRadius: "9999px",
+              fontSize: "10px",
+              fontWeight: 700,
+              lineHeight: 1,
+              paddingLeft: unreadCount >= 10 ? "5px" : "0px",
+              paddingRight: unreadCount >= 10 ? "5px" : "0px",
+            }}
+          >
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
