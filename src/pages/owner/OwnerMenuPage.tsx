@@ -165,8 +165,13 @@ export default function OwnerMenuPage() {
                     <MoreVertical className="h-4 w-4" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem>Rename Category</DropdownMenuItem>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem className="cursor-pointer">
+                    <Pencil className="mr-2 h-4 w-4" /> Rename Category
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Category
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
