@@ -19,6 +19,18 @@ import {
 
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
 
+type FilterType = "all" | "available" | "unavailable" | "veg" | "non_veg" | "special" | "bestseller";
+
+const FILTERS: { value: FilterType; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "available", label: "Available" },
+  { value: "unavailable", label: "Unavailable" },
+  { value: "veg", label: "Veg" },
+  { value: "non_veg", label: "Non-Veg" },
+  { value: "special", label: "Today's Special" },
+  { value: "bestseller", label: "Best Seller" },
+];
+
 async function urlForPath(path: string) {
   const { data } = await supabase.storage.from("menu-images").createSignedUrl(path, SIGNED_YEARS);
   return data?.signedUrl ?? null;
@@ -64,31 +76,59 @@ export default function OwnerMenuPage() {
   }, [cats, items]);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
 
   const filteredCatsAndItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
-    if (!normalizedQuery) {
-      return {
-        categories: cats,
-        itemsMap: grouped
-      };
-    }
-
     const filteredCategories: MenuCategory[] = [];
     const filteredItemsMap = new Map<string, MenuItem[]>();
 
     for (const cat of cats) {
-      const catMatches = cat.name.toLowerCase().includes(normalizedQuery);
-      if (catMatches) {
-        filteredCategories.push(cat);
-        filteredItemsMap.set(cat.id, grouped.get(cat.id) ?? []);
-      } else {
-        const matchingItems = (grouped.get(cat.id) ?? []).filter(
-          item => item.name.toLowerCase().includes(normalizedQuery)
+      const dbItems = grouped.get(cat.id) ?? [];
+
+      let filteredByChip = dbItems;
+      if (activeFilter === "available") {
+        filteredByChip = dbItems.filter((i) => i.is_available);
+      } else if (activeFilter === "unavailable") {
+        filteredByChip = dbItems.filter((i) => !i.is_available);
+      } else if (activeFilter === "veg") {
+        filteredByChip = dbItems.filter((i) => i.veg_type === "veg");
+      } else if (activeFilter === "non_veg") {
+        filteredByChip = dbItems.filter((i) => i.veg_type === "non_veg");
+      } else if (activeFilter === "special") {
+        filteredByChip = dbItems.filter((i) => (i.tags || []).includes("Today's Special"));
+      } else if (activeFilter === "bestseller") {
+        filteredByChip = dbItems.filter(
+          (i) => (i.tags || []).includes("Best Seller") || (i.tags || []).includes("Bestseller")
         );
-        if (matchingItems.length > 0) {
+      }
+
+      if (!normalizedQuery) {
+        if (dbItems.length === 0) {
+          if (activeFilter === "all") {
+            filteredCategories.push(cat);
+            filteredItemsMap.set(cat.id, []);
+          }
+          continue;
+        }
+
+        if (filteredByChip.length > 0) {
           filteredCategories.push(cat);
-          filteredItemsMap.set(cat.id, matchingItems);
+          filteredItemsMap.set(cat.id, filteredByChip);
+        }
+      } else {
+        const catMatches = cat.name.toLowerCase().includes(normalizedQuery);
+        if (catMatches) {
+          if (filteredByChip.length > 0) {
+            filteredCategories.push(cat);
+            filteredItemsMap.set(cat.id, filteredByChip);
+          }
+        } else {
+          const matchingItems = filteredByChip.filter((i) => i.name.toLowerCase().includes(normalizedQuery));
+          if (matchingItems.length > 0) {
+            filteredCategories.push(cat);
+            filteredItemsMap.set(cat.id, matchingItems);
+          }
         }
       }
     }
@@ -97,7 +137,7 @@ export default function OwnerMenuPage() {
       categories: filteredCategories,
       itemsMap: filteredItemsMap
     };
-  }, [cats, grouped, searchQuery]);
+  }, [cats, grouped, searchQuery, activeFilter]);
 
   const toggleAvail = async (item: MenuItem) => {
     const { error } = await supabase.from("menu_items").update({ is_available: !item.is_available }).eq("id", item.id);
@@ -180,22 +220,42 @@ export default function OwnerMenuPage() {
 
       <div className="space-y-8">
         {!catsQ.isLoading && !itemsQ.isLoading && cats.length > 0 && (
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search items or categories..."
-              className="w-full rounded-2xl border border-border bg-card py-2.5 pl-11 pr-4 text-sm outline-none ring-ring/60 transition focus:ring-2"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search items or categories..."
+                className="w-full rounded-2xl border border-border bg-card py-2.5 pl-11 pr-4 text-sm outline-none ring-ring/60 transition focus:ring-2"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter Chips */}
+            <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setActiveFilter(f.value)}
+                  className={cn(
+                    "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition active:scale-95",
+                    activeFilter === f.value
+                      ? "bg-brand text-brand-foreground font-semibold"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
