@@ -19,7 +19,7 @@ import {
 
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
 
-type FilterType = "all" | "available" | "unavailable" | "veg" | "non_veg" | "special" | "bestseller";
+type FilterType = "all" | "available" | "unavailable" | "veg" | "non_veg" | "special" | "bestseller" | "chef_choice" | "new";
 
 const FILTERS: { value: FilterType; label: string }[] = [
   { value: "all", label: "All" },
@@ -29,7 +29,16 @@ const FILTERS: { value: FilterType; label: string }[] = [
   { value: "non_veg", label: "Non-Veg" },
   { value: "special", label: "Today's Special" },
   { value: "bestseller", label: "Best Seller" },
+  { value: "chef_choice", label: "Chef's Choice" },
+  { value: "new", label: "New" },
 ];
+
+const TAG_FILTERS: Partial<Record<FilterType, string[]>> = {
+  special: ["Today's Special"],
+  bestseller: ["Best Seller", "Bestseller"],
+  chef_choice: ["Chef's Choice"],
+  new: ["New"],
+};
 
 async function urlForPath(path: string) {
   const { data } = await supabase.storage.from("menu-images").createSignedUrl(path, SIGNED_YEARS);
@@ -95,11 +104,10 @@ export default function OwnerMenuPage() {
         filteredByChip = dbItems.filter((i) => i.veg_type === "veg");
       } else if (activeFilter === "non_veg") {
         filteredByChip = dbItems.filter((i) => i.veg_type === "non_veg");
-      } else if (activeFilter === "special") {
-        filteredByChip = dbItems.filter((i) => (i.tags || []).includes("Today's Special"));
-      } else if (activeFilter === "bestseller") {
-        filteredByChip = dbItems.filter(
-          (i) => (i.tags || []).includes("Best Seller") || (i.tags || []).includes("Bestseller")
+      } else if (TAG_FILTERS[activeFilter]) {
+        const allowedTags = TAG_FILTERS[activeFilter]!;
+        filteredByChip = dbItems.filter((i) =>
+          (i.tags || []).some((tag) => allowedTags.includes(tag))
         );
       }
 
