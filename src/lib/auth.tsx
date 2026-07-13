@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -21,95 +21,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AuthCtx["roles"]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUid, setLastUid] = useState<string | null>(null);
-  const activePromiseRef = useRef<{ uid: string; promise: Promise<void> } | null>(null);
+
+  const logSetLoading = (val: boolean) => {
+    console.log(`[${new Date().toISOString()}] AuthProvider: setLoading(${val})`);
+    setLoading(val);
+  };
 
   const loadRoles = async (uid: string | undefined, force = false) => {
-    console.log("AuthProvider: loadRoles invoked for uid:", uid, "force:", force);
+    console.log(`[${new Date().toISOString()}] AuthProvider: loadRoles called. uid=${uid}, force=${force}, lastUid=${lastUid}, isNewUser=${uid !== lastUid}`);
     if (!uid) {
-      console.log("AuthProvider: loadRoles early exit - no uid");
+      console.log(`[${new Date().toISOString()}] AuthProvider: loadRoles early exit - no uid`);
       setRoles([]);
       setLastUid(null);
-      setLoading(false);
-      activePromiseRef.current = null;
+      logSetLoading(false);
       return;
     }
     if (uid === lastUid && !loading && !force) {
-      console.log("AuthProvider: loadRoles early exit - cached");
+      console.log(`[${new Date().toISOString()}] AuthProvider: loadRoles early exit - cached`);
       return;
     }
-
-    // Deduplicate concurrent loadRoles requests for the same user
-    if (activePromiseRef.current && activePromiseRef.current.uid === uid) {
-      console.log("AuthProvider: loadRoles deduplicating - returning active promise");
-      return activePromiseRef.current.promise;
-    }
-
-    const isNewUser = uid !== lastUid;
-    if (isNewUser) {
-      console.log("AuthProvider: setting loading to true, fetching roles for new user");
-      setLoading(true);
-    }
+    console.log(`[${new Date().toISOString()}] AuthProvider: triggering loadRoles fetch`);
+    logSetLoading(true);
     setLastUid(uid);
-
-    const promise = (async () => {
-      try {
-        const { data, error } = await supabase.from("user_roles").select("role, cafe_id").eq("user_id", uid);
-        if (error) {
-          console.error("AuthProvider: supabase query error in user_roles:", error);
-        } else {
-          console.log("AuthProvider: loaded roles from Supabase database:", data);
-        }
-        setRoles((data ?? []) as AuthCtx["roles"]);
-      } catch (e) {
-        console.error("AuthProvider: loadRoles try-catch exception:", e);
-      } finally {
-        if (isNewUser) {
-          console.log("AuthProvider: setting loading to false");
-          setLoading(false);
-        }
-        if (activePromiseRef.current?.uid === uid) {
-          activePromiseRef.current = null;
-        }
+    try {
+      const { data, error } = await supabase.from("user_roles").select("role, cafe_id").eq("user_id", uid);
+      if (error) {
+        console.error("AuthProvider: supabase query error in user_roles:", error);
+      } else {
+        console.log("AuthProvider: loaded roles from Supabase database:", data);
       }
-    })();
-
-    activePromiseRef.current = { uid, promise };
-    return promise;
+      setRoles((data ?? []) as AuthCtx["roles"]);
+    } catch (e) {
+      console.error("AuthProvider: loadRoles try-catch exception:", e);
+    } finally {
+      const nowTime = performance.now();
+      if ((window as any).__tokenRefreshedTime) {
+        const diff = nowTime - (window as any).__tokenRefreshedTime;
+        console.log(`[${new Date().toISOString()}] AuthProvider: Measurement - Time from TOKEN_REFRESHED to setLoading(false): ${diff.toFixed(2)}ms`);
+        (window as any).__tokenRefreshedTime = null;
+      }
+      logSetLoading(false);
+    }
   };
 
   useEffect(() => {
     let active = true;
 
     // Initial session load
-    console.log("AuthProvider: triggering supabase.auth.getSession()");
+    console.log(`[${new Date().toISOString()}] AuthProvider: Auth event INITIAL_SESSION`);
     supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
       if (error) {
         console.error("AuthProvider: getSession returned error:", error);
       }
-      console.log("AuthProvider: getSession result session exists:", !!data.session, {
-        email: data.session?.user?.email,
-        id: data.session?.user?.id
-      });
       setSession(data.session);
       void loadRoles(data.session?.user.id, true).finally(() => {
-        if (active) setLoading(false);
+        if (active) logSetLoading(false);
       });
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
       if (!active) return;
-      console.log("AuthProvider: onAuthStateChange fired event:", evt, "session exists:", !!s, {
-        email: s?.user?.email,
-        id: s?.user?.id
-      });
+      console.log(`[${new Date().toISOString()}] AuthProvider: Auth event ${evt}`);
       setSession(s);
+      if (evt === "TOKEN_REFRESHED") {
+        (window as any).__tokenRefreshedTime = performance.now();
+      }
       if (evt === "SIGNED_IN" || evt === "TOKEN_REFRESHED") {
         void loadRoles(s?.user.id, true);
       } else if (evt === "SIGNED_OUT") {
         setRoles([]);
         setLastUid(null);
-        setLoading(false);
+        logSetLoading(false);
       } else {
         void loadRoles(s?.user.id);
       }

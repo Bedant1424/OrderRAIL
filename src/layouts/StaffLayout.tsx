@@ -103,6 +103,19 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
   }, []);
 
   useEffect(() => {
+    console.log(`[${new Date().toISOString()}] StaffLayout: Mount`);
+    if ((window as any).__staffLayoutUnmountTime) {
+      const diff = performance.now() - (window as any).__staffLayoutUnmountTime;
+      console.log(`[${new Date().toISOString()}] StaffLayout: Measurement - Time between unmount and remount: ${diff.toFixed(2)}ms`);
+      (window as any).__staffLayoutUnmountTime = null;
+    }
+    return () => {
+      console.log(`[${new Date().toISOString()}] StaffLayout: Unmount`);
+      (window as any).__staffLayoutUnmountTime = performance.now();
+    };
+  }, []);
+
+  useEffect(() => {
     if (isNotificationsOpen) {
       const readList = markAllAsRead();
       setNotifications(readList);

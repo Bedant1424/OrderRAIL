@@ -136,6 +136,19 @@ export default function OwnerLayout() {
   }, []);
 
   useEffect(() => {
+    console.log(`[${new Date().toISOString()}] OwnerLayout: Mount`);
+    if ((window as any).__ownerLayoutUnmountTime) {
+      const diff = performance.now() - (window as any).__ownerLayoutUnmountTime;
+      console.log(`[${new Date().toISOString()}] OwnerLayout: Measurement - Time between unmount and remount: ${diff.toFixed(2)}ms`);
+      (window as any).__ownerLayoutUnmountTime = null;
+    }
+    return () => {
+      console.log(`[${new Date().toISOString()}] OwnerLayout: Unmount`);
+      (window as any).__ownerLayoutUnmountTime = performance.now();
+    };
+  }, []);
+
+  useEffect(() => {
     if (isNotificationsOpen) {
       const readList = markAllAsRead();
       setNotifications(readList);
