@@ -15,6 +15,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+} from "@/components/ui/select";
+import * as SelectPrimitive from "@radix-ui/react-select";
 
 
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
@@ -518,6 +525,30 @@ function ItemCard({
   );
 }
 
+const RightSelectItem = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    className={cn(
+      "relative flex w-full cursor-default select-none items-center justify-between rounded-lg px-3 py-2.5 text-sm outline-none",
+      "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "focus:bg-secondary focus:text-foreground",
+      "data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary data-[state=checked]:font-semibold",
+      "h-[42px] transition-colors cursor-pointer",
+      className
+    )}
+    {...props}
+  >
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    <SelectPrimitive.ItemIndicator>
+      <Check className="h-4 w-4 shrink-0" />
+    </SelectPrimitive.ItemIndicator>
+  </SelectPrimitive.Item>
+));
+RightSelectItem.displayName = "RightSelectItem";
+
 function CategoryDialog({
   cafeId,
   initial,
@@ -878,15 +909,20 @@ function ItemDialog({
         </label>
         <div>
           <label className="text-xs font-medium text-muted-foreground">Veg / Non-Veg</label>
-          <select
-            value={vegType}
-            onChange={(e) => setVegType(e.target.value as typeof vegType)}
-            className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-          >
-            <option value="unspecified">Not specified</option>
-            <option value="veg">Veg</option>
-            <option value="non_veg">Non-Veg</option>
-          </select>
+          <Select value={vegType} onValueChange={(val) => setVegType(val as typeof vegType)}>
+            <SelectTrigger
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 focus:ring-offset-0 flex items-center justify-between h-[42px] font-normal"
+            >
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent
+              className="rounded-xl border border-border bg-card shadow-soft p-2 space-y-1.5 min-w-[var(--radix-select-trigger-width)] duration-120 z-[100]"
+            >
+              <RightSelectItem value="unspecified">Not specified</RightSelectItem>
+              <RightSelectItem value="veg">Veg</RightSelectItem>
+              <RightSelectItem value="non_veg">Non-Veg</RightSelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <label className="text-xs font-medium text-muted-foreground">Labels</label>
