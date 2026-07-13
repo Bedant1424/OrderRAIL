@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import QRCode from "qrcode";
-import { Plus, Trash2, Download, Eye } from "lucide-react";
+import { Plus, Trash2, Download } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
@@ -112,14 +112,14 @@ export const generateQRArtwork = async (
 function TableQRCard({ 
   table, 
   cafeName, 
-  onViewQR, 
-  onDownloadArtwork, 
+  onDownloadQR, 
+  onDownloadCard, 
   onDelete 
 }: { 
   table: TableRow; 
   cafeName: string; 
-  onViewQR: () => void;
-  onDownloadArtwork: () => void;
+  onDownloadQR: () => void;
+  onDownloadCard: () => void;
   onDelete: () => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -151,22 +151,24 @@ function TableQRCard({
 
       <div className="flex items-center justify-between px-3 py-2.5 print:hidden">
         <button
-          onClick={onViewQR}
-          className="inline-flex items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-sm transition hover:bg-secondary/80 active:scale-95"
-          style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
-          title="View QR Code"
-          aria-label={`View QR for table ${table.label}`}
+          onClick={onDownloadQR}
+          className="inline-flex items-center justify-center gap-1 rounded-full bg-secondary text-secondary-foreground shadow-sm transition hover:bg-secondary/80 active:scale-95 px-3"
+          style={{ height: 44, minHeight: 44 }}
+          title="Download raw QR code PNG"
+          aria-label={`Download QR for table ${table.label}`}
         >
-          <Eye className="h-[18px] w-[18px]" />
+          <Download className="h-[18px] w-[18px]" />
+          <span className="text-xs font-semibold">QR</span>
         </button>
         <button
-          onClick={onDownloadArtwork}
-          className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm transition hover:bg-primary/20 active:scale-95"
-          style={{ width: 44, height: 44, minWidth: 44, minHeight: 44 }}
+          onClick={onDownloadCard}
+          className="inline-flex items-center justify-center gap-1 rounded-full bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/95 active:scale-95 px-3"
+          style={{ height: 44, minHeight: 44 }}
           title="Download printable stand artwork"
           aria-label={`Download artwork for table ${table.label}`}
         >
           <Download className="h-[18px] w-[18px]" />
+          <span className="text-xs font-semibold">Card</span>
         </button>
         <button
           onClick={onDelete}
@@ -186,7 +188,6 @@ export default function OwnerTablesPage() {
   const qc = useQueryClient();
   const [label, setLabel] = useState("");
   const [seats, setSeats] = useState(2);
-  const [viewingTable, setViewingTable] = useState<TableRow | null>(null);
 
   const { cafe, cafeId } = useCafe();
 
@@ -231,6 +232,16 @@ export default function OwnerTablesPage() {
     const { error } = await supabase.from("tables").delete().eq("id", t.id);
     if (error) return toast.error(error.message);
     void qc.invalidateQueries({ queryKey: ["owner-tables", cafeId] });
+  };
+
+  const downloadQRSingle = async (t: TableRow) => {
+    const canvas = document.createElement("canvas");
+    const url = `${window.location.origin}/t/${t.id}`;
+    await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
+    const link = document.createElement("a");
+    link.download = `table-${t.label}-qr.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
   };
 
   const downloadArtworkSingle = async (t: TableRow) => {
@@ -333,59 +344,12 @@ export default function OwnerTablesPage() {
             key={t.id} 
             table={t} 
             cafeName={cafe?.name ?? "Cafe"} 
-            onViewQR={() => setViewingTable(t)}
-            onDownloadArtwork={() => void downloadArtworkSingle(t)}
+            onDownloadQR={() => void downloadQRSingle(t)}
+            onDownloadCard={() => void downloadArtworkSingle(t)}
             onDelete={() => void remove(t)} 
           />
         ))}
       </section>
-
-      {/* ── View QR Modal ── */}
-      {viewingTable && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm print:hidden">
-          <div className="w-full max-w-sm rounded-3xl bg-card p-6 shadow-float ring-1 ring-border">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-display text-lg font-semibold">Table {viewingTable.label} QR Code</h3>
-              <button 
-                onClick={() => setViewingTable(null)} 
-                className="rounded-full bg-secondary p-1.5 transition active:scale-95"
-              >
-                <span className="sr-only">Close</span>
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="flex flex-col items-center gap-4">
-              <div className="rounded-2xl border border-border bg-white p-4">
-                <canvas
-                  ref={(canvas) => {
-                    if (canvas) {
-                      const url = `${window.location.origin}/t/${viewingTable.id}`;
-                      void QRCode.toCanvas(canvas, url, { margin: 1, width: 240, color: { dark: "#1a1210", light: "#ffffff" } });
-                    }
-                  }}
-                  className="block"
-                />
-              </div>
-              
-              <div className="text-center text-xs text-muted-foreground break-all px-2 select-all font-mono">
-                {`${window.location.origin}/t/${viewingTable.id}`}
-              </div>
-              
-              <a
-                href={`/t/${viewingTable.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full text-center rounded-full btn-primary-action px-4 py-2.5 text-sm font-semibold inline-block"
-              >
-                Open Customer Page
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
