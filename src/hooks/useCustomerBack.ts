@@ -10,12 +10,14 @@ declare global {
   interface Window {
     __customerOverlays?: OverlayRegistration[];
     __ignoreNextPopstate?: boolean;
+    __redirectAfterBack?: string;
   }
 }
 
 export const getPathDepth = (pathname: string, tableId: string): number => {
   const path = pathname.replace(/\/$/, "");
   if (path === `/t/${tableId}`) return 0;
+  if (path.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))) return 2;
   if (path.startsWith(`/t/${tableId}/`)) return 1;
   return 0;
 };
@@ -47,11 +49,19 @@ export function useCustomerNavigate() {
     } else if (currentDepth === 0) {
       // Going from Menu to subpage: push
       navigate(targetPath, options);
+    } else if (targetDepth === 1 && currentDepth === 2) {
+      // Going from child (depth 2) to top-level subpage (depth 1)
+      if (normTarget === `/t/${tableId}/cart`) {
+        navigate(-1);
+      } else {
+        (window as any).__redirectAfterBack = targetPath;
+        navigate(-1);
+      }
     } else if (targetDepth > currentDepth) {
       // Going deeper (e.g. Cart -> Order Details): push
       navigate(targetPath, options);
     } else {
-      // Switching between peer subpages/tabs (depth 1 <-> depth 1): replace
+      // Switching between peer subpages (depth 1 <-> depth 1): replace
       // Or going shallower: go back
       const diff = currentDepth - targetDepth;
       if (diff > 0) {
@@ -67,6 +77,8 @@ export function useCustomerNavigate() {
 
 export function useCustomerBackNavigation() {
   const { tableId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // Rebuild the history stack if a user lands on a subpage directly
   useEffect(() => {
@@ -80,16 +92,25 @@ export function useCustomerBackNavigation() {
       const currentPath = window.location.pathname;
       const search = window.location.search;
 
-      if (
-        currentPath === `/t/${tableId}/cart` ||
-        currentPath === `/t/${tableId}/call` ||
-        currentPath.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))
-      ) {
+      if (currentPath === `/t/${tableId}/cart` || currentPath === `/t/${tableId}/call`) {
         window.history.replaceState(null, "", `/t/${tableId}`);
+        window.history.pushState(null, "", currentPath + search);
+      } else if (currentPath.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))) {
+        window.history.replaceState(null, "", `/t/${tableId}`);
+        window.history.pushState(null, "", `/t/${tableId}/cart`);
         window.history.pushState(null, "", currentPath + search);
       }
     }
   }, [tableId]);
+
+  // Handle redirect after back navigation
+  useEffect(() => {
+    if ((window as any).__redirectAfterBack) {
+      const target = (window as any).__redirectAfterBack;
+      (window as any).__redirectAfterBack = undefined;
+      navigate(target, { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   // Handle overlay closing on back button press
   useEffect(() => {
