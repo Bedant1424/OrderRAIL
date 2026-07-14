@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Check, Pencil, Plus, Trash2, X, MoreVertical, Search } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import ImageCropperModal from "@/components/ImageCropperModal";
 import { supabase, formatMoney, type Cafe, type MenuCategory, type MenuItem } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { generateUUID } from "@/lib/uuid";
@@ -761,6 +762,10 @@ function ItemDialog({
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Cropper states
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+
   useEffect(() => {
     let stop = false;
     if (imagePath?.startsWith("menu-images/")) {
@@ -773,11 +778,48 @@ function ItemDialog({
     };
   }, [imagePath]);
 
-  const upload = async (file: File) => {
+  useEffect(() => {
+    return () => {
+      if (imageSrc && imageSrc.startsWith("blob:") && imageSrc !== preview) {
+        URL.revokeObjectURL(imageSrc);
+      }
+    };
+  }, [imageSrc, preview]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!validTypes.includes(f.type)) {
+      toast.error("Unsupported file format. Please upload PNG, JPG, or WEBP.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
+    if (f.size > 5 * 1024 * 1024) {
+      toast.error("The selected image exceeds the 5 MB limit.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(f);
+    setImageSrc((prev) => {
+      if (prev && prev.startsWith("blob:") && prev !== preview) {
+        URL.revokeObjectURL(prev);
+      }
+      return objectUrl;
+    });
+    setIsCropOpen(true);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const uploadCropped = async (croppedBlob: Blob) => {
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
+      const ext = "png";
       const path = `${cafeId}/${generateUUID()}.${ext}`;
+      const file = new File([croppedBlob], `item.${ext}`, { type: "image/png" });
       const { error } = await supabase.storage.from("menu-images").upload(path, file, {
         upsert: false,
         contentType: file.type,
@@ -785,6 +827,7 @@ function ItemDialog({
       if (error) throw error;
       setImagePath(`menu-images/${path}`);
       toast.success("Image uploaded");
+      setIsCropOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -818,7 +861,8 @@ function ItemDialog({
   };
 
   return (
-    <Dialog
+    <>
+      <Dialog
       title={isEdit ? "Edit item" : "New item"}
       onClose={onClose}
       footer={
@@ -834,8 +878,17 @@ function ItemDialog({
       <div className="space-y-4 pb-2">
         <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
           <button
-            onClick={() => fileRef.current?.click()}
-            className="grid aspect-square w-full place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground"
+            type="button"
+            onClick={() => {
+              if (preview) {
+                setImageSrc(preview);
+                setIsCropOpen(true);
+              } else {
+                fileRef.current?.click();
+              }
+            }}
+            disabled={uploading}
+            className="grid aspect-square w-full place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           >
             {preview ? (
               <img src={preview} alt="" className="h-full w-full object-cover" />
@@ -850,10 +903,7 @@ function ItemDialog({
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void upload(f);
-            }}
+            onChange={handleFileChange}
           />
           <div className="space-y-2">
             <div>
@@ -953,6 +1003,17 @@ function ItemDialog({
         </div>
       </div>
     </Dialog>
+    <ImageCropperModal
+      isOpen={isCropOpen}
+      imageSrc={imageSrc}
+      onClose={() => setIsCropOpen(false)}
+      onSave={uploadCropped}
+      onChooseAnother={() => fileRef.current?.click()}
+      saveLabel="Save"
+      title="Edit Image"
+      isSaving={uploading}
+    />
+    </>
   );
 }
 
