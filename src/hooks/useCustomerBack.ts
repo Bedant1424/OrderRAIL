@@ -16,8 +16,7 @@ declare global {
 export const getPathDepth = (pathname: string, tableId: string): number => {
   const path = pathname.replace(/\/$/, "");
   if (path === `/t/${tableId}`) return 0;
-  if (path === `/t/${tableId}/cart` || path === `/t/${tableId}/call`) return 1;
-  if (path.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))) return 2;
+  if (path.startsWith(`/t/${tableId}/`)) return 1;
   return 0;
 };
 
@@ -81,12 +80,12 @@ export function useCustomerBackNavigation() {
       const currentPath = window.location.pathname;
       const search = window.location.search;
 
-      if (currentPath === `/t/${tableId}/cart` || currentPath === `/t/${tableId}/call`) {
+      if (
+        currentPath === `/t/${tableId}/cart` ||
+        currentPath === `/t/${tableId}/call` ||
+        currentPath.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))
+      ) {
         window.history.replaceState(null, "", `/t/${tableId}`);
-        window.history.pushState(null, "", currentPath + search);
-      } else if (currentPath.match(new RegExp(`^/t/${tableId}/order/[^/]+$`))) {
-        window.history.replaceState(null, "", `/t/${tableId}`);
-        window.history.pushState(null, "", `/t/${tableId}/cart`);
         window.history.pushState(null, "", currentPath + search);
       }
     }

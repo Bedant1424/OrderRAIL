@@ -2,10 +2,12 @@ import { NavLink, useParams } from "react-router-dom";
 import { Coffee, ShoppingBag, BellRing } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
+import { useCustomerNavigate } from "@/hooks/useCustomerBack";
 
 export function BottomNav() {
   const { tableId } = useParams();
   const { count } = useCart();
+  const customerNavigate = useCustomerNavigate();
 
   const items = [
     { to: `/t/${tableId}`, label: "Menu", icon: Coffee, end: true },
@@ -24,6 +26,10 @@ export function BottomNav() {
             <NavLink
               to={to}
               end={end}
+              onClick={(e) => {
+                e.preventDefault();
+                customerNavigate(to);
+              }}
               className={({ isActive }) =>
                 cn(
                   "relative flex flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition-colors",
