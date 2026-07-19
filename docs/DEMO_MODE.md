@@ -8,14 +8,39 @@ This document details the architectural strategy for managing capabilities and p
 
 Demo mode is **deployment-specific**, driven by the build-time environment variable `VITE_DEMO_MODE`.
 
+### Why the Repository Default is `false`
+
+The committed `.env.example` (and the local `.env` it templates) sets `VITE_DEMO_MODE=false`. This ensures:
+
+1. **Production safety**: Any deployment that does not explicitly set `VITE_DEMO_MODE=true` will run in production mode. A missing or misconfigured variable will never accidentally enable demo restrictions.
+2. **Local development**: Developers get production-equivalent behaviour by default. To test demo mode locally, change `VITE_DEMO_MODE=true` in their local `.env` (which is gitignored).
+3. **Zero-ambiguity deployments**: Demo mode is opt-in. Only the Demo Vercel project enables it via its environment variables dashboard.
+
 ### Deployments
 
-| Deployment | URL | `VITE_DEMO_MODE` | Supabase Project |
-|---|---|---|---|
-| Public Demo | `https://order-rail.vercel.app/` | `true` | Demo Supabase |
-| Production | `https://orderrail-pro-main.vercel.app/` | `false` (or unset) | Production Supabase |
+| Deployment | URL | `VITE_DEMO_MODE` | Source of truth | Supabase Project |
+|---|---|---|---|---|
+| Local dev | `http://localhost:8080` | `false` (default) | `.env` file | Developer's choice |
+| Public Demo | `https://order-rail.vercel.app/` | `true` | **Vercel env var** | Demo Supabase |
+| Production | `https://orderrail-pro-main.vercel.app/` | `false` | **Vercel env var** | Production Supabase |
 
-### Resolution Hierarchy
+### Environment Loading Precedence
+
+Vite resolves environment variables at **build time** in this order (highest priority first):
+
+| Priority | Source | When Used |
+|----------|--------|-----------|
+| 1 (highest) | System/shell environment variables | Vercel injects dashboard env vars here during build |
+| 2 | `.env.[mode].local` | e.g. `.env.production.local` — gitignored by `*.local` |
+| 3 | `.env.[mode]` | e.g. `.env.production` — committed if present |
+| 4 | `.env.local` | gitignored by `*.local` |
+| 5 (lowest) | `.env` | gitignored — local developer defaults |
+
+**On Vercel**: The dashboard environment variable (`VITE_DEMO_MODE=true` or `false`) is injected as a system env var at priority 1, overriding all `.env` files. This is why the Vercel dashboard is the authoritative source.
+
+**Locally**: The `.env` file (priority 5) provides the default. Developers can override it with `.env.local` (priority 4) without affecting anyone else.
+
+### Resolution Hierarchy (Code)
 
 - **`isDemoDeployment()`**: Single source of truth. Reads `import.meta.env.VITE_DEMO_MODE`. Returns `true` only when the value is the string `"true"`. This is the **only** place in the codebase that reads the environment variable.
 - **`useDemoMode()`**: React hook. Returns `true` when `isDemoDeployment()` is `true` AND the current user is NOT the Demo Administrator. On production deployments, always returns `false`.
@@ -39,12 +64,29 @@ VITE_SUPABASE_URL=<production-supabase-url>
 VITE_SUPABASE_PUBLISHABLE_KEY=<production-supabase-anon-key>
 ```
 
-### Adding Future Deployments
+### Configuring Future Deployments
 
 To create a new deployment (e.g. staging):
 1. Create a new Vercel project linked to the same repository.
-2. Set `VITE_DEMO_MODE=false` (or `true` to mirror the demo experience).
+2. Set `VITE_DEMO_MODE=false` (or `true` to mirror the demo experience) in the Vercel dashboard.
 3. Configure the appropriate Supabase URL and key.
+4. The repository `.env.example` documents all required variables.
+
+### Verification
+
+During local development, `main.tsx` logs the resolved value to the browser console:
+
+```
+[env] VITE_DEMO_MODE = "false" → demo deployment: false
+```
+
+This log is gated behind `import.meta.env.DEV` and is tree-shaken out of production builds.
+
+For deployed builds, verify the baked-in value by searching the compiled JS bundle:
+```bash
+grep -o 'VITE_DEMO_MODE.*"true"\|VITE_DEMO_MODE.*"false"' dist/assets/*.js
+```
+
 ---
 
 ## 2. Permission Architecture
