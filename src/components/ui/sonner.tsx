@@ -3,6 +3,7 @@ import { Toaster as Sonner, toast as rawToast } from "sonner";
 import { motion, useMotionValue, useTransform, useAnimation, animate } from "framer-motion";
 import React from "react";
 import { CheckCircle2, AlertCircle, Info as InfoIcon, X, AlertTriangle } from "lucide-react";
+import { isDemoDeployment } from "@/lib/permissions";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
@@ -216,7 +217,7 @@ const customToast = {
   },
   error: (message: React.ReactNode, options?: any) => {
     let cleanMessage = message;
-    if (typeof message === "string") {
+    if (typeof message === "string" && isDemoDeployment()) {
       const lower = message.toLowerCase();
       if (
         lower.includes("row-level security") ||

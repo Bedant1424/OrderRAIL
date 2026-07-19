@@ -264,10 +264,10 @@ export default function OwnerStaffPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">
-                        {p?.display_name ?? (p?.email ? maskEmail(p.email) : maskUserId(r.user_id))}
+                        {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {p?.email ? maskEmail(p.email) : "—"}
+                        {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "—"}
                       </div>
                     </div>
                   </div>
@@ -323,7 +323,7 @@ export default function OwnerStaffPage() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground mb-3">
-              Change role for {editingRole && byUser.get(editingRole.user_id)?.email ? maskEmail(byUser.get(editingRole.user_id)!.email) : "this user"}
+              Change role for {editingRole && byUser.get(editingRole.user_id)?.email ? (isDemo ? maskEmail(byUser.get(editingRole.user_id)!.email) : byUser.get(editingRole.user_id)!.email) : "this user"}
             </p>
             <Select disabled={isDemo} value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
               <SelectTrigger className="w-full rounded-2xl border border-border bg-background p-2.5 h-auto text-sm outline-none focus:ring-2 focus:ring-ring/60 mb-4">
