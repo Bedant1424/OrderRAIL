@@ -6,6 +6,8 @@ import { QrCode, Coffee, Zap, WifiOff, ArrowRight, ChefHat, LayoutDashboard } fr
 import { supabase, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { useAuth, hasRole } from "@/lib/auth";
+import { isDemoDeployment } from "@/lib/permissions";
+import B2bLandingPage from "./B2bLandingPage";
 
 function TableQR({ tableId, label }: { tableId: string; label: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -76,6 +78,10 @@ export default function Index() {
         </div>
       </div>
     );
+  }
+
+  if (!isDemoDeployment()) {
+    return <B2bLandingPage />;
   }
 
   return (
