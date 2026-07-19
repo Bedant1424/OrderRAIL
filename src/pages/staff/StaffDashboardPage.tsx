@@ -1177,12 +1177,12 @@ export default function StaffDashboardPage() {
             No service requests.
           </div>
         ) : (
-          {/* horizontal-thin-scrollbar shows a thin custom scrollbar on desktop,
-              and native overlay scrollbar on mobile.
-              scroll-snap-type x mandatory + snap-start on cards gives
-              the snapping behaviour. */}
           <div 
             id="service-requests-container" 
+            /* horizontal-thin-scrollbar shows a thin custom scrollbar on desktop,
+               and native overlay scrollbar on mobile.
+               scroll-snap-type x mandatory + snap-start on cards gives
+               the snapping behaviour. */
             className="horizontal-thin-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
           >
             <AnimatePresence initial={false}>
