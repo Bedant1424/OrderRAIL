@@ -1,24 +1,31 @@
 import { APP_CONFIG } from "@/config/app";
 import { useAuth, hasRole } from "./auth";
-import { useCafe } from "./cafe";
 
 /**
- * Returns true if the given cafe slug matches the public demo cafe slug.
+ * Single source of truth: is this the public demo deployment?
+ *
+ * Driven by the build-time environment variable VITE_DEMO_MODE.
+ * Set VITE_DEMO_MODE=true in the Demo Vercel project.
+ * Leave it unset or set to "false" in the Production Vercel project.
+ *
+ * This function is the ONLY place in the codebase that reads the env var.
  */
-export function isDemoMode(slug?: string | null): boolean {
-  return (slug || "").toLowerCase() === APP_CONFIG.cafeSlug.toLowerCase();
+export function isDemoDeployment(): boolean {
+  return import.meta.env.VITE_DEMO_MODE === "true";
 }
 
 /**
  * Returns true if the given user ID matches the demo administrator UUID.
+ * Only meaningful on the demo deployment.
  */
 export function isDemoAdmin(userId?: string | null): boolean {
+  if (!isDemoDeployment()) return false;
   if (!userId) return false;
   return userId.toLowerCase() === APP_CONFIG.demoAdminUuid.toLowerCase();
 }
 
 /**
- * React hook to check if the currently authenticated user is the Demo Administrator.
+ * React hook: is the currently authenticated user the Demo Administrator?
  */
 export function useDemoAdmin(): boolean {
   const { user } = useAuth();
@@ -26,21 +33,27 @@ export function useDemoAdmin(): boolean {
 }
 
 /**
- * React hook to check if the current active session is running against the public demo cafe.
- * Excludes the Demo Administrator from demo constraints.
+ * React hook: should the current session be subject to demo UI restrictions?
+ *
+ * Returns true ONLY when:
+ *   1. This is the demo deployment (VITE_DEMO_MODE=true), AND
+ *   2. The current user is NOT the Demo Administrator.
+ *
+ * On the production deployment this always returns false.
  */
 export function useDemoMode(): boolean {
-  const { cafe } = useCafe();
   const { user } = useAuth();
+  if (!isDemoDeployment()) return false;
   if (isDemoAdmin(user?.id)) return false;
-  return cafe ? isDemoMode(cafe.slug) : false;
+  return true;
 }
 
 /**
  * Centralized permissions hook managing capability authorization checks.
- * Under production: verifies owner role permissions.
- * Under demo mode: returns values prepared for future restrictions.
- * Under demo admin: bypasses all restrictions.
+ *
+ * Production deployment: standard role-based access.
+ * Demo deployment (non-admin): read-only restrictions.
+ * Demo deployment (admin): full bypass.
  */
 export function usePermissions() {
   const { roles, user } = useAuth();
@@ -97,4 +110,3 @@ export function maskEmail(email: string | null | undefined): string {
 export function maskUserId(id: string): string {
   return `usr_${id.slice(0, 4)}***${id.slice(-4)}`;
 }
-

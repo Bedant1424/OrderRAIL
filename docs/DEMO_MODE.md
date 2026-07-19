@@ -6,13 +6,45 @@ This document details the architectural strategy for managing capabilities and p
 
 ## 1. Demo Detection Strategy
 
-The system uses a single source of truth to detect if the application is running against the public demo café:
-- **Identifier Match**: Every café possesses a unique string-based URL identifier (`slug`).
-- **Configuration Boundary**: The global application configuration (`src/config/app.ts`) defines the default demo identifier slug under `APP_CONFIG.cafeSlug` (currently `"orderrail"`).
-- **Resolution**:
-  - `isDemoMode(slug)`: Utility function comparing case-insensitively.
-  - `useDemoMode()`: React hook checking the loaded café slug context against the configuration value.
+Demo mode is **deployment-specific**, driven by the build-time environment variable `VITE_DEMO_MODE`.
 
+### Deployments
+
+| Deployment | URL | `VITE_DEMO_MODE` | Supabase Project |
+|---|---|---|---|
+| Public Demo | `https://order-rail.vercel.app/` | `true` | Demo Supabase |
+| Production | `https://orderrail-pro-main.vercel.app/` | `false` (or unset) | Production Supabase |
+
+### Resolution Hierarchy
+
+- **`isDemoDeployment()`**: Single source of truth. Reads `import.meta.env.VITE_DEMO_MODE`. Returns `true` only when the value is the string `"true"`. This is the **only** place in the codebase that reads the environment variable.
+- **`useDemoMode()`**: React hook. Returns `true` when `isDemoDeployment()` is `true` AND the current user is NOT the Demo Administrator. On production deployments, always returns `false`.
+- **`isDemoAdmin(userId)`**: Returns `true` only on demo deployments when the user ID matches `APP_CONFIG.demoAdminUuid`.
+
+### Vercel Environment Variables
+
+Set the following in each Vercel project's **Settings → Environment Variables**:
+
+**Demo Vercel project** (`order-rail`):
+```
+VITE_DEMO_MODE=true
+VITE_SUPABASE_URL=<demo-supabase-url>
+VITE_SUPABASE_PUBLISHABLE_KEY=<demo-supabase-anon-key>
+```
+
+**Production Vercel project** (`orderrail-pro-main`):
+```
+VITE_DEMO_MODE=false
+VITE_SUPABASE_URL=<production-supabase-url>
+VITE_SUPABASE_PUBLISHABLE_KEY=<production-supabase-anon-key>
+```
+
+### Adding Future Deployments
+
+To create a new deployment (e.g. staging):
+1. Create a new Vercel project linked to the same repository.
+2. Set `VITE_DEMO_MODE=false` (or `true` to mirror the demo experience).
+3. Configure the appropriate Supabase URL and key.
 ---
 
 ## 2. Permission Architecture
