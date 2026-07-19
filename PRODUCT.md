@@ -20,16 +20,26 @@ To synchronize diner experience and kitchen workflows into a single operational 
 
 # Why OrderRail?
 
-OrderRail bridges the operational gap between diner self-service and kitchen coordination. Traditional systems often isolate QR ordering from the actual staff workflow or require complex, expensive hardware setups. OrderRail provides:
-- **Direct Loop Coordination**: Customer cart modifications and service requests are routed directly to the staff Kanban and notification systems, keeping front and back-of-house in complete sync.
-- **Hardware-Light Infrastructure**: Operates entirely on standard web browsers for customers and standard tablets/devices for staff and owners, removing the need for proprietary terminal hardware.
-- **Offline Resilience**: A built-in transaction queue prevents loss of orders during Wi-Fi drops, safeguarding hospitality revenue.
+OrderRail bridges the operational gap between diner self-service and back-of-house kitchen coordination. The product delivers value through its core, enduring design principles:
+- **QR-First Customer Experience**: Every table is transformed into an interactive digital endpoint, providing instant diner check-in without manual staff setup.
+- **Customer-First Simplicity**: Direct scanning bypasses sign-up screens, providing immediate menu interaction.
+- **Real-Time Restaurant Operations**: Multi-role channels sync customer cart edits, order status tracking, and floor service requests directly to kitchen Kanban boards and staff notification counters.
+- **Unified Workflows**: Connects diners, waitstaff, and kitchen cooks on a single, synchronized data loop to eliminate miscommunication.
+- **Mobile-First Interface**: Optimized for touch-targets and mobile viewports, ensuring floor staff can manage orders on-the-go.
+- **Independent Branding & Ownership**: Cafe owners preserve their branding identity, menu structures, and direct client review channels without intermediary aggregators.
 
 ---
 
 # Product Pillars
 
 The guiding principles that influence long-term product decisions:
+- **Customer-First Simplicity**:
+  - No app installation or downloads required.
+  - No customer account creation or registration steps.
+  - Direct QR scan takes the user straight to active ordering menus.
+  - Minimal navigation hierarchy with clean layout structures.
+  - Fast checkout process requiring minimal user taps.
+  - Predictable, intuitive dining and user interface patterns.
 - **Operational Synchronization**: All roles (Customer, Staff, Owner) must operate on unified, real-time data to prevent delays or mismatching information.
 - **Frictionless Engagement**: User interactions—whether checking out a cart or resolving service tickets—must require minimal steps and no overhead setup.
 - **Workforce Ergonomics**: Staff workflows must be optimized for fast-paced, high-stress kitchen environments with quick touch targets and actionable priorities.
@@ -69,41 +79,41 @@ The business administrator who manages the establishment.
 # Product Capabilities
 
 ### Customer Experience
-- **Table-Context Self-Check-in**: Automatically configures table details via QR route parameters. (**Implemented**)
-- **Dietary-Filterable Menu**: Dynamic categorization with Veg, Non-Veg, and Egg indicators. (**Implemented**)
-- **Local Cart Persistence**: Cart items survive accidental page reloads. (**Implemented**)
-- **Service Request Portal ("Call Staff")**: Fast-action triggers to request water, waiter, or the bill. (**Implemented**)
-- **Real-Time Order Tracking**: Dynamic visual timeline tracking order statuses (`pending` -> `preparing` -> `ready` -> `served`). (**Implemented**)
-- **Feedback & Rating System**: Inline star rating and comments upon order completion. (**Implemented**)
-- **Offline Order Resilience**: Client-side storage serialization to queue checkout requests when connection fails. (**Implemented**)
+- **[Implemented]** **Table-Context Self-Check-in**: Automatically configures table details via QR route parameters.
+- **[Implemented]** **Dietary-Filterable Menu**: Dynamic categorization with Veg, Non-Veg, and Egg indicators.
+- **[Implemented]** **Local Cart Persistence**: Cart items survive accidental page reloads.
+- **[Implemented]** **Service Request Portal ("Call Staff")**: Fast-action triggers to request water, waiter, or the bill.
+- **[Implemented]** **Real-Time Order Tracking**: Dynamic visual timeline tracking order statuses (`pending` -> `preparing` -> `ready` -> `served`).
+- **[Implemented]** **Feedback & Rating System**: Inline star rating and comments upon order completion.
+- **[Implemented]** **Offline Order Resilience**: Client-side storage serialization to queue checkout requests when connection fails.
 
 ### Staff Operations
-- **Real-Time Kanban console**: Visual columns tracking `pending`, `preparing`, and `ready` orders. (**Implemented**)
-- **Service Request Banner**: Scrollable top strip flashing new alerts and letting staff acknowledge or resolve water/waiter/bill requests. (**Implemented**)
-- **One-Tap Actions**: Card-level direct order cancellation and quick-resolve buttons. (**Implemented**)
-- **Order Details Drawer**: Expandable workspace presenting itemized receipts, customer notes, priority meters, and historical event logs. (**Implemented**)
-- **Customer Change Review Dialog**: Visual diff comparison showing customer-modified order counts, helping staff sync changes in the kitchen. (**Implemented**)
-- **Table Occupancy Grid**: Visual tracker of occupied vs free tables, with manual override controls. (**Implemented**)
-- **Real-Time Workspace Refresh**: Green, blue, amber, and red color-flash animations on updates. (**Implemented**)
+- **[Implemented]** **Real-Time Kanban console**: Visual columns tracking `pending`, `preparing`, and `ready` orders.
+- **[Implemented]** **Service Request Banner**: Scrollable top strip flashing new alerts and letting staff acknowledge or resolve water/waiter/bill requests.
+- **[Implemented]** **One-Tap Actions**: Card-level direct order cancellation and quick-resolve buttons.
+- **[Implemented]** **Order Details Drawer**: Expandable workspace presenting itemized receipts, customer notes, priority meters, and historical event logs.
+- **[Implemented]** **Customer Change Review Dialog**: Visual diff comparison showing customer-modified order counts, helping staff sync changes in the kitchen.
+- **[Implemented]** **Table Occupancy Grid**: Visual tracker of occupied vs free tables, with manual override controls.
+- **[Implemented]** **Real-Time Workspace Refresh**: Green, blue, amber, and red color-flash animations on updates.
 
 ### Owner Management
-- **Menu & Category Editor**: Options to add categories, menu items, prices, veg/non-veg tags, and toggle availability. (**Implemented**)
-- **Storage Thumbnails**: Direct upload of menu item photos to Supabase Storage. (**Implemented**)
-- **Table QR Code Manager**: Register physical tables, set seating configurations, and export print-ready QR templates. (**Implemented**)
-- **Cafe Branding Editor**: Customization dashboard for tagline, logo/images, address, phone number, currency, and Google Review redirect URL. (**Implemented**)
-- **Team Management**: Staff invite mechanism using email-based role assignments. (**Implemented**)
-- **Historical Sales Analytics**: Performance reports tracking sales totals, order counts, and client review scores. (**Partially Implemented** — *Note: Basic dashboard and metrics are functional, but date-range filtering is not yet implemented.*)
+- **[Implemented]** **Menu & Category Editor**: Options to add categories, menu items, prices, veg/non-veg tags, and toggle availability.
+- **[Implemented]** **Storage Thumbnails**: Direct upload of menu item photos to Supabase Storage.
+- **[Implemented]** **Table QR Code Manager**: Register physical tables, set seating configurations, and export print-ready QR templates.
+- **[Implemented]** **Cafe Branding Editor**: Customization dashboard for tagline, logo/images, address, phone number, currency, and Google Review redirect URL.
+- **[Implemented]** **Team Management**: Staff invite mechanism using email-based role assignments.
+- **[Partially Implemented]** **Historical Sales Analytics**: Performance reports tracking sales totals, order counts, and client review scores (basic metrics are functional, but date-range filtering is not yet implemented).
 
 ### Platform Capabilities
-- **Role-Based Frontend Guards**: Authorization screens restricting dashboard access to owners and staff. (**Implemented**)
-- **Real-Time CDC Datachannel**: Direct PostgreSQL database sync to update front-end states. (**Implemented**)
+- **[Implemented]** **Role-Based Frontend Guards**: Authorization screens restricting dashboard access to owners and staff.
+- **[Implemented]** **Real-Time CDC Datachannel**: Direct PostgreSQL database sync to update front-end states.
 
 ### Planned Platform Evolution
-- **Progressive Web App (PWA)**: App manifest is configured, but active local static asset caching is not yet implemented. (**Partially Implemented**)
-- **POS Integrations**: Linking OrderRail to third-party cash register systems. (**Planned**)
-- **Digital Payment Processing**: In-app checkout payment gateways (credit card, UPI, Apple Pay). (**Planned**)
-- **Stock Inventory Control**: Auto-depletion of menu items based on exact stock counts. (**Planned**)
-- **Loyalty & Rewards Program**: Diner points and coupon codes. (**Planned**)
+- **[Partially Implemented]** **Progressive Web App (PWA)**: App manifest is configured, but active local static asset caching is not yet implemented.
+- **[Planned]** **POS Integrations**: Linking OrderRail to third-party cash register systems.
+- **[Planned]** **Digital Payment Processing**: In-app checkout payment gateways (credit card, UPI, Apple Pay).
+- **[Planned]** **Stock Inventory Control**: Auto-depletion of menu items based on exact stock counts.
+- **[Planned]** **Loyalty & Rewards Program**: Diner points and coupon codes.
 
 ---
 
@@ -153,14 +163,12 @@ The business administrator who manages the establishment.
 - Self-provisioned menu items, category control, and table setup.
 - Dining review collections and basic performance analytics.
 
-### Out of Scope
-- Native payment gateway integrations (payments are processed offline/in-person).
-- Inventory ingredient tracking and automatic stock replenishment.
-- Guest loyalty rewards, customer profile database logs, and discount coupon codes.
-
-### Explicit Non-goals
-- Serving as a full-scale legacy POS cash-register system.
-- Supporting off-premise delivery aggregations (UberEats, DoorDash) or takeout flows.
+### Out of Scope / Currently Excluded
+- Serving as a full legacy POS (Point-of-Sale) cash-register replacement (currently designed to complement existing restaurant workflows, though future integrations or expanded operational capabilities remain possible).
+- Built-in digital payment gateways (payments are processed offline/in-person today).
+- Ingredient-level inventory tracking and automatic raw stock replenishment.
+- Guest loyalty points, customer profile database logs, and discount coupon codes.
+- Off-premise third-party delivery service aggregations (UberEats, DoorDash) or takeout flows.
 - Managing vendor procurement, payroll tracking, or employee shift scheduling.
 
 ---
@@ -173,10 +181,27 @@ OrderRail is in a pre-production/stable release-candidate phase. The core dine-i
 
 # Future Direction
 
-- **Workflow Automation & Integrations**: Future product releases will target direct integration with third-party POS terminals, allowing OrderRail to run alongside existing registers.
-- **Localized Cash Auditing**: Expanding owner dashboards to support daily and weekly cash reconciliations, enabling managers to audit shifts.
-- **Diner Engagement & Payments**: Integrating regional digital payment endpoints to support in-app guest checkouts, along with light loyalty systems.
-- **Offline Mode Enhancements**: Enhancing local capabilities to allow full menu browsing and local cart operations during extended server disconnects.
+### Near-Term Evolution
+- **Extended Offline Synchronization**: Enhancements to the local cart and sync queue to handle persistent, multi-order recovery loops during long Wi-Fi disconnects.
+- **Time-Filterable Auditing**: Adding dashboard filters to analytics charts to calculate revenues and orders for specific operational shifts (e.g. today vs this week).
+- **Static App Shell Caching**: Registering background caching procedures to enable standalone PWA installs for staff tablets and customer shortcuts.
+
+### Long-Term Evolution
+- **Legacy POS Integrations**: Developing adapters to connect OrderRail with existing restaurant registers, sync checkouts, and align kitchen printer logs.
+- **Built-in Digital Payments**: Integrating localized payment gateway platforms to support instant, contactless card or mobile wallet settlements at the table.
+- **Ingredient Inventory Tracking**: Building automated menu toggles that disable specific items dynamically as kitchen stock levels deplete.
+
+---
+
+# Success Criteria
+
+OrderRail evaluates product maturity and rollout success based on target business and operational outcomes:
+- **Reduce Customer Waiting Time**: Minimize the elapsed time between table seating, menu retrieval, and checkout submission.
+- **Reduce Waiter Interruptions**: Deflect routine service calls (asking for menus, water, bills) away from physical waiter checks, freeing floor staff for high-touch tasks.
+- **Improve Kitchen Coordination**: Streamline the preparation lifecycle through clear Kanban transitions, reducing double-preparation or missed orders.
+- **Improve Table Turnover**: Accelerate order-taking and bill resolution to increase dining floor throughput.
+- **Improve Owner Visibility**: Deliver direct performance data regarding best-selling categories, active staff members, and real-time client feedback.
+- **Deliver Predictable Dining Experiences**: Provide a uniform, reliable digital portal that operates consistently across visits.
 
 ---
 
