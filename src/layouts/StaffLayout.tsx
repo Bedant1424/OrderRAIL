@@ -26,7 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
-import { useDemoMode } from "@/lib/permissions";
+import { useDemoMode, maskEmail } from "@/lib/permissions";
 
 export interface StaffLayoutContextType {
   notifications: NotificationItem[];
@@ -468,7 +468,9 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
               >
                 <LayoutGrid className="h-4 w-4" /> Dashboard
               </Link>
-              <span className="hidden text-xs text-muted-foreground md:inline">{session.user.email}</span>
+              <span className="hidden text-xs text-muted-foreground md:inline">
+                {isDemo ? maskEmail(session.user.email) : session.user.email}
+              </span>
 
               {/* Mobile notification controls (visible below lg) */}
               <div className="flex lg:hidden items-center gap-1">

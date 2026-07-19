@@ -792,7 +792,7 @@ export default function OwnerLayout() {
           <div className="border-t border-border/60 p-3">
             <div className="mb-2 flex items-center gap-2 px-2 text-xs text-muted-foreground">
               <Coffee className="h-3.5 w-3.5" />
-              <span className="truncate">{session.user.email}</span>
+              <span className="truncate">{isDemo ? maskEmail(session.user.email) : session.user.email}</span>
             </div>
             <button
               onClick={() => { void signOut(); closeDrawer(); }}
@@ -846,7 +846,7 @@ export default function OwnerLayout() {
           <div className="border-t border-border/60 p-3">
             <div className="mb-2 flex items-center gap-2 px-2 text-xs text-muted-foreground">
               <Coffee className="h-3.5 w-3.5" />
-              <span className="truncate">{session.user.email}</span>
+              <span className="truncate">{isDemo ? maskEmail(session.user.email) : session.user.email}</span>
             </div>
             <button
               onClick={() => void signOut()}

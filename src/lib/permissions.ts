@@ -55,3 +55,25 @@ export function usePermissions() {
     canExportData: () => isOwner && !isDemo,
   };
 }
+
+/**
+ * Mask an email address to protect user privacy in public settings.
+ */
+export function maskEmail(email: string | null | undefined): string {
+  if (!email) return "—";
+  const parts = email.split("@");
+  if (parts.length !== 2) return email;
+  const [local, domain] = parts;
+  if (local.length <= 2) {
+    return `${local[0]}*@${domain}`;
+  }
+  return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
+}
+
+/**
+ * Mask a UUID / User ID string.
+ */
+export function maskUserId(id: string): string {
+  return `usr_${id.slice(0, 4)}***${id.slice(-4)}`;
+}
+

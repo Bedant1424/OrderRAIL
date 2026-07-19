@@ -34,6 +34,15 @@ export default function OwnerReviewsPage() {
   const reviews = q.data ?? [];
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
 
+  if (q.isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-24 gap-3 text-muted-foreground">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+        <span className="text-sm font-medium">Loading reviews…</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 overflow-x-hidden min-w-0">
       <header className="flex items-center justify-between">

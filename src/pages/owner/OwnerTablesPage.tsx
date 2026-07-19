@@ -391,17 +391,23 @@ export default function OwnerTablesPage() {
       </section>
 
       <section className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-6 print:w-full print:mx-auto">
-        {(tablesQ.data ?? []).map((t) => (
-          <TableQRCard 
-            key={t.id} 
-            table={t} 
-            cafeName={cafe?.name ?? "Cafe"} 
-            onDownloadQR={() => void downloadQRSingle(t)}
-            onDownloadCard={() => void downloadArtworkSingle(t)}
-            onDelete={() => void remove(t)} 
-            isDemo={isDemo}
-          />
-        ))}
+        {tablesQ.isLoading ? (
+          <p className="col-span-full py-8 text-center text-sm text-muted-foreground">Loading tables...</p>
+        ) : (tablesQ.data ?? []).length === 0 ? (
+          <p className="col-span-full py-8 text-center text-sm text-muted-foreground">No tables configured. Add a table above to start.</p>
+        ) : (
+          (tablesQ.data ?? []).map((t) => (
+            <TableQRCard 
+              key={t.id} 
+              table={t} 
+              cafeName={cafe?.name ?? "Cafe"} 
+              onDownloadQR={() => void downloadQRSingle(t)}
+              onDownloadCard={() => void downloadArtworkSingle(t)}
+              onDelete={() => void remove(t)} 
+              isDemo={isDemo}
+            />
+          ))
+        )}
       </section>
     </div>
   );

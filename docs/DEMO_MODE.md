@@ -106,7 +106,16 @@ To maintain interactive demo cycles, the database allows full access to the foll
 
 ---
 
-## 5. Extension Points
+## 5. Intentional Limitations
+
+To preserve realistic testing environments while locking configuration settings, the following limitations are intentionally left active:
+- **Visual UI bypasses**: Technologically savvy users can modify browser HTML to enable buttons locally, but the database RLS policies will reject all write submissions.
+- **Live workflow paging**: Dine-in order checkouts, service requests, and notifications remain active in the UI to allow trial staff workflows.
+- **Session tracking**: Active dining sessions and order metrics log live events but do not persist changes to the catalog items.
+
+---
+
+## 6. Extension Points
 
 - **Adding Capabilities**: Add a new capability property under `usePermissions()` in `src/lib/permissions.ts`.
 - **Custom Demo Slugs**: Update the target slug value `cafeSlug` inside `src/config/app.ts` to switch demo instances.

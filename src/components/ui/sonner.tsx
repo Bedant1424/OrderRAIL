@@ -215,12 +215,25 @@ const customToast = {
     );
   },
   error: (message: React.ReactNode, options?: any) => {
+    let cleanMessage = message;
+    if (typeof message === "string") {
+      const lower = message.toLowerCase();
+      if (
+        lower.includes("row-level security") ||
+        lower.includes("violates row-level security policy") ||
+        lower.includes("permission denied") ||
+        lower.includes("insufficient privilege") ||
+        lower.includes("new row violates")
+      ) {
+        cleanMessage = "This action is disabled in the public demo.";
+      }
+    }
     const id = options?.id || Math.random().toString();
     return rawToast.custom(
       (tId) => (
         <CustomToastWrapper
           id={tId}
-          message={message}
+          message={cleanMessage}
           description={options?.description}
           type="error"
           action={options?.action}

@@ -1164,15 +1164,19 @@ export default function StaffDashboardPage() {
            htmlScrollW=clientW=1034 WITH min-width:0).
            The SR strip itself is correct: overflow-x:auto scrolls internally
            once its grid-item parent is properly constrained. */}
-      {(srQ.data?.length ?? 0) > 0 && (
-        <section
-          id="service-requests-section"
-          className={cn(
-            "transition-opacity duration-300",
-            focusedSummary && focusedSummary !== "service_requests" && "opacity-80"
-          )}
-        >
-          <h2 className="mb-3 font-display text-lg font-semibold">Service requests</h2>
+      <section
+        id="service-requests-section"
+        className={cn(
+          "transition-opacity duration-300",
+          focusedSummary && focusedSummary !== "service_requests" && "opacity-80"
+        )}
+      >
+        <h2 className="mb-3 font-display text-lg font-semibold">Service requests</h2>
+        {(srQ.data?.length ?? 0) === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card/60 p-6 text-center text-xs text-muted-foreground">
+            No service requests.
+          </div>
+        ) : (
           {/* horizontal-thin-scrollbar shows a thin custom scrollbar on desktop,
               and native overlay scrollbar on mobile.
               scroll-snap-type x mandatory + snap-start on cards gives
@@ -1229,8 +1233,8 @@ export default function StaffDashboardPage() {
               })}
             </AnimatePresence>
           </div>
-        </section>
-      )}
+        )}
+      </section>
       {/* Live Queue Summary Row */}
       <div className="flex items-center justify-between px-1 mt-4 mb-2">
         <h3 className="font-display text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">

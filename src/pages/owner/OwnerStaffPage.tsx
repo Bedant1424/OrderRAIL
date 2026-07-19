@@ -7,7 +7,7 @@ import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
-import { usePermissions } from "@/lib/permissions";
+import { usePermissions, maskEmail, maskUserId } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
@@ -21,21 +21,6 @@ import {
 
 type Profile = { id: string; email: string | null; display_name: string | null };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
-
-const maskEmail = (email: string | null | undefined): string => {
-  if (!email) return "—";
-  const parts = email.split("@");
-  if (parts.length !== 2) return email;
-  const [local, domain] = parts;
-  if (local.length <= 2) {
-    return `${local[0]}*@${domain}`;
-  }
-  return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
-};
-
-const maskUserId = (id: string): string => {
-  return `usr_${id.slice(0, 4)}***${id.slice(-4)}`;
-};
 
 export default function OwnerStaffPage() {
   const qc = useQueryClient();
@@ -156,6 +141,15 @@ export default function OwnerStaffPage() {
 
   const byUser = new Map<string, Profile>();
   for (const p of profilesQ.data ?? []) byUser.set(p.id, p);
+
+  if (rolesQ.isLoading || profilesQ.isLoading || invitesQ.isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-24 gap-3 text-muted-foreground">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+        <span className="text-sm font-medium">Loading staff…</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

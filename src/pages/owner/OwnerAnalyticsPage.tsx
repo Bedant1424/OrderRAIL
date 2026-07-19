@@ -78,6 +78,15 @@ export default function OwnerAnalyticsPage() {
 
   const currency = cafe?.currency ?? "USD";
 
+  if (q.isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-24 gap-3 text-muted-foreground">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+        <span className="text-sm font-medium">Loading analytics…</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
