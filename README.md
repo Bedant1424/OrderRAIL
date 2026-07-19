@@ -1,192 +1,198 @@
 # OrderRail
-
-OrderRail is an interactive digital menu, ordering, and service coordination platform built for cafes and restaurants. It streamlines operations by enabling customers to scan table-specific QR codes, browse menus, order items, and request staff assistance directly from their mobile web browsers.
-
----
-
-## Project Overview
-
-- **What is OrderRail?**: OrderRail is an all-in-one digital ordering and workflow management platform for hospitality venues.
-- **What problem does it solve?**: It removes friction from dining room operations by reducing table service delays, automating customer request dispatching, and providing a real-time order-tracking pipeline for staff and analytics for owners.
-- **Who is it built for?**:
-  - **Customers**: Diners scan QR codes to browse, order, and request help immediately without waiting for a waiter.
-  - **Staff**: Waiters and kitchen staff track orders on a real-time Kanban board and handle service requests instantly.
-  - **Owners**: Cafe owners manage menu items, print table QRs, assign staff, view client reviews, and audit sales performance.
+### The contactless ordering and service workflow platform for modern cafes and restaurants.
 
 ---
 
-## Features
-
-### Customer Flow
-- **QR-Code Table Context**: Table-specific QR routes automatically set the table number and seats without requiring login.
-- **Interactive Menu Browser**: Category-based menu filtering with search and dietary flags (Veg/Non-Veg/Egg).
-- **Persistent Local Cart**: Custom cart state saved in `localStorage` to keep items safe across accidental page reloads.
-- **Real-Time Order Tracking**: Dynamic timeline showing status transitions from `pending` -> `preparing` -> `ready` -> `served`.
-- **"Call Staff" Service Request**: Direct alerts for water, waiter, or the bill.
-- **Diner Feedback**: Integrated review drawer to submit star ratings and comments on completed orders.
-- **Offline Resilient Queue**: Safely serializes checkouts offline to `localStorage` and automatically syncs them when connection returns.
-
-### Staff Dashboard
-- **Kanban Order Console**: Real-time column boards to accept and progress order states.
-- **Service Request Banner**: Dynamic notifications panel for immediate water/waiter/bill table alerts.
-- **One-Tap Actions**: Single-tap options to resolve customer calls and advance kitchen orders.
-
-### Owner Administration
-- **Menu Editor**: Manage categories, prices (stored in cents), availability status, and upload thumbnail photos.
-- **Table Configuration**: Add tables, set capacity limits, and print table-specific QR sheets.
-- **Branding & Settings**: Customize cafe profile configurations (name, phone, currency, address, and Google Review URL).
-- **Team Management**: Add, view, or invite new staff members and owners via email.
-- **Review Log**: Direct dashboard to monitor user feedback and historical ratings.
-- **Sales Analytics**: High-level charts showing total revenue, order count, and customer satisfaction rating.
+## 🚀 Live Demo
+Access the live production instance at: **[order-rail.vercel.app](https://order-rail.vercel.app)**  
+*Demo QR codes for testing customer flows are available directly on the landing page.*
 
 ---
 
-## Technology Stack
-
-- **Frontend**:
-  - **Framework**: React 18 + TypeScript (Vite bundler)
-  - **Routing**: React Router DOM (v6)
-  - **Styling**: Tailwind CSS, Radix UI primitives, Framer Motion (animations), Lucide React (icons)
-  - **State & Data Caching**: TanStack React Query (@tanstack/react-query)
-- **Backend / Database**:
-  - **Platform**: Supabase
-  - **Database**: PostgreSQL with Row-Level Security (RLS) policies
-  - **Storage**: Supabase Storage (`menu-images` bucket)
-  - **Realtime**: PostgreSQL Realtime CDC (Change Data Capture) channels
-- **Tooling**:
-  - **Database CLI**: Supabase CLI (schema migrations, local seeds)
-  - **Testing**: Vitest + Testing Library
-  - **Linting**: ESLint + TypeScript `tsc`
+## 📸 Screenshots
+*(Placeholders for future UI screenshots)*
+- **Customer Menu Interface**: `[Customer Menu Screenshot Placeholder]`
+- **Staff Kanban Board**: `[Staff Kanban Board Screenshot Placeholder]`
+- **Owner Analytics Dashboard**: `[Owner Analytics Screenshot Placeholder]`
 
 ---
 
-## Project Structure
+## 🎯 Project Goals
+OrderRail aims to optimize the dining experience and simplify hospitality workflows. The project focuses on:
+- **Reducing Customer Friction**: Letting diners scan, browse, order, and pay/request help instantly without waiting.
+- **Improving Service Coordination**: Dispatching real-time notifications to staff and structuring kitchen workflows on a live Kanban console.
+- **Empowering Proprietors**: Providing independent cafe owners with simple tools to manage menus, print table QRs, and audit business performance.
+
+---
+
+## 📋 Features
+
+### Ordering & Checkout
+- **QR-Code Table Context**: Table-specific QR codes route customers directly to their active table menu.
+- **Frictionless Shopping Cart**: Local cart persistence keeps orders safe across browser reloads.
+- **Offline Resilience**: Automatically queues checkouts if network connection is lost, syncing them once online.
+
+### Menu & Catalog Cataloging
+- **Interactive Menu Browser**: Easy filtering of catalog items by category and dietary flags (Veg, Non-veg, Egg).
+- **Comprehensive Menu Editor**: Owner options to add/edit/delete categories and menu items, toggle availability, set prices, and upload image thumbnails.
+
+### Real-Time Operations & Tracking
+- **Live Kanban Console**: Interactive kitchen board for staff to track order progress (Pending, Preparing, Ready, Served).
+- **Service Request Hub**: One-tap customer requests (water, waiter, or bill) delivered instantly to staff dashboard.
+- **Customer Tracking Timeline**: Real-time customer order updates showing kitchen progress from submission to service.
+
+### Administration & Analytics
+- **Table & QR Generator**: Simple UI to register tables, set seating limits, and print print-friendly QR layouts.
+- **Branding & Cafe Configuration**: Customizable shop settings including cafe details, contacts, and currency.
+- **Staff Management**: Owner capabilities to invite, view, or delegate roles to staff members.
+- **Diner Feedback Loop**: Rating and comment system for customers with an owner dashboard to view historical reviews.
+- **Business Performance Analytics**: High-level reporting on total sales revenue, order counts, and overall customer satisfaction.
+
+---
+
+## 🛠️ Technology Stack
+
+### Core
+- **React 18** (TypeScript)
+- **Vite** (Build Tool and Development Server)
+
+### Frontend
+- **Routing**: React Router DOM (v6)
+- **Styling**: Tailwind CSS
+- **Components**: Radix UI Primitives, Framer Motion (Animations), Lucide React (Icons)
+- **Client Caching**: TanStack React Query
+
+### Backend
+- **Platform**: Supabase
+- **Database**: PostgreSQL (with Row-Level Security policies)
+- **File Storage**: Supabase Storage
+- **Subscription Services**: Supabase Realtime Channels
+
+### Infrastructure
+- **Hosting**: Vercel
+
+### Developer Tools
+- **CLI**: Supabase CLI (database migrations, local seeding)
+- **Testing**: Vitest, React Testing Library
+- **Linting**: ESLint, TypeScript `tsc`
+
+---
+
+## 📁 Project Structure
 
 ```
 orderrail/
-├── docs/                     # Setup, regression reports, and audit logs
-│   ├── INSTALLATION.md       # Local onboarding guidelines
-│   ├── NOTIFICATION_AUDIT.md # Service request alert audits
-│   └── *_REGRESSION_AUDIT.md # System regression check logs
-├── public/                   # Static browser assets and manifest config
-│   └── manifest.webmanifest  # Web app configurations
+├── docs/                     # Documentation and audit logs
+│   ├── INSTALLATION.md       # Onboarding instructions
+│   ├── NOTIFICATION_AUDIT.md # Service alert design reviews
+│   └── *_REGRESSION_AUDIT.md # Sprint regression checklists
+├── public/                   # Static public assets and web manifest
 ├── src/                      # Source React application
-│   ├── components/           # Component libraries (customer views, UI primitives)
+│   ├── components/           # Component library (customer flow, UI elements)
 │   ├── hooks/                # Global React hooks
-│   ├── integrations/         # Backend integrations
-│   │   └── supabase/         # Supabase client initialize and types
-│   ├── layouts/              # Multi-role route layouts (Table, Staff, Owner)
-│   ├── lib/                  # App contexts (Auth, Cart, Cafe), offline queue, API modules
-│   └── pages/                # App pages categorized by role (owner, staff, table)
-│       └── Index.tsx         # Main landing demo page
-├── supabase/                 # Supabase configuration files
-│   ├── migrations/           # Database schema migrations
-│   └── seed.sql              # Database setup seeding data
-├── vercel.json               # SPA route rewrite definitions
-└── package.json              # Build scripts and dependency configurations
+│   ├── integrations/         # API clients (Supabase configuration)
+│   ├── layouts/              # Route layouts (Table, Staff, Owner)
+│   ├── lib/                  # Application contexts and helper modules
+│   └── pages/                # App pages (categorized by role)
+├── supabase/                 # Database configurations
+│   ├── migrations/           # PostgreSQL migrations
+│   └── seed.sql              # Core database seeding query
+├── vercel.json               # SPA routing rewrite configurations
+└── package.json              # Script and package dependencies
 ```
 
 ---
 
-## Getting Started
+## 📖 Documentation
+- **[Installation Guide](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/docs/INSTALLATION.md)** (Available)
+- **[Development Workflow](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/DEVELOPMENT_WORKFLOW.md)** (Available)
+- **[Architecture Guide](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/architecture_documentation.md)** (Available)
+- **[Production Readiness Audit](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/production_readiness_audit.md)** (Available)
+- **System Architecture (ARCHITECTURE.md)** (Planned)
+- **Deployment Process (DEPLOYMENT.md)** (Planned)
+- **Project Roadmap (ROADMAP.md)** (Planned)
+- **Database Schema (DATABASE.md)** (Planned)
+
+---
+
+## 🚦 Getting Started
 
 ### Prerequisites
 - Node.js (v18 or higher)
-- npm (bundled with Node.js)
+- npm
 - Supabase CLI
 
 ### Installation
-1. Clone the repository and install npm packages:
+1. Install dependencies:
    ```bash
    npm install
    ```
 
 ### Environment Setup
-1. Create a `.env` file in the root directory:
+1. Create a `.env` file in the root:
    ```env
-   VITE_SUPABASE_URL=https://<your-project>.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=<your-anon-publishable-key>
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
    ```
-
 2. Link your local project to Supabase:
    ```bash
    supabase login
    supabase link --project-ref <your-project-ref>
    ```
-
-3. Push the PostgreSQL migrations to your Supabase database:
+3. Push migrations and seed data:
    ```bash
    supabase db push
-   ```
-
-4. Run the seed script to initialize the `"orderrail"` cafe context:
-   ```bash
    supabase db query --linked -f supabase/seed.sql
    ```
 
 ### Running Locally
-1. Start the local Vite development server:
-   ```bash
-   npm run dev
-   ```
-2. Open `http://localhost:8080` in your web browser.
+```bash
+npm run dev
+```
 
-### Build and Production
-To build the application for production, compile the static bundle:
+### Production Build
 ```bash
 npm run build
 ```
-This generates optimized static files in the `/dist` directory, ready to be served.
 
 ---
 
-## Environment Variables
+## ⚙️ Environment Variables
 
-- `VITE_SUPABASE_URL`: The API URL of your Supabase project (used by the client to query database endpoints).
-- `VITE_SUPABASE_PUBLISHABLE_KEY`: The public anon API key of your Supabase project (authenticates public read/write queries from the client browser).
-
----
-
-## Architecture Overview
-
-OrderRail utilizes a client-side Single Page Application (SPA) model built on React and Vite. It connects directly to Supabase as its backend-as-a-service. 
-
-Global states are managed by React Context Providers (for Authentication, Cart persistence, and Cafe details), while API data is fetched and cached using TanStack React Query. Realtime staff notifications and Kanban updates are established via PostgreSQL CDC channels using Supabase's Realtime SDK. 
-
-Detailed system designs and flowcharts can be found in `architecture_documentation.md`. For structural updates, full configurations belong in `ARCHITECTURE.md` (which is planned but not currently in the repository).
+- `VITE_SUPABASE_URL`: The Supabase API endpoint.
+- `VITE_SUPABASE_PUBLISHABLE_KEY`: The public API token for Supabase client interactions.
 
 ---
 
-## Deployment
+## 📐 Architecture Overview
 
-The application is deployed continuously to **Vercel** with builds triggered automatically from the main git branch. 
+OrderRail is built as a client-side Single Page Application (SPA) that communicates directly with a Supabase Backend-as-a-Service. Real-time updates on the staff Kanban board and customer notifications are powered by Supabase Realtime Channels. User state is persisted across pages using React Context Providers, and client-side data queries are cached via TanStack React Query.
 
-Vercel deployment properties require a `vercel.json` rewrite configuration to route all client-side URL requests back to `/index.html` to prevent route reload 404 errors. Database structures are updated remotely through the Supabase CLI using `supabase db push`.
-
-Full pipeline instructions belong in `DEPLOYMENT.md` (which is planned but not currently in the repository).
+*For detailed data flow maps and database structure designs, please refer to the [Architecture Guide](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/architecture_documentation.md) or the planned `ARCHITECTURE.md`.*
 
 ---
 
-## Current Status
+## 🚢 Deployment
 
-Based on the latest production audit:
-- **Production Ready**: Core customer order flow, staff Kanban board, database RLS protection, offline sync queue, and table QR printing features.
-- **Partially Implemented**:
-  - *PWA Integration*: Predefined `manifest.webmanifest` exists, but there is no Service Worker registered to handle offline caching or native device installs.
-  - *Analytics Filters*: Owner analytics charts render correctly, but date-range filters (e.g. today vs last 30 days) are not yet integrated.
-- **Needs Improvement**:
-  - *Accessibility*: Custom controls (like rating stars) need keyboard navigation support.
-  - *Error Handling*: Missing a global React Error Boundary and central logging monitoring tool (like Sentry).
+The application frontend is hosted on **Vercel** with continuous deployment (CD) integrated with the main branch. Re-routing rewrite rules are configured in `vercel.json` to map all sub-routes to `index.html`. Database schemas are updated remotely using the Supabase CLI.
+
+*For a step-by-step deployment guide, please refer to the planned `DEPLOYMENT.md`.*
 
 ---
 
-## Roadmap
+## 📈 Current Status
 
-Future feature milestones and launch tasks are tracked in `ROADMAP.md` (which is planned but not currently in the repository; milestone tasks are currently listed under `production_readiness_audit.md`).
+OrderRail is in active pre-production development. The core customer ordering, staff Kanban workflow, and owner settings dashboards are fully functional and verified. Work is currently focused on enhancing network performance, offline queue reliability, and real-time service alert synchronization in preparation for the initial restaurant launch.
 
 ---
 
-## License
+## 🗺️ Roadmap
+
+Milestones and upcoming feature additions are tracked in the planned `ROADMAP.md`.
+
+---
+
+## 📄 License
 
 Copyright (c) 2026 OrderRail. All rights reserved.  
 Licensed under the MIT License (or custom license placeholder).
