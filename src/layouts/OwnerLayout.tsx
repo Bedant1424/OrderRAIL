@@ -45,7 +45,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
-import { useDemoMode } from "@/lib/permissions";
+import { useDemoMode, maskEmail } from "@/lib/permissions";
 
 export interface OwnerLayoutContextType {
   notifications: NotificationItem[];
