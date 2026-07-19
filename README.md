@@ -4,16 +4,26 @@
 ---
 
 ## 🚀 Live Demo
-Access the live production instance at: **[order-rail.vercel.app](https://order-rail.vercel.app)**  
-*Demo QR codes for testing customer flows are available directly on the landing page.*
+The live production environment of OrderRail is hosted at:
+👉 **[order-rail.vercel.app](https://order-rail.vercel.app)**
+
+You can explore the system flows directly from the landing page, which lists demo QR codes for testing the customer menu and service calls, along with entry points for staff and owner portals.
+
+---
+
+## ✨ Key Highlights
+- **Frictionless Contactless Ordering**: Direct table QR scanning routing to context-specific menus with no login required.
+- **Real-Time Staff Coordination**: Instant synchronization of orders and service requests to a live kitchen Kanban console.
+- **Offline Order Resilience**: Client-side queue serialization that saves checkout requests locally and auto-flushes on reconnect.
+- **Unified Portal Management**: Consolidated settings dashboards for menu styling, printing table QRs, and auditing review feedback.
 
 ---
 
 ## 📸 Screenshots
-*(Placeholders for future UI screenshots)*
-- **Customer Menu Interface**: `[Customer Menu Screenshot Placeholder]`
-- **Staff Kanban Board**: `[Staff Kanban Board Screenshot Placeholder]`
-- **Owner Analytics Dashboard**: `[Owner Analytics Screenshot Placeholder]`
+
+| Customer Menu Interface | Staff Kanban Board | Owner Analytics Dashboard |
+| :---: | :---: | :---: |
+| ![Customer Menu Interface](docs/images/customer_menu.png) | ![Staff Kanban Board](docs/images/staff_kanban.png) | ![Owner Analytics Dashboard](docs/images/owner_analytics.png) |
 
 ---
 
@@ -22,6 +32,13 @@ OrderRail aims to optimize the dining experience and simplify hospitality workfl
 - **Reducing Customer Friction**: Letting diners scan, browse, order, and pay/request help instantly without waiting.
 - **Improving Service Coordination**: Dispatching real-time notifications to staff and structuring kitchen workflows on a live Kanban console.
 - **Empowering Proprietors**: Providing independent cafe owners with simple tools to manage menus, print table QRs, and audit business performance.
+
+### Who is this for?
+OrderRail is designed specifically for:
+- **Cafes, Coffee Shops, and Bakeries** looking to accelerate peak-hour operations.
+- **Quick-Service Restaurants (QSR)** aiming to minimize service order delays.
+- **Traditional Sit-Down Diners** wanting to offer a supplementary, contactless ordering channel.
+- **Bars and Gastropubs** where customers can quickly re-order drinks and call staff from their tables.
 
 ---
 
@@ -104,10 +121,10 @@ orderrail/
 ---
 
 ## 📖 Documentation
-- **[Installation Guide](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/docs/INSTALLATION.md)** (Available)
-- **[Development Workflow](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/DEVELOPMENT_WORKFLOW.md)** (Available)
-- **[Architecture Guide](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/architecture_documentation.md)** (Available)
-- **[Production Readiness Audit](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/production_readiness_audit.md)** (Available)
+- **[Installation Guide](docs/INSTALLATION.md)** (Available)
+- **[Development Workflow](DEVELOPMENT_WORKFLOW.md)** (Available)
+- **[Architecture Guide](architecture_documentation.md)** (Available)
+- **[Production Readiness Audit](production_readiness_audit.md)** (Available)
 - **System Architecture (ARCHITECTURE.md)** (Planned)
 - **Deployment Process (DEPLOYMENT.md)** (Planned)
 - **Project Roadmap (ROADMAP.md)** (Planned)
@@ -123,7 +140,12 @@ orderrail/
 - Supabase CLI
 
 ### Installation
-1. Install dependencies:
+1. Clone the repository and navigate into it:
+   ```bash
+   git clone https://github.com/Bedant1424/OrderRAIL.git
+   cd OrderRAIL
+   ```
+2. Install dependencies:
    ```bash
    npm install
    ```
@@ -168,7 +190,7 @@ npm run build
 
 OrderRail is built as a client-side Single Page Application (SPA) that communicates directly with a Supabase Backend-as-a-Service. Real-time updates on the staff Kanban board and customer notifications are powered by Supabase Realtime Channels. User state is persisted across pages using React Context Providers, and client-side data queries are cached via TanStack React Query.
 
-*For detailed data flow maps and database structure designs, please refer to the [Architecture Guide](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/architecture_documentation.md) or the planned `ARCHITECTURE.md`.*
+*For detailed data flow maps and database structure designs, please refer to the [Architecture Guide](architecture_documentation.md) or the planned `ARCHITECTURE.md`.*
 
 ---
 
@@ -194,5 +216,4 @@ Milestones and upcoming feature additions are tracked in the planned `ROADMAP.md
 
 ## 📄 License
 
-Copyright (c) 2026 OrderRail. All rights reserved.  
-Licensed under the MIT License (or custom license placeholder).
+Licensed under TBD.
