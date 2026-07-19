@@ -6,6 +6,8 @@ import { Camera, Pencil } from "lucide-react";
 import { useCafe } from "@/lib/cafe";
 import { supabase } from "@/lib/db";
 import { generateUUID } from "@/lib/uuid";
+import { usePermissions } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN", "CHF"];
@@ -18,6 +20,8 @@ async function urlForPath(path: string) {
 
 export default function OwnerSettingsPage() {
   const qc = useQueryClient();
+  const permissions = usePermissions();
+  const isDemo = permissions.isDemo;
   const { cafe, refreshCafe } = useCafe();
 
   const [name, setName] = useState("");
@@ -215,7 +219,7 @@ export default function OwnerSettingsPage() {
           <div className="relative w-32 h-32">
             <button
               type="button"
-              onClick={() => {
+              onClick={isDemo ? undefined : () => {
                 if (preview) {
                   setImageSrc(preview);
                   setIsCropOpen(true);
@@ -223,9 +227,12 @@ export default function OwnerSettingsPage() {
                   fileRef.current?.click();
                 }
               }}
-              className="w-full h-full overflow-hidden rounded-2xl border border-border bg-secondary flex items-center justify-center hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
-              title="Edit Logo"
-              disabled={uploading}
+              className={cn(
+                "w-full h-full overflow-hidden rounded-2xl border border-border bg-secondary flex items-center justify-center hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50",
+                isDemo && "cursor-not-allowed hover:opacity-100"
+              )}
+              title={isDemo ? "This action is disabled in the public demo." : "Edit Logo"}
+              disabled={uploading || isDemo}
             >
               {preview ? (
                 <img src={preview} alt="Logo" className="h-full w-full object-cover" />
@@ -238,7 +245,7 @@ export default function OwnerSettingsPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
+              onClick={isDemo ? undefined : () => {
                 if (preview) {
                   setImageSrc(preview);
                   setIsCropOpen(true);
@@ -246,10 +253,13 @@ export default function OwnerSettingsPage() {
                   fileRef.current?.click();
                 }
               }}
-              className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft hover:bg-muted active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
-              title="Edit Logo"
+              className={cn(
+                "absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft hover:bg-muted active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50",
+                isDemo && "cursor-not-allowed opacity-50"
+              )}
+              title={isDemo ? "This action is disabled in the public demo." : "Edit Logo"}
               aria-label="Edit Logo"
-              disabled={uploading}
+              disabled={uploading || isDemo}
             >
               <Pencil className="h-4 w-4" />
             </button>
@@ -263,9 +273,9 @@ export default function OwnerSettingsPage() {
           />
           {logoUrl && (
             <button
-              onClick={() => void handleRemoveLogo()}
-              disabled={uploading}
-              className="text-xs font-semibold text-destructive hover:underline mt-1 disabled:opacity-50"
+              onClick={isDemo ? undefined : () => void handleRemoveLogo()}
+              disabled={uploading || isDemo}
+              className="text-xs font-semibold text-destructive hover:underline mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Remove logo
             </button>
@@ -280,16 +290,18 @@ export default function OwnerSettingsPage() {
               <label className="block text-xs font-semibold text-muted-foreground">Cafe name</label>
               <input
                 value={name}
+                disabled={isDemo}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted-foreground">Currency</label>
               <select
                 value={currency}
+                disabled={isDemo}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
               >
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -302,9 +314,10 @@ export default function OwnerSettingsPage() {
             <label className="block text-xs font-semibold text-muted-foreground">Tagline</label>
             <input
               value={tagline}
+              disabled={isDemo}
               onChange={(e) => setTagline(e.target.value)}
               placeholder="e.g. Artisanal Coffee & Warm Pastries"
-              className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+              className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -313,18 +326,20 @@ export default function OwnerSettingsPage() {
               <label className="block text-xs font-semibold text-muted-foreground">Phone</label>
               <input
                 value={phone}
+                disabled={isDemo}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="e.g. 987..."
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted-foreground">WhatsApp</label>
               <input
                 value={whatsapp}
+                disabled={isDemo}
                 onChange={(e) => setWhatsapp(e.target.value)}
                 placeholder="e.g. 987..."
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -333,9 +348,10 @@ export default function OwnerSettingsPage() {
             <label className="block text-xs font-semibold text-muted-foreground">Address</label>
             <input
               value={address}
+              disabled={isDemo}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="e.g. 123 Espresso Blvd, Seattle, WA"
-              className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+              className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -344,18 +360,20 @@ export default function OwnerSettingsPage() {
               <label className="block text-xs font-semibold text-muted-foreground">Website</label>
               <input
                 value={website}
+                disabled={isDemo}
                 onChange={(e) => setWebsite(e.target.value)}
                 placeholder="e.g. https://mycafe.com"
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted-foreground">Instagram</label>
               <input
                 value={instagram}
+                disabled={isDemo}
                 onChange={(e) => setInstagram(e.target.value)}
                 placeholder="e.g. https://instagram.com/mycafe"
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -365,30 +383,42 @@ export default function OwnerSettingsPage() {
               <label className="block text-xs font-semibold text-muted-foreground">Google Maps Review URL</label>
               <input
                 value={googleMapsReviewUrl}
+                disabled={isDemo}
                 onChange={(e) => setGoogleMapsReviewUrl(e.target.value)}
                 placeholder="e.g. https://g.page/r/unique-id/review"
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-muted-foreground">Operating Hours</label>
               <input
                 value={operatingHours}
+                disabled={isDemo}
                 onChange={(e) => setOperatingHours(e.target.value)}
-                placeholder="e.g. Mon-Fri: 7 AM - 6 PM, Sat-Sun: 8 AM - 8 PM"
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                placeholder="Mon-Fri: 7 AM - 6 PM, Sat-Sun: 8 AM - 8 PM"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
               />
             </div>
           </div>
 
 
           <button
-            onClick={() => void save()}
-            disabled={busy}
-            className="w-full rounded-full btn-primary-action py-3 text-sm font-semibold"
+            onClick={isDemo ? undefined : () => void save()}
+            disabled={busy || isDemo}
+            className={cn(
+              "w-full rounded-full py-3 text-sm font-semibold transition",
+              isDemo
+                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed"
+                : "btn-primary-action"
+            )}
           >
-            {busy ? "Saving…" : "Save changes"}
+            {isDemo ? "🔒 Disabled in Public Demo" : busy ? "Saving…" : "Save changes"}
           </button>
+          {isDemo && (
+            <p className="text-[11px] text-amber-600 bg-amber-500/8 border border-amber-500/20 p-2.5 rounded-xl text-center font-medium">
+              This action is disabled in the public demo.
+            </p>
+          )}
         </section>
       </div>
 

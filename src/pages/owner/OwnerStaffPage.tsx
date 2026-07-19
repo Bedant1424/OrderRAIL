@@ -7,6 +7,8 @@ import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
+import { usePermissions } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import {
@@ -20,8 +22,25 @@ import {
 type Profile = { id: string; email: string | null; display_name: string | null };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
 
+const maskEmail = (email: string | null | undefined): string => {
+  if (!email) return "—";
+  const parts = email.split("@");
+  if (parts.length !== 2) return email;
+  const [local, domain] = parts;
+  if (local.length <= 2) {
+    return `${local[0]}*@${domain}`;
+  }
+  return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
+};
+
+const maskUserId = (id: string): string => {
+  return `usr_${id.slice(0, 4)}***${id.slice(-4)}`;
+};
+
 export default function OwnerStaffPage() {
   const qc = useQueryClient();
+  const permissions = usePermissions();
+  const isDemo = permissions.isDemo;
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("staff");
   const [busy, setBusy] = useState(false);
@@ -158,29 +177,44 @@ export default function OwnerStaffPage() {
           <input
             type="email"
             value={email}
+            disabled={isDemo}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="teammate@cafe.com"
-            className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+            placeholder={isDemo ? "Invitations disabled in demo" : "teammate@cafe.com"}
+            className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
           />
           <select
             value={role}
+            disabled={isDemo}
             onChange={(e) => setRole(e.target.value as AppRole)}
-            className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+            className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
           >
             <option value="staff">Staff</option>
             <option value="owner">Owner</option>
           </select>
           <button
-            onClick={() => void invite()}
-            disabled={busy || !email.trim()}
-            className="rounded-full btn-primary-action px-5 py-2 text-sm font-semibold"
+            onClick={isDemo ? undefined : () => void invite()}
+            disabled={busy || !email.trim() || isDemo}
+            className={cn(
+              "rounded-full px-5 py-2 text-sm font-semibold transition",
+              isDemo
+                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75"
+                : "btn-primary-action"
+            )}
+            title={isDemo ? "This action is disabled in the public demo." : "Assign role"}
           >
-            {busy ? "Assigning…" : "Assign"}
+            {isDemo ? "🔒 Disabled" : busy ? "Assigning…" : "Assign"}
           </button>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          If they don't have an account yet, we'll save an invite and grant the role automatically the first time they sign in (email/password or Google).
-        </p>
+        {isDemo && (
+          <p className="mt-3 text-[11px] text-amber-600 bg-amber-500/8 border border-amber-500/20 p-2.5 rounded-xl text-center font-medium">
+            This action is disabled in the public demo.
+          </p>
+        )}
+        {!isDemo && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            If they don't have an account yet, we'll save an invite and grant the role automatically the first time they sign in (email/password or Google).
+          </p>
+        )}
       </section>
 
       {(invitesQ.data ?? []).length > 0 && (
@@ -192,7 +226,7 @@ export default function OwnerStaffPage() {
             {invitesQ.data!.map((i) => (
               <li key={i.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{i.email}</div>
+                  <div className="truncate text-sm font-medium">{isDemo ? maskEmail(i.email) : i.email}</div>
                   <div className="text-xs text-muted-foreground">
                     Invited {new Date(i.created_at).toLocaleDateString()}
                   </div>
@@ -200,8 +234,15 @@ export default function OwnerStaffPage() {
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium capitalize">{i.role}</span>
                   <button
-                    onClick={() => void revokeInvite(i.id)}
-                    className="rounded-full bg-secondary p-1.5 text-muted-foreground hover:text-destructive"
+                    onClick={isDemo ? undefined : () => void revokeInvite(i.id)}
+                    disabled={isDemo}
+                    className={cn(
+                      "rounded-full p-1.5 transition",
+                      isDemo 
+                        ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50" 
+                        : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
+                    )}
+                    title={isDemo ? "This action is disabled in the public demo." : "Cancel invite"}
                     aria-label="Cancel invite"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -229,23 +270,39 @@ export default function OwnerStaffPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">
-                        {p?.display_name ?? p?.email ?? r.user_id.slice(0, 8)}
+                        {p?.display_name ?? (p?.email ? maskEmail(p.email) : maskUserId(r.user_id))}
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">{p?.email ?? "—"}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {p?.email ? maskEmail(p.email) : "—"}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium capitalize">{r.role}</span>
                     <button
-                      onClick={() => startEdit(r)}
-                      className="rounded-full bg-secondary p-1.5 text-muted-foreground hover:text-foreground transition active:scale-95"
+                      onClick={isDemo ? undefined : () => startEdit(r)}
+                      disabled={isDemo}
+                      className={cn(
+                        "rounded-full p-1.5 transition",
+                        isDemo 
+                          ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50" 
+                          : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
+                      )}
+                      title={isDemo ? "This action is disabled in the public demo." : "Edit role"}
                       aria-label="Edit role"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      onClick={() => void revoke(r)}
-                      className="rounded-full bg-secondary p-1.5 text-muted-foreground hover:text-destructive transition active:scale-95"
+                      onClick={isDemo ? undefined : () => void revoke(r)}
+                      disabled={isDemo}
+                      className={cn(
+                        "rounded-full p-1.5 transition",
+                        isDemo 
+                          ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50" 
+                          : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
+                      )}
+                      title={isDemo ? "This action is disabled in the public demo." : "Revoke"}
                       aria-label="Revoke"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -272,9 +329,9 @@ export default function OwnerStaffPage() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground mb-3">
-              Change role for {byUser.get(editingRole.user_id)?.email ?? "this user"}
+              Change role for {editingRole && byUser.get(editingRole.user_id)?.email ? maskEmail(byUser.get(editingRole.user_id)!.email) : "this user"}
             </p>
-            <Select value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
+            <Select disabled={isDemo} value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
               <SelectTrigger className="w-full rounded-2xl border border-border bg-background p-2.5 h-auto text-sm outline-none focus:ring-2 focus:ring-ring/60 mb-4">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
@@ -291,11 +348,16 @@ export default function OwnerStaffPage() {
                 Cancel
               </button>
               <button
-                onClick={() => void saveRole(editingRole, newRole)}
-                disabled={busy}
-                className="flex-1 rounded-full bg-brand text-brand-foreground py-2 text-xs font-semibold shadow-soft hover:bg-brand/90 transition"
+                onClick={isDemo ? undefined : () => void saveRole(editingRole, newRole)}
+                disabled={busy || isDemo}
+                className={cn(
+                  "flex-1 rounded-full py-2 text-xs font-semibold shadow-soft transition",
+                  isDemo
+                    ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75"
+                    : "bg-brand text-brand-foreground hover:bg-brand/90"
+                )}
               >
-                {busy ? "Saving…" : "Save"}
+                {isDemo ? "🔒 Save" : busy ? "Saving…" : "Save"}
               </button>
             </div>
           </div>

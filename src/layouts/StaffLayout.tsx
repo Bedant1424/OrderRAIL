@@ -26,6 +26,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
+import { useDemoMode } from "@/lib/permissions";
+
 export interface StaffLayoutContextType {
   notifications: NotificationItem[];
   setNotifications: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
@@ -61,6 +63,7 @@ export function useStaffLayout() {
 
 export default function StaffLayout({ require = "staff" as "staff" | "owner" }) {
   const { session, roles, loading, signOut } = useAuth();
+  const isDemo = useDemoMode();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -433,6 +436,13 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
       }}
     >
       <div className="min-h-screen bg-background">
+        {isDemo && (
+          <div className="bg-amber-500 text-amber-950 px-4 py-2 text-center text-xs font-semibold flex items-center justify-center gap-2 border-b border-amber-600/30 print:hidden select-none">
+            <span>🧪 Public Demo</span>
+            <span className="opacity-80">|</span>
+            <span>Configuration changes are disabled. Explore freely.</span>
+          </div>
+        )}
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
             <Link to="/staff" className="flex items-center gap-2">

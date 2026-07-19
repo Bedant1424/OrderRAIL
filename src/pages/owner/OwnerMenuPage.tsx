@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { generateUUID } from "@/lib/uuid";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
+import { usePermissions } from "@/lib/permissions";
 import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
@@ -55,6 +56,8 @@ async function urlForPath(path: string) {
 
 export default function OwnerMenuPage() {
   const qc = useQueryClient();
+  const permissions = usePermissions();
+  const isDemo = permissions.isDemo;
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [addingCat, setAddingCat] = useState(false);
   const [editingCat, setEditingCat] = useState<MenuCategory | null>(null);
@@ -237,16 +240,26 @@ export default function OwnerMenuPage() {
           <GlobalNotificationControls />
         <div className="flex gap-2">
           <button
-            onClick={() => setAddingCat(true)}
-            className="rounded-full bg-secondary px-4 py-2 text-xs font-medium"
+            onClick={isDemo ? undefined : () => setAddingCat(true)}
+            disabled={isDemo}
+            className={cn(
+              "rounded-full px-4 py-2 text-xs font-medium transition",
+              isDemo ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-70" : "bg-secondary hover:bg-secondary/80"
+            )}
+            title={isDemo ? "This action is disabled in the public demo." : "New category"}
           >
-            <Plus className="mr-1 inline h-3.5 w-3.5" /> Category
+            <Plus className="mr-1 inline h-3.5 w-3.5" /> Category {isDemo && "🔒"}
           </button>
           <button
-            onClick={() => setEditingItem({} as MenuItem)}
-            className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-brand-foreground shadow-soft"
+            onClick={isDemo ? undefined : () => setEditingItem({} as MenuItem)}
+            disabled={isDemo}
+            className={cn(
+              "rounded-full px-4 py-2 text-xs font-semibold transition",
+              isDemo ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-70" : "bg-brand text-brand-foreground shadow-soft hover:bg-brand/90"
+            )}
+            title={isDemo ? "This action is disabled in the public demo." : "New item"}
           >
-            <Plus className="mr-1 inline h-3.5 w-3.5" /> Item
+            <Plus className="mr-1 inline h-3.5 w-3.5" /> Item {isDemo && "🔒"}
           </button>
         </div>
         </div>
@@ -320,11 +333,22 @@ export default function OwnerMenuPage() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setEditingCat(cat)} className="cursor-pointer">
-                    <Pencil className="mr-2 h-4 w-4" /> Rename Category
+                  <DropdownMenuItem 
+                    onClick={isDemo ? undefined : () => setEditingCat(cat)} 
+                    disabled={isDemo}
+                    className={cn("cursor-pointer", isDemo && "opacity-50 cursor-not-allowed")}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" /> Rename Category {isDemo && "🔒"}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void removeCat(cat)} className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Category
+                  <DropdownMenuItem 
+                    onClick={isDemo ? undefined : () => void removeCat(cat)} 
+                    disabled={isDemo}
+                    className={cn(
+                      "cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10",
+                      isDemo && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Category {isDemo && "🔒"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -344,10 +368,15 @@ export default function OwnerMenuPage() {
               </AnimatePresence>
               {(grouped.get(cat.id) ?? []).length === 0 && (
                 <button
-                  onClick={() => setEditingItem({ category_id: cat.id } as MenuItem)}
-                  className="col-span-full rounded-2xl border border-dashed border-border bg-card/60 p-5 text-sm text-muted-foreground hover:bg-card"
+                  onClick={isDemo ? undefined : () => setEditingItem({ category_id: cat.id } as MenuItem)}
+                  disabled={isDemo}
+                  className={cn(
+                    "col-span-full rounded-2xl border border-dashed border-border p-5 text-sm transition text-muted-foreground",
+                    isDemo ? "bg-muted/30 cursor-not-allowed opacity-60" : "bg-card/60 hover:bg-card"
+                  )}
+                  title={isDemo ? "This action is disabled in the public demo." : "Add first item"}
                 >
-                  <Plus className="mr-1 inline h-4 w-4" /> Add first item to {cat.name}
+                  <Plus className="mr-1 inline h-4 w-4" /> Add first item to {cat.name} {isDemo && "🔒"}
                 </button>
               )}
             </div>
@@ -357,10 +386,17 @@ export default function OwnerMenuPage() {
           <div className="rounded-3xl border border-dashed border-border bg-card/60 p-10 text-center">
             <p className="text-muted-foreground">No categories yet.</p>
             <button
-              onClick={() => setAddingCat(true)}
-              className="mt-4 rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
+              onClick={isDemo ? undefined : () => setAddingCat(true)}
+              disabled={isDemo}
+              className={cn(
+                "mt-4 rounded-full px-5 py-2.5 text-sm font-semibold transition",
+                isDemo
+                  ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-70"
+                  : "btn-primary-action"
+              )}
+              title={isDemo ? "This action is disabled in the public demo." : "Add your first category"}
             >
-              Add your first category
+              Add your first category {isDemo && "🔒"}
             </button>
           </div>
         )}
@@ -428,6 +464,8 @@ function ItemCard({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const permissions = usePermissions();
+  const isDemo = permissions.isDemo;
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   useEffect(() => {
     let stop = false;
@@ -499,25 +537,32 @@ function ItemCard({
       {/* Actions row */}
       <div className="mt-3 flex items-center justify-between text-xs border-t border-border/40 pt-2.5">
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer text-xs select-none h-11">
+          <label className={cn("flex items-center gap-2 text-xs select-none h-11", isDemo ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
             <Switch
               checked={item.is_available}
-              onCheckedChange={onToggle}
+              disabled={isDemo}
+              onCheckedChange={isDemo ? undefined : onToggle}
             />
             <span className="font-semibold text-muted-foreground">Available</span>
           </label>
           <button
             onClick={onEdit}
             className="h-11 w-11 flex items-center justify-center rounded-full bg-secondary hover:bg-secondary/80 text-foreground transition active:scale-95 shrink-0"
-            title="Edit item"
+            title={isDemo ? "View item details" : "Edit item"}
           >
             <Pencil className="h-4 w-4" />
           </button>
         </div>
         <button
-          onClick={onDelete}
-          className="h-11 w-11 flex items-center justify-center rounded-full bg-destructive/10 hover:bg-destructive/20 text-destructive transition active:scale-95 shrink-0"
-          title="Delete item"
+          onClick={isDemo ? undefined : onDelete}
+          disabled={isDemo}
+          className={cn(
+            "h-11 w-11 flex items-center justify-center rounded-full transition shrink-0",
+            isDemo
+              ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-60"
+              : "bg-destructive/10 hover:bg-destructive/20 text-destructive active:scale-95"
+          )}
+          title={isDemo ? "This action is disabled in the public demo." : "Delete item"}
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -568,6 +613,9 @@ function CategoryDialog({
     initial ? initial.sort_order : categories.length + 1
   );
   const [busy, setBusy] = useState(false);
+
+  const permissions = usePermissions();
+  const isDemo = permissions.isDemo;
 
   const save = async () => {
     const trimmedName = name.trim();
@@ -693,11 +741,16 @@ function CategoryDialog({
       onClose={onClose}
       footer={
         <button
-          onClick={() => void save()}
-          disabled={busy || !name.trim()}
-          className="w-full rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
+          onClick={isDemo ? undefined : () => void save()}
+          disabled={busy || !name.trim() || isDemo}
+          className={cn(
+            "w-full rounded-full px-5 py-2.5 text-sm font-semibold transition",
+            isDemo 
+              ? "bg-muted text-muted-foreground border border-border cursor-not-allowed" 
+              : "btn-primary-action"
+          )}
         >
-          {busy ? "Saving…" : "Save"}
+          {isDemo ? "🔒 Disabled in Public Demo" : busy ? "Saving…" : "Save"}
         </button>
       }
     >
@@ -705,8 +758,9 @@ function CategoryDialog({
         <label className="block text-xs font-medium text-muted-foreground">Name</label>
         <input
           value={name}
+          disabled={isDemo}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+          className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35"
         />
         <label className="mt-3 block text-xs font-medium text-muted-foreground">Sort order</label>
         <input
@@ -714,6 +768,7 @@ function CategoryDialog({
           inputMode="numeric"
           pattern="[0-9]*"
           value={sort}
+          disabled={isDemo}
           onChange={(e) => {
             const val = e.target.value;
             if (val === "") {
@@ -728,8 +783,13 @@ function CategoryDialog({
               }
             }
           }}
-          className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+          className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35"
         />
+        {isDemo && (
+          <p className="mt-4 text-[11px] text-amber-600 bg-amber-500/8 border border-amber-500/20 p-2.5 rounded-xl text-center font-medium">
+            This action is disabled in the public demo.
+          </p>
+        )}
       </div>
     </Dialog>
   );
@@ -749,6 +809,8 @@ function ItemDialog({
   onSaved: () => void;
 }) {
   const isEdit = !!initial.id;
+  const permissions = usePermissions();
+  const isDemo = permissions.isDemo;
   const [name, setName] = useState(initial.name ?? "");
   const [desc, setDesc] = useState(initial.description ?? "");
   const [price, setPrice] = useState(((initial.price_cents ?? 0) / 100).toFixed(2));
@@ -867,11 +929,16 @@ function ItemDialog({
       onClose={onClose}
       footer={
         <button
-          onClick={() => void save()}
-          disabled={busy || !name.trim()}
-          className="w-full rounded-full btn-primary-action px-5 py-2.5 text-sm font-semibold"
+          onClick={isDemo ? undefined : () => void save()}
+          disabled={busy || !name.trim() || isDemo}
+          className={cn(
+            "w-full rounded-full px-5 py-2.5 text-sm font-semibold transition",
+            isDemo
+              ? "bg-muted text-muted-foreground border border-border cursor-not-allowed"
+              : "btn-primary-action"
+          )}
         >
-          {busy ? "Saving…" : "Save"}
+          {isDemo ? "🔒 Disabled in Public Demo" : busy ? "Saving…" : "Save"}
         </button>
       }
     >
@@ -879,7 +946,7 @@ function ItemDialog({
         <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
           <button
             type="button"
-            onClick={() => {
+            onClick={isDemo ? undefined : () => {
               if (preview) {
                 setImageSrc(preview);
                 setIsCropOpen(true);
@@ -887,8 +954,11 @@ function ItemDialog({
                 fileRef.current?.click();
               }
             }}
-            disabled={uploading}
-            className="grid aspect-square w-full place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            disabled={uploading || isDemo}
+            className={cn(
+              "grid aspect-square w-full place-items-center overflow-hidden rounded-2xl bg-secondary text-muted-foreground hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+              isDemo && "cursor-not-allowed opacity-75 hover:opacity-75"
+            )}
           >
             {preview ? (
               <img src={preview} alt="" className="h-full w-full object-cover" />
@@ -910,8 +980,9 @@ function ItemDialog({
               <label className="text-xs font-medium text-muted-foreground">Name</label>
               <input
                 value={name}
+                disabled={isDemo}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -920,16 +991,18 @@ function ItemDialog({
                 <input
                   inputMode="decimal"
                   value={price}
+                  disabled={isDemo}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                  className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35"
                 />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Category</label>
                 <select
                   value={category}
+                  disabled={isDemo}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                  className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35"
                 >
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -943,15 +1016,17 @@ function ItemDialog({
           <label className="block text-xs font-medium text-muted-foreground">Description</label>
           <textarea
             value={desc}
+            disabled={isDemo}
             onChange={(e) => setDesc(e.target.value)}
             rows={3}
-            className="mt-1 w-full resize-none rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+            className="mt-1 w-full resize-none rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35"
           />
         </div>
-        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+        <label className={cn("flex items-center gap-2 text-sm select-none", isDemo ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
           <input
             type="checkbox"
             checked={available}
+            disabled={isDemo}
             onChange={(e) => setAvailable(e.target.checked)}
             className="rounded border-border text-primary focus:ring-ring"
           />
@@ -959,7 +1034,7 @@ function ItemDialog({
         </label>
         <div>
           <label className="text-xs font-medium text-muted-foreground">Veg / Non-Veg</label>
-          <Select value={vegType} onValueChange={(val) => setVegType(val as typeof vegType)}>
+          <Select disabled={isDemo} value={vegType} onValueChange={(val) => setVegType(val as typeof vegType)}>
             <SelectTrigger
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 focus:ring-offset-0 flex items-center justify-between h-[42px] font-normal"
             >
@@ -983,7 +1058,8 @@ function ItemDialog({
                 <button
                   key={lbl}
                   type="button"
-                  onClick={() => {
+                  disabled={isDemo}
+                  onClick={isDemo ? undefined : () => {
                     setTags((prev) =>
                       prev.includes(lbl) ? prev.filter((t) => t !== lbl) : [...prev, lbl]
                     );
@@ -992,7 +1068,8 @@ function ItemDialog({
                     "rounded-full px-3 py-1 text-xs font-medium border transition-all active:scale-95",
                     active
                       ? "bg-primary border-primary text-primary-foreground font-semibold"
-                      : "bg-background border-border text-muted-foreground hover:bg-secondary"
+                      : "bg-background border-border text-muted-foreground hover:bg-secondary",
+                    isDemo && "cursor-not-allowed opacity-60 active:scale-100"
                   )}
                 >
                   {lbl}
@@ -1001,6 +1078,11 @@ function ItemDialog({
             })}
           </div>
         </div>
+        {isDemo && (
+          <p className="text-[11px] text-amber-600 bg-amber-500/8 border border-amber-500/20 p-2.5 rounded-xl text-center font-medium">
+            This action is disabled in the public demo.
+          </p>
+        )}
       </div>
     </Dialog>
     <ImageCropperModal

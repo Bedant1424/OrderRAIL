@@ -45,6 +45,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
+import { useDemoMode } from "@/lib/permissions";
+
 export interface OwnerLayoutContextType {
   notifications: NotificationItem[];
   setNotifications: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
@@ -91,6 +93,7 @@ const nav = [
 
 export default function OwnerLayout() {
   const { session, roles, loading, signOut } = useAuth();
+  const isDemo = useDemoMode();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -469,6 +472,13 @@ export default function OwnerLayout() {
       }}
     >
       <div className="min-h-screen bg-background flex flex-col print:block print:bg-white">
+        {isDemo && (
+          <div className="bg-amber-500 text-amber-950 px-4 py-2 text-center text-xs font-semibold flex items-center justify-center gap-2 border-b border-amber-600/30 print:hidden select-none">
+            <span>🧪 Public Demo</span>
+            <span className="opacity-80">|</span>
+            <span>Configuration changes are disabled. Explore freely.</span>
+          </div>
+        )}
         {/* Global header bar (visible on mobile and tablet, hidden on desktop) */}
         <header className="lg:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/60 bg-background/85 px-4 backdrop-blur print:hidden shrink-0">
           <Link to="/owner" className="flex items-center gap-2">

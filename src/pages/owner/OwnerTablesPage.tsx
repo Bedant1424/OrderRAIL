@@ -7,6 +7,9 @@ import { supabase, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
+import { usePermissions } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
+
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
@@ -114,13 +117,15 @@ function TableQRCard({
   cafeName, 
   onDownloadQR, 
   onDownloadCard, 
-  onDelete 
+  onDelete,
+  isDemo = false
 }: { 
   table: TableRow; 
   cafeName: string; 
   onDownloadQR: () => void;
   onDownloadCard: () => void;
   onDelete: () => void;
+  isDemo?: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -154,36 +159,54 @@ function TableQRCard({
         {/* Top row: QR & Card */}
         <div className="flex gap-2">
           <button
-            onClick={onDownloadQR}
-            className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-secondary text-secondary-foreground shadow-sm transition hover:bg-secondary/80 active:scale-95"
+            onClick={isDemo ? undefined : onDownloadQR}
+            disabled={isDemo}
+            className={cn(
+              "flex-1 inline-flex items-center justify-center gap-1 rounded-full shadow-sm transition",
+              isDemo
+                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-60"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:scale-95"
+            )}
             style={{ height: 44 }}
-            title="Download raw QR code PNG"
+            title={isDemo ? "This action is disabled in the public demo." : "Download raw QR code PNG"}
             aria-label={`Download QR for table ${table.label}`}
           >
             <Download className="h-4 w-4" />
-            <span className="text-xs font-semibold">QR</span>
+            <span className="text-xs font-semibold">{isDemo ? "🔒 QR" : "QR"}</span>
           </button>
           <button
-            onClick={onDownloadCard}
-            className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-primary/10 text-primary shadow-sm transition hover:bg-primary/20 active:scale-95"
+            onClick={isDemo ? undefined : onDownloadCard}
+            disabled={isDemo}
+            className={cn(
+              "flex-1 inline-flex items-center justify-center gap-1 rounded-full shadow-sm transition",
+              isDemo
+                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-60"
+                : "bg-primary/10 text-primary hover:bg-primary/20 active:scale-95"
+            )}
             style={{ height: 44 }}
-            title="Download printable stand artwork"
+            title={isDemo ? "This action is disabled in the public demo." : "Download printable stand artwork"}
             aria-label={`Download artwork for table ${table.label}`}
           >
             <Download className="h-4 w-4" />
-            <span className="text-xs font-semibold">Card</span>
+            <span className="text-xs font-semibold">{isDemo ? "🔒 Card" : "Card"}</span>
           </button>
         </div>
         {/* Bottom row: Full-width Delete Table */}
         <button
-          onClick={onDelete}
-          className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-destructive/10 text-destructive shadow-sm transition hover:bg-destructive/20 active:scale-95"
+          onClick={isDemo ? undefined : onDelete}
+          disabled={isDemo}
+          className={cn(
+            "w-full inline-flex items-center justify-center gap-1.5 rounded-full shadow-sm transition",
+            isDemo
+              ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-60"
+              : "bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95"
+          )}
           style={{ height: 44 }}
-          title="Delete Table"
+          title={isDemo ? "This action is disabled in the public demo." : "Delete Table"}
           aria-label={`Delete table ${table.label}`}
         >
           <Trash2 className="h-4 w-4" />
-          <span className="text-xs font-semibold">Delete Table</span>
+          <span className="text-xs font-semibold">{isDemo ? "🔒 Disabled" : "Delete Table"}</span>
         </button>
       </div>
     </div>
@@ -192,6 +215,8 @@ function TableQRCard({
 
 export default function OwnerTablesPage() {
   const qc = useQueryClient();
+  const permissions = usePermissions();
+  const isDemo = permissions.isDemo;
   const [label, setLabel] = useState("");
   const [seats, setSeats] = useState(2);
 
@@ -311,10 +336,17 @@ export default function OwnerTablesPage() {
         <div className="flex items-center gap-4">
           <GlobalNotificationControls />
           <button
-            onClick={() => void downloadAllArtworks()}
-            className="inline-flex items-center gap-2 rounded-full btn-primary-action px-4 py-2 text-xs font-semibold"
+            onClick={isDemo ? undefined : () => void downloadAllArtworks()}
+            disabled={isDemo}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition",
+              isDemo
+                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75"
+                : "btn-primary-action"
+            )}
+            title={isDemo ? "This action is disabled in the public demo." : "Download all Artworks"}
           >
-            <Download className="h-4 w-4" /> Download all Artworks (ZIP)
+            <Download className="h-4 w-4" /> {isDemo ? "🔒 Artworks Blocked" : "Download all Artworks (ZIP)"}
           </button>
         </div>
       </header>
@@ -324,24 +356,38 @@ export default function OwnerTablesPage() {
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={label}
+            disabled={isDemo}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="Label (e.g. 12 or Patio-3)"
-            className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+            placeholder={isDemo ? "Adding tables is disabled" : "Label (e.g. 12 or Patio-3)"}
+            className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35"
           />
           <input
             type="number"
             value={seats}
+            disabled={isDemo}
             min={1}
             onChange={(e) => setSeats(Number(e.target.value))}
-            className="w-20 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+            className="w-20 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35"
           />
           <button
-            onClick={() => void add()}
-            className="rounded-full btn-primary-action px-4 py-2 text-sm font-semibold whitespace-nowrap"
+            onClick={isDemo ? undefined : () => void add()}
+            disabled={isDemo || !label.trim()}
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition",
+              isDemo 
+                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75" 
+                : "btn-primary-action"
+            )}
+            title={isDemo ? "This action is disabled in the public demo." : "Add table"}
           >
-            <Plus className="mr-1 inline h-4 w-4" /> Add
+            <Plus className="mr-1 inline h-4 w-4" /> {isDemo ? "🔒 Disabled" : "Add"}
           </button>
         </div>
+        {isDemo && (
+          <p className="mt-3 text-[11px] text-amber-600 bg-amber-500/8 border border-amber-500/20 p-2.5 rounded-xl text-center font-medium">
+            This action is disabled in the public demo.
+          </p>
+        )}
       </section>
 
       <section className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-3 print:gap-6 print:w-full print:mx-auto">
@@ -353,6 +399,7 @@ export default function OwnerTablesPage() {
             onDownloadQR={() => void downloadQRSingle(t)}
             onDownloadCard={() => void downloadArtworkSingle(t)}
             onDelete={() => void remove(t)} 
+            isDemo={isDemo}
           />
         ))}
       </section>

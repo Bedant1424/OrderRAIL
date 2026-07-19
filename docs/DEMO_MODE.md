@@ -36,7 +36,48 @@ Permissions are managed by a centralized hook helper (`usePermissions()` in `src
 
 ---
 
-## 3. Backend Enforcement Strategy
+## 3. UI Restrictions
+
+When operating in the public demo café, the user interface disables modifications and masks sensitive configuration details:
+
+### Demo Banner
+Displayed globally across both the `OwnerLayout` and `StaffLayout` headers:
+```text
+🧪 Public Demo | Configuration changes are disabled. Explore freely.
+```
+
+### Disabled Actions
+Disabled actions use a consistent styled disabled state (`bg-muted border cursor-not-allowed opacity-60`) accompanied by a locked indicator label `🔒` and hover description text: *"This action is disabled in the public demo."*
+
+- **Menu Management**:
+  - Disables creating new items/categories.
+  - Disables editing or saving changes inside category and item dialogs.
+  - Disables deleting items/categories.
+  - Disables toggling menu item availability switches.
+  - Disables cropping or uploading catalog image assets.
+- **Tables & QR**:
+  - Disables adding new tables.
+  - Disables deleting existing tables.
+  - Disables bulk downloading artworks ZIP.
+  - Disables downloading single QR cards or QR images.
+- **Café Settings**:
+  - Disables all café name, tagline, address, phone, whatsapp, website, instagram, and maps review text inputs.
+  - Disables changing base currencies.
+  - Disables uploading or removing café logos.
+  - Disables saving settings modifications.
+- **Staff Management**:
+  - Disables adding or inviting teammate emails.
+  - Disables removing or revoking active staff members.
+  - Disables promoting/demoting teammate roles inside the edit role dialog.
+
+### Masked Data
+To prevent disclosure of user identities and internals:
+- **Emails**: Masked using the pattern `l*******t@domain.com`.
+- **UUIDs / Internal Identifiers**: Fallbacks are masked using `usr_xxxx***xxxx` matching the first and last segments.
+
+---
+
+## 4. Backend Enforcement Strategy
 
 To secure the public demo café against direct Supabase API bypasses, database-level restrictions are enforced:
 - **Helper Infrastructure**: A database function `public.is_demo_cafe(cafe_id)` identifies whether a given operation targets the demo café (`slug = 'orderrail'`).
@@ -65,7 +106,7 @@ To maintain interactive demo cycles, the database allows full access to the foll
 
 ---
 
-## 4. Extension Points
+## 5. Extension Points
 
 - **Adding Capabilities**: Add a new capability property under `usePermissions()` in `src/lib/permissions.ts`.
 - **Custom Demo Slugs**: Update the target slug value `cafeSlug` inside `src/config/app.ts` to switch demo instances.
