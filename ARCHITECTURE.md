@@ -6,6 +6,20 @@ OrderRail is built as a client-first, multi-role web application designed to coo
 3. **Owner Dashboard (Administration)**: A management portal for proprietors to configure café branding, edit menu items and categories, upload images, manage tables, provision staff credentials, and view sales performance metrics.
 4. **Backend-as-a-Service (Supabase)**: Provides authentication services, PostgreSQL database storage, object asset storage, and Change Data Capture (CDC) PostgreSQL Realtime channel triggers.
 
+## System Context Diagram
+
+```mermaid
+graph TD
+    Customer[Customer Browser] -->|HTTP/WebSockets| SPA[React SPA]
+    Staff[Staff Browser] -->|HTTP/WebSockets| SPA
+    Owner[Owner Browser] -->|HTTP/WebSockets| SPA
+    SPA -->|Queries/Mutations| Supabase[Supabase API Gateway]
+    Supabase -->|SQL Operations| DB[(PostgreSQL Database)]
+    Supabase -->|File Uploads| Storage[Supabase Storage]
+    DB -->|CDC Log events| Realtime[Supabase Realtime CDC Channel]
+    Realtime -->|WebSocket push| SPA
+```
+
 ---
 
 # Architecture Principles
@@ -48,6 +62,90 @@ The flow of data and execution layers is structured as follows:
 - **PostgreSQL Database**: Serves as the single source of truth, enforcing data integrity, executing RPC operations, and evaluating Row-Level Security (RLS) configurations to secure multi-tenant data.
 - **Supabase Storage**: Hosts uploaded menu thumbnail images under strict public read and authenticated owner write permissions.
 - **Realtime CDC**: Monitors PostgreSQL write logs (`INSERT`, `UPDATE`, `DELETE`) on target tables, pushing structural diffs directly to connected clients via active WebSockets.
+
+---
+
+# Request Lifecycle
+
+The application coordinates transactional operations through verified HTTP and WebSocket lifecycles:
+
+### 1. Customer Order Lifecycle
+```
+[Cart Checkout Click]
+         │
+         ▼
+[Network Check] ───────(Offline)───────→ [Serialize to localStorage queue]
+         │ (Online)
+         ▼
+[Insert Order to 'orders'] ─────(Fails)─→ [Serialize to localStorage queue]
+         │ (Succeeds)
+         ▼
+[Insert Items to 'order_items']
+         │ (Succeeds)
+         ▼
+[Update 'dining_sessions' status to 'active'] ──→ [Update 'tables' to 'occupied']
+         │
+         ▼
+[Postgres WAL Trigger] ──→ [Broadcast CDC event] ──→ [Staff Dashboard Auto-Refresh]
+```
+
+### 2. Staff Status Lifecycle
+```
+[Staff click order action button in Drawer]
+                    │
+                    ▼
+[Call update status query to Supabase client]
+                    │
+                    ▼
+[SQL UPDATE orders SET status = newStatus]
+                    │
+                    ▼
+[DB WAL logs modification event] ──→ [Supabase Realtime sends payload]
+                    │                              │
+                    ▼                              ▼
+[Staff Dashboard state invalidates]     [Diner Tracking Timeline state invalidates]
+```
+
+### 3. Owner Menu Update Lifecycle
+```
+[Owner submits new menu item form]
+                │
+                ▼
+[Upload file to Storage bucket 'menu-images'] ──→ [Obtain public URL]
+                │
+                ▼
+[Call insert query to Supabase table 'menu_items'] (Includes image public URL)
+                │
+                ▼
+[SQL INSERT INTO menu_items VALUES (...)]
+```
+
+---
+
+# Component Relationships
+
+The React application structure maps hierarchical component scopes to local/server states:
+
+```
+[ App.tsx ] (Routing Map)
+     │
+     ▼
+[ Layout Shells ] (TableLayout / StaffLayout / OwnerLayout)
+     │
+     ├── Inject Providers ─────→ [ AuthProvider / CafeProvider / CartProvider ]
+     │                                     │
+     ▼                                     ▼
+[ Route Pages ] (e.g. TableMenuPage) ←── Consumes Contexts (via useCart, useAuth)
+     │
+     ├── Triggers hooks ───────→ [ useQuery / useMutation ] ──→ [ Supabase Client ]
+     │
+     ▼
+[ Render UI Elements ] (e.g. MenuItemCard / Drawer primitives)
+```
+- **Layouts**: Wrap route subsets, validating roles before rendering elements, and provisioning business-logic context providers.
+- **Context Providers**: Expose global read-write functions (e.g., cart alterations, current user metadata, or café details).
+- **Hooks**: Interface views with business logic. TanStack React Query hooks cache database selections, while custom hooks bind components to local state (such as toast triggers).
+- **Components**: Functional UI primitives that consume props and render HTML segments dynamically.
 
 ---
 
@@ -181,6 +279,37 @@ State in OrderRail is split by lifecycle and caching scopes:
 
 ---
 
+# Cross-Cutting Concerns
+
+Shared capabilities affecting the entire codebase are structured as follows:
+- **Authentication**: Native Supabase Auth provider maps session events (`SIGNED_IN`, `SIGNED_OUT`) to clear or load client credentials in memory.
+- **Authorization**: Layout routing wrappers evaluate loaded role properties. Tables and functions check these parameters in Postgres RLS constraints.
+- **Caching**: Configured globally in TanStack React Query Client. Invalidates query keys reactively upon mutations or CDC channel events to enforce cache freshness.
+- **Realtime CDC**: Pushes write events on tables (`orders`, `tables`, `service_requests`) directly to browsers to sync state reactively without polling.
+- **Offline Behavior**: Handles network disconnects using window event listeners to cache cart checkouts locally in `localStorage`.
+- **Configuration**: Shared global settings (`src/config/app.ts`) dictating cooldown times, timeout ranges, currencies, and application identifiers.
+
+---
+
+# Failure Handling
+
+Verified system response behaviors for failure conditions are outlined below:
+- **Offline Mode**: Checkouts failover to local queues seamlessly without crashing the UI, showing toast notifications, and auto-syncing when connection is restored.
+- **Realtime WebSocket Disconnects**: Handled natively by the Supabase client SDK, which retries connections using an exponential backoff strategy. *(Note: Recovery verification for missed WAL events during the disconnect window is Unknown / Requires Confirmation).*
+- **Authentication Expiration**: The client initializes Supabase Auth with `autoRefreshToken: true` and `persistSession: true`. This automatically resolves token expirations in the background using refresh tokens saved in `localStorage`.
+- **Failed Synchronization**: During queue flushing, any order insertion that returns an error (excluding primary key conflict `23505`) is retained in `localStorage` under `orderrail.order_queue` to be retried on subsequent load or online events, preventing data loss.
+
+---
+
+# Design Patterns
+
+- **Context Providers (Dependency Injection)**: Used for managing Auth, Cart, and Cafe contexts. Decouples state from local component states.
+- **Layout-Based Routing (Template Pattern)**: Protects routes and exposes context state down the React component tree (e.g. `TableLayout` wrapping customer routes).
+- **Composition (UI Primitives)**: Reusable components (buttons, dialogs, cards) are written as compound structures to support custom element placement.
+- **Observer Pattern (Realtime updates)**: Realtime PostgreSQL CDC subscriptions behave as observers, reactively listening to database tables and triggering callback invalidations.
+
+---
+
 # Demo vs Production Architecture
 
 - **Demo Mode**:
@@ -224,10 +353,12 @@ State in OrderRail is split by lifecycle and caching scopes:
 
 # Architectural Decisions
 
-- **Single-Page Application (SPA)**: Chosen for rapid page transitions, fluid mobile animations, and the ability to package the static shell for direct deployment or local device caching.
-- **Supabase BaaS**: Selected to reduce backend engineering overhead, using built-in authentication, storage buckets, and PostgreSQL CDC channels out-of-the-box.
-- **TanStack React Query**: Utilized to manage client data caches, coordinate refetches, handle stale cache intervals, and invalidate outdated server states.
-- **Realtime CDC Channels**: Integrated to replace expensive HTTP polling architectures with low-latency WebSockets, ensuring staff dashboards update immediately.
+- **Single-Page Application (SPA)**: Chosen to enable fluid mobile transitions, rapid client-side routing, and static packaging suitable for fast serverless CDNs.
+- **Supabase BaaS**: Selected to remove the need for custom API gateways, leveraging built-in security, file management, auth sessions, and real-time subscription services natively.
+- **React Query**: Adopted to manage server data cache and synchronization, decoupling page views from data fetching libraries, and ensuring low-latency cache retrieval.
+- **React Context Providers**: Used to handle runtime global client states (e.g., Auth status, active diner carts) that are shared across component sub-trees.
+- **Tailwind CSS**: Chosen to compile style properties directly into lightweight CSS utilities, avoiding heavy runtime CSS-in-JS parsing overhead.
+- **Vite & TypeScript**: Selected to optimize build compile speeds (using ES modules during development) and enforce static type safety across database types.
 - **Offline Storage Queue**: Implemented to safeguard café revenue against unstable customer network connections.
 
 ---
@@ -242,10 +373,14 @@ State in OrderRail is split by lifecycle and caching scopes:
 
 # Future Architectural Evolution
 
-- **Dynamic Multi-Tenant Domain Mapping**: Transitioning the café context resolver from a hardcoded config slug to dynamic hostname or URL slug mapping, enabling true multi-venue hosting on a single codebase.
-- **Service Worker (PWA) Integration**: Registering a background service worker to pre-cache application static shells, enabling full standalone device installations and caching.
-- **IndexedDB Queue Migration**: Replacing `localStorage` with `IndexedDB` for order queuing to support asynchronous execution and remove size boundaries.
+### Near-Term Architecture
 - **Global Error Boundaries**: Wrapping route layouts in boundary handlers to isolate crashes and show interactive recovery views.
+- **Localized Shift Auditing**: Adding dashboard filters to query variables, allowing managers to query transactions for specific shifts instead of pulling entire records.
+- **Service Worker (PWA) Caching**: Registering a background service worker to pre-cache application static shells, enabling full standalone device installations and caching.
+
+### Long-Term Architecture
+- **Dynamic Multi-Tenant Domain Mapping**: Transitioning the café context resolver from a hardcoded config slug to dynamic hostname or URL slug mapping, enabling true multi-venue hosting on a single codebase.
+- **IndexedDB Queue Migration**: Replacing `localStorage` with `IndexedDB` for order queuing to support asynchronous execution and remove size boundaries.
 
 ---
 
