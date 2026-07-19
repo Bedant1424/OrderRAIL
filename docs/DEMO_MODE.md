@@ -115,7 +115,21 @@ To preserve realistic testing environments while locking configuration settings,
 
 ---
 
-## 6. Extension Points
+## 6. Demo Administrator Support
+
+To support administrative validation and seed setup of the public demo without exposing vulnerabilities to public users:
+* **UUID Isolation**: The UUID `c261a4be-a1eb-42d4-8623-a81ef0100921` is defined in a single configuration property (`APP_CONFIG.demoAdminUuid`) inside `src/config/app.ts`.
+* **Centralized Helpers**: Resolved via `isDemoAdmin(user)` and `useDemoAdmin()` helpers in `src/lib/permissions.ts`.
+* **Full Bypass Permissions**: 
+  * If the active user matches the Demo Admin UUID, `useDemoMode()` returns `false`, bypassing all frontend warning banners, read-only disabled inputs, and masked display values.
+  * In `usePermissions()`, the Demo Admin is automatically granted complete `isOwner` and `isStaff` capabilities, unlocking form configurations and deletions.
+* **Database RLS Exemption**:
+  * PostgreSQL restrictive policies query the `public.is_demo_admin(auth.uid())` helper and bypass the demo write restriction if true.
+  * RPC guards allow the Demo Admin to invite, revoke, or promote teammate roles directly.
+
+---
+
+## 7. Extension Points
 
 - **Adding Capabilities**: Add a new capability property under `usePermissions()` in `src/lib/permissions.ts`.
 - **Custom Demo Slugs**: Update the target slug value `cafeSlug` inside `src/config/app.ts` to switch demo instances.

@@ -10,10 +10,29 @@ export function isDemoMode(slug?: string | null): boolean {
 }
 
 /**
+ * Returns true if the given user ID matches the demo administrator UUID.
+ */
+export function isDemoAdmin(userId?: string | null): boolean {
+  if (!userId) return false;
+  return userId.toLowerCase() === APP_CONFIG.demoAdminUuid.toLowerCase();
+}
+
+/**
+ * React hook to check if the currently authenticated user is the Demo Administrator.
+ */
+export function useDemoAdmin(): boolean {
+  const { user } = useAuth();
+  return isDemoAdmin(user?.id);
+}
+
+/**
  * React hook to check if the current active session is running against the public demo cafe.
+ * Excludes the Demo Administrator from demo constraints.
  */
 export function useDemoMode(): boolean {
   const { cafe } = useCafe();
+  const { user } = useAuth();
+  if (isDemoAdmin(user?.id)) return false;
   return cafe ? isDemoMode(cafe.slug) : false;
 }
 
@@ -21,12 +40,14 @@ export function useDemoMode(): boolean {
  * Centralized permissions hook managing capability authorization checks.
  * Under production: verifies owner role permissions.
  * Under demo mode: returns values prepared for future restrictions.
+ * Under demo admin: bypasses all restrictions.
  */
 export function usePermissions() {
-  const { roles } = useAuth();
+  const { roles, user } = useAuth();
   const isDemo = useDemoMode();
-  const isOwner = hasRole(roles, "owner");
-  const isStaff = hasRole(roles, "staff");
+  const isDemoAdm = isDemoAdmin(user?.id);
+  const isOwner = hasRole(roles, "owner") || isDemoAdm;
+  const isStaff = hasRole(roles, "staff") || isDemoAdm;
 
   return {
     isDemo,
@@ -41,18 +62,18 @@ export function usePermissions() {
     canUploadImages: () => isOwner,
     
     // Cafe Branding & settings: restricted in public demo mode to prevent vandalism
-    canManageCafeSettings: () => isOwner && !isDemo,
-    canEditBranding: () => isOwner && !isDemo,
+    canManageCafeSettings: () => isOwner && (!isDemo || isDemoAdm),
+    canEditBranding: () => isOwner && (!isDemo || isDemoAdm),
     
     // Team / Invite controls: claim role directly in demo, invitations are production-only
-    canManageUsers: () => isOwner && !isDemo,
-    canManageRoles: () => isOwner && !isDemo,
+    canManageUsers: () => isOwner && (!isDemo || isDemoAdm),
+    canManageRoles: () => isOwner && (!isDemo || isDemoAdm),
     
     // Destruction controls: blocked in demo to prevent erasing the demo catalog
-    canDeleteData: () => isOwner && !isDemo,
+    canDeleteData: () => isOwner && (!isDemo || isDemoAdm),
     
     // Data exports: restricted to production owners
-    canExportData: () => isOwner && !isDemo,
+    canExportData: () => isOwner && (!isDemo || isDemoAdm),
   };
 }
 
