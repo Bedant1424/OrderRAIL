@@ -1,5 +1,7 @@
 # OrderRail
-### The contactless ordering and service workflow platform for modern cafes and restaurants.
+### QR Ordering & Restaurant Operations Platform for Modern Cafés
+
+![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB) ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white) ![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=FFD62B) ![Supabase](https://img.shields.io/badge/Supabase-1C1C1C?style=flat-square&logo=supabase&logoColor=3ECF8E) ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white) ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)
 
 ---
 
@@ -35,10 +37,10 @@ OrderRail aims to optimize the dining experience and simplify hospitality workfl
 
 ### Who is this for?
 OrderRail is designed specifically for:
-- **Cafes, Coffee Shops, and Bakeries** looking to accelerate peak-hour operations.
-- **Quick-Service Restaurants (QSR)** aiming to minimize service order delays.
-- **Traditional Sit-Down Diners** wanting to offer a supplementary, contactless ordering channel.
-- **Bars and Gastropubs** where customers can quickly re-order drinks and call staff from their tables.
+- **Independent Cafés** looking to automate order flow and reduce queue times.
+- **Coffee Shops** looking to speed up morning rush transactions.
+- **Dessert Cafés and Bubble Tea Shops** that operate with high-volume counter orders.
+- **Restaurants (approx. 20–100 seats)** looking for table service automation and staff coordination tools.
 
 ---
 
