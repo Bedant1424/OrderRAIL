@@ -1,6 +1,6 @@
 # Demo Mode Permissions Foundation
 
-This document details the architectural strategy for managing capabilities and permissions under Demo Mode vs. Production environments.
+This document details the architectural strategy for managing capabilities and permissions under Demo Mode vs. Production environments, including frontend permission layouts and backend database constraints.
 
 ---
 
@@ -36,11 +36,32 @@ Permissions are managed by a centralized hook helper (`usePermissions()` in `src
 
 ---
 
-## 3. Database RLS Infrastructure
+## 3. Backend Enforcement Strategy
 
-To support demo mode logic at the database level:
-- A database function `public.is_demo_cafe(cafe_id)` checks if a café matches the `"orderrail"` slug.
-- This helper can be integrated into custom Row-Level Security (RLS) policies to allow or deny modifications depending on the café's demo status.
+To secure the public demo café against direct Supabase API bypasses, database-level restrictions are enforced:
+- **Helper Infrastructure**: A database function `public.is_demo_cafe(cafe_id)` identifies whether a given operation targets the demo café (`slug = 'orderrail'`).
+- **Restrictive RLS Policies**: Uses PostgreSQL `AS RESTRICTIVE` policies which run as mandatory `AND` filters. If a query targets the demo café, write operations (`INSERT`, `UPDATE`, `DELETE`) are denied.
+- **Function Guards**: SECURITY DEFINER database functions check demo café membership and raise explicit authorization exceptions.
+
+### Protected Tables (Read-Only under Demo Mode)
+- **`cafes`**: Blocks updating café taglines, currencies, addresses, or configurations.
+- **`menu_categories`**: Prevents adding, editing, or deleting categories.
+- **`menu_items`**: Prevents catalog changes or pricing updates.
+- **`tables`**: Blocks table modifications or seating limit updates.
+- **`user_roles`**: Disallows direct insertion, modification, or removal of user privilege rows via REST.
+- **`staff_invites`**: Blocks manual user role invitations.
+- **`profiles`**: Restricts updating profiles of users linked to the demo café.
+- **`storage.objects`**: Prevents image uploads, asset replacements, or file deletions within the `menu-images` bucket under the demo café path.
+
+### Protected RPCs
+- **`public.assign_role_by_email`**: Raises an exception (`'This action is disabled in the public demo.'`) when executing against the demo café, preventing owner assignments or staff invitations.
+
+### Allowed Operational Behavior
+To maintain interactive demo cycles, the database allows full access to the following operations:
+- **`orders` / `order_items`**: Customer checkouts and cart submissions remain enabled.
+- **`service_requests`**: Call-staff triggers (water, waiter, bill) and resolutions remain enabled.
+- **`reviews`**: Diner feedback submissions are permitted.
+- **`dining_sessions` / `daily_order_counters` / `order_events`**: Live state logging and status rollups remain operational.
 
 ---
 
@@ -48,4 +69,4 @@ To support demo mode logic at the database level:
 
 - **Adding Capabilities**: Add a new capability property under `usePermissions()` in `src/lib/permissions.ts`.
 - **Custom Demo Slugs**: Update the target slug value `cafeSlug` inside `src/config/app.ts` to switch demo instances.
-- **Database Locks**: Inject `NOT is_demo_cafe(cafe_id)` in database RLS policies to restrict write operations to non-demo cafés.
+- **Database Locks**: To lock additional tables under the demo café, add a new `AS RESTRICTIVE` policy calling `is_demo_cafe(cafe_id)`.
