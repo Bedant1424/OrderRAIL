@@ -25,8 +25,7 @@ import {
   ArrowUpRight,
   ChevronRight,
   Sparkles,
-  CheckCircle2,
-  AlertCircle
+  CheckCircle2
 } from "lucide-react";
 import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type TableRow, type Review } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
@@ -34,6 +33,40 @@ import { GlobalNotificationControls } from "@/components/owner/GlobalNotificatio
 import { cn } from "@/lib/utils";
 
 type Range = 7 | 30 | 90;
+
+/**
+ * Task 1: Foundation revenue metrics model designed for future POS/billing integration
+ * (Exposes Gross Sales, Discounts, Tax, Net Sales).
+ */
+export interface RevenueMetricsModel {
+  grossSalesCents: number;
+  discountsCents: number;
+  taxCents: number;
+  netSalesCents: number;
+  orderCount: number;
+  averageOrderValueCents: number;
+}
+
+export function calculateRevenueMetrics(targetOrders: (Order & { order_items?: OrderItem[] })[]): RevenueMetricsModel {
+  const paid = targetOrders.filter((o) => o.status !== "cancelled");
+  
+  const grossSalesCents = paid.reduce((sum, o) => sum + (o.total_cents || 0), 0);
+  const discountsCents = 0; // Reserved for POS discount coupon extension
+  const taxCents = 0;       // Reserved for POS tax breakdown extension
+  const netSalesCents = Math.max(0, grossSalesCents - discountsCents + taxCents);
+  
+  const orderCount = paid.length;
+  const averageOrderValueCents = orderCount > 0 ? Math.round(netSalesCents / orderCount) : 0;
+
+  return {
+    grossSalesCents,
+    discountsCents,
+    taxCents,
+    netSalesCents,
+    orderCount,
+    averageOrderValueCents,
+  };
+}
 
 export default function OwnerAnalyticsPage() {
   const [range, setRange] = useState<Range>(7);
@@ -113,11 +146,56 @@ export default function OwnerAnalyticsPage() {
 
   const paidOrders = useMemo(() => orders.filter((o) => o.status !== "cancelled"), [orders]);
 
-  // Today's specific metrics
+  // Task 1: Refactored Revenue Model Calculations
+  const rangeRevenueMetrics = useMemo(() => calculateRevenueMetrics(orders), [orders]);
+
   const todayOrders = useMemo(() => orders.filter((o) => o.created_at >= todayStart), [orders, todayStart]);
-  const todayPaid = useMemo(() => todayOrders.filter((o) => o.status !== "cancelled"), [todayOrders]);
-  const todayRevenue = useMemo(() => todayPaid.reduce((s, o) => s + o.total_cents, 0), [todayPaid]);
-  const todayAvgValue = todayPaid.length ? Math.round(todayRevenue / todayPaid.length) : 0;
+  const todayRevenueMetrics = useMemo(() => calculateRevenueMetrics(todayOrders), [todayOrders]);
+
+  // Task 2: Preparation Time Accuracy Calculation (Dynamic from order timestamps)
+  const prepTimeStats = useMemo(() => {
+    const completedOrders = orders.filter(
+      (o) => (o.status === "served" || o.status === "ready") && o.created_at && o.updated_at
+    );
+
+    if (completedOrders.length < 2) {
+      return {
+        value: "—",
+        subtext: "Awaiting production data",
+        hasData: false
+      };
+    }
+
+    let totalMins = 0;
+    let validCount = 0;
+
+    for (const o of completedOrders) {
+      const created = new Date(o.created_at).getTime();
+      const updated = new Date(o.updated_at).getTime();
+      const diffMins = (updated - created) / (1000 * 60);
+
+      // Sanity filter: filter out non-sensical or overly delayed timestamps (> 120 mins)
+      if (diffMins > 0 && diffMins <= 120) {
+        totalMins += diffMins;
+        validCount += 1;
+      }
+    }
+
+    if (validCount === 0) {
+      return {
+        value: "—",
+        subtext: "Awaiting production data",
+        hasData: false
+      };
+    }
+
+    const avgMins = Math.round(totalMins / validCount);
+    return {
+      value: `~${avgMins} mins`,
+      subtext: `Based on ${validCount} completed orders`,
+      hasData: true
+    };
+  }, [orders]);
 
   // Active / Pending orders metrics
   const pendingOrders = useMemo(
@@ -128,15 +206,11 @@ export default function OwnerAnalyticsPage() {
 
   // Active Tables metrics
   const occupiedTableIds = useMemo(() => {
-    const activeOrderTableIds = new Set(pendingOrders.map((o) => o.table_id));
-    return activeOrderTableIds;
+    return new Set(pendingOrders.map((o) => o.table_id));
   }, [pendingOrders]);
   const activeTableCount = occupiedTableIds.size;
   const totalTables = tables.length || 1;
   const occupancyPercentage = Math.round((activeTableCount / totalTables) * 100);
-
-  // Total Revenue for range
-  const totalRevenue = useMemo(() => paidOrders.reduce((s, o) => s + o.total_cents, 0), [paidOrders]);
 
   // Revenue By Day
   const byDay = useMemo(() => {
@@ -263,30 +337,30 @@ export default function OwnerAnalyticsPage() {
         </div>
       )}
 
-      {/* MILESTONE 1 — 6 Primary KPI Cards */}
+      {/* Primary KPI Cards */}
       <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard
           isLoading={isLoading}
           icon={CircleDollarSign}
-          label="Today's Revenue"
-          value={formatMoney(todayRevenue, currency)}
-          subtext={`Range Total: ${formatMoney(totalRevenue, currency)}`}
+          label="Today's Net Sales"
+          value={formatMoney(todayRevenueMetrics.netSalesCents, currency)}
+          subtext={`Gross: ${formatMoney(todayRevenueMetrics.grossSalesCents, currency)}`}
           accentColor="text-emerald-500 bg-emerald-500/10"
         />
         <KpiCard
           isLoading={isLoading}
           icon={ShoppingBag}
           label="Orders Today"
-          value={todayOrders.length.toString()}
-          subtext={`${todayPaid.length} completed`}
+          value={todayRevenueMetrics.orderCount.toString()}
+          subtext={`Range Total: ${rangeRevenueMetrics.orderCount}`}
           accentColor="text-blue-500 bg-blue-500/10"
         />
         <KpiCard
           isLoading={isLoading}
           icon={TrendingUp}
           label="Avg Order Value"
-          value={formatMoney(todayAvgValue, currency)}
-          subtext="Per order ticket"
+          value={formatMoney(todayRevenueMetrics.averageOrderValueCents, currency)}
+          subtext="Net AOV per ticket"
           accentColor="text-purple-500 bg-purple-500/10"
         />
         <KpiCard
@@ -309,27 +383,27 @@ export default function OwnerAnalyticsPage() {
           isLoading={isLoading}
           icon={Timer}
           label="Avg Prep Time"
-          value="~12 mins"
-          subtext="Target: <15 mins"
+          value={prepTimeStats.value}
+          subtext={prepTimeStats.subtext}
           accentColor="text-teal-500 bg-teal-500/10"
         />
       </section>
 
-      {/* MILESTONE 2 — Revenue Chart & Peak Hours */}
+      {/* Revenue Chart & Peak Hours */}
       <section className="grid gap-6 lg:grid-cols-3">
         {/* Revenue Trend Area Chart */}
         <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="font-display text-base font-semibold">Revenue Trend</h2>
-              <p className="text-xs text-muted-foreground">Daily revenue performance over {range} days</p>
+              <p className="text-xs text-muted-foreground">Daily net sales performance over {range} days</p>
             </div>
             <div className="text-right">
               <div className="font-display text-lg font-bold tabular-nums text-foreground">
-                {formatMoney(totalRevenue, currency)}
+                {formatMoney(rangeRevenueMetrics.netSalesCents, currency)}
               </div>
               <div className="text-[11px] font-medium text-emerald-600 flex items-center justify-end gap-0.5">
-                <ArrowUpRight className="h-3 w-3" /> +14.2% vs prev period
+                <ArrowUpRight className="h-3 w-3" /> Net Sales ({range}d)
               </div>
             </div>
           </div>
@@ -357,7 +431,7 @@ export default function OwnerAnalyticsPage() {
                       fontSize: 12,
                       boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                     }}
-                    formatter={(val: number) => [`$${val.toFixed(2)}`, "Revenue"]}
+                    formatter={(val: number) => [`$${val.toFixed(2)}`, "Net Sales"]}
                   />
                   <Area type="monotone" dataKey="revenue" stroke="hsl(var(--accent))" fill="url(#revGrad)" strokeWidth={2.5} />
                 </AreaChart>
@@ -446,7 +520,7 @@ export default function OwnerAnalyticsPage() {
           </div>
         </div>
 
-        {/* MILESTONE 3 — Recent Live Orders Feed */}
+        {/* Recent Live Orders Feed */}
         <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
           <div>
             <div className="mb-4 flex items-center justify-between">
@@ -497,7 +571,7 @@ export default function OwnerAnalyticsPage() {
         </div>
       </section>
 
-      {/* MILESTONE 4 — Staff & Customer Ratings Summary */}
+      {/* Staff & Customer Ratings Summary */}
       <section className="grid gap-6 lg:grid-cols-2">
         {/* Customer Satisfaction Summary */}
         <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
