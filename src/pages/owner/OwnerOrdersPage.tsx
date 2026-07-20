@@ -3,33 +3,31 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
-  Filter,
   Download,
   CheckSquare,
   Square,
   ChevronRight,
   X,
   Clock,
-  CircleDollarSign,
   Utensils,
-  RefreshCw,
   ArrowUpDown,
   Calendar,
-  CreditCard,
   Sparkles,
-  ChevronDown
+  LayoutGrid,
+  History
 } from "lucide-react";
 import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
+import SharedOrderKanban from "@/components/orders/SharedOrderKanban";
+import { ORDER_STATUS_MAP } from "@/lib/orders/orderUtils";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
+type MainTab = "live" | "history";
 type SortOption = "newest" | "oldest" | "highest" | "lowest";
 type StatusFilter = "all" | "pending" | "placed" | "in_kitchen" | "ready" | "completed" | "served" | "cancelled";
 type DateRangeFilter = "today" | "7d" | "30d" | "all";
-type PaymentFilter = "all" | "paid" | "unpaid";
-type SourceFilter = "all" | "qr_table" | "counter_pos";
 
 export default function OwnerOrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -37,7 +35,12 @@ export default function OwnerOrdersPage() {
   const queryClient = useQueryClient();
   const currency = cafe?.currency ?? "USD";
 
-  // Filter States initialized from URL params if present
+  // Navigation Tab State (Live vs History)
+  const [activeTab, setActiveTab] = useState<MainTab>(
+    (searchParams.get("tab") as MainTab) ?? "live"
+  );
+
+  // Filter States
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") ?? "");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     (searchParams.get("status") as StatusFilter) ?? "all"
@@ -45,19 +48,21 @@ export default function OwnerOrdersPage() {
   const [dateRange, setDateRange] = useState<DateRangeFilter>(
     (searchParams.get("range") as DateRangeFilter) ?? "all"
   );
-  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
 
-  // Drawer / Selection state
+  // Selection & Drawer States
   const [selectedOrder, setSelectedOrder] = useState<(Order & { order_items: OrderItem[] }) | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  // Sync status & range changes to URL query parameters
+  // Sync tab & filters from URL search parameters
   useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "live" || tabParam === "history") setActiveTab(tabParam);
+
     const statusParam = searchParams.get("status");
     if (statusParam) setStatusFilter(statusParam as StatusFilter);
+
     const rangeParam = searchParams.get("range");
     if (rangeParam) setDateRange(rangeParam as DateRangeFilter);
   }, [searchParams]);
@@ -101,7 +106,7 @@ export default function OwnerOrdersPage() {
       if (error) throw error;
       return (data ?? []) as unknown as (Order & { order_items: OrderItem[] })[];
     },
-    refetchInterval: 5000, // Real-time poll every 5s
+    refetchInterval: 5000,
   });
 
   // Fetch tables mapping
@@ -117,7 +122,14 @@ export default function OwnerOrdersPage() {
   const orders = ordersQ.data ?? [];
   const tables = tablesQ.data ?? [];
 
-  // Deep-link check for specific orderId in URL
+  // Table Label Mapping Helper
+  const tableLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tables) map.set(t.id, t.label);
+    return map;
+  }, [tables]);
+
+  // Deep-link trigger for specific orderId in URL
   useEffect(() => {
     const orderIdParam = searchParams.get("orderId");
     if (orderIdParam && orders.length > 0) {
@@ -126,21 +138,13 @@ export default function OwnerOrdersPage() {
     }
   }, [searchParams, orders]);
 
-  // Table Label Helper Map
-  const tableLabelMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const t of tables) map.set(t.id, t.label);
-    return map;
-  }, [tables]);
-
-  // Filtered and Sorted Orders List
+  // Filtered & Sorted Orders for History View
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const tableLabel = tableLabelMap.get(o.table_id) ?? "";
       const orderLabel = formatOrderLabel(o.order_number).toLowerCase();
       const query = searchQuery.toLowerCase().trim();
 
-      // Search match
       if (
         query &&
         !orderLabel.includes(query) &&
@@ -150,7 +154,6 @@ export default function OwnerOrdersPage() {
         return false;
       }
 
-      // Status filter
       if (statusFilter === "pending") {
         if (o.status !== "placed" && o.status !== "in_kitchen") return false;
       } else if (statusFilter === "completed") {
@@ -164,11 +167,11 @@ export default function OwnerOrdersPage() {
       if (sortBy === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       if (sortBy === "highest") return b.total_cents - a.total_cents;
       if (sortBy === "lowest") return a.total_cents - b.total_cents;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // newest
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [orders, searchQuery, statusFilter, tableLabelMap, sortBy]);
 
-  // Bulk Selection Handlers
+  // Selection state helpers for History view
   const isAllSelected = filteredOrders.length > 0 && selectedIds.length === filteredOrders.length;
   const toggleSelectAll = () => {
     if (isAllSelected) {
@@ -191,20 +194,20 @@ export default function OwnerOrdersPage() {
         .update({ status: nextStatus, updated_at: new Date().toISOString() })
         .eq("id", orderId);
       if (error) throw error;
-      toast.success(`Order status updated to ${nextStatus}`);
+      toast.success(`Order updated to ${nextStatus}`);
       void queryClient.invalidateQueries({ queryKey: ["owner-orders-page"] });
       if (selectedOrder?.id === orderId) {
         setSelectedOrder((prev) => (prev ? { ...prev, status: nextStatus } : null));
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to update order status";
+      const msg = err instanceof Error ? err.message : "Failed to update status";
       toast.error(msg);
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
-  // Export CSV Handler
+  // CSV Export Handler
   const exportCSV = () => {
     const listToExport = selectedIds.length > 0
       ? filteredOrders.filter((o) => selectedIds.includes(o.id))
@@ -232,212 +235,257 @@ export default function OwnerOrdersPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `orderrail-orders-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `orderrail-export-${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success(`Exported ${listToExport.length} orders to CSV.`);
+    toast.success(`Exported ${listToExport.length} orders.`);
   };
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Header Bar */}
+      {/* Header & Main Nav Tabs */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Order Management</h1>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Order Operations Center</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? "OrderRail"} · Live operational hub & order stream
+            {cafe?.name ?? "OrderRail"} · Live restaurant orders & history
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <GlobalNotificationControls />
-          <button
-            onClick={exportCSV}
-            className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80 active:scale-95"
-            title="Export current view to CSV"
-          >
-            <Download className="h-4 w-4" /> Export CSV ({selectedIds.length || filteredOrders.length})
-          </button>
+
+          {/* TASK 1 — Live vs History Navigation Tabs */}
+          <div className="inline-flex rounded-full bg-secondary p-1 text-xs font-medium shadow-inner">
+            <button
+              onClick={() => setActiveTab("live")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold",
+                activeTab === "live"
+                  ? "bg-brand text-brand-foreground shadow-soft"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" /> Live KDS
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold",
+                activeTab === "history"
+                  ? "bg-brand text-brand-foreground shadow-soft"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <History className="h-3.5 w-3.5" /> History
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* MILESTONE 1 — Filters & Search Control Bar */}
-      <section className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-4">
-        {/* Search & Main Filter Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search Bar */}
-          <div className="relative min-w-[240px] flex-1">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by Order #, Table, or notes..."
-              className="w-full rounded-2xl border border-border bg-background pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60"
-            />
-            {searchQuery && (
+      {/* VIEW 1: LIVE OPERATIONS KANBAN */}
+      {activeTab === "live" && (
+        <section className="space-y-4">
+          <SharedOrderKanban
+            orders={orders}
+            tableLabelMap={tableLabelMap}
+            currency={currency}
+            onSelectOrder={(order) => setSelectedOrder(order)}
+            onUpdateStatus={updateOrderStatus}
+            isUpdatingStatus={isUpdatingStatus}
+          />
+        </section>
+      )}
+
+      {/* VIEW 2: ORDER HISTORY TABLE & EXPORT */}
+      {activeTab === "history" && (
+        <section className="space-y-6">
+          {/* Controls Bar */}
+          <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Search Bar */}
+              <div className="relative min-w-[240px] flex-1">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by Order #, Table, or notes..."
+                  className="w-full rounded-2xl border border-border bg-background pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Date Range Selector */}
+              <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1.5 text-xs font-medium">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <select
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value as DateRangeFilter)}
+                  className="bg-transparent outline-none cursor-pointer text-foreground"
+                >
+                  <option value="all">All Dates</option>
+                  <option value="today">Today</option>
+                  <option value="7d">Last 7 Days</option>
+                  <option value="30d">Last 30 Days</option>
+                </select>
+              </div>
+
+              {/* Sort By Selector */}
+              <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1.5 text-xs font-medium">
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="bg-transparent outline-none cursor-pointer text-foreground"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="highest">Highest Total</option>
+                  <option value="lowest">Lowest Total</option>
+                </select>
+              </div>
+
+              {/* Export CSV Button */}
               <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={exportCSV}
+                className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80 active:scale-95"
               >
-                <X className="h-4 w-4" />
+                <Download className="h-4 w-4" /> Export CSV ({selectedIds.length || filteredOrders.length})
               </button>
-            )}
+            </div>
+
+            {/* Status Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
+              {[
+                { id: "all", label: "All Orders" },
+                { id: "pending", label: "Pending", highlight: true },
+                { id: "placed", label: "Placed" },
+                { id: "in_kitchen", label: "Cooking" },
+                { id: "ready", label: "Ready" },
+                { id: "served", label: "Served" },
+                { id: "cancelled", label: "Cancelled" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id as StatusFilter)}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 text-xs font-semibold transition duration-150",
+                    statusFilter === tab.id
+                      ? "bg-brand text-brand-foreground shadow-soft"
+                      : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    tab.highlight && statusFilter !== tab.id && "text-amber-600 bg-amber-500/10 font-bold"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Date Range Selector */}
-          <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1.5 text-xs font-medium">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as DateRangeFilter)}
-              className="bg-transparent outline-none cursor-pointer text-foreground"
-            >
-              <option value="all">All Dates</option>
-              <option value="today">Today</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-            </select>
-          </div>
-
-          {/* Sort By Selector */}
-          <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1.5 text-xs font-medium">
-            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-transparent outline-none cursor-pointer text-foreground"
-            >
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="highest">Highest Total</option>
-              <option value="lowest">Lowest Total</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Status Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
-          {[
-            { id: "all", label: "All Orders" },
-            { id: "pending", label: "Pending", highlight: true },
-            { id: "placed", label: "Placed" },
-            { id: "in_kitchen", label: "Cooking" },
-            { id: "ready", label: "Ready" },
-            { id: "served", label: "Served" },
-            { id: "cancelled", label: "Cancelled" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id as StatusFilter)}
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-xs font-semibold transition duration-150",
-                statusFilter === tab.id
-                  ? "bg-brand text-brand-foreground shadow-soft"
-                  : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground",
-                tab.highlight && statusFilter !== tab.id && "text-amber-600 bg-amber-500/10 font-bold"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* MILESTONE 1 & 3 — Responsive Orders Table / Cards View */}
-      <section className="rounded-3xl bg-card shadow-soft ring-1 ring-border/60 overflow-hidden">
-        {ordersQ.isLoading ? (
-          <TableSkeleton />
-        ) : filteredOrders.length === 0 ? (
-          <div className="py-16 text-center text-muted-foreground space-y-2">
-            <Utensils className="mx-auto h-8 w-8 text-muted-foreground/50" />
-            <p className="font-display text-base font-semibold">No orders found</p>
-            <p className="text-xs">Try adjusting your search query or status filters.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border/60">
-                <tr>
-                  <th className="p-4 w-10">
-                    <button onClick={toggleSelectAll} className="grid place-items-center">
-                      {isAllSelected ? (
-                        <CheckSquare className="h-4 w-4 text-accent" />
-                      ) : (
-                        <Square className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="p-4">Order #</th>
-                  <th className="p-4">Table</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Items Summary</th>
-                  <th className="p-4 text-right">Total</th>
-                  <th className="p-4 text-right">Time</th>
-                  <th className="p-4 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {filteredOrders.map((o) => {
-                  const isSelected = selectedIds.includes(o.id);
-                  return (
-                    <tr
-                      key={o.id}
-                      onClick={() => setSelectedOrder(o)}
-                      className={cn(
-                        "cursor-pointer transition hover:bg-secondary/40 select-none",
-                        isSelected && "bg-accent/5"
-                      )}
-                    >
-                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => toggleSelectRow(o.id)} className="grid place-items-center">
-                          {isSelected ? (
+          {/* History Table */}
+          <div className="rounded-3xl bg-card shadow-soft ring-1 ring-border/60 overflow-hidden">
+            {ordersQ.isLoading ? (
+              <TableSkeleton />
+            ) : filteredOrders.length === 0 ? (
+              <div className="py-16 text-center text-muted-foreground space-y-2">
+                <Utensils className="mx-auto h-8 w-8 text-muted-foreground/50" />
+                <p className="font-display text-base font-semibold">No history orders found</p>
+                <p className="text-xs">Adjust your search parameters or date filters.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border/60">
+                    <tr>
+                      <th className="p-4 w-10">
+                        <button onClick={toggleSelectAll} className="grid place-items-center">
+                          {isAllSelected ? (
                             <CheckSquare className="h-4 w-4 text-accent" />
                           ) : (
                             <Square className="h-4 w-4 text-muted-foreground" />
                           )}
                         </button>
-                      </td>
-                      <td className="p-4 font-display font-bold text-foreground">
-                        {formatOrderLabel(o.order_number)}
-                      </td>
-                      <td className="p-4 font-medium text-foreground">
-                        Table {tableLabelMap.get(o.table_id) ?? "?"}
-                      </td>
-                      <td className="p-4">
-                        <OrderStatusBadge status={o.status} />
-                      </td>
-                      <td className="p-4 text-xs text-muted-foreground max-w-xs truncate">
-                        {(o.order_items ?? []).map((it) => `${it.qty}x ${it.name}`).join(", ")}
-                      </td>
-                      <td className="p-4 text-right font-semibold tabular-nums text-foreground">
-                        {formatMoney(o.total_cents, currency)}
-                      </td>
-                      <td className="p-4 text-right text-xs text-muted-foreground tabular-nums">
-                        {new Date(o.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </td>
-                      <td className="p-4 text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedOrder(o);
-                          }}
-                          className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
-                        >
-                          Details <ChevronRight className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
+                      </th>
+                      <th className="p-4">Order #</th>
+                      <th className="p-4">Table</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4">Items Summary</th>
+                      <th className="p-4 text-right">Total</th>
+                      <th className="p-4 text-right">Time</th>
+                      <th className="p-4 text-center">Action</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {filteredOrders.map((o) => {
+                      const isSelected = selectedIds.includes(o.id);
+                      return (
+                        <tr
+                          key={o.id}
+                          onClick={() => setSelectedOrder(o)}
+                          className={cn(
+                            "cursor-pointer transition hover:bg-secondary/40 select-none",
+                            isSelected && "bg-accent/5"
+                          )}
+                        >
+                          <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => toggleSelectRow(o.id)} className="grid place-items-center">
+                              {isSelected ? (
+                                <CheckSquare className="h-4 w-4 text-accent" />
+                              ) : (
+                                <Square className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </button>
+                          </td>
+                          <td className="p-4 font-display font-bold text-foreground">
+                            {formatOrderLabel(o.order_number)}
+                          </td>
+                          <td className="p-4 font-medium text-foreground">
+                            Table {tableLabelMap.get(o.table_id) ?? "?"}
+                          </td>
+                          <td className="p-4">
+                            <OrderStatusBadge status={o.status} />
+                          </td>
+                          <td className="p-4 text-xs text-muted-foreground max-w-xs truncate">
+                            {(o.order_items ?? []).map((it) => `${it.qty}x ${it.name}`).join(", ")}
+                          </td>
+                          <td className="p-4 text-right font-semibold tabular-nums text-foreground">
+                            {formatMoney(o.total_cents, currency)}
+                          </td>
+                          <td className="p-4 text-right text-xs text-muted-foreground tabular-nums">
+                            {new Date(o.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                          <td className="p-4 text-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOrder(o);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
+                            >
+                              Details <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
-      {/* MILESTONE 2 — Order Details Drawer */}
+      {/* Order Details Drawer */}
       {selectedOrder && (
         <div
           className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex justify-end"
@@ -502,7 +550,7 @@ export default function OwnerOrdersPage() {
                 </div>
               )}
 
-              {/* Future POS Billing Breakdown Structure */}
+              {/* Billing Breakdown */}
               <div className="mt-6 space-y-2 rounded-2xl bg-secondary/30 p-4 text-xs">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Gross Subtotal</span>
@@ -530,7 +578,7 @@ export default function OwnerOrdersPage() {
               </div>
             </div>
 
-            {/* Quick Status Control Buttons */}
+            {/* Status Control Actions */}
             <div className="border-t border-border/60 pt-4 space-y-2">
               <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Update Status</div>
               <div className="grid grid-cols-2 gap-2">
@@ -573,17 +621,10 @@ export default function OwnerOrdersPage() {
 
 // Order Status Badge Component
 function OrderStatusBadge({ status }: { status: Order["status"] }) {
-  const meta: Record<Order["status"], { label: string; style: string }> = {
-    placed: { label: "Placed", style: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-    in_kitchen: { label: "Cooking", style: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-    ready: { label: "Ready", style: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-    served: { label: "Served", style: "bg-secondary text-muted-foreground border-border" },
-    cancelled: { label: "Cancelled", style: "bg-destructive/10 text-destructive border-destructive/20" }
-  };
-  const current = meta[status] ?? { label: status, style: "bg-muted text-muted-foreground" };
+  const meta = ORDER_STATUS_MAP[status] ?? { label: status, badgeStyle: "bg-muted text-muted-foreground" };
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border", current.style)}>
-      {current.label}
+    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border", meta.badgeStyle)}>
+      {meta.label}
     </span>
   );
 }

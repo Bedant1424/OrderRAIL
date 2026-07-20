@@ -254,7 +254,7 @@ export default function OwnerAnalyticsPage() {
             </span>
           </div>
           <Link
-            to="/owner/orders"
+            to="/owner/orders?tab=live&status=pending"
             className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-500/25 dark:text-amber-300 transition"
           >
             Manage Orders <ChevronRight className="h-3.5 w-3.5" />
@@ -453,7 +453,7 @@ export default function OwnerAnalyticsPage() {
                 <h2 className="font-display text-base font-semibold">Recent Live Orders</h2>
                 <p className="text-xs text-muted-foreground">Real-time customer order stream</p>
               </div>
-              <Link to="/owner/orders" className="text-xs font-semibold text-accent hover:underline flex items-center gap-1">
+              <Link to="/owner/orders?tab=live" className="text-xs font-semibold text-accent hover:underline flex items-center gap-1">
                 View all <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -465,9 +465,10 @@ export default function OwnerAnalyticsPage() {
             ) : (
               <div className="space-y-2.5">
                 {orders.slice(0, 5).map((o) => (
-                  <div
+                  <Link
                     key={o.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/40 p-3 text-xs transition hover:bg-secondary/70"
+                    to={`/owner/orders?tab=live&orderId=${o.id}`}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/40 p-3 text-xs transition hover:bg-secondary/70 block"
                   >
                     <div className="flex items-center gap-3">
                       <span className="grid h-8 w-8 place-items-center rounded-xl bg-background font-display font-bold shadow-soft">
@@ -488,7 +489,7 @@ export default function OwnerAnalyticsPage() {
                         {formatMoney(o.total_cents, currency)}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
