@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Utensils } from "lucide-react";
 import type { TableRow, Order } from "@/lib/db";
+import { ORDER_STATUS_MAP } from "@/lib/orders/orderUtils";
 import { cn } from "@/lib/utils";
 
 export interface OccupiedTablesWidgetProps {
@@ -16,7 +17,7 @@ export default function OccupiedTablesWidget({
   onSelectTableFilter,
   selectedTableId = null,
 }: OccupiedTablesWidgetProps) {
-  // Task 4: Numerically sort tables (1 2 3 4 5 6 7 8 9 10)
+  // Numerically sort tables (1 2 3 4 5 6 7 8 9 10)
   const sortedTables = useMemo(() => {
     return [...tables].sort((a, b) => {
       const numA = parseInt(a.label.replace(/\D/g, ""), 10);
@@ -26,18 +27,26 @@ export default function OccupiedTablesWidget({
     });
   }, [tables]);
 
-  // Map occupied tables to active order count
-  const occupiedTableStats = useMemo(() => {
-    const map = new Map<string, number>();
+  // Task 5: Map occupied table IDs to their primary active order status and count
+  const occupiedTableDetails = useMemo(() => {
+    const map = new Map<string, { count: number; primaryStatus: Order["status"] }>();
     for (const o of pendingOrders) {
-      const cur = map.get(o.table_id) ?? 0;
-      map.set(o.table_id, cur + 1);
+      if (o.status !== "placed" && o.status !== "in_kitchen" && o.status !== "ready") continue;
+      const cur = map.get(o.table_id);
+      if (!cur) {
+        map.set(o.table_id, { count: 1, primaryStatus: o.status });
+      } else {
+        // Priority status ranking: placed > in_kitchen > ready
+        let status = cur.primaryStatus;
+        if (o.status === "placed") status = "placed";
+        map.set(o.table_id, { count: cur.count + 1, primaryStatus: status });
+      }
     }
     return map;
   }, [pendingOrders]);
 
   const totalTables = tables.length || 1;
-  const occupiedCount = occupiedTableStats.size;
+  const occupiedCount = occupiedTableDetails.size;
   const occupancyPercentage = Math.round((occupiedCount / totalTables) * 100);
 
   return (
@@ -66,12 +75,13 @@ export default function OccupiedTablesWidget({
         )}
       </div>
 
-      {/* Numerically Sorted Table Chips Stream */}
+      {/* Task 5: Enhanced Numerically Sorted Table Chips showing Status */}
       <div className="flex flex-wrap items-center gap-2">
         {sortedTables.map((table) => {
-          const activeOrdersCount = occupiedTableStats.get(table.id) ?? 0;
-          const isOccupied = activeOrdersCount > 0;
+          const details = occupiedTableDetails.get(table.id);
+          const isOccupied = !!details;
           const isSelected = selectedTableId === table.id;
+          const statusMeta = details ? ORDER_STATUS_MAP[details.primaryStatus] : null;
 
           return (
             <button
@@ -87,9 +97,10 @@ export default function OccupiedTablesWidget({
               )}
             >
               <span>Table {table.label}</span>
-              {isOccupied ? (
-                <span className="grid h-4 w-4 place-items-center rounded-full bg-amber-500 text-[10px] font-extrabold text-amber-950 tabular-nums">
-                  {activeOrdersCount}
+              {isOccupied && statusMeta ? (
+                <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border", statusMeta.badgeStyle)}>
+                  {statusMeta.label}
+                  {details.count > 1 && <span className="font-black">({details.count})</span>}
                 </span>
               ) : (
                 <span className="h-2 w-2 rounded-full bg-emerald-500/60" />

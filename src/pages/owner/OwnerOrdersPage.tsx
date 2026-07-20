@@ -27,6 +27,7 @@ import { GlobalNotificationControls } from "@/components/owner/GlobalNotificatio
 import SharedOrderKanban from "@/components/orders/SharedOrderKanban";
 import OccupiedTablesWidget from "@/components/orders/OccupiedTablesWidget";
 import { ORDER_STATUS_MAP, getNextOrderStatus } from "@/lib/orders/orderUtils";
+import { calculateOperationalSummary } from "@/lib/orders/metrics";
 import { generateOrdersCSV } from "@/lib/orders/csvExporter";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -143,39 +144,8 @@ export default function OwnerOrdersPage() {
     return map;
   }, [tables]);
 
-  // Task 9: Live Operational Summary Metrics (Active Orders, Occupied Tables, Avg Wait, Longest Wait)
-  const operationalSummary = useMemo(() => {
-    const activeOrders = orders.filter((o) => o.status === "placed" || o.status === "in_kitchen" || o.status === "ready");
-    const activeTableCount = new Set(activeOrders.map((o) => o.table_id)).size;
-
-    if (activeOrders.length === 0) {
-      return {
-        activeCount: 0,
-        occupiedTables: 0,
-        avgWaitMins: "—",
-        longestWaitMins: "—"
-      };
-    }
-
-    let totalWaitMs = 0;
-    let maxWaitMs = 0;
-
-    for (const o of activeOrders) {
-      const waitMs = Math.max(0, Date.now() - new Date(o.created_at).getTime());
-      totalWaitMs += waitMs;
-      if (waitMs > maxWaitMs) maxWaitMs = waitMs;
-    }
-
-    const avgMins = Math.round((totalWaitMs / activeOrders.length) / (1000 * 60));
-    const maxMins = Math.round(maxWaitMs / (1000 * 60));
-
-    return {
-      activeCount: activeOrders.length,
-      occupiedTables: activeTableCount,
-      avgWaitMins: `~${avgMins} mins`,
-      longestWaitMins: maxMins > 20 ? `${maxMins} mins (Urgent)` : `${maxMins} mins`
-    };
-  }, [orders]);
+  // Task 1, 2, 3, 4 & 6: Clean operational metrics engine consumption
+  const summary = useMemo(() => calculateOperationalSummary(orders), [orders]);
 
   // Deep-link trigger for orderId param
   useEffect(() => {
@@ -328,29 +298,29 @@ export default function OwnerOrdersPage() {
         </div>
       </header>
 
-      {/* Task 9: Live Operational Summary Bar */}
+      {/* Task 4 & 6: Polished Summary Cards */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Orders</div>
-          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{operationalSummary.activeCount}</div>
-          <div className="text-[11px] text-muted-foreground">In pipeline</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{summary.activeCount}</div>
+          <div className="text-[11px] text-muted-foreground">{summary.activeOrdersText} in pipeline</div>
         </div>
 
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Occupied Tables</div>
-          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{operationalSummary.occupiedTables}</div>
-          <div className="text-[11px] text-muted-foreground">Active diners</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{summary.occupiedTablesCount}</div>
+          <div className="text-[11px] text-muted-foreground">{summary.occupiedTablesText}</div>
         </div>
 
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg Active Wait</div>
-          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{operationalSummary.avgWaitMins}</div>
-          <div className="text-[11px] text-muted-foreground">Target &lt;15 mins</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{summary.avgWaitMinsFormatted}</div>
+          <div className="text-[11px] text-muted-foreground">Target &lt; 15 min</div>
         </div>
 
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Longest Wait</div>
-          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">{operationalSummary.longestWaitMins}</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">{summary.longestWaitMinsFormatted}</div>
           <div className="text-[11px] text-muted-foreground">Attention needed</div>
         </div>
       </section>
@@ -657,7 +627,7 @@ export default function OwnerOrdersPage() {
               </div>
             </div>
 
-            {/* Task 3: Terminal State Order Details Drawer Actions */}
+            {/* Terminal State Order Details Drawer Actions */}
             <div className="border-t border-border/60 pt-4">
               {selectedOrder.status === "served" || selectedOrder.status === "cancelled" ? (
                 <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
