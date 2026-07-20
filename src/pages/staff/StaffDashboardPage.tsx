@@ -495,6 +495,7 @@ export default function StaffDashboardPage() {
       .channel(`staff-${cafeId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `cafe_id=eq.${cafeId}` }, (payload) => {
         void qc.invalidateQueries({ queryKey: ["staff-orders", cafeId] });
+        void qc.invalidateQueries({ queryKey: ["shared-orders", cafeId] });
         
         if (payload.eventType === "INSERT") {
           const newOrder = payload.new as Order;
