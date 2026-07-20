@@ -3,8 +3,7 @@ import { formatOrderLabel } from "@/lib/db";
 
 /**
  * Standardized CSV Exporter Module
- * Ensures robust escaping for commas, quotation marks, and multiline notes.
- * Enforces the standardized column order specified in Sprint 3B.3.2R2.
+ * RFC 4180 compliant with human-readable date/time formats and validated payment/customer fields.
  */
 
 export const STANDARDIZED_CSV_HEADERS = [
@@ -32,8 +31,7 @@ export const STANDARDIZED_CSV_HEADERS = [
 
 /**
  * Escapes a cell value for RFC 4180 CSV compliance:
- *   - Double quotes within a string are escaped as `""`
- *   - Any cell containing commas, double quotes, or newlines is wrapped in double quotes
+ * Double quotes are escaped as `""`, and cells with commas/quotes/newlines are wrapped in double quotes.
  */
 export function escapeCSVCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '""';
@@ -50,11 +48,22 @@ export function generateOrdersCSV(
 
   const rows = orders.map((o) => {
     const createdDate = new Date(o.created_at);
+    
+    // Task 6: Human-readable Date (YYYY-MM-DD) and Time (10:35 PM)
     const dateStr = createdDate.toISOString().slice(0, 10);
-    const timeStr = createdDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const timeStr = createdDate.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+    
     const tableLabel = `Table ${tableLabelMap.get(o.table_id) ?? "?"}`;
-    const orderSource = "QR Table Order"; // Future POS placeholder
-    const customer = "Diner";
+    const orderSource = "QR Table Order";
+    
+    // Task 7: Validated Customer & Payment Status
+    const customer = "QR Customer";
+    const paymentStatus = o.status === "served" ? "Paid" : o.status === "cancelled" ? "Cancelled" : "Pending";
+    
     const itemCount = (o.order_items ?? []).reduce((s, it) => s + it.qty, 0);
     const itemsFormatted = (o.order_items ?? []).map((it) => `${it.qty}x ${it.name}`).join("; ");
     const specialNotes = o.notes ?? "";
@@ -62,12 +71,11 @@ export function generateOrdersCSV(
     const discount = "0.00";
     const tax = "0.00";
     const netTotal = grossAmount;
-    const paymentStatus = "Paid"; // Future POS placeholder
     const createdAt = createdDate.toISOString();
     const updatedAt = o.updated_at ? new Date(o.updated_at).toISOString() : "";
-    const paymentMethod = "Digital / QR"; // Future POS placeholder
-    const servedAt = o.status === "served" ? updatedAt : "";
-    const completedAt = o.status === "served" ? updatedAt : "";
+    const paymentMethod = "Digital / QR";
+    const servedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+    const completedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
 
     return [
       escapeCSVCell(formatOrderLabel(o.order_number)),

@@ -15,15 +15,18 @@ import {
   Sparkles,
   LayoutGrid,
   History,
-  Activity,
-  Radio
+  Radio,
+  Timer,
+  AlertCircle,
+  CheckCircle2,
+  Users
 } from "lucide-react";
 import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import SharedOrderKanban from "@/components/orders/SharedOrderKanban";
 import OccupiedTablesWidget from "@/components/orders/OccupiedTablesWidget";
-import { ORDER_STATUS_MAP } from "@/lib/orders/orderUtils";
+import { ORDER_STATUS_MAP, getNextOrderStatus } from "@/lib/orders/orderUtils";
 import { generateOrdersCSV } from "@/lib/orders/csvExporter";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -140,6 +143,40 @@ export default function OwnerOrdersPage() {
     return map;
   }, [tables]);
 
+  // Task 9: Live Operational Summary Metrics (Active Orders, Occupied Tables, Avg Wait, Longest Wait)
+  const operationalSummary = useMemo(() => {
+    const activeOrders = orders.filter((o) => o.status === "placed" || o.status === "in_kitchen" || o.status === "ready");
+    const activeTableCount = new Set(activeOrders.map((o) => o.table_id)).size;
+
+    if (activeOrders.length === 0) {
+      return {
+        activeCount: 0,
+        occupiedTables: 0,
+        avgWaitMins: "—",
+        longestWaitMins: "—"
+      };
+    }
+
+    let totalWaitMs = 0;
+    let maxWaitMs = 0;
+
+    for (const o of activeOrders) {
+      const waitMs = Math.max(0, Date.now() - new Date(o.created_at).getTime());
+      totalWaitMs += waitMs;
+      if (waitMs > maxWaitMs) maxWaitMs = waitMs;
+    }
+
+    const avgMins = Math.round((totalWaitMs / activeOrders.length) / (1000 * 60));
+    const maxMins = Math.round(maxWaitMs / (1000 * 60));
+
+    return {
+      activeCount: activeOrders.length,
+      occupiedTables: activeTableCount,
+      avgWaitMins: `~${avgMins} mins`,
+      longestWaitMins: maxMins > 20 ? `${maxMins} mins (Urgent)` : `${maxMins} mins`
+    };
+  }, [orders]);
+
   // Deep-link trigger for orderId param
   useEffect(() => {
     const orderIdParam = searchParams.get("orderId");
@@ -220,7 +257,7 @@ export default function OwnerOrdersPage() {
     }
   };
 
-  // Task 4 & 5: Standardized CSV Exporter
+  // Standardized CSV Exporter
   const handleExportCSV = () => {
     const listToExport = selectedIds.length > 0
       ? filteredOrders.filter((o) => selectedIds.includes(o.id))
@@ -251,7 +288,6 @@ export default function OwnerOrdersPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-display text-3xl font-semibold tracking-tight">Order Operations Center</h1>
-            {/* Task 6: Live Status Indicator */}
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 border border-emerald-500/20">
               <Radio className="h-3 w-3 animate-pulse text-emerald-500" /> Live Sync Active
             </span>
@@ -292,7 +328,34 @@ export default function OwnerOrdersPage() {
         </div>
       </header>
 
-      {/* Task 7: Occupied Tables Operational Widget */}
+      {/* Task 9: Live Operational Summary Bar */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Orders</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{operationalSummary.activeCount}</div>
+          <div className="text-[11px] text-muted-foreground">In pipeline</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Occupied Tables</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{operationalSummary.occupiedTables}</div>
+          <div className="text-[11px] text-muted-foreground">Active diners</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg Active Wait</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{operationalSummary.avgWaitMins}</div>
+          <div className="text-[11px] text-muted-foreground">Target &lt;15 mins</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Longest Wait</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">{operationalSummary.longestWaitMins}</div>
+          <div className="text-[11px] text-muted-foreground">Attention needed</div>
+        </div>
+      </section>
+
+      {/* Occupied Tables Operational Widget */}
       <OccupiedTablesWidget
         tables={tables}
         pendingOrders={pendingOrders}
@@ -594,39 +657,42 @@ export default function OwnerOrdersPage() {
               </div>
             </div>
 
-            {/* Status Control Actions */}
-            <div className="border-t border-border/60 pt-4 space-y-2">
-              <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Update Status</div>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  disabled={isUpdatingStatus || selectedOrder.status === "in_kitchen"}
-                  onClick={() => updateOrderStatus(selectedOrder.id, "in_kitchen")}
-                  className="rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 py-2 text-xs font-semibold hover:bg-amber-500/20 transition disabled:opacity-50"
-                >
-                  Mark Cooking
-                </button>
-                <button
-                  disabled={isUpdatingStatus || selectedOrder.status === "ready"}
-                  onClick={() => updateOrderStatus(selectedOrder.id, "ready")}
-                  className="rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 py-2 text-xs font-semibold hover:bg-emerald-500/20 transition disabled:opacity-50"
-                >
-                  Mark Ready
-                </button>
-                <button
-                  disabled={isUpdatingStatus || selectedOrder.status === "served"}
-                  onClick={() => updateOrderStatus(selectedOrder.id, "served")}
-                  className="rounded-xl bg-brand text-brand-foreground py-2 text-xs font-semibold shadow-soft hover:opacity-90 transition disabled:opacity-50"
-                >
-                  Mark Served
-                </button>
-                <button
-                  disabled={isUpdatingStatus || selectedOrder.status === "cancelled"}
-                  onClick={() => updateOrderStatus(selectedOrder.id, "cancelled")}
-                  className="rounded-xl bg-destructive/10 text-destructive border border-destructive/20 py-2 text-xs font-semibold hover:bg-destructive/20 transition disabled:opacity-50"
-                >
-                  Cancel Order
-                </button>
-              </div>
+            {/* Task 3: Terminal State Order Details Drawer Actions */}
+            <div className="border-t border-border/60 pt-4">
+              {selectedOrder.status === "served" || selectedOrder.status === "cancelled" ? (
+                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <strong>Order Completed ({selectedOrder.status})</strong>
+                    <p className="text-[11px] text-muted-foreground">This workflow is in terminal read-only state.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Next Action</div>
+                  {getNextOrderStatus(selectedOrder.status) && (
+                    <button
+                      disabled={isUpdatingStatus}
+                      onClick={() => updateOrderStatus(selectedOrder.id, getNextOrderStatus(selectedOrder.status)!)}
+                      className="w-full rounded-xl bg-brand text-brand-foreground py-2.5 text-xs font-semibold shadow-soft hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      <span>
+                        {getNextOrderStatus(selectedOrder.status) === "in_kitchen" && "Start Preparing Order"}
+                        {getNextOrderStatus(selectedOrder.status) === "ready" && "Mark Order Ready"}
+                        {getNextOrderStatus(selectedOrder.status) === "served" && "Serve Order"}
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button
+                    disabled={isUpdatingStatus}
+                    onClick={() => updateOrderStatus(selectedOrder.id, "cancelled")}
+                    className="w-full rounded-xl bg-destructive/10 text-destructive border border-destructive/20 py-2 text-xs font-semibold hover:bg-destructive/20 transition disabled:opacity-50"
+                  >
+                    Cancel Order
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Utensils, CheckCircle2, ChevronRight, Users } from "lucide-react";
+import { Utensils } from "lucide-react";
 import type { TableRow, Order } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,17 @@ export default function OccupiedTablesWidget({
   onSelectTableFilter,
   selectedTableId = null,
 }: OccupiedTablesWidgetProps) {
-  // Map occupied tables to their active pending orders count
+  // Task 4: Numerically sort tables (1 2 3 4 5 6 7 8 9 10)
+  const sortedTables = useMemo(() => {
+    return [...tables].sort((a, b) => {
+      const numA = parseInt(a.label.replace(/\D/g, ""), 10);
+      const numB = parseInt(b.label.replace(/\D/g, ""), 10);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" });
+    });
+  }, [tables]);
+
+  // Map occupied tables to active order count
   const occupiedTableStats = useMemo(() => {
     const map = new Map<string, number>();
     for (const o of pendingOrders) {
@@ -56,9 +66,9 @@ export default function OccupiedTablesWidget({
         )}
       </div>
 
-      {/* Table Chips Stream */}
+      {/* Numerically Sorted Table Chips Stream */}
       <div className="flex flex-wrap items-center gap-2">
-        {tables.map((table) => {
+        {sortedTables.map((table) => {
           const activeOrdersCount = occupiedTableStats.get(table.id) ?? 0;
           const isOccupied = activeOrdersCount > 0;
           const isSelected = selectedTableId === table.id;
