@@ -304,9 +304,9 @@ export default function B2bLandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.45 }}
-              className="grid gap-8 lg:grid-cols-12 lg:items-center"
+              className="grid gap-8 lg:grid-cols-12 lg:items-center min-w-0"
             >
-              <div className="lg:col-span-5">
+              <div className="lg:col-span-5 min-w-0">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                   <Smartphone className="h-3.5 w-3.5" /> Customer Ordering Experience
                 </span>
@@ -328,7 +328,7 @@ export default function B2bLandingPage() {
                   </li>
                 </ul>
               </div>
-              <div className="lg:col-span-7 flex justify-center">
+              <div className="lg:col-span-7 flex justify-center min-w-0">
                 <CustomerAppMockup />
               </div>
             </motion.div>
@@ -339,9 +339,9 @@ export default function B2bLandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.45 }}
-              className="grid gap-8 lg:grid-cols-12 lg:items-start"
+              className="grid gap-8 lg:grid-cols-12 lg:items-start min-w-0"
             >
-              <div className="lg:col-span-12">
+              <div className="lg:col-span-12 min-w-0">
                 <div className="mb-3">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                     <ChefHat className="h-3.5 w-3.5" /> Kitchen & Service Display
@@ -363,9 +363,9 @@ export default function B2bLandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.45 }}
-              className="grid gap-8 lg:grid-cols-12 lg:items-start"
+              className="grid gap-8 lg:grid-cols-12 lg:items-start min-w-0"
             >
-              <div className="lg:col-span-12">
+              <div className="lg:col-span-12 min-w-0">
                 <div className="mb-3">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                     <TrendingUp className="h-3.5 w-3.5" /> Owner Analytics Dashboard
@@ -387,9 +387,9 @@ export default function B2bLandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.45 }}
-              className="grid gap-8 lg:grid-cols-12 lg:items-start"
+              className="grid gap-8 lg:grid-cols-12 lg:items-start min-w-0"
             >
-              <div className="lg:col-span-12">
+              <div className="lg:col-span-12 min-w-0">
                 <div className="mb-3">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                     <Receipt className="h-3.5 w-3.5" /> Counter Billing POS

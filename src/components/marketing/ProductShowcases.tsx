@@ -413,9 +413,9 @@ export function KitchenDisplayMockup() {
       </div>
 
       {/* KDS Kanban Ticket Columns */}
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3 min-w-0">
         {/* Column 1: Incoming */}
-        <div className="space-y-2.5 rounded-2xl bg-secondary/40 p-3">
+        <div className="space-y-2.5 rounded-2xl bg-secondary/40 p-3 min-w-0">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-xs font-semibold">
               <span className="h-2 w-2 rounded-full bg-rose-500" /> Incoming ({incomingTickets.length})
@@ -619,15 +619,15 @@ export function OwnerAnalyticsMockup() {
 
       {/* TAB 1: ANALYTICS */}
       {ownerTab === "analytics" && (
-        <motion.div initial={shouldReduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <motion.div initial={shouldReduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5 min-w-0">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 min-w-0">
             {[
               { label: "TOTAL REVENUE", value: "₹46,850", sub: "+18.4% vs last week", icon: CircleDollarSign },
               { label: "PAID ORDERS", value: "214", sub: "Avg ticket ₹218", icon: ShoppingBag },
               { label: "TABLE OCCUPANCY", value: "84%", sub: "Peak rush 4:00 PM", icon: Utensils },
               { label: "AVG PREP TIME", value: "4.2 min", sub: "-1.1 min faster", icon: Clock }
             ].map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-border/60 bg-background p-4 shadow-soft">
+              <div key={stat.label} className="rounded-2xl border border-border/60 bg-background p-4 shadow-soft min-w-0">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{stat.label}</span>
                   <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent/15 text-accent"><stat.icon className="h-4 w-4" /></span>
@@ -638,13 +638,13 @@ export function OwnerAnalyticsMockup() {
             ))}
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-12">
-            <div className="lg:col-span-7 rounded-2xl border border-border/60 bg-background p-4 shadow-soft space-y-3">
+          <div className="grid gap-4 lg:grid-cols-12 min-w-0">
+            <div className="lg:col-span-7 min-w-0 rounded-2xl border border-border/60 bg-background p-4 shadow-soft space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-display text-sm font-semibold">Revenue Trend</h4>
                 <span className="text-xs text-muted-foreground">Daily sales progression</span>
               </div>
-              <div className="h-44 w-full">
+              <div className="h-44 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={revenueData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                     <defs>
@@ -663,12 +663,12 @@ export function OwnerAnalyticsMockup() {
               </div>
             </div>
 
-            <div className="lg:col-span-5 rounded-2xl border border-border/60 bg-background p-4 shadow-soft space-y-3">
+            <div className="lg:col-span-5 min-w-0 rounded-2xl border border-border/60 bg-background p-4 shadow-soft space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-display text-sm font-semibold">Orders by Hour</h4>
                 <span className="text-xs text-muted-foreground">Peak rush times</span>
               </div>
-              <div className="h-44 w-full">
+              <div className="h-44 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={hourlyData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -858,9 +858,9 @@ export function CounterBillingMockup() {
         </span>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-12">
+      <div className="grid gap-4 md:grid-cols-12 min-w-0">
         {/* Itemized Receipt Card */}
-        <div className="md:col-span-7 rounded-2xl border border-border/80 bg-background p-4 shadow-soft space-y-4">
+        <div className="md:col-span-7 min-w-0 rounded-2xl border border-border/80 bg-background p-4 shadow-soft space-y-4">
           <div className="flex items-center justify-between border-b border-border/50 pb-2">
             <div>
               <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CURRENT SESSION</div>
@@ -902,7 +902,7 @@ export function CounterBillingMockup() {
         </div>
 
         {/* Payment & Receipt Actions */}
-        <div className="md:col-span-5 rounded-2xl border border-border/80 bg-background p-4 shadow-soft space-y-4 flex flex-col justify-between">
+        <div className="md:col-span-5 min-w-0 rounded-2xl border border-border/80 bg-background p-4 shadow-soft space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
             <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">SELECT PAYMENT METHOD</div>
             <div className="grid grid-cols-3 gap-2 text-xs">
