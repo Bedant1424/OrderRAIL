@@ -172,7 +172,7 @@ export default function B2bLandingPage() {
               </span>
             </motion.div>
 
-            <motion.h1 variants={fadeInVariants} className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
+            <motion.h1 variants={fadeInVariants} className="mt-5 font-display text-3xl font-semibold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl text-balance break-words">
               Restaurant operations, <br />
               <span className="italic text-accent">beautifully simplified.</span>
             </motion.h1>
@@ -291,7 +291,7 @@ export default function B2bLandingPage() {
             className="text-center max-w-2xl mx-auto"
           >
             <span className="text-xs font-semibold uppercase tracking-widest text-accent">The OrderRail Suite</span>
-            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">One unified system for your floor</h2>
+            <h2 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl text-balance break-words">One unified system for your floor</h2>
             <p className="mt-3 text-muted-foreground leading-relaxed">
               Designed to connect diners, chefs, cashiers, and management in real time.
             </p>
@@ -310,7 +310,7 @@ export default function B2bLandingPage() {
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                   <Smartphone className="h-3.5 w-3.5" /> Customer Ordering Experience
                 </span>
-                <h3 className="mt-3.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h3 className="mt-3 font-display text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold tracking-tight text-balance break-words">
                   Contactless table ordering made effortless
                 </h3>
                 <p className="mt-3 text-muted-foreground leading-relaxed">
@@ -346,7 +346,7 @@ export default function B2bLandingPage() {
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                     <ChefHat className="h-3.5 w-3.5" /> Kitchen & Service Display
                   </span>
-                  <h3 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                  <h3 className="mt-2.5 font-display text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold tracking-tight text-balance break-words">
                     Real-time kitchen tickets & Saturday peak rush KDS
                   </h3>
                   <p className="mt-2 text-muted-foreground leading-relaxed max-w-3xl">
@@ -370,7 +370,7 @@ export default function B2bLandingPage() {
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                     <TrendingUp className="h-3.5 w-3.5" /> Owner Analytics Dashboard
                   </span>
-                  <h3 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                  <h3 className="mt-2.5 font-display text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold tracking-tight text-balance break-words">
                     Instant visibility into revenue, peak hours & top items
                   </h3>
                   <p className="mt-2 text-muted-foreground leading-relaxed max-w-3xl">
@@ -394,7 +394,7 @@ export default function B2bLandingPage() {
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                     <Receipt className="h-3.5 w-3.5" /> Counter Billing POS
                   </span>
-                  <h3 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                  <h3 className="mt-2.5 font-display text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold tracking-tight text-balance break-words">
                     Single-tap order settlement & quick thermal receipts
                   </h3>
                   <p className="mt-2 text-muted-foreground leading-relaxed max-w-3xl">
@@ -426,7 +426,7 @@ export default function B2bLandingPage() {
             className="text-center max-w-2xl mx-auto"
           >
             <span className="text-xs font-semibold uppercase tracking-widest text-accent">Floor Operations</span>
-            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">From scan to settlement</h2>
+            <h2 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl text-balance break-words">From scan to settlement</h2>
             <p className="mt-3 text-muted-foreground leading-relaxed">
               Customer → Kitchen → Staff → Cashier in five connected steps.
             </p>
@@ -478,7 +478,7 @@ export default function B2bLandingPage() {
             className="text-center max-w-2xl mx-auto"
           >
             <span className="text-xs font-semibold uppercase tracking-widest text-accent">Capabilities</span>
-            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Engineered for busy service</h2>
+            <h2 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl text-balance break-words">Engineered for busy service</h2>
             <p className="mt-3 text-muted-foreground leading-relaxed">
               Every feature is designed around how real restaurants operate during peak rush hours.
             </p>
@@ -576,7 +576,7 @@ export default function B2bLandingPage() {
             className="text-center max-w-2xl mx-auto"
           >
             <span className="text-xs font-semibold uppercase tracking-widest text-accent">Pricing</span>
-            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Simple, honest pricing</h2>
+            <h2 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl text-balance break-words">Simple, honest pricing</h2>
             <p className="mt-3 text-muted-foreground leading-relaxed">
               Start free, scale when you're ready. No setup fees, no hidden charges.
             </p>
@@ -649,7 +649,7 @@ export default function B2bLandingPage() {
             className="text-center"
           >
             <span className="text-xs font-semibold uppercase tracking-widest text-accent">FAQ</span>
-            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Common questions</h2>
+            <h2 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl text-balance break-words">Common questions</h2>
             <p className="mt-3 text-muted-foreground leading-relaxed">
               Everything you need to know about setup, compatibility, and day-to-day use.
             </p>
@@ -708,7 +708,7 @@ export default function B2bLandingPage() {
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
                   <Sparkles className="h-3.5 w-3.5" /> Onboarding Support
                 </span>
-                <h2 className="mt-3 font-display text-2xl md:text-3xl font-semibold tracking-tight">Ready to modernise your café?</h2>
+                <h2 className="mt-3 font-display text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl text-balance break-words">Ready to modernise your café?</h2>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                   Schedule a walkthrough with our team. We'll show you how OrderRail fits into your existing workflow — no pressure, no obligations.
                 </p>
