@@ -96,6 +96,44 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          actor_id: string | null
+          cafe_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          target_email: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          cafe_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          target_email?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          cafe_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          target_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_cafe_id_fkey"
+            columns: ["cafe_id"]
+            isOneToOne: false
+            referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_order_counters: {
         Row: {
           counter: number
@@ -659,6 +697,10 @@ export type Database = {
           id: string
           invited_by: string | null
           role: Database["public"]["Enums"]["app_role"]
+          token_hash: string | null
+          expires_at: string
+          accepted_at: string | null
+          revoked_at: string | null
         }
         Insert: {
           cafe_id: string
@@ -667,6 +709,10 @@ export type Database = {
           id?: string
           invited_by?: string | null
           role: Database["public"]["Enums"]["app_role"]
+          token_hash?: string | null
+          expires_at?: string
+          accepted_at?: string | null
+          revoked_at?: string | null
         }
         Update: {
           cafe_id?: string
@@ -675,6 +721,10 @@ export type Database = {
           id?: string
           invited_by?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          token_hash?: string | null
+          expires_at?: string
+          accepted_at?: string | null
+          revoked_at?: string | null
         }
         Relationships: [
           {
@@ -768,6 +818,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_staff_invite: {
+        Args: { _token_hash: string }
+        Returns: Json
+      }
       assign_role_by_email: {
         Args: {
           _cafe_id: string
@@ -775,6 +829,15 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
         }
         Returns: string
+      }
+      bootstrap_restaurant: {
+        Args: {
+          _currency?: string
+          _name: string
+          _owner_email: string
+          _slug: string
+        }
+        Returns: Json
       }
       cancel_order: {
         Args: { p_order_id: string; p_session_id: string }
@@ -800,6 +863,10 @@ export type Database = {
       review_order_changes: {
         Args: { p_order_id: string; p_version: number }
         Returns: undefined
+      }
+      revoke_staff_invite: {
+        Args: { _invite_id: string }
+        Returns: Json
       }
       update_order: {
         Args: {

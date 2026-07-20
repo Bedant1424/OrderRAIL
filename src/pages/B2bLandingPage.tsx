@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { motion, useReducedMotion } from "framer-motion";
 import { 
   QrCode, 
   ChefHat, 
@@ -15,12 +16,29 @@ import {
   MapPin, 
   Coffee,
   CheckCircle,
-  Menu
+  Menu,
+  Smartphone,
+  Monitor,
+  Clock,
+  CheckCircle2,
+  CreditCard,
+  ShoppingBag,
+  Sparkles
 } from "lucide-react";
+import { 
+  CustomerAppMockup, 
+  KitchenDisplayMockup, 
+  OwnerAnalyticsMockup, 
+  CounterBillingMockup, 
+  QrRestaurantSceneMockup 
+} from "@/components/marketing/ProductShowcases";
 
 export default function B2bLandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [demoRequested, setDemoRequested] = useState(false);
+  const [activeTab, setActiveTab] = useState<"customer" | "staff" | "owner" | "billing">("customer");
+  const shouldReduceMotion = useReducedMotion();
+
   const [formData, setFormData] = useState({
     restaurantName: "",
     contactName: "",
@@ -38,53 +56,65 @@ export default function B2bLandingPage() {
 
   const handleDemoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real B2B production app, this would submit to Supabase demo_requests.
-    // For Sprint 1, we simulate a premium B2B success state.
     setDemoRequested(true);
   };
 
+  // Motion animation variants
+  const fadeInVariants = {
+    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 16 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-brand selection:text-white">
+    <div className="min-h-screen bg-gradient-warm text-foreground font-sans antialiased selection:bg-accent/30 selection:text-foreground">
       {/* ─── NAVIGATION ─── */}
-      <header className="sticky top-0 z-50 border-b border-slate-900 bg-slate-950/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-tr from-brand to-rose-500 text-white shadow-lg shadow-brand/20">
-              <span className="font-display text-base font-black">OR</span>
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/85 backdrop-blur-lg">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft">
+              <span className="font-display text-sm font-bold">OR</span>
             </span>
-            <span className="font-display text-xl font-bold tracking-tight text-white">OrderRail<span className="text-brand">.</span></span>
+            <span className="font-display text-lg font-semibold tracking-tight">OrderRail</span>
           </div>
 
           {/* Desktop Nav Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
-            <a href="#overview" className="hover:text-white transition">Overview</a>
-            <a href="#workflow" className="hover:text-white transition">Workflow</a>
-            <a href="#features" className="hover:text-white transition">Features</a>
-            <a href="#pricing" className="hover:text-white transition">Pricing</a>
-            <a href="#faq" className="hover:text-white transition">FAQ</a>
-            <a href="#contact" className="hover:text-white transition">Contact</a>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
+            {["Product", "QR Scene", "Workflow", "Features", "Pricing", "FAQ"].map((item) => {
+              const href = `#${item.toLowerCase().replace(/\s+/g, "-")}`;
+              return (
+                <a 
+                  key={item} 
+                  href={href} 
+                  className="relative py-1 transition-colors hover:text-foreground after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-accent after:transition-all after:duration-200 hover:after:w-full"
+                >
+                  {item}
+                </a>
+              );
+            })}
           </nav>
 
           {/* Desktop CTAs */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
             <Link
               to="/staff/login"
-              className="text-sm font-semibold text-slate-300 hover:text-white transition"
+              className="inline-flex items-center gap-1.5 rounded-full bg-card px-4 py-2 text-sm font-medium ring-1 ring-border/80 hover:bg-secondary transition shadow-soft active:scale-95"
             >
-              Sign In
+              <LayoutDashboard className="h-4 w-4" /> Sign in
             </Link>
-            <a
+            <motion.a
+              whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
               href="#contact"
-              className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand/25 hover:bg-brand-hover transition"
+              className="group inline-flex items-center gap-2 rounded-full btn-primary-action px-5 py-2 text-sm font-semibold shadow-soft"
             >
-              Request Demo
-            </a>
+              Request demo <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+            </motion.a>
           </div>
 
           {/* Mobile menu trigger */}
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden text-slate-400 hover:text-white transition"
+            className="md:hidden text-muted-foreground hover:text-foreground transition"
             aria-label="Toggle Navigation"
           >
             <Menu className="h-6 w-6" />
@@ -93,211 +123,371 @@ export default function B2bLandingPage() {
 
         {/* Mobile menu panel */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-900 bg-slate-950 px-6 py-4 space-y-4">
-            <nav className="flex flex-col gap-3 text-sm font-medium text-slate-400">
-              <a href="#overview" onClick={() => setMobileMenuOpen(false)} className="hover:text-white py-1">Overview</a>
-              <a href="#workflow" onClick={() => setMobileMenuOpen(false)} className="hover:text-white py-1">Workflow</a>
-              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="hover:text-white py-1">Features</a>
-              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="hover:text-white py-1">Pricing</a>
-              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="hover:text-white py-1">FAQ</a>
-              <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-white py-1">Contact</a>
+          <motion.div 
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="md:hidden border-t border-border/60 bg-card px-6 py-4 space-y-4 shadow-float"
+          >
+            <nav className="flex flex-col gap-3 text-sm font-medium text-muted-foreground">
+              <a href="#product" onClick={() => setMobileMenuOpen(false)} className="hover:text-foreground py-1">Product</a>
+              <a href="#qr-experience" onClick={() => setMobileMenuOpen(false)} className="hover:text-foreground py-1">QR Scene</a>
+              <a href="#workflow" onClick={() => setMobileMenuOpen(false)} className="hover:text-foreground py-1">Workflow</a>
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="hover:text-foreground py-1">Features</a>
+              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="hover:text-foreground py-1">Pricing</a>
+              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="hover:text-foreground py-1">FAQ</a>
+              <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-foreground py-1">Contact</a>
             </nav>
-            <div className="border-t border-slate-900 pt-4 flex flex-col gap-3">
+            <div className="border-t border-border/60 pt-4 flex flex-col gap-3">
               <Link
                 to="/staff/login"
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-center py-2 text-sm font-semibold text-slate-300 hover:text-white"
+                className="text-center py-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
               >
                 Sign In
               </Link>
               <a
                 href="#contact"
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-center rounded-full bg-brand py-2 text-sm font-semibold text-white"
+                className="text-center rounded-full btn-primary-action py-2.5 text-sm font-semibold"
               >
                 Request Demo
               </a>
             </div>
-          </div>
+          </motion.div>
         )}
       </header>
 
       {/* ─── HERO SECTION ─── */}
-      <section className="relative overflow-hidden pt-20 pb-24 md:pt-32">
-        {/* Background glow effects */}
-        <div className="absolute top-1/4 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full bg-brand/10 blur-[120px]" />
-        <div className="absolute top-10 right-10 -z-10 h-72 w-72 rounded-full bg-rose-500/5 blur-[100px]" />
+      <section className="relative overflow-hidden pt-12 pb-16 md:pt-16 md:pb-20">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.div 
+            initial={shouldReduceMotion ? false : "hidden"}
+            animate="visible"
+            transition={{ staggerChildren: 0.1 }}
+            className="text-center max-w-3xl mx-auto"
+          >
+            <motion.div variants={fadeInVariants}>
+              <span className="inline-flex items-center gap-2 rounded-full bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground ring-1 ring-border/80 shadow-soft">
+                <Coffee className="h-3.5 w-3.5 text-accent" /> Digital café upgrade
+              </span>
+            </motion.div>
 
-        <div className="mx-auto max-w-7xl px-6 text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/60 px-4 py-1.5 text-xs font-semibold tracking-wider text-brand uppercase">
-            <Coffee className="h-3.5 w-3.5" /> Next-Gen Restaurant Suite
-          </span>
-          <h1 className="mt-6 font-display text-4xl font-extrabold leading-none tracking-tight text-white sm:text-6xl lg:text-7xl">
-            The QR ordering system <br/>
-            <span className="bg-gradient-to-r from-brand to-rose-400 bg-clip-text text-transparent">your café deserves.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-400 leading-relaxed md:text-xl">
-            OrderRail modernizes dine-in services with contactless guest ordering, chef-friendly kitchen dashboards, and high-speed counter billing. Streamline workflows and boost table turnover today.
-          </p>
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link
-              to="/staff/login"
-              className="inline-flex items-center gap-2 rounded-full bg-slate-900 border border-slate-800 hover:border-slate-700 px-8 py-4 text-base font-semibold text-white transition shadow-lg hover:bg-slate-900/80"
+            <motion.h1 variants={fadeInVariants} className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-6xl lg:text-7xl">
+              Restaurant operations, <br />
+              <span className="italic text-accent">beautifully simplified.</span>
+            </motion.h1>
+
+            <motion.p variants={fadeInVariants} className="mt-5 text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+              OrderRail gives your café contactless QR ordering, a real-time kitchen display, and owner analytics — without changing how you run your floor.
+            </motion.p>
+
+            <motion.div variants={fadeInVariants} className="mt-7 flex flex-wrap justify-center gap-3">
+              <motion.a
+                whileHover={shouldReduceMotion ? {} : { scale: 1.03 }}
+                whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
+                href="#contact"
+                className="group inline-flex items-center gap-2 rounded-full btn-primary-action px-7 py-3 text-sm font-semibold shadow-soft"
+              >
+                Request a demo <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </motion.a>
+              <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.02 }}>
+                <Link
+                  to="/staff/login"
+                  className="inline-flex items-center gap-2 rounded-full bg-card px-7 py-3 text-sm font-semibold ring-1 ring-border/80 transition hover:bg-secondary shadow-soft"
+                >
+                  <LayoutDashboard className="h-4 w-4" /> Sign in to console
+                </Link>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+
+          {/* HERO PRODUCT PREVIEW FRAME */}
+          <motion.div 
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+            className="mt-10 md:mt-12 max-w-5xl mx-auto"
+          >
+            <div className="rounded-3xl bg-card p-3 md:p-5 shadow-float ring-1 ring-border/80 space-y-4">
+              {/* Mockup Topbar & Tab Switcher */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-3 px-2 border-b border-border/50">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <span className="h-3 w-3 rounded-full bg-rose-400/80 inline-block" />
+                    <span className="h-3 w-3 rounded-full bg-amber-400/80 inline-block" />
+                    <span className="h-3 w-3 rounded-full bg-emerald-400/80 inline-block" />
+                  </div>
+                  <span className="ml-2 text-xs font-mono text-muted-foreground/70 hidden sm:inline-block">app.orderrail.com</span>
+                </div>
+
+                {/* Tab Controls */}
+                <div className="flex flex-wrap items-center justify-center gap-1 rounded-full bg-secondary/70 p-1 ring-1 ring-border/50 text-xs font-medium">
+                  <button
+                    onClick={() => setActiveTab("customer")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition ${activeTab === "customer" ? "bg-card text-foreground shadow-soft font-semibold" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <Smartphone className="h-3.5 w-3.5 text-accent" /> Customer App
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("staff")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition ${activeTab === "staff" ? "bg-card text-foreground shadow-soft font-semibold" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <ChefHat className="h-3.5 w-3.5 text-accent" /> Kitchen KDS
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("owner")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition ${activeTab === "owner" ? "bg-card text-foreground shadow-soft font-semibold" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <Monitor className="h-3.5 w-3.5 text-accent" /> Owner Analytics
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("billing")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition ${activeTab === "billing" ? "bg-card text-foreground shadow-soft font-semibold" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <Receipt className="h-3.5 w-3.5 text-accent" /> Counter POS
+                  </button>
+                </div>
+              </div>
+
+              {/* Mockup Display Render */}
+              <div className="pt-1">
+                {activeTab === "customer" && (
+                  <motion.div initial={shouldReduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="py-3 flex justify-center bg-background/40 rounded-2xl border border-border/40 p-3">
+                    <CustomerAppMockup />
+                  </motion.div>
+                )}
+
+                {activeTab === "staff" && (
+                  <motion.div initial={shouldReduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="bg-background/40 rounded-2xl border border-border/40 p-2 md:p-3">
+                    <KitchenDisplayMockup />
+                  </motion.div>
+                )}
+
+                {activeTab === "owner" && (
+                  <motion.div initial={shouldReduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="bg-background/40 rounded-2xl border border-border/40 p-2 md:p-3">
+                    <OwnerAnalyticsMockup />
+                  </motion.div>
+                )}
+
+                {activeTab === "billing" && (
+                  <motion.div initial={shouldReduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="bg-background/40 rounded-2xl border border-border/40 p-2 md:p-3">
+                    <CounterBillingMockup />
+                  </motion.div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ─── PRODUCT SUITE SHOWCASE ─── */}
+      <section id="product" className="border-t border-border/50 py-14 md:py-18">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.div 
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.45 }}
+            className="text-center max-w-2xl mx-auto"
+          >
+            <span className="text-xs font-semibold uppercase tracking-widest text-accent">The OrderRail Suite</span>
+            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">One unified system for your floor</h2>
+            <p className="mt-3 text-muted-foreground leading-relaxed">
+              Designed to connect diners, chefs, cashiers, and management in real time.
+            </p>
+          </motion.div>
+
+          <div className="mt-12 space-y-14 lg:space-y-18">
+            {/* Showcase 1: Customer App */}
+            <motion.div 
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.45 }}
+              className="grid gap-8 lg:grid-cols-12 lg:items-center"
             >
-              Sign In to Console
-            </Link>
-            <a
-              href="#contact"
-              className="inline-flex items-center gap-2 rounded-full bg-brand px-8 py-4 text-base font-semibold text-white shadow-xl shadow-brand/20 hover:bg-brand-hover transition"
+              <div className="lg:col-span-5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
+                  <Smartphone className="h-3.5 w-3.5" /> Customer Ordering Experience
+                </span>
+                <h3 className="mt-3.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                  Contactless table ordering made effortless
+                </h3>
+                <p className="mt-3 text-muted-foreground leading-relaxed">
+                  Every table receives a unique QR code. Guests scan to view full digital menus with live dish availability, add custom item notes, place orders, and summon waiters with one tap.
+                </p>
+                <ul className="mt-5 space-y-2.5 text-sm">
+                  <li className="flex items-center gap-2.5 text-foreground font-medium">
+                    <Check className="h-4 w-4 text-accent shrink-0" /> Zero app store downloads or registrations
+                  </li>
+                  <li className="flex items-center gap-2.5 text-foreground font-medium">
+                    <Check className="h-4 w-4 text-accent shrink-0" /> Veg/Non-Veg toggles, search & popular tags
+                  </li>
+                  <li className="flex items-center gap-2.5 text-foreground font-medium">
+                    <Check className="h-4 w-4 text-accent shrink-0" /> One-tap "Call Staff" & service requests
+                  </li>
+                </ul>
+              </div>
+              <div className="lg:col-span-7 flex justify-center">
+                <CustomerAppMockup />
+              </div>
+            </motion.div>
+
+            {/* Showcase 2: Staff Console */}
+            <motion.div 
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.45 }}
+              className="grid gap-8 lg:grid-cols-12 lg:items-start"
             >
-              Request Live Demo <ArrowRight className="h-4 w-4" />
-            </a>
+              <div className="lg:col-span-12">
+                <div className="mb-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
+                    <ChefHat className="h-3.5 w-3.5" /> Kitchen & Service Display
+                  </span>
+                  <h3 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                    Real-time kitchen tickets & Saturday peak rush KDS
+                  </h3>
+                  <p className="mt-2 text-muted-foreground leading-relaxed max-w-3xl">
+                    Orders route instantly to kitchen display screens with audio chime alerts. Chefs manage prep timers, mark dishes ready, and acknowledge floor service requests in real time.
+                  </p>
+                </div>
+                <KitchenDisplayMockup />
+              </div>
+            </motion.div>
+
+            {/* Showcase 3: Owner Analytics Console */}
+            <motion.div 
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.45 }}
+              className="grid gap-8 lg:grid-cols-12 lg:items-start"
+            >
+              <div className="lg:col-span-12">
+                <div className="mb-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
+                    <TrendingUp className="h-3.5 w-3.5" /> Owner Analytics Dashboard
+                  </span>
+                  <h3 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                    Instant visibility into revenue, peak hours & top items
+                  </h3>
+                  <p className="mt-2 text-muted-foreground leading-relaxed max-w-3xl">
+                    Track daily sales progression, identify peak order hours for staffing, inspect top-selling dishes, and optimize table turnover from a single dashboard.
+                  </p>
+                </div>
+                <OwnerAnalyticsMockup />
+              </div>
+            </motion.div>
+
+            {/* Showcase 4: Counter Billing POS */}
+            <motion.div 
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.45 }}
+              className="grid gap-8 lg:grid-cols-12 lg:items-start"
+            >
+              <div className="lg:col-span-12">
+                <div className="mb-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
+                    <Receipt className="h-3.5 w-3.5" /> Counter Billing POS
+                  </span>
+                  <h3 className="mt-2.5 font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+                    Single-tap order settlement & quick thermal receipts
+                  </h3>
+                  <p className="mt-2 text-muted-foreground leading-relaxed max-w-3xl">
+                    Cashiers can review itemized dining sessions, process split payments via UPI/Card/Cash, and instantly clear table sessions for the next guests.
+                  </p>
+                </div>
+                <CounterBillingMockup />
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* ─── PRODUCT OVERVIEW ─── */}
-      <section id="overview" className="border-t border-slate-900 bg-slate-950 py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center">
-            <h2 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">Unified Operations, Elevated Experience</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-slate-400">
-              Stop juggling disjointed apps. Manage tables, menus, tickets, and revenue from one robust, real-time operating system.
-            </p>
-          </div>
+      {/* ─── QR EXPERIENCE SCENE ─── */}
+      <section id="qr-experience" className="border-t border-border/50 bg-secondary/20 py-14 md:py-18">
+        <div className="mx-auto max-w-6xl px-6">
+          <QrRestaurantSceneMockup />
+        </div>
+      </section>
 
-          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ─── WORKFLOW SECTION (REDESIGNED CONNECTED TIMELINE RHYTHM) ─── */}
+      <section id="workflow" className="border-t border-border/50 py-14 md:py-18">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.div 
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.45 }}
+            className="text-center max-w-2xl mx-auto"
+          >
+            <span className="text-xs font-semibold uppercase tracking-widest text-accent">Floor Operations</span>
+            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">From scan to settlement</h2>
+            <p className="mt-3 text-muted-foreground leading-relaxed">
+              Customer → Kitchen → Staff → Cashier in five connected steps.
+            </p>
+          </motion.div>
+
+          {/* Redesigned Balanced Grid Workflow */}
+          <div className="mt-10 md:mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
-              {
-                icon: QrCode,
-                title: "Smart QR Ordering",
-                desc: "Enable guests to scan dynamic table codes, browse menus with live item statuses, customize orders, and checkout instantly."
-              },
-              {
-                icon: ChefHat,
-                title: "Kitchen Display (KDS)",
-                desc: "An interactive, visual ticket screen for your chefs. Real-time updates, preparation timers, and ready-to-serve alerts."
-              },
-              {
-                icon: Receipt,
-                title: "Counter Billing & POS",
-                desc: "Quick, single-tap order settlement, receipt printing, offline queue syncing, and split-payment management for cashiers."
-              },
-              {
-                icon: Users,
-                title: "Staff Roles & Access",
-                desc: "Delegate tasks with granular security roles: Owner, Manager, Cashier, Kitchen, and Waiter. Keep operations organized."
-              },
-              {
-                icon: TrendingUp,
-                title: "Real-time Analytics",
-                desc: "Track average order value, peak operating hours, top menu categories, table occupancy, and staff response times."
-              },
-              {
-                icon: LayoutDashboard,
-                title: "Dynamic Menu Board",
-                desc: "Update prices, mark items unavailable, edit dish details, and configure category order instantly from any device."
-              }
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="group rounded-3xl border border-slate-900 bg-slate-900/20 p-8 hover:border-slate-800 transition">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-900 border border-slate-800 text-brand group-hover:text-rose-400 transition">
-                  <Icon className="h-6 w-6" />
-                </span>
-                <h3 className="mt-6 font-display text-lg font-bold text-white">{title}</h3>
-                <p className="mt-3 text-sm text-slate-400 leading-relaxed">{desc}</p>
-              </div>
+              { step: "01", actor: "Customer", title: "Scan QR", desc: "Diner scans unique table QR with camera.", icon: QrCode },
+              { step: "02", actor: "Customer", title: "Browse & Order", desc: "Guest selects menu items, notes & places order.", icon: Smartphone },
+              { step: "03", actor: "Kitchen", title: "Kitchen Ticket", desc: "Order rings on KDS with prep timer & sound alert.", icon: ChefHat },
+              { step: "04", actor: "Staff", title: "Dispatch", desc: "Chef marks ready; waiter delivers to table.", icon: CheckCircle2 },
+              { step: "05", actor: "Cashier", title: "Bill Settlement", desc: "Counter settlement via UPI, Card, or Cash.", icon: Receipt },
+            ].map((st, idx) => (
+              <motion.div
+                key={st.step}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: idx * 0.08 }}
+                whileHover={shouldReduceMotion ? {} : { y: -3, boxShadow: "var(--shadow-float)" }}
+                className="relative rounded-2xl border border-border/60 bg-card p-4 shadow-soft transition-all hover:border-accent/40 flex flex-col justify-between space-y-3"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-accent/15 text-accent font-bold text-xs">
+                      <st.icon className="h-4 w-4" />
+                    </span>
+                    <span className="font-display text-xs font-bold text-muted-foreground/80">{st.step}</span>
+                  </div>
+                  <span className="mt-3 inline-block text-[10px] font-bold uppercase tracking-wider text-accent">{st.actor}</span>
+                  <h3 className="font-display text-sm font-semibold text-foreground mt-0.5">{st.title}</h3>
+                  <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{st.desc}</p>
+                </div>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── RESTAURANT WORKFLOW ─── */}
-      <section id="workflow" className="border-t border-slate-900 bg-slate-900/10 py-24 relative overflow-hidden">
-        <div className="absolute top-1/2 left-0 -z-10 h-72 w-72 rounded-full bg-brand/5 blur-[100px]" />
-
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center">
-            <h2 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">From Scan to Settlement</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-slate-400">
-              Watch how OrderRail coordinates diners, kitchen, and service staff to slash order delays.
-            </p>
-          </div>
-
-          {/* Workflow Steps layout */}
-          <div className="mt-16 relative">
-            {/* Connection Line */}
-            <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-brand/80 to-rose-500/20 -translate-x-1/2 hidden lg:block" />
-
-            <div className="space-y-12 lg:space-y-20">
-              {[
-                {
-                  step: "01",
-                  title: "QR Table Scan",
-                  actor: "Customer",
-                  desc: "Diner scans the unique table QR code with their phone camera. No signups, app store downloads, or setups required.",
-                  side: "left"
-                },
-                {
-                  step: "02",
-                  title: "Browse & Order",
-                  actor: "Customer",
-                  desc: "Guest browses the responsive digital menu, selects custom add-ons, adds notes, and places the order directly.",
-                  side: "right"
-                },
-                {
-                  step: "03",
-                  title: "Ticket Generation",
-                  actor: "Kitchen & Staff",
-                  desc: "Orders immediately route to the KDS console, ringing audio alerts for chefs. Staff get notified of new table orders.",
-                  side: "left"
-                },
-                {
-                  step: "04",
-                  title: "Preparation & Dispatch",
-                  actor: "Kitchen",
-                  desc: "The chef starts the prep timer. When ready, the cook marks the ticket completed, alerting floor waiters via service display.",
-                  side: "right"
-                },
-                {
-                  step: "05",
-                  title: "Counter Settlement",
-                  actor: "Cashier",
-                  desc: "Diners can request calls, check order histories, or walk up to settle the unified table bill via credit card, UPI, or cash.",
-                  side: "left"
-                }
-              ].map(({ step, title, actor, desc, side }) => (
-                <div key={step} className="flex flex-col lg:flex-row items-center gap-8 lg:gap-0">
-                  <div className={`flex-1 w-full text-center lg:text-left ${side === "right" ? "lg:order-last lg:pl-16" : "lg:text-right lg:pr-16"}`}>
-                    <span className="text-xs font-bold uppercase tracking-wider text-brand">{actor}</span>
-                    <h3 className="mt-2 font-display text-xl font-bold text-white">{title}</h3>
-                    <p className="mt-3 text-sm text-slate-400 leading-relaxed max-w-md mx-auto lg:mx-0 lg:ml-auto lg:mr-0">{desc}</p>
-                  </div>
-                  {/* Step bubble */}
-                  <div className="z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 border border-slate-800 text-xs font-bold text-white shadow-lg shadow-black">
-                    {step}
-                  </div>
-                  <div className="flex-1 hidden lg:block" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ─── FEATURES GRID ─── */}
-      <section id="features" className="border-t border-slate-900 bg-slate-950 py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center">
-            <h2 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">Engineered for Fast-Paced Dining</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-slate-400">
-              Deep-dive into the features that keep OrderRail running smoothly during peak rush hours.
+      <section id="features" className="border-t border-border/50 bg-secondary/20 py-14 md:py-18">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.div 
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.45 }}
+            className="text-center max-w-2xl mx-auto"
+          >
+            <span className="text-xs font-semibold uppercase tracking-widest text-accent">Capabilities</span>
+            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Engineered for busy service</h2>
+            <p className="mt-3 text-muted-foreground leading-relaxed">
+              Every feature is designed around how real restaurants operate during peak rush hours.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 md:mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                title: "Dine-In QR Ordering",
+                title: "Dine-in QR ordering",
                 bullets: [
                   "Interactive digital menu browser",
                   "Cart custom notes & allergy alerts",
@@ -306,206 +496,274 @@ export default function B2bLandingPage() {
                 ]
               },
               {
-                title: "Counter Billing Hub",
+                title: "Counter billing",
                 bullets: [
-                  "Quick-receipt generation",
+                  "Quick receipt generation",
                   "Integrated dining session resets",
                   "UPI, Card, and Cash ledger tags",
-                  "Cross-device ledger synchronization"
+                  "Cross-device synchronisation"
                 ]
               },
               {
-                title: "Kitchen Display (KDS)",
+                title: "Kitchen display",
                 bullets: [
-                  "Visual ticket priority colors",
-                  "Prep-timers & audio notifications",
-                  "Individual item status rollups",
+                  "Visual ticket priority colours",
+                  "Prep timers & audio notifications",
+                  "Individual item status tracking",
                   "Auto-refreshing status panels"
                 ]
               },
               {
-                title: "Detailed Reports",
+                title: "Reports & insights",
                 bullets: [
-                  "Daily, weekly, and monthly sales logs",
+                  "Daily, weekly, and monthly sales",
                   "Peak order hour heatmaps",
-                  "Food waste & category analysis",
-                  "Staff resolution performance sheets"
+                  "Category analysis & food waste",
+                  "Staff performance tracking"
                 ]
               },
               {
-                title: "Granular Team Roles",
+                title: "Team roles & access",
                 bullets: [
-                  "Restricted manager settings access",
+                  "Owner, manager, cashier, kitchen, waiter",
                   "Chef-only item availability controls",
                   "Secure cashier payment registers",
-                  "Owner multi-branch control dashboard"
+                  "Multi-branch control dashboard"
                 ]
               },
               {
-                title: "Table Layout & QR Engine",
+                title: "Table & QR management",
                 bullets: [
                   "Custom table labels & seating counts",
                   "Bulk print QR card PDF exports",
-                  "Live table status color codes",
+                  "Live table status indicators",
                   "Dynamic table activation toggles"
                 ]
               }
-            ].map(({ title, bullets }) => (
-              <div key={title} className="rounded-3xl border border-slate-900 bg-slate-900/10 p-8 hover:border-slate-800 transition">
-                <h3 className="font-display text-lg font-bold text-white">{title}</h3>
-                <ul className="mt-6 space-y-3.5">
+            ].map(({ title, bullets }, idx) => (
+              <motion.div 
+                key={title}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: idx * 0.06 }}
+                whileHover={shouldReduceMotion ? {} : { y: -3, boxShadow: "var(--shadow-float)" }}
+                className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 transition-all hover:border-accent/40"
+              >
+                <h3 className="font-display text-base font-semibold">{title}</h3>
+                <ul className="mt-4 space-y-2.5">
                   {bullets.map(b => (
-                    <li key={b} className="flex items-start gap-2.5 text-sm text-slate-400">
-                      <Check className="h-4.5 w-4.5 text-brand shrink-0 mt-0.5" />
+                    <li key={b} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                      <Check className="h-4 w-4 text-accent shrink-0 mt-0.5" />
                       <span>{b}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* ─── PRICING ─── */}
-      <section id="pricing" className="border-t border-slate-900 bg-slate-900/10 py-24 relative overflow-hidden">
-        <div className="absolute bottom-0 right-0 -z-10 h-72 w-72 rounded-full bg-rose-500/5 blur-[100px]" />
-        
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="text-center">
-            <h2 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">Transparent, Growth-Focused Pricing</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-slate-400">
-              Start free, scale seamlessly. Choose a package tailored to your restaurant's volume.
+      <section id="pricing" className="border-t border-border/50 py-14 md:py-18">
+        <div className="mx-auto max-w-6xl px-6">
+          <motion.div 
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.45 }}
+            className="text-center max-w-2xl mx-auto"
+          >
+            <span className="text-xs font-semibold uppercase tracking-widest text-accent">Pricing</span>
+            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Simple, honest pricing</h2>
+            <p className="mt-3 text-muted-foreground leading-relaxed">
+              Start free, scale when you're ready. No setup fees, no hidden charges.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="mt-16 grid gap-8 md:max-w-4xl md:mx-auto md:grid-cols-2">
+          <div className="mt-10 md:mt-12 grid gap-6 md:max-w-4xl md:mx-auto md:grid-cols-2">
             {/* Starter Plan */}
-            <div className="rounded-3xl border border-slate-900 bg-slate-900/10 p-8 hover:border-slate-850 transition flex flex-col justify-between">
+            <motion.div 
+              whileHover={shouldReduceMotion ? {} : { y: -3 }}
+              className="rounded-3xl bg-card p-8 shadow-soft ring-1 ring-border/60 flex flex-col justify-between transition-all hover:shadow-float"
+            >
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Starter</span>
-                <div className="mt-4 flex items-baseline gap-1 text-white">
-                  <span className="text-4xl font-extrabold tracking-tight">₹1,999</span>
-                  <span className="text-sm font-medium text-slate-400">/month</span>
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Starter</span>
+                <div className="mt-3 flex items-baseline gap-1">
+                  <span className="font-display text-4xl font-semibold tabular-nums tracking-tight">₹1,999</span>
+                  <span className="text-sm font-medium text-muted-foreground">/month</span>
                 </div>
-                <p className="mt-4 text-sm text-slate-400">For boutique cafes and food trucks looking to introduce QR table ordering.</p>
-                <ul className="mt-8 space-y-4 text-sm text-slate-300">
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> Up to 15 dining tables</li>
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> Dynamic digital menus</li>
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> Staff order dashboard</li>
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> Email-only support</li>
+                <p className="mt-3 text-sm text-muted-foreground">For boutique cafés and food trucks getting started with QR ordering.</p>
+                <ul className="mt-6 space-y-3 text-sm">
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> Up to 15 dining tables</li>
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> Dynamic digital menus</li>
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> Staff order dashboard</li>
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> Email support</li>
                 </ul>
               </div>
-              <a href="#contact" className="mt-8 block text-center rounded-full bg-slate-900 border border-slate-800 hover:border-slate-700 py-3 text-sm font-semibold text-white transition">Get Started</a>
-            </div>
+              <a href="#contact" className="mt-8 block text-center rounded-full bg-card py-3 text-sm font-semibold ring-1 ring-border/80 hover:bg-secondary transition shadow-soft">Get started</a>
+            </motion.div>
 
             {/* Pro Plan */}
-            <div className="relative rounded-3xl border border-brand bg-slate-900/30 p-8 shadow-2xl shadow-brand/5 flex flex-col justify-between">
-              <span className="absolute top-0 right-8 -translate-y-1/2 rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white uppercase tracking-wider">Recommended</span>
+            <motion.div 
+              whileHover={shouldReduceMotion ? {} : { y: -3 }}
+              className="relative rounded-3xl bg-card p-8 shadow-float ring-2 ring-accent/40 flex flex-col justify-between transition-all"
+            >
+              <span className="absolute top-0 right-8 -translate-y-1/2 rounded-full bg-gradient-accent px-3 py-1 text-xs font-semibold text-accent-foreground uppercase tracking-wider shadow-soft">Recommended</span>
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-brand">Professional</span>
-                <div className="mt-4 flex items-baseline gap-1 text-white">
-                  <span className="text-4xl font-extrabold tracking-tight">₹4,999</span>
-                  <span className="text-sm font-medium text-slate-400">/month</span>
+                <span className="text-xs font-semibold uppercase tracking-widest text-accent">Professional</span>
+                <div className="mt-3 flex items-baseline gap-1">
+                  <span className="font-display text-4xl font-semibold tabular-nums tracking-tight">₹4,999</span>
+                  <span className="text-sm font-medium text-muted-foreground">/month</span>
                 </div>
-                <p className="mt-4 text-sm text-slate-400">For active B2B operations, full-service bistros, and multi-room restaurants.</p>
-                <ul className="mt-8 space-y-4 text-sm text-slate-300">
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> Unlimited tables & QRs</li>
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> Full KDS & counter billing</li>
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> Multiple staff roles & logs</li>
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> Real-time sales analytics</li>
-                  <li className="flex items-center gap-3"><Check className="h-4.5 w-4.5 text-brand shrink-0" /> 24/7 Phone & WhatsApp support</li>
+                <p className="mt-3 text-sm text-muted-foreground">For full-service restaurants and multi-room operations.</p>
+                <ul className="mt-6 space-y-3 text-sm">
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> Unlimited tables & QR codes</li>
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> Full KDS & counter billing</li>
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> Multiple staff roles & logs</li>
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> Real-time sales analytics</li>
+                  <li className="flex items-center gap-3"><Check className="h-4 w-4 text-accent shrink-0" /> 24/7 Phone & WhatsApp support</li>
                 </ul>
               </div>
-              <a href="#contact" className="mt-8 block text-center rounded-full bg-brand py-3 text-sm font-semibold text-white hover:bg-brand-hover shadow-lg shadow-brand/20 transition">Start Free Trial</a>
-            </div>
+              <motion.a 
+                whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
+                href="#contact" 
+                className="mt-8 block text-center rounded-full btn-primary-action py-3 text-sm font-semibold shadow-soft"
+              >
+                Start free trial
+              </motion.a>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* ─── FAQ ─── */}
-      <section id="faq" className="border-t border-slate-900 bg-slate-950 py-24">
-        <div className="mx-auto max-w-4xl px-6">
-          <div className="text-center">
-            <h2 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">Frequently Asked Questions</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-slate-400">
-              Clear up your queries regarding setup, compatibility, and offline operations.
+      <section id="faq" className="border-t border-border/50 bg-secondary/20 py-14 md:py-18">
+        <div className="mx-auto max-w-3xl px-6">
+          <motion.div 
+            initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.45 }}
+            className="text-center"
+          >
+            <span className="text-xs font-semibold uppercase tracking-widest text-accent">FAQ</span>
+            <h2 className="mt-2.5 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Common questions</h2>
+            <p className="mt-3 text-muted-foreground leading-relaxed">
+              Everything you need to know about setup, compatibility, and day-to-day use.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="mt-16 space-y-6">
+          <div className="mt-8 md:mt-10 space-y-3.5">
             {[
               {
-                q: "What hardware is required to run OrderRail?",
-                a: "OrderRail is a web-based responsive suite. Diners need only their personal mobile phones. Your staff can access dashboards on any standard Android/iOS tablet or desktop computer running modern web browsers."
+                q: "What hardware do I need?",
+                a: "OrderRail is entirely web-based. Diners use their own phones. Your staff can access dashboards on any Android or iOS tablet, or a desktop computer with a modern browser."
               },
               {
-                q: "How does the offline syncing system work?",
-                a: "If your restaurant's Wi-Fi network temporarily drops out, the customer app saves order logs to local device queue storage. Once connection is restored, tickets automatically synchronize back to the staff console."
+                q: "What happens if the Wi-Fi drops?",
+                a: "The customer app saves orders to a local queue. Once connection is restored, tickets automatically synchronise back to the staff console — nothing gets lost."
               },
               {
-                q: "Can I manage multiple outlets under a single account?",
-                a: "Yes. Our multi-tenant architecture supports chain outlets. Owners can inspect centralized analytics, modify pricing per location, and partition staff permissions across branches easily."
+                q: "Can I manage multiple outlets?",
+                a: "Yes. Our multi-tenant architecture supports chain outlets. Owners can view centralised analytics, adjust pricing per location, and manage staff permissions across branches."
               },
               {
-                q: "Do you charge extra configuration or setup fees?",
-                a: "No setup fees. We provide QR card layout templates for bulk downloads immediately. Support guides are available, and custom standee prints can be ordered through partners."
+                q: "Are there any setup fees?",
+                a: "No setup fees at all. We provide QR card templates for bulk downloads immediately, along with support guides. Custom standee prints can be ordered through our partners."
               }
             ].map(({ q, a }, idx) => (
-              <div key={idx} className="rounded-2xl border border-slate-900 bg-slate-900/5 p-6 hover:border-slate-800 transition">
-                <h3 className="flex gap-3 font-display text-base font-bold text-white">
-                  <HelpCircle className="h-5 w-5 text-brand shrink-0 mt-0.5" />
+              <motion.div 
+                key={idx}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 14 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.35, delay: idx * 0.06 }}
+                className="rounded-2xl bg-card p-5 shadow-soft ring-1 ring-border/60 space-y-2"
+              >
+                <h3 className="flex gap-3 font-display text-base font-semibold">
+                  <HelpCircle className="h-5 w-5 text-accent shrink-0 mt-0.5" />
                   <span>{q}</span>
                 </h3>
-                <p className="mt-3.5 pl-8 text-sm text-slate-400 leading-relaxed">{a}</p>
-              </div>
+                <p className="pl-8 text-sm text-muted-foreground leading-relaxed">{a}</p>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── CONTACT / LEAD CAPTURE ─── */}
-      <section id="contact" className="border-t border-slate-900 bg-slate-900/10 py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-brand">Connect with us</span>
-              <h2 className="mt-4 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">Ready to upgrade your restaurant?</h2>
-              <p className="mt-4 text-slate-400 leading-relaxed">
-                Schedule a personalized product walkthrough with our hospitality experts. Discover how OrderRail can save staff hours and increase diners' satisfaction.
-              </p>
+      {/* ─── CONTACT / LEAD CAPTURE (BALANCED CONTAINER & INFO BLOCK) ─── */}
+      <section id="contact" className="border-t border-border/50 py-14 md:py-18">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
+            {/* Left Info Card - Balanced Density */}
+            <motion.div 
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="lg:col-span-5 rounded-3xl bg-card p-6 md:p-8 shadow-soft ring-1 ring-border/60 space-y-6"
+            >
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
+                  <Sparkles className="h-3.5 w-3.5" /> Onboarding Support
+                </span>
+                <h2 className="mt-3 font-display text-2xl md:text-3xl font-semibold tracking-tight">Ready to modernise your café?</h2>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                  Schedule a walkthrough with our team. We'll show you how OrderRail fits into your existing workflow — no pressure, no obligations.
+                </p>
+              </div>
 
-              <div className="mt-8 space-y-6 text-sm text-slate-300">
-                <div className="flex items-center gap-3">
-                  <Mail className="h-5 w-5 text-brand" />
-                  <span>onboarding@orderrail.com</span>
+              <div className="space-y-4 text-xs border-t border-border/50 pt-4">
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-accent/15 text-accent shrink-0"><Mail className="h-4 w-4" /></span>
+                  <div>
+                    <div className="font-semibold text-foreground">Email Onboarding</div>
+                    <div>onboarding@orderrail.com</div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-brand" />
-                  <span>+91 98765 43210</span>
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-accent/15 text-accent shrink-0"><Phone className="h-4 w-4" /></span>
+                  <div>
+                    <div className="font-semibold text-foreground">Phone & WhatsApp</div>
+                    <div>+91 98765 43210</div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-brand" />
-                  <span>Hitech City, Hyderabad, India</span>
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-accent/15 text-accent shrink-0"><MapPin className="h-4 w-4" /></span>
+                  <div>
+                    <div className="font-semibold text-foreground">Headquarters</div>
+                    <div>Hitech City, Hyderabad, India</div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Lead capture form panel */}
-            <div className="rounded-3xl border border-slate-900 bg-slate-900/20 p-8">
+              <div className="rounded-2xl bg-secondary/50 p-3.5 text-xs text-muted-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4 text-accent shrink-0" />
+                <span>Response commitment: Walkthrough scheduled within 2 hours.</span>
+              </div>
+            </motion.div>
+
+            {/* Right Lead capture form panel */}
+            <motion.div 
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="lg:col-span-7 rounded-3xl bg-card p-6 md:p-8 shadow-soft ring-1 ring-border/60"
+            >
               {demoRequested ? (
                 <div className="text-center py-10 space-y-4">
-                  <CheckCircle className="mx-auto h-16 w-16 text-brand" />
-                  <h3 className="font-display text-2xl font-bold text-white">Demo Request Received!</h3>
-                  <p className="text-sm text-slate-400 max-w-md mx-auto">
-                    Thank you! An onboarding specialist will reach out to you within 24 hours to schedule your live walkthrough.
+                  <CheckCircle className="mx-auto h-14 w-14 text-accent" />
+                  <h3 className="font-display text-2xl font-semibold">We'll be in touch!</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                    Thank you. An onboarding specialist will reach out within 24 hours to schedule your walkthrough.
                   </p>
                 </div>
               ) : (
                 <form onSubmit={handleDemoSubmit} className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="text-xs font-semibold text-slate-400">Restaurant Name</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Restaurant Name</label>
                       <input
                         required
                         type="text"
@@ -513,11 +771,11 @@ export default function B2bLandingPage() {
                         value={formData.restaurantName}
                         onChange={handleInputChange}
                         placeholder="e.g. Café Sunrise"
-                        className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm text-white outline-none focus:border-brand transition"
+                        className="mt-1 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition placeholder:text-muted-foreground/50"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-400">Contact Name</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Contact Name</label>
                       <input
                         required
                         type="text"
@@ -525,14 +783,14 @@ export default function B2bLandingPage() {
                         value={formData.contactName}
                         onChange={handleInputChange}
                         placeholder="e.g. Rahul Sharma"
-                        className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm text-white outline-none focus:border-brand transition"
+                        className="mt-1 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition placeholder:text-muted-foreground/50"
                       />
                     </div>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="text-xs font-semibold text-slate-400">Business Email</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Business Email</label>
                       <input
                         required
                         type="email"
@@ -540,11 +798,11 @@ export default function B2bLandingPage() {
                         value={formData.email}
                         onChange={handleInputChange}
                         placeholder="rahul@sunrise.com"
-                        className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm text-white outline-none focus:border-brand transition"
+                        className="mt-1 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition placeholder:text-muted-foreground/50"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-400">Contact Number</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Contact Number</label>
                       <input
                         required
                         type="tel"
@@ -552,14 +810,14 @@ export default function B2bLandingPage() {
                         value={formData.phone}
                         onChange={handleInputChange}
                         placeholder="+91 99999 88888"
-                        className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm text-white outline-none focus:border-brand transition"
+                        className="mt-1 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition placeholder:text-muted-foreground/50"
                       />
                     </div>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="text-xs font-semibold text-slate-400">City</label>
+                      <label className="text-xs font-semibold text-muted-foreground">City</label>
                       <input
                         required
                         type="text"
@@ -567,61 +825,62 @@ export default function B2bLandingPage() {
                         value={formData.city}
                         onChange={handleInputChange}
                         placeholder="Mumbai"
-                        className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm text-white outline-none focus:border-brand transition"
+                        className="mt-1 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition placeholder:text-muted-foreground/50"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-400">Number of Tables</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Number of Tables</label>
                       <select
                         name="tableCount"
                         value={formData.tableCount}
                         onChange={handleInputChange}
-                        className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300 outline-none focus:border-brand transition"
+                        className="mt-1 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition text-foreground"
                       >
-                        <option value="1-10">1 - 10 tables</option>
-                        <option value="11-25">11 - 25 tables</option>
-                        <option value="26-50">26 - 50 tables</option>
+                        <option value="1-10">1 – 10 tables</option>
+                        <option value="11-25">11 – 25 tables</option>
+                        <option value="26-50">26 – 50 tables</option>
                         <option value="50+">More than 50 tables</option>
                       </select>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-400">Additional Message</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Additional Message</label>
                     <textarea
                       name="message"
                       value={formData.message}
                       onChange={handleInputChange}
                       placeholder="Tell us about your requirements..."
                       rows={3}
-                      className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm text-white outline-none focus:border-brand transition resize-none"
+                      className="mt-1 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition resize-none placeholder:text-muted-foreground/50"
                     />
                   </div>
 
-                  <button
+                  <motion.button
+                    whileTap={shouldReduceMotion ? {} : { scale: 0.98 }}
                     type="submit"
-                    className="w-full rounded-full bg-brand py-3 text-sm font-semibold text-white shadow-lg shadow-brand/20 hover:bg-brand-hover transition"
+                    className="w-full rounded-full btn-primary-action py-3 text-sm font-semibold shadow-soft"
                   >
-                    Submit Request
-                  </button>
+                    Submit request
+                  </motion.button>
                 </form>
               )}
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* ─── FOOTER ─── */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-12">
-        <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+      <footer className="border-t border-border/50 py-8">
+        <div className="mx-auto max-w-6xl px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr from-brand to-rose-500 text-white font-display text-sm font-black">OR</span>
-            <span className="font-display text-base font-bold text-white">OrderRail</span>
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground shadow-soft font-display text-xs font-bold">OR</span>
+            <span className="font-display text-sm font-semibold">OrderRail</span>
           </div>
-          <p className="text-xs text-slate-500">© 2026 OrderRail Technologies Pvt Ltd. All rights reserved.</p>
-          <div className="flex items-center gap-6 text-xs text-slate-400">
-            <a href="#" className="hover:text-white transition">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition">Terms of Service</a>
+          <p className="text-xs text-muted-foreground">© 2026 OrderRail Technologies Pvt Ltd. All rights reserved.</p>
+          <div className="flex items-center gap-6 text-xs text-muted-foreground">
+            <a href="#" className="hover:text-foreground transition">Privacy Policy</a>
+            <a href="#" className="hover:text-foreground transition">Terms of Service</a>
           </div>
         </div>
       </footer>
