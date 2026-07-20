@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import QRCode from "qrcode";
 import { Plus, Trash2, Download } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase, type TableRow } from "@/lib/db";
@@ -131,7 +130,12 @@ function TableQRCard({
   useEffect(() => {
     if (!ref.current) return;
     const url = `${window.location.origin}/t/${table.id}`;
-    void QRCode.toCanvas(ref.current, url, { margin: 1, width: QR_SIZE, color: { dark: "#1a1210", light: "#ffffff" } });
+    import("qrcode").then((QRCodeModule) => {
+      const QRCode = QRCodeModule.default || QRCodeModule;
+      if (ref.current) {
+        void QRCode.toCanvas(ref.current, url, { margin: 1, width: QR_SIZE, color: { dark: "#1a1210", light: "#ffffff" } });
+      }
+    });
   }, [table.id]);
 
   return (
@@ -266,6 +270,8 @@ export default function OwnerTablesPage() {
   };
 
   const downloadQRSingle = async (t: TableRow) => {
+    const QRCodeModule = await import("qrcode");
+    const QRCode = QRCodeModule.default || QRCodeModule;
     const canvas = document.createElement("canvas");
     const url = `${window.location.origin}/t/${t.id}`;
     await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
@@ -276,6 +282,8 @@ export default function OwnerTablesPage() {
   };
 
   const downloadArtworkSingle = async (t: TableRow) => {
+    const QRCodeModule = await import("qrcode");
+    const QRCode = QRCodeModule.default || QRCodeModule;
     const canvas = document.createElement("canvas");
     const url = `${window.location.origin}/t/${t.id}`;
     await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
@@ -295,6 +303,8 @@ export default function OwnerTablesPage() {
     toast.info("Generating ZIP archive of all artworks...");
     
     try {
+      const QRCodeModule = await import("qrcode");
+      const QRCode = QRCodeModule.default || QRCodeModule;
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       
