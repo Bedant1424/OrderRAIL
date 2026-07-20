@@ -36,27 +36,29 @@ export default function SharedOrderKanban({
     return () => clearInterval(timer);
   }, []);
 
-  // Group orders into columns with Task 5 Live Board Cleanup (Recently Served Window: 2 hours)
+  // Group orders into columns with Live Board Cleanup (Recently Served Window: 2 hours)
   const columnsData = useMemo(() => {
-    const map: Record<Order["status"], (Order & { order_items: OrderItem[] })[]> = {
+    const map: Record<string, (Order & { order_items: OrderItem[] })[]> = {
       placed: [],
       in_kitchen: [],
       ready: [],
       served: [],
-      cancelled: []
     };
 
     const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
 
     for (const o of orders) {
       if (o.status === "served") {
-        // Task 5: Only include recently served orders (last 2h) on Live board
         const servedTime = o.updated_at ? new Date(o.updated_at).getTime() : new Date(o.created_at).getTime();
         if (servedTime >= twoHoursAgo) {
           map.served.push(o);
         }
-      } else if (map[o.status]) {
-        map[o.status].push(o);
+      } else if (o.status === "pending" || o.status === "placed") {
+        map.placed.push(o);
+      } else if (o.status === "preparing" || o.status === "in_kitchen") {
+        map.in_kitchen.push(o);
+      } else if (o.status === "ready") {
+        map.ready.push(o);
       }
     }
 
@@ -99,85 +101,86 @@ export default function SharedOrderKanban({
                   {status === "served" ? "No recently served orders (last 2h)" : `No orders in ${meta.label.toLowerCase()}`}
                 </div>
               ) : (
-                columnOrders.map((order) => {
-                  const itemCount = (order.order_items ?? []).reduce((s, it) => s + it.qty, 0);
-                  const nextStatus = getNextOrderStatus(order.status);
-                  const aging = getOrderAging(order.created_at);
-                  const priority = getOrderPriority(order);
+                columnOrders.map((o) => {
+                  const aging = getOrderAging(o.created_at);
+                  const priority = getOrderPriority(o);
+                  const nextStatus = getNextOrderStatus(o.status);
 
                   return (
                     <div
-                      key={order.id}
-                      onClick={() => onSelectOrder(order)}
+                      key={o.id}
+                      onClick={() => onSelectOrder(o)}
                       className={cn(
-                        "group cursor-pointer rounded-2xl border bg-background p-4 shadow-soft transition hover:border-accent/50 hover:shadow-float space-y-3 select-none relative",
-                        aging.level === "urgent" && status !== "served" && "border-destructive/40 bg-destructive/5",
-                        aging.level === "warning" && status !== "served" && "border-amber-500/30 bg-amber-500/5",
-                        aging.level === "normal" && "border-border"
+                        "group relative cursor-pointer rounded-2xl bg-background p-4 shadow-soft ring-1 transition hover:ring-2 hover:ring-ring/60 select-none space-y-3",
+                        priority.isHighPriority ? "ring-amber-500/50 bg-amber-500/5" : "ring-border/60"
                       )}
                     >
-                      {/* Card Header & Order ID */}
+                      {/* Top Header Row */}
                       <div className="flex items-center justify-between">
-                        <span className="font-display text-base font-bold text-foreground">
-                          {formatOrderLabel(order.order_number)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-display text-base font-bold text-foreground">
+                            {formatOrderLabel(o.order_number)}
+                          </span>
+                          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground">
+                            Table {tableLabelMap.get(o.table_id) ?? "?"}
+                          </span>
+                        </div>
 
-                        {/* Order Aging Badge */}
-                        <div className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border", aging.badgeStyle)}>
-                          <Timer className="h-3 w-3" />
-                          <span>{formatTimeElapsed(order.created_at)}</span>
+                        {/* Order Aging Visual Indicator */}
+                        <div className="flex items-center gap-1">
+                          <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border", aging.badgeStyle)}>
+                            <Timer className="h-3 w-3" />
+                            {formatTimeElapsed(o.created_at)}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Priority Indicators */}
-                      {priority.isHighPriority && status !== "served" && (
-                        <div className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-600 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-lg">
-                          <Flame className="h-3 w-3 fill-red-500 text-red-500" />
+                      {/* Items Preview */}
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        {(o.order_items ?? []).map((it) => (
+                          <div key={it.id} className="flex justify-between">
+                            <span className="truncate pr-2">
+                              <strong className="text-foreground">{it.qty}x</strong> {it.name}
+                            </span>
+                            <span className="tabular-nums shrink-0">{formatMoney(it.qty * it.price_cents, currency)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Notes indicator */}
+                      {o.notes && (
+                        <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-xl p-2 font-medium">
+                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">Note: {o.notes}</span>
+                        </div>
+                      )}
+
+                      {/* Priority Warning Banner */}
+                      {priority.isHighPriority && (
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                          <Flame className="h-3 w-3 text-amber-500" />
                           <span>{priority.reason}</span>
                         </div>
                       )}
 
-                      {/* Table & Item Count Meta */}
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="font-medium text-foreground">
-                          Table {tableLabelMap.get(order.table_id) ?? "?"}
-                        </div>
-                        <div className="text-muted-foreground">
-                          {itemCount} {itemCount === 1 ? "item" : "items"}
-                        </div>
-                      </div>
-
-                      {/* Item Preview */}
-                      <div className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                        {(order.order_items ?? []).map((it) => `${it.qty}x ${it.name}`).join(", ")}
-                      </div>
-
-                      {/* Special Notes */}
-                      {order.notes && (
-                        <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-lg w-fit">
-                          <FileText className="h-3 w-3" /> Special Note
-                        </div>
-                      )}
-
-                      {/* Card Footer: Amount & Task 1/2 Single Primary Workflow Action Button */}
+                      {/* Footer & Single Primary Workflow Button */}
                       <div className="flex items-center justify-between border-t border-border/50 pt-2.5">
                         <span className="font-display text-sm font-bold tabular-nums text-foreground">
-                          {formatMoney(order.total_cents, currency)}
+                          {formatMoney(o.total_cents, currency)}
                         </span>
 
-                        {/* Task 1 & 2: Single Contextual Workflow Button */}
                         {nextStatus ? (
                           <button
                             disabled={isUpdatingStatus}
                             onClick={(e) => {
                               e.stopPropagation();
-                              onUpdateStatus(order.id, nextStatus);
+                              onUpdateStatus(o.id, nextStatus);
                             }}
                             className={cn(
-                              "inline-flex items-center gap-1 rounded-full px-3.5 py-1 text-xs font-semibold transition shadow-soft active:scale-95",
-                              nextStatus === "in_kitchen" && "bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-300",
-                              nextStatus === "ready" && "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-300",
-                              nextStatus === "served" && "bg-brand text-brand-foreground hover:opacity-90"
+                              "inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold shadow-soft transition active:scale-95 disabled:opacity-50",
+                              nextStatus === "in_kitchen" && "bg-blue-600 text-white hover:bg-blue-700",
+                              nextStatus === "ready" && "bg-amber-600 text-white hover:bg-amber-700",
+                              nextStatus === "served" && "bg-emerald-600 text-white hover:bg-emerald-700"
                             )}
                           >
                             <span>
@@ -189,7 +192,7 @@ export default function SharedOrderKanban({
                           </button>
                         ) : (
                           <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                            <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> Served
+                            <CheckCircle className="h-3.5 w-3.5" /> Completed
                           </span>
                         )}
                       </div>

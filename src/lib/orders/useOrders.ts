@@ -37,23 +37,19 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
     return null;
   }, [dateRange]);
 
-  // Unified Query Key across Owner & Staff
   const queryKey = useMemo(() => ["shared-orders", cafeId, dateRange], [cafeId, dateRange]);
 
-  // Main Query
   const ordersQ = useQuery({
     queryKey,
     enabled: !!cafeId,
     queryFn: () => fetchCafeOrders(cafeId!, sinceDate),
-    refetchInterval: 10000,
+    refetchInterval: 5000,
   });
 
-  // Realtime Subscription (Phase 5)
   useEffect(() => {
     if (!cafeId) return;
 
     const unsubscribe = subscribeToOrdersChannel(cafeId, () => {
-      // Invalidate all shared-orders queries for this cafe
       void queryClient.invalidateQueries({ queryKey: ["shared-orders", cafeId] });
       void queryClient.invalidateQueries({ queryKey: ["staff-orders", cafeId] });
       void queryClient.invalidateQueries({ queryKey: ["owner-orders-page", cafeId] });
@@ -64,7 +60,6 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
     };
   }, [cafeId, queryClient]);
 
-  // Status Mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ orderId, nextStatus }: { orderId: string; nextStatus: Order["status"] }) => {
       await updateOrderStatusInDb(orderId, nextStatus);
@@ -81,7 +76,6 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
     }
   });
 
-  // Cancel Mutation
   const cancelMutation = useMutation({
     mutationFn: async (orderId: string) => {
       await cancelOrderInDb(orderId);
@@ -101,7 +95,13 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
   const orders = ordersQ.data ?? [];
 
   const activeOrders = useMemo(
-    () => orders.filter((o) => o.status === "placed" || o.status === "in_kitchen" || o.status === "ready"),
+    () => orders.filter((o) =>
+      o.status === "pending" ||
+      o.status === "placed" ||
+      o.status === "preparing" ||
+      o.status === "in_kitchen" ||
+      o.status === "ready"
+    ),
     [orders]
   );
 

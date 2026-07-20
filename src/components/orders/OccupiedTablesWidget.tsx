@@ -27,18 +27,24 @@ export default function OccupiedTablesWidget({
     });
   }, [tables]);
 
-  // Task 5: Map occupied table IDs to their primary active order status and count
+  // Map occupied table IDs to their primary active order status and count
   const occupiedTableDetails = useMemo(() => {
     const map = new Map<string, { count: number; primaryStatus: Order["status"] }>();
     for (const o of pendingOrders) {
-      if (o.status !== "placed" && o.status !== "in_kitchen" && o.status !== "ready") continue;
+      if (
+        o.status !== "pending" &&
+        o.status !== "placed" &&
+        o.status !== "preparing" &&
+        o.status !== "in_kitchen" &&
+        o.status !== "ready"
+      ) continue;
+
       const cur = map.get(o.table_id);
       if (!cur) {
         map.set(o.table_id, { count: 1, primaryStatus: o.status });
       } else {
-        // Priority status ranking: placed > in_kitchen > ready
         let status = cur.primaryStatus;
-        if (o.status === "placed") status = "placed";
+        if (o.status === "pending" || o.status === "placed") status = "placed";
         map.set(o.table_id, { count: cur.count + 1, primaryStatus: status });
       }
     }
@@ -75,7 +81,7 @@ export default function OccupiedTablesWidget({
         )}
       </div>
 
-      {/* Task 5: Enhanced Numerically Sorted Table Chips showing Status */}
+      {/* Enhanced Numerically Sorted Table Chips showing Status */}
       <div className="flex flex-wrap items-center gap-2">
         {sortedTables.map((table) => {
           const details = occupiedTableDetails.get(table.id);
