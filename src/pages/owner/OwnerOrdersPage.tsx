@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Search,
   Download,
@@ -29,6 +29,7 @@ import OccupiedTablesWidget from "@/components/orders/OccupiedTablesWidget";
 import { ORDER_STATUS_MAP, getNextOrderStatus } from "@/lib/orders/orderUtils";
 import { calculateOperationalSummary } from "@/lib/orders/metrics";
 import { generateOrdersCSV } from "@/lib/orders/csvExporter";
+import { useOrders } from "@/lib/orders/useOrders";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +41,6 @@ type DateRangeFilter = "today" | "7d" | "30d" | "all";
 export default function OwnerOrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { cafe } = useCafe();
-  const queryClient = useQueryClient();
   const currency = cafe?.currency ?? "USD";
 
   // Navigation Tab State
@@ -62,7 +62,12 @@ export default function OwnerOrdersPage() {
   // Drawer & Selection States
   const [selectedOrder, setSelectedOrder] = useState<(Order & { order_items: OrderItem[] }) | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Consuming Shared Order Engine Hook (Phase 4 & 5)
+  const { orders, isLoading, updateStatus, cancelOrder, isUpdating } = useOrders({
+    cafeId: cafe?.id,
+    dateRange
+  });
 
   // Sync tab & filters from URL params
   useEffect(() => {
@@ -76,48 +81,6 @@ export default function OwnerOrdersPage() {
     if (rangeParam) setDateRange(rangeParam as DateRangeFilter);
   }, [searchParams]);
 
-  // Compute date filter boundary
-  const sinceDate = useMemo(() => {
-    if (dateRange === "today") {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      return d.toISOString();
-    }
-    if (dateRange === "7d") {
-      const d = new Date();
-      d.setDate(d.getDate() - 7);
-      return d.toISOString();
-    }
-    if (dateRange === "30d") {
-      const d = new Date();
-      d.setDate(d.getDate() - 30);
-      return d.toISOString();
-    }
-    return null;
-  }, [dateRange]);
-
-  // Fetch orders query
-  const ordersQ = useQuery({
-    queryKey: ["owner-orders-page", cafe?.id, dateRange],
-    enabled: !!cafe?.id,
-    queryFn: async () => {
-      let q = supabase
-        .from("orders")
-        .select("*, order_items(*)")
-        .eq("cafe_id", cafe!.id)
-        .order("created_at", { ascending: false });
-
-      if (sinceDate) {
-        q = q.gte("created_at", sinceDate);
-      }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as unknown as (Order & { order_items: OrderItem[] })[];
-    },
-    refetchInterval: 5000,
-  });
-
   // Fetch tables mapping
   const tablesQ = useQuery({
     queryKey: ["owner-orders-tables", cafe?.id],
@@ -128,7 +91,6 @@ export default function OwnerOrdersPage() {
     },
   });
 
-  const orders = ordersQ.data ?? [];
   const tables = tablesQ.data ?? [];
 
   // Active Pending Orders
@@ -144,7 +106,7 @@ export default function OwnerOrdersPage() {
     return map;
   }, [tables]);
 
-  // Task 1, 2, 3, 4 & 6: Clean operational metrics engine consumption
+  // Operational summary metrics
   const summary = useMemo(() => calculateOperationalSummary(orders), [orders]);
 
   // Deep-link trigger for orderId param
@@ -205,25 +167,15 @@ export default function OwnerOrdersPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
-  // Status Update Handler
-  const updateOrderStatus = async (orderId: string, nextStatus: Order["status"]) => {
-    setIsUpdatingStatus(true);
+  // Status Update Handler using Shared Repository Engine
+  const handleUpdateStatus = async (orderId: string, nextStatus: Order["status"]) => {
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: nextStatus, updated_at: new Date().toISOString() })
-        .eq("id", orderId);
-      if (error) throw error;
-      toast.success(`Order status updated to ${nextStatus}`);
-      void queryClient.invalidateQueries({ queryKey: ["owner-orders-page"] });
+      await updateStatus(orderId, nextStatus);
       if (selectedOrder?.id === orderId) {
         setSelectedOrder((prev) => (prev ? { ...prev, status: nextStatus } : null));
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to update status";
-      toast.error(msg);
-    } finally {
-      setIsUpdatingStatus(false);
+    } catch {
+      // Toast already triggered by hook
     }
   };
 
@@ -263,7 +215,7 @@ export default function OwnerOrdersPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? "OrderRail"} · Live restaurant orders & historical operational logs
+            {cafe?.name ?? "OrderRail"} · Shared real-time restaurant orders & historical logs
           </p>
         </div>
 
@@ -298,7 +250,7 @@ export default function OwnerOrdersPage() {
         </div>
       </header>
 
-      {/* Task 4 & 6: Polished Summary Cards */}
+      {/* Summary Cards */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Orders</div>
@@ -341,8 +293,8 @@ export default function OwnerOrdersPage() {
             tableLabelMap={tableLabelMap}
             currency={currency}
             onSelectOrder={(order) => setSelectedOrder(order)}
-            onUpdateStatus={updateOrderStatus}
-            isUpdatingStatus={isUpdatingStatus}
+            onUpdateStatus={handleUpdateStatus}
+            isUpdatingStatus={isUpdating}
           />
         </section>
       )}
@@ -442,7 +394,7 @@ export default function OwnerOrdersPage() {
 
           {/* History Table */}
           <div className="rounded-3xl bg-card shadow-soft ring-1 ring-border/60 overflow-hidden">
-            {ordersQ.isLoading ? (
+            {isLoading ? (
               <TableSkeleton />
             ) : filteredOrders.length === 0 ? (
               <div className="py-16 text-center text-muted-foreground space-y-2">
@@ -642,8 +594,8 @@ export default function OwnerOrdersPage() {
                   <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Next Action</div>
                   {getNextOrderStatus(selectedOrder.status) && (
                     <button
-                      disabled={isUpdatingStatus}
-                      onClick={() => updateOrderStatus(selectedOrder.id, getNextOrderStatus(selectedOrder.status)!)}
+                      disabled={isUpdating}
+                      onClick={() => handleUpdateStatus(selectedOrder.id, getNextOrderStatus(selectedOrder.status)!)}
                       className="w-full rounded-xl bg-brand text-brand-foreground py-2.5 text-xs font-semibold shadow-soft hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-1.5"
                     >
                       <span>
@@ -655,8 +607,8 @@ export default function OwnerOrdersPage() {
                     </button>
                   )}
                   <button
-                    disabled={isUpdatingStatus}
-                    onClick={() => updateOrderStatus(selectedOrder.id, "cancelled")}
+                    disabled={isUpdating}
+                    onClick={() => cancelOrder(selectedOrder.id)}
                     className="w-full rounded-xl bg-destructive/10 text-destructive border border-destructive/20 py-2 text-xs font-semibold hover:bg-destructive/20 transition disabled:opacity-50"
                   >
                     Cancel Order
