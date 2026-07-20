@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Coffee, ShieldCheck } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,8 +7,19 @@ import { useAuth, hasRole } from "@/lib/auth";
 import { useCafe } from "@/lib/cafe";
 import { useImageUrl } from "@/lib/useImageUrl";
 
+function formatAuthError(err: unknown): string {
+  if (!(err instanceof Error)) return "An unexpected error occurred. Please try again.";
+  const msg = err.message.toLowerCase();
+  if (msg.includes("invalid login credentials")) return "Invalid email or password. Please try again.";
+  if (msg.includes("email not confirmed")) return "Please confirm your email address before signing in.";
+  if (msg.includes("rate limit")) return "Too many attempts. Please wait a moment before trying again.";
+  if (msg.includes("network")) return "Network error. Please check your internet connection.";
+  return err.message;
+}
+
 export default function StaffLoginPage() {
   const nav = useNavigate();
+  const location = useLocation();
   const { session, roles, loading, refreshRoles, signOut } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -26,11 +37,15 @@ export default function StaffLoginPage() {
       isStaff: hasRole(roles, "staff")
     });
     if (!loading && session && hasRole(roles, "staff", "owner")) {
-      const target = hasRole(roles, "owner") ? "/owner" : "/staff";
+      const fromPath = (location.state as { from?: string })?.from;
+      const defaultTarget = hasRole(roles, "owner") ? "/owner" : "/staff";
+      const target = fromPath && (fromPath.startsWith("/owner") || fromPath.startsWith("/staff")) 
+        ? fromPath 
+        : defaultTarget;
       console.log("StaffLoginPage: Redirecting to:", target);
       nav(target, { replace: true });
     }
-  }, [loading, session, roles, nav]);
+  }, [loading, session, roles, nav, location.state]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,8 +72,7 @@ export default function StaffLoginPage() {
         if (error) throw error;
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      toast.error(msg);
+      toast.error(formatAuthError(err));
     } finally {
       setBusy(false);
     }

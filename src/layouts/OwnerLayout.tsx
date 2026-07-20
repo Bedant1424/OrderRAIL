@@ -435,11 +435,11 @@ export default function OwnerLayout() {
   if (loading) return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   if (!session) {
     console.log("OwnerLayout: Redirecting to /staff/login - no session");
-    return <Navigate to="/staff/login" replace />;
+    return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
   }
   if (!hasRole(roles, "owner")) {
     console.log("OwnerLayout: Redirecting to /staff/login - not owner");
-    return <Navigate to="/staff/login" replace />;
+    return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
   }
 
   return (
