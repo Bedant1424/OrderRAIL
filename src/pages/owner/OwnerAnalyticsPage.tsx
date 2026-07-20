@@ -31,42 +31,9 @@ import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, ty
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { cn } from "@/lib/utils";
+import { calculateRevenueMetrics, calculateAveragePrepTime } from "@/lib/analytics/metrics";
 
 type Range = 7 | 30 | 90;
-
-/**
- * Task 1: Foundation revenue metrics model designed for future POS/billing integration
- * (Exposes Gross Sales, Discounts, Tax, Net Sales).
- */
-export interface RevenueMetricsModel {
-  grossSalesCents: number;
-  discountsCents: number;
-  taxCents: number;
-  netSalesCents: number;
-  orderCount: number;
-  averageOrderValueCents: number;
-}
-
-export function calculateRevenueMetrics(targetOrders: (Order & { order_items?: OrderItem[] })[]): RevenueMetricsModel {
-  const paid = targetOrders.filter((o) => o.status !== "cancelled");
-  
-  const grossSalesCents = paid.reduce((sum, o) => sum + (o.total_cents || 0), 0);
-  const discountsCents = 0; // Reserved for POS discount coupon extension
-  const taxCents = 0;       // Reserved for POS tax breakdown extension
-  const netSalesCents = Math.max(0, grossSalesCents - discountsCents + taxCents);
-  
-  const orderCount = paid.length;
-  const averageOrderValueCents = orderCount > 0 ? Math.round(netSalesCents / orderCount) : 0;
-
-  return {
-    grossSalesCents,
-    discountsCents,
-    taxCents,
-    netSalesCents,
-    orderCount,
-    averageOrderValueCents,
-  };
-}
 
 export default function OwnerAnalyticsPage() {
   const [range, setRange] = useState<Range>(7);
@@ -146,56 +113,14 @@ export default function OwnerAnalyticsPage() {
 
   const paidOrders = useMemo(() => orders.filter((o) => o.status !== "cancelled"), [orders]);
 
-  // Task 1: Refactored Revenue Model Calculations
+  // Task 1: Refactored Revenue Model Calculations via Shared Analytics Utility
   const rangeRevenueMetrics = useMemo(() => calculateRevenueMetrics(orders), [orders]);
 
   const todayOrders = useMemo(() => orders.filter((o) => o.created_at >= todayStart), [orders, todayStart]);
   const todayRevenueMetrics = useMemo(() => calculateRevenueMetrics(todayOrders), [todayOrders]);
 
-  // Task 2: Preparation Time Accuracy Calculation (Dynamic from order timestamps)
-  const prepTimeStats = useMemo(() => {
-    const completedOrders = orders.filter(
-      (o) => (o.status === "served" || o.status === "ready") && o.created_at && o.updated_at
-    );
-
-    if (completedOrders.length < 2) {
-      return {
-        value: "—",
-        subtext: "Awaiting production data",
-        hasData: false
-      };
-    }
-
-    let totalMins = 0;
-    let validCount = 0;
-
-    for (const o of completedOrders) {
-      const created = new Date(o.created_at).getTime();
-      const updated = new Date(o.updated_at).getTime();
-      const diffMins = (updated - created) / (1000 * 60);
-
-      // Sanity filter: filter out non-sensical or overly delayed timestamps (> 120 mins)
-      if (diffMins > 0 && diffMins <= 120) {
-        totalMins += diffMins;
-        validCount += 1;
-      }
-    }
-
-    if (validCount === 0) {
-      return {
-        value: "—",
-        subtext: "Awaiting production data",
-        hasData: false
-      };
-    }
-
-    const avgMins = Math.round(totalMins / validCount);
-    return {
-      value: `~${avgMins} mins`,
-      subtext: `Based on ${validCount} completed orders`,
-      hasData: true
-    };
-  }, [orders]);
+  // Task 2: Preparation Time Calculation via Shared Analytics Utility
+  const prepTimeStats = useMemo(() => calculateAveragePrepTime(orders), [orders]);
 
   // Active / Pending orders metrics
   const pendingOrders = useMemo(
