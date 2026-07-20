@@ -1,7 +1,13 @@
-import { useMemo } from "react";
-import { Clock, Utensils, ChevronRight, CheckCircle, AlertCircle, FileText } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { Clock, Utensils, ChevronRight, CheckCircle, AlertCircle, FileText, Flame, Timer } from "lucide-react";
 import { formatMoney, formatOrderLabel, type Order, type OrderItem } from "@/lib/db";
-import { ORDER_STATUS_MAP, formatTimeElapsed, getNextOrderStatus } from "@/lib/orders/orderUtils";
+import {
+  ORDER_STATUS_MAP,
+  formatTimeElapsed,
+  getNextOrderStatus,
+  getOrderAging,
+  getOrderPriority
+} from "@/lib/orders/orderUtils";
 import { cn } from "@/lib/utils";
 
 export interface SharedOrderKanbanProps {
@@ -23,6 +29,13 @@ export default function SharedOrderKanban({
   onUpdateStatus,
   isUpdatingStatus = false,
 }: SharedOrderKanbanProps) {
+  // Live auto-updating ticker state (triggers re-render every 10s to keep elapsed time & aging fresh)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Group orders into columns
   const columnsData = useMemo(() => {
     const map: Record<Order["status"], (Order & { order_items: OrderItem[] })[]> = {
@@ -43,48 +56,74 @@ export default function SharedOrderKanban({
       {KANBAN_COLUMNS.map((status) => {
         const columnOrders = columnsData[status] ?? [];
         const meta = ORDER_STATUS_MAP[status];
+        const totalCents = columnOrders.reduce((s, o) => s + o.total_cents, 0);
 
         return (
-          <div key={status} className="flex flex-col rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 min-h-[500px]">
-            {/* Column Header */}
-            <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-3">
-              <div className="flex items-center gap-2">
-                <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border", meta.columnHeaderBg)}>
-                  {meta.columnTitle}
-                </span>
+          <div
+            key={status}
+            className="flex flex-col rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 max-h-[calc(100vh-280px)] min-h-[500px]"
+          >
+            {/* Task 2: Enhanced Column Header with Metrics & Sticky Positioning */}
+            <div className="sticky top-0 z-10 bg-card pb-3 mb-3 border-b border-border/60 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border", meta.columnHeaderBg)}>
+                    {meta.columnTitle}
+                  </span>
+                  <span className="font-display text-sm font-bold text-foreground tabular-nums">
+                    {columnOrders.length} {columnOrders.length === 1 ? "order" : "orders"}
+                  </span>
+                </div>
+                <div className="mt-1 text-[11px] font-medium text-muted-foreground flex items-center gap-2">
+                  <span>Subtotal: {formatMoney(totalCents, currency)}</span>
+                </div>
               </div>
-              <span className="font-display text-sm font-bold text-muted-foreground tabular-nums">
-                {columnOrders.length}
-              </span>
             </div>
 
-            {/* Column Order Cards */}
+            {/* Task 3: Independent Column Scrolling */}
             <div className="flex-1 space-y-3 overflow-y-auto pr-1">
               {columnOrders.length === 0 ? (
-                <div className="py-16 text-center text-xs text-muted-foreground italic">
+                <div className="py-20 text-center text-xs text-muted-foreground italic">
                   No orders in {meta.label.toLowerCase()}
                 </div>
               ) : (
                 columnOrders.map((order) => {
                   const itemCount = (order.order_items ?? []).reduce((s, it) => s + it.qty, 0);
                   const nextStatus = getNextOrderStatus(order.status);
+                  const aging = getOrderAging(order.created_at);
+                  const priority = getOrderPriority(order);
 
                   return (
                     <div
                       key={order.id}
                       onClick={() => onSelectOrder(order)}
-                      className="group cursor-pointer rounded-2xl border border-border bg-background p-4 shadow-soft transition hover:border-accent/50 hover:shadow-float space-y-3 select-none"
+                      className={cn(
+                        "group cursor-pointer rounded-2xl border bg-background p-4 shadow-soft transition hover:border-accent/50 hover:shadow-float space-y-3 select-none relative",
+                        aging.level === "urgent" && "border-destructive/40 bg-destructive/5",
+                        aging.level === "warning" && "border-amber-500/30 bg-amber-500/5",
+                        aging.level === "normal" && "border-border"
+                      )}
                     >
-                      {/* Card Top Header */}
+                      {/* Card Top Header & Order ID */}
                       <div className="flex items-center justify-between">
                         <span className="font-display text-base font-bold text-foreground">
                           {formatOrderLabel(order.order_number)}
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          {formatTimeElapsed(order.created_at)}
-                        </span>
+
+                        {/* Task 1: Order Aging Badge with Icon & Text */}
+                        <div className={cn("inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border", aging.badgeStyle)}>
+                          <Timer className="h-3 w-3" />
+                          <span>{formatTimeElapsed(order.created_at)}</span>
+                        </div>
                       </div>
+
+                      {/* Task 8: Priority Indicators */}
+                      {priority.isHighPriority && (
+                        <div className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-600 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-lg">
+                          <Flame className="h-3 w-3 fill-red-500 text-red-500" />
+                          <span>{priority.reason}</span>
+                        </div>
+                      )}
 
                       {/* Table & Item Count Meta */}
                       <div className="flex items-center justify-between text-xs">
@@ -101,7 +140,7 @@ export default function SharedOrderKanban({
                         {(order.order_items ?? []).map((it) => `${it.qty}x ${it.name}`).join(", ")}
                       </div>
 
-                      {/* Notes Indicator */}
+                      {/* Special Notes */}
                       {order.notes && (
                         <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-lg w-fit">
                           <FileText className="h-3 w-3" /> Special Note

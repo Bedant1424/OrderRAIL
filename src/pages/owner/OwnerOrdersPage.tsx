@@ -14,13 +14,17 @@ import {
   Calendar,
   Sparkles,
   LayoutGrid,
-  History
+  History,
+  Activity,
+  Radio
 } from "lucide-react";
 import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import SharedOrderKanban from "@/components/orders/SharedOrderKanban";
+import OccupiedTablesWidget from "@/components/orders/OccupiedTablesWidget";
 import { ORDER_STATUS_MAP } from "@/lib/orders/orderUtils";
+import { generateOrdersCSV } from "@/lib/orders/csvExporter";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +39,7 @@ export default function OwnerOrdersPage() {
   const queryClient = useQueryClient();
   const currency = cafe?.currency ?? "USD";
 
-  // Navigation Tab State (Live vs History)
+  // Navigation Tab State
   const [activeTab, setActiveTab] = useState<MainTab>(
     (searchParams.get("tab") as MainTab) ?? "live"
   );
@@ -49,13 +53,14 @@ export default function OwnerOrdersPage() {
     (searchParams.get("range") as DateRangeFilter) ?? "all"
   );
   const [sortBy, setSortBy] = useState<SortOption>("newest");
+  const [selectedTableIdFilter, setSelectedTableIdFilter] = useState<string | null>(null);
 
-  // Selection & Drawer States
+  // Drawer & Selection States
   const [selectedOrder, setSelectedOrder] = useState<(Order & { order_items: OrderItem[] }) | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  // Sync tab & filters from URL search parameters
+  // Sync tab & filters from URL params
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     if (tabParam === "live" || tabParam === "history") setActiveTab(tabParam);
@@ -122,6 +127,12 @@ export default function OwnerOrdersPage() {
   const orders = ordersQ.data ?? [];
   const tables = tablesQ.data ?? [];
 
+  // Active Pending Orders
+  const pendingOrders = useMemo(
+    () => orders.filter((o) => o.status === "placed" || o.status === "in_kitchen" || o.status === "ready"),
+    [orders]
+  );
+
   // Table Label Mapping Helper
   const tableLabelMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -129,7 +140,7 @@ export default function OwnerOrdersPage() {
     return map;
   }, [tables]);
 
-  // Deep-link trigger for specific orderId in URL
+  // Deep-link trigger for orderId param
   useEffect(() => {
     const orderIdParam = searchParams.get("orderId");
     if (orderIdParam && orders.length > 0) {
@@ -138,9 +149,11 @@ export default function OwnerOrdersPage() {
     }
   }, [searchParams, orders]);
 
-  // Filtered & Sorted Orders for History View
+  // Filtered & Sorted Orders for History View or Table Filter
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
+      if (selectedTableIdFilter && o.table_id !== selectedTableIdFilter) return false;
+
       const tableLabel = tableLabelMap.get(o.table_id) ?? "";
       const orderLabel = formatOrderLabel(o.order_number).toLowerCase();
       const query = searchQuery.toLowerCase().trim();
@@ -169,9 +182,9 @@ export default function OwnerOrdersPage() {
       if (sortBy === "lowest") return a.total_cents - b.total_cents;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [orders, searchQuery, statusFilter, tableLabelMap, sortBy]);
+  }, [orders, searchQuery, statusFilter, tableLabelMap, sortBy, selectedTableIdFilter]);
 
-  // Selection state helpers for History view
+  // Selection helpers
   const isAllSelected = filteredOrders.length > 0 && selectedIds.length === filteredOrders.length;
   const toggleSelectAll = () => {
     if (isAllSelected) {
@@ -194,7 +207,7 @@ export default function OwnerOrdersPage() {
         .update({ status: nextStatus, updated_at: new Date().toISOString() })
         .eq("id", orderId);
       if (error) throw error;
-      toast.success(`Order updated to ${nextStatus}`);
+      toast.success(`Order status updated to ${nextStatus}`);
       void queryClient.invalidateQueries({ queryKey: ["owner-orders-page"] });
       if (selectedOrder?.id === orderId) {
         setSelectedOrder((prev) => (prev ? { ...prev, status: nextStatus } : null));
@@ -207,56 +220,51 @@ export default function OwnerOrdersPage() {
     }
   };
 
-  // CSV Export Handler
-  const exportCSV = () => {
+  // Task 4 & 5: Standardized CSV Exporter
+  const handleExportCSV = () => {
     const listToExport = selectedIds.length > 0
       ? filteredOrders.filter((o) => selectedIds.includes(o.id))
       : filteredOrders;
 
     if (listToExport.length === 0) {
-      toast.error("No orders to export.");
+      toast.error("No orders available to export.");
       return;
     }
 
-    const headers = ["Order ID", "Table", "Status", "Items", "Total ($)", "Created At"];
-    const rows = listToExport.map((o) => [
-      formatOrderLabel(o.order_number),
-      `Table ${tableLabelMap.get(o.table_id) ?? "?"}`,
-      o.status,
-      (o.order_items ?? []).map((it) => `${it.qty}x ${it.name}`).join("; "),
-      (o.total_cents / 100).toFixed(2),
-      new Date(o.created_at).toLocaleString()
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.map((val) => `"${val}"`).join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = generateOrdersCSV(listToExport, tableLabelMap);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `orderrail-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.href = url;
+    link.setAttribute("download", `orderrail-orders-export-${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success(`Exported ${listToExport.length} orders.`);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${listToExport.length} orders to standardized CSV.`);
   };
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Header & Main Nav Tabs */}
+      {/* Header Bar */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Order Operations Center</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Order Operations Center</h1>
+            {/* Task 6: Live Status Indicator */}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 border border-emerald-500/20">
+              <Radio className="h-3 w-3 animate-pulse text-emerald-500" /> Live Sync Active
+            </span>
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? "OrderRail"} · Live restaurant orders & history
+            {cafe?.name ?? "OrderRail"} · Live restaurant orders & historical operational logs
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <GlobalNotificationControls />
 
-          {/* TASK 1 — Live vs History Navigation Tabs */}
+          {/* Navigation Tabs */}
           <div className="inline-flex rounded-full bg-secondary p-1 text-xs font-medium shadow-inner">
             <button
               onClick={() => setActiveTab("live")}
@@ -284,11 +292,19 @@ export default function OwnerOrdersPage() {
         </div>
       </header>
 
+      {/* Task 7: Occupied Tables Operational Widget */}
+      <OccupiedTablesWidget
+        tables={tables}
+        pendingOrders={pendingOrders}
+        onSelectTableFilter={(tId) => setSelectedTableIdFilter(tId)}
+        selectedTableId={selectedTableIdFilter}
+      />
+
       {/* VIEW 1: LIVE OPERATIONS KANBAN */}
       {activeTab === "live" && (
         <section className="space-y-4">
           <SharedOrderKanban
-            orders={orders}
+            orders={selectedTableIdFilter ? orders.filter((o) => o.table_id === selectedTableIdFilter) : orders}
             tableLabelMap={tableLabelMap}
             currency={currency}
             onSelectOrder={(order) => setSelectedOrder(order)}
@@ -298,7 +314,7 @@ export default function OwnerOrdersPage() {
         </section>
       )}
 
-      {/* VIEW 2: ORDER HISTORY TABLE & EXPORT */}
+      {/* VIEW 2: ORDER HISTORY TABLE & STANDARDIZED CSV EXPORT */}
       {activeTab === "history" && (
         <section className="space-y-6">
           {/* Controls Bar */}
@@ -356,7 +372,7 @@ export default function OwnerOrdersPage() {
 
               {/* Export CSV Button */}
               <button
-                onClick={exportCSV}
+                onClick={handleExportCSV}
                 className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80 active:scale-95"
               >
                 <Download className="h-4 w-4" /> Export CSV ({selectedIds.length || filteredOrders.length})
