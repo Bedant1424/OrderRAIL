@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import QRCode from "qrcode";
 import { QrCode, Coffee, Zap, WifiOff, ArrowRight, ChefHat, LayoutDashboard } from "lucide-react";
 import { supabase, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
@@ -14,7 +13,12 @@ function TableQR({ tableId, label }: { tableId: string; label: string }) {
   useEffect(() => {
     if (!canvasRef.current) return;
     const url = `${window.location.origin}/t/${tableId}`;
-    void QRCode.toCanvas(canvasRef.current, url, { margin: 1, width: 180, color: { dark: "#1a1210", light: "#ffffff" } });
+    import("qrcode").then((QRCodeModule) => {
+      const QRCode = QRCodeModule.default || QRCodeModule;
+      if (canvasRef.current) {
+        void QRCode.toCanvas(canvasRef.current, url, { margin: 1, width: 180, color: { dark: "#1a1210", light: "#ffffff" } });
+      }
+    });
   }, [tableId]);
   return (
     <Link
