@@ -1,8 +1,8 @@
 import { Outlet, useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { WifiOff, Info, Globe, Instagram, Phone, MapPin, Clock, Star, MessageSquare } from "lucide-react";
-import { useEffect, useState } from "react";
 import { supabase, type Cafe, type TableRow } from "@/lib/db";
+import { getOrCreateDiningSession } from "@/lib/tables/tableRepository";
 import { CartProvider } from "@/lib/cart";
 import { BottomNav } from "@/components/customer/BottomNav";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
@@ -33,9 +33,6 @@ export default function TableLayout() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["table", tableId],
     queryFn: async () => {
-      // Clean up expired browsing sessions before loading table data
-      await supabase.rpc("cleanup_expired_browsing_sessions");
-
       const { data: table, error: tErr } = await supabase
         .from("tables")
         .select("*")
@@ -44,46 +41,8 @@ export default function TableLayout() {
       if (tErr) throw tErr;
       if (!table) return null;
 
-      let activeSessionId = table.active_session_id;
-      let isSessionValid = false;
-
-      if (activeSessionId) {
-        // Task 1: Check if the existing session is still active/browsing in dining_sessions
-        const { data: sessionData, error: sCheckErr } = await supabase
-          .from("dining_sessions")
-          .select("id, status")
-          .eq("id", activeSessionId)
-          .maybeSingle();
-
-        if (!sCheckErr && sessionData && sessionData.status !== "closed") {
-          isSessionValid = true;
-        }
-      }
-
-      if (!isSessionValid) {
-        // Create a new dining session with 'browsing' status
-        const { data: session, error: sErr } = await supabase
-          .from("dining_sessions")
-          .insert({ table_id: table.id, status: "browsing" })
-          .select("id")
-          .single();
-        if (sErr) throw sErr;
-
-        activeSessionId = session.id;
-
-        // Update the table with the active session ID, keeping status free
-        const { error: uErr } = await supabase
-          .from("tables")
-          .update({
-            active_session_id: activeSessionId,
-            status: "free",
-          })
-          .eq("id", table.id);
-        if (uErr) throw uErr;
-
-        table.active_session_id = activeSessionId;
-        table.status = "free";
-      }
+      // Delegate session lookup, creation, and resumption to tableRepository boundary
+      const activeSessionId = await getOrCreateDiningSession(table as TableRow);
 
       // Clear localStorage cart if the session ID has changed (e.g. table reset)
       const sessionKey = `orderrail.last_session_id.${tableId}`;
