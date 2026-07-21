@@ -32,6 +32,8 @@ import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { cn } from "@/lib/utils";
 import { calculateRevenueMetrics, calculateAveragePrepTime } from "@/lib/analytics/metrics";
+import { calculateOccupiedTables } from "@/lib/tables/occupancy";
+import { isOrderActive } from "@/lib/orders/orderUtils";
 
 type Range = 7 | 30 | 90;
 
@@ -122,18 +124,15 @@ export default function OwnerAnalyticsPage() {
   // Task 2: Preparation Time Calculation via Shared Analytics Utility
   const prepTimeStats = useMemo(() => calculateAveragePrepTime(orders), [orders]);
 
-  // Active / Pending orders metrics
+  // Active / Pending orders metrics via canonical order lifecycle
   const pendingOrders = useMemo(
-    () => orders.filter((o) => o.status === "placed" || o.status === "in_kitchen"),
+    () => orders.filter((o) => isOrderActive(o.status)),
     [orders]
   );
   const readyOrders = useMemo(() => orders.filter((o) => o.status === "ready"), [orders]);
 
-  // Active Tables metrics
-  const occupiedTableIds = useMemo(() => {
-    return new Set(pendingOrders.map((o) => o.table_id));
-  }, [pendingOrders]);
-  const activeTableCount = occupiedTableIds.size;
+  // Active Tables metrics via canonical occupancy engine
+  const activeTableCount = useMemo(() => calculateOccupiedTables(tables, orders).length, [tables, orders]);
   const totalTables = tables.length || 1;
   const occupancyPercentage = Math.round((activeTableCount / totalTables) * 100);
 

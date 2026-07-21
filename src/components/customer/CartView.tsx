@@ -7,6 +7,7 @@ import { supabase, formatMoney, formatOrderLabel, type Cafe, type TableRow, type
 import { getSessionId } from "@/lib/session";
 import { generateUUID } from "@/lib/uuid";
 import { cancelOrder } from "@/lib/orders";
+import { editOrderInDb } from "@/lib/orders/repository";
 import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
 import { toast } from "@/components/ui/sonner";
@@ -161,23 +162,17 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     if (!lines.length || !editingOrderId) return;
     setPlacing(true);
     try {
-      const { error } = await supabase.rpc("update_order", {
-        p_order_id: editingOrderId,
-        p_session_id: getSessionId(),
-        p_expected_version: editingOrderVersion!,
-        p_note: note.trim() || null,
-        p_total_cents: subtotalCents,
-        p_items: lines.map((l) => ({
+      await editOrderInDb({
+        orderId: editingOrderId,
+        items: lines.map((l) => ({
           menu_item_id: l.item.id,
           name: l.item.name,
           price_cents: l.item.price_cents,
           qty: l.qty,
         })),
+        notes: note.trim() || null,
+        updatedBy: "customer",
       });
-
-      if (error) {
-        throw error;
-      }
 
       toast.success("Order updated successfully! ☕");
       const savedId = editingOrderId;
