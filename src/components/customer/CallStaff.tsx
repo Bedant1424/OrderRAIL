@@ -7,6 +7,8 @@ import { toast } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app";
 import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
 
+import { createServiceRequestInDb } from "@/lib/serviceRequests";
+
 const actions: { type: ServiceRequestType; label: string; sub: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { type: "water", label: "Need Water", sub: "Refill or a fresh glass", icon: Droplet },
   { type: "waiter", label: "Call Waiter", sub: "A team member will be right over", icon: Hand },
@@ -22,15 +24,13 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     if (!cooldown.canSend(type)) return;
     setSending(type);
     try {
-      const { error } = await supabase.from("service_requests").insert({
+      await createServiceRequestInDb({
         cafe_id: cafe.id,
         table_id: table.id,
-        // Align payload with schema refactor: use browser_session_id and dining_session_id instead of session_id
         browser_session_id: getSessionId(),
         dining_session_id: table.active_session_id,
         type,
       });
-      if (error) throw error;
       cooldown.markSent(type);
       toast.success("Staff notified");
     } catch (e) {

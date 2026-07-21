@@ -8,6 +8,7 @@ import { getSessionId } from "@/lib/session";
 import { generateUUID } from "@/lib/uuid";
 import { cancelOrder } from "@/lib/orders";
 import { editOrderInDb } from "@/lib/orders/repository";
+import { createServiceRequestInDb } from "@/lib/serviceRequests";
 import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
 import { toast } from "@/components/ui/sonner";
@@ -190,15 +191,13 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     if (!cooldown.canSend(type)) return;
     setCallingType(type);
     try {
-      const { error } = await supabase.from("service_requests").insert({
+      await createServiceRequestInDb({
         cafe_id: cafe.id,
         table_id: table.id,
-        // Align payload with schema refactor: use browser_session_id and dining_session_id instead of session_id
         browser_session_id: getSessionId(),
         dining_session_id: table.active_session_id,
         type,
       });
-      if (error) throw error;
       cooldown.markSent(type);
       toast.success(`${label} request sent to staff`);
     } catch (e) {
