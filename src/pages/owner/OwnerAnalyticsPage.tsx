@@ -32,6 +32,7 @@ import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { cn } from "@/lib/utils";
 import { calculateRevenueMetrics, calculateAveragePrepTime } from "@/lib/analytics/metrics";
+import { calculateOccupiedTables } from "@/lib/tables/occupancy";
 
 type Range = 7 | 30 | 90;
 
@@ -124,16 +125,13 @@ export default function OwnerAnalyticsPage() {
 
   // Active / Pending orders metrics
   const pendingOrders = useMemo(
-    () => orders.filter((o) => o.status === "placed" || o.status === "in_kitchen"),
+    () => orders.filter((o) => o.status === "pending" || o.status === "preparing" || o.status === "placed" || o.status === "in_kitchen"),
     [orders]
   );
   const readyOrders = useMemo(() => orders.filter((o) => o.status === "ready"), [orders]);
 
-  // Active Tables metrics
-  const occupiedTableIds = useMemo(() => {
-    return new Set(pendingOrders.map((o) => o.table_id));
-  }, [pendingOrders]);
-  const activeTableCount = occupiedTableIds.size;
+  // Active Tables metrics via canonical occupancy engine
+  const activeTableCount = useMemo(() => calculateOccupiedTables(tables, orders).length, [tables, orders]);
   const totalTables = tables.length || 1;
   const occupancyPercentage = Math.round((activeTableCount / totalTables) * 100);
 
