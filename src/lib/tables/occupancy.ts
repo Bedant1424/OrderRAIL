@@ -35,7 +35,7 @@ export function getTableStatus(table: TableRow, orders: Order[]): TableOccupancy
     table.status === "occupied" ||
     (table as any).dining_sessions?.status === "active";
 
-  const isOccupied = activeOrders.length > 0 || hasActiveSession;
+  const isOccupied = hasActiveSession;
 
   let primaryStatus: Order["status"] | undefined = undefined;
   let chipColor: TableChipColor = "green";

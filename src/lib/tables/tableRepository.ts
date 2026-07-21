@@ -30,10 +30,19 @@ export async function markTableFreeInDb(tableId: string, activeSessionId?: strin
       .from("dining_sessions")
       .update({
         status: "closed",
-        ended_at: new Date().toISOString(),
+        closed_at: new Date().toISOString(),
       })
       .eq("id", activeSessionId);
   }
+
+  await supabase
+    .from("dining_sessions")
+    .update({
+      status: "closed",
+      closed_at: new Date().toISOString(),
+    })
+    .eq("table_id", tableId)
+    .neq("status", "closed");
 
   const { error: tableErr } = await supabase
     .from("tables")

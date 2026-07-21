@@ -33,7 +33,8 @@ import {
 import { getNotificationSetting, initNotificationSystem } from "@/lib/notificationSystem";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { useAuth } from "@/lib/auth";
-import { calculateOccupiedTables } from "@/lib/tables/occupancy";
+import { calculateOccupiedTables, getTableStatus } from "@/lib/tables/occupancy";
+import { markTableFreeInDb } from "@/lib/tables/tableRepository";
 import { updateOrderStatusInDb, cancelOrderInDb } from "@/lib/orders/repository";
 import {
   fetchActiveServiceRequests,
@@ -849,15 +850,14 @@ export default function StaffDashboardPage() {
 
   const handleMarkTableFree = async (table: TableRow) => {
     try {
-      const { error: rpcErr } = await supabase.rpc("free_table", {
-        p_table_id: table.id,
-        p_staff_id: session?.user?.id,
-      });
-
-      if (rpcErr) throw rpcErr;
+      await markTableFreeInDb(table.id, table.active_session_id);
 
       toast.success(`Table ${table.label} marked Free`);
       void tablesQ.refetch();
+      void ordersQ.refetch();
+      void qc.invalidateQueries({ queryKey: ["staff-tables", cafeId] });
+      void qc.invalidateQueries({ queryKey: ["staff-orders", cafeId] });
+      void qc.invalidateQueries({ queryKey: ["shared-orders", cafeId] });
       setSelectedTable(null);
     } catch (e: any) {
       console.error(e);
@@ -1598,7 +1598,7 @@ export default function StaffDashboardPage() {
         <h2 className="mb-3 font-display text-lg font-semibold">Tables</h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-8">
           {(tablesQ.data ?? []).map((t) => {
-            const isOccupied = t.dining_sessions?.status === "active";
+            const { isOccupied } = getTableStatus(t as TableRow, (ordersQ.data ?? []) as any[]);
             return (
               <div
                 key={t.id}
@@ -1621,10 +1621,9 @@ export default function StaffDashboardPage() {
 
         <AnimatePresence>
           {selectedTable && (() => {
-            const activeOrdersCount = (ordersQ.data ?? []).filter((o) =>
-              o.dining_session_id === selectedTable.active_session_id &&
-              (o.status === "pending" || o.status === "preparing" || o.status === "ready")
-            ).length;
+            const statusInfo = getTableStatus(selectedTable, (ordersQ.data ?? []) as any[]);
+            const isOccupied = statusInfo.isOccupied;
+            const activeOrdersCount = statusInfo.activeOrders.length;
             return (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                 <motion.div
@@ -1635,11 +1634,11 @@ export default function StaffDashboardPage() {
                 >
                   <h3 className="font-display text-xl font-bold">Table {selectedTable.label}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Current status: <span className="font-semibold text-foreground capitalize">{(selectedTable as any).dining_sessions?.status === "active" ? "Occupied" : "Free"}</span>
+                    Current status: <span className="font-semibold text-foreground capitalize">{isOccupied ? "Occupied" : "Free"}</span>
                   </p>
                   
                   <div className="mt-6 flex flex-col gap-2">
-                    {(selectedTable as any).dining_sessions?.status === "active" ? (
+                    {isOccupied ? (
                       <>
                         <button
                           disabled={activeOrdersCount > 0}
