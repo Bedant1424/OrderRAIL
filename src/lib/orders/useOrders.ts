@@ -3,12 +3,15 @@ import { useEffect, useMemo } from "react";
 import {
   fetchCafeOrders,
   updateOrderStatusInDb,
+  editOrderInDb,
   cancelOrderInDb,
   subscribeToOrdersChannel,
-  type OrderWithItems
+  type OrderWithItems,
+  type EditOrderItemPayload
 } from "@/lib/orders/repository";
 import type { Order } from "@/lib/db";
 import { toast } from "@/components/ui/sonner";
+import { isOrderActive } from "@/lib/orders/orderUtils";
 
 export interface UseOrdersOptions {
   cafeId?: string | null;
@@ -48,7 +51,7 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
     refetchInterval: 10000,
   });
 
-  // Realtime Subscription (Phase 5)
+  // Realtime Subscription
   useEffect(() => {
     if (!cafeId) return;
 
@@ -81,6 +84,28 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
     }
   });
 
+  // Edit Order Mutation
+  const editOrderMutation = useMutation({
+    mutationFn: async (params: {
+      orderId: string;
+      items: EditOrderItemPayload[];
+      notes?: string | null;
+      updatedBy?: "customer" | "staff" | "owner";
+    }) => {
+      await editOrderInDb(params);
+    },
+    onSuccess: () => {
+      toast.success("Order changes saved");
+      void queryClient.invalidateQueries({ queryKey: ["shared-orders", cafeId] });
+      void queryClient.invalidateQueries({ queryKey: ["staff-orders", cafeId] });
+      void queryClient.invalidateQueries({ queryKey: ["owner-orders-page", cafeId] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Failed to save order changes";
+      toast.error(msg);
+    }
+  });
+
   // Cancel Mutation
   const cancelMutation = useMutation({
     mutationFn: async (orderId: string) => {
@@ -101,7 +126,7 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
   const orders = ordersQ.data ?? [];
 
   const activeOrders = useMemo(
-    () => orders.filter((o) => o.status === "placed" || o.status === "in_kitchen" || o.status === "ready"),
+    () => orders.filter((o) => isOrderActive(o.status)),
     [orders]
   );
 
@@ -120,7 +145,13 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
     refetch: ordersQ.refetch,
     updateStatus: (orderId: string, nextStatus: Order["status"]) =>
       updateStatusMutation.mutateAsync({ orderId, nextStatus }),
+    editOrder: (params: {
+      orderId: string;
+      items: EditOrderItemPayload[];
+      notes?: string | null;
+      updatedBy?: "customer" | "staff" | "owner";
+    }) => editOrderMutation.mutateAsync(params),
     cancelOrder: (orderId: string) => cancelMutation.mutateAsync(orderId),
-    isUpdating: updateStatusMutation.isPending || cancelMutation.isPending,
+    isUpdating: updateStatusMutation.isPending || editOrderMutation.isPending || cancelMutation.isPending,
   };
 }
