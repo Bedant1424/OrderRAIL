@@ -107,7 +107,7 @@ export default function OwnerOrdersPage() {
   }, [tables]);
 
   // Operational summary metrics
-  const summary = useMemo(() => calculateOperationalSummary(orders), [orders]);
+  const summary = useMemo(() => calculateOperationalSummary(orders, tables), [orders, tables]);
 
   // Deep-link trigger for orderId param
   useEffect(() => {
@@ -250,8 +250,8 @@ export default function OwnerOrdersPage() {
         </div>
       </header>
 
-      {/* Summary Cards */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Summary Cards - Bug 5: Longest Wait removed completely */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Orders</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{summary.activeCount}</div>
@@ -259,29 +259,41 @@ export default function OwnerOrdersPage() {
         </div>
 
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Preparing</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-orange-600 dark:text-orange-400">{summary.preparingCount}</div>
+          <div className="text-[11px] text-muted-foreground">In kitchen</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ready</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{summary.readyCount}</div>
+          <div className="text-[11px] text-muted-foreground">To serve</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed Today</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{summary.ordersCompletedToday}</div>
+          <div className="text-[11px] text-muted-foreground">Served orders</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Revenue Today</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{formatMoney(summary.revenueTodayCents || 0, currency)}</div>
+          <div className="text-[11px] text-muted-foreground">Gross revenue</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Occupied Tables</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{summary.occupiedTablesCount}</div>
           <div className="text-[11px] text-muted-foreground">{summary.occupiedTablesText}</div>
-        </div>
-
-        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg Active Wait</div>
-          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{summary.avgWaitMinsFormatted}</div>
-          <div className="text-[11px] text-muted-foreground">Target &lt; 15 min</div>
-        </div>
-
-        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Longest Wait</div>
-          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">{summary.longestWaitMinsFormatted}</div>
-          <div className="text-[11px] text-muted-foreground">Attention needed</div>
         </div>
       </section>
 
       {/* Occupied Tables Operational Widget */}
       <OccupiedTablesWidget
         tables={tables}
-        pendingOrders={pendingOrders}
-        onSelectTableFilter={(tId) => setSelectedTableIdFilter(tId)}
+        orders={orders}
+        onSelectTable={(t) => setSelectedTableIdFilter(selectedTableIdFilter === t.id ? null : t.id)}
         selectedTableId={selectedTableIdFilter}
       />
 
