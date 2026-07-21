@@ -45,8 +45,22 @@ export default function TableLayout() {
       if (!table) return null;
 
       let activeSessionId = table.active_session_id;
+      let isSessionValid = false;
 
-      if (!activeSessionId) {
+      if (activeSessionId) {
+        // Part A Fix: Check if existing session is active/browsing in dining_sessions
+        const { data: sessionData, error: sCheckErr } = await supabase
+          .from("dining_sessions")
+          .select("id, status")
+          .eq("id", activeSessionId)
+          .maybeSingle();
+
+        if (!sCheckErr && sessionData && sessionData.status !== "closed") {
+          isSessionValid = true;
+        }
+      }
+
+      if (!isSessionValid) {
         // Create a new dining session with 'browsing' status
         const { data: session, error: sErr } = await supabase
           .from("dining_sessions")
