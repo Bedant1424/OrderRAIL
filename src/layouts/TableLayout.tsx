@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Outlet, useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { WifiOff, Info, Globe, Instagram, Phone, MapPin, Clock, Star, MessageSquare } from "lucide-react";
