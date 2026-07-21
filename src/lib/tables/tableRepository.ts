@@ -51,8 +51,15 @@ export async function markTableFreeInDb(tableId: string, activeSessionId?: strin
  * Reuses existing non-closed session if present; creates a new 'browsing' session otherwise.
  */
 export async function getOrCreateDiningSession(table: TableRow): Promise<string> {
-  // Clean up expired browsing sessions before loading table data
-  await supabase.rpc("cleanup_expired_browsing_sessions");
+  // Best-effort cleanup of expired browsing sessions before loading table data
+  try {
+    const { error: rpcErr } = await supabase.rpc("cleanup_expired_browsing_sessions");
+    if (rpcErr) {
+      console.warn("[getOrCreateDiningSession] Best-effort browsing session cleanup warning:", rpcErr.message);
+    }
+  } catch (e) {
+    console.warn("[getOrCreateDiningSession] Best-effort browsing session cleanup skipped:", e);
+  }
 
   let activeSessionId = table.active_session_id;
   let isSessionValid = false;
@@ -88,7 +95,24 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
         status: "free",
       })
       .eq("id", table.id);
-    if (uErr) throw uErr;
+
+    if (uErr) {
+      // Safely handle expected demo mode / RLS update restrictions
+      const isPermissionOrDemoError =
+        uErr.code === "42501" ||
+        uErr.message?.toLowerCase().includes("permission") ||
+        uErr.message?.toLowerCase().includes("row-level security") ||
+        uErr.message?.toLowerCase().includes("demo");
+
+      if (isPermissionOrDemoError) {
+        console.warn(
+          "[getOrCreateDiningSession] Table active_session_id update restricted (Demo/RLS):",
+          uErr.message
+        );
+      } else {
+        throw uErr;
+      }
+    }
 
     table.active_session_id = activeSessionId;
     table.status = "free";
