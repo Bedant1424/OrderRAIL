@@ -36,6 +36,11 @@ import { useAuth } from "@/lib/auth";
 import { calculateOccupiedTables } from "@/lib/tables/occupancy";
 import { updateOrderStatusInDb, cancelOrderInDb } from "@/lib/orders/repository";
 import {
+  fetchActiveServiceRequests,
+  acknowledgeServiceRequestInDb,
+  resolveServiceRequestInDb,
+} from "@/lib/serviceRequests";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -460,16 +465,7 @@ export default function StaffDashboardPage() {
   const srQ = useQuery({
     queryKey: ["staff-sr", cafeId],
     enabled: !!cafeId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("service_requests")
-        .select("*, tables(label)")
-        .eq("cafe_id", cafeId!)
-        .in("status", ["open", "acknowledged"])
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as unknown as (ServiceRequest & { tables: { label: string } | null })[];
-    },
+    queryFn: () => fetchActiveServiceRequests(cafeId!),
   });
 
   const tablesQ = useQuery({
@@ -836,18 +832,18 @@ export default function StaffDashboardPage() {
   };
 
   const resolveSR = async (id: string) => {
-    const { error } = await supabase
-      .from("service_requests")
-      .update({ status: "resolved", updated_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) toast.error(error.message);
+    try {
+      await resolveServiceRequestInDb(id);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to resolve service request");
+    }
   };
   const ackSR = async (id: string) => {
-    const { error } = await supabase
-      .from("service_requests")
-      .update({ status: "acknowledged", updated_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) toast.error(error.message);
+    try {
+      await acknowledgeServiceRequestInDb(id);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to acknowledge service request");
+    }
   };
 
   const handleMarkTableFree = async (table: TableRow) => {
