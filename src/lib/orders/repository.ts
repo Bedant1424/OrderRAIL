@@ -51,6 +51,86 @@ export async function cancelOrderInDb(orderId: string): Promise<void> {
   if (error) throw error;
 }
 
+export interface EditOrderItemPayload {
+  id?: string;
+  menu_item_id?: string | null;
+  name: string;
+  price_cents: number;
+  qty: number;
+  note?: string | null;
+}
+
+export async function editOrderInDb({
+  orderId,
+  items,
+  notes,
+  updatedBy = "staff",
+}: {
+  orderId: string;
+  items: EditOrderItemPayload[];
+  notes?: string | null;
+  updatedBy?: string;
+}): Promise<void> {
+  const newTotalCents = items.reduce((sum, it) => sum + it.price_cents * it.qty, 0);
+
+  const { data: existingItems, error: fetchErr } = await supabase
+    .from("order_items")
+    .select("id")
+    .eq("order_id", orderId);
+
+  if (fetchErr) throw fetchErr;
+
+  const existingIds = (existingItems ?? []).map((it) => it.id);
+  const newIds = items.map((it) => it.id).filter(Boolean) as string[];
+
+  const idsToDelete = existingIds.filter((id) => !newIds.includes(id));
+  if (idsToDelete.length > 0) {
+    const { error: delErr } = await supabase.from("order_items").delete().in("id", idsToDelete);
+    if (delErr) throw delErr;
+  }
+
+  for (const item of items) {
+    if (item.id) {
+      const { error: upErr } = await supabase
+        .from("order_items")
+        .update({
+          name: item.name,
+          price_cents: item.price_cents,
+          qty: item.qty,
+          note: item.note ?? null,
+        })
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+    } else {
+      const { error: insErr } = await supabase.from("order_items").insert({
+        order_id: orderId,
+        menu_item_id: item.menu_item_id ?? null,
+        name: item.name,
+        price_cents: item.price_cents,
+        qty: item.qty,
+        note: item.note ?? null,
+      });
+      if (insErr) throw insErr;
+    }
+  }
+
+  const { data: orderData } = await supabase.from("orders").select("version").eq("id", orderId).single();
+  const currentVersion = orderData?.version ?? 1;
+
+  const { error: orderUpErr } = await supabase
+    .from("orders")
+    .update({
+      total_cents: newTotalCents,
+      note: notes ?? null,
+      version: currentVersion + 1,
+      last_updated_by: updatedBy,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId);
+
+  if (orderUpErr) throw orderUpErr;
+}
+
 export function subscribeToOrdersChannel(
   cafeId: string,
   onOrderChange: (payload: { eventType: string; new: Order; old: Partial<Order> }) => void

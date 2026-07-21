@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone, AlertTriangle, Filter } from "lucide-react";
+import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone, AlertTriangle, Filter, Edit3 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import EditOrderDialog from "@/components/orders/EditOrderDialog";
+import { getTableStatus, calculateOccupiedTables } from "@/lib/tables/occupancy";
 import {
   supabase,
   formatMoney,
@@ -274,6 +276,7 @@ export default function StaffDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [tick, setTick] = useState(0);
   const [selectedDrawerOrder, setSelectedDrawerOrder] = useState<OrderWithItems | null>(null);
+  const [editingOrder, setEditingOrder] = useState<OrderWithItems | null>(null);
   const [focusedSummary, setFocusedSummary] = useState<"incoming" | "preparing" | "ready" | "service_requests" | "overdue" | null>(null);
   const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -1135,7 +1138,7 @@ export default function StaffDashboardPage() {
 
   const currency = cafe?.currency ?? "USD";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
-  const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => (t as any).dining_sessions?.status === "active").length;
+  const occupiedTablesCount = calculateOccupiedTables(tablesQ.data ?? [], ordersQ.data ?? []).length;
 
   return (
     <div className="space-y-8">
@@ -1596,7 +1599,7 @@ export default function StaffDashboardPage() {
         <h2 className="mb-3 font-display text-lg font-semibold">Tables</h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-8">
           {(tablesQ.data ?? []).map((t) => {
-            const isOccupied = t.dining_sessions?.status === "active";
+            const isOccupied = getTableStatus(t, ordersQ.data ?? []).isOccupied;
             return (
               <div
                 key={t.id}
@@ -2049,6 +2052,19 @@ export default function StaffDashboardPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Edit Order Dialog for Staff */}
+      <EditOrderDialog
+        open={!!editingOrder}
+        onOpenChange={(open) => {
+          if (!open) setEditingOrder(null);
+        }}
+        order={editingOrder}
+        tableLabel={editingOrder?.tables?.label ?? "?"}
+        currency={currency}
+        cafeId={cafeId}
+        role="staff"
+      />
     </div>
   );
 }
@@ -2262,15 +2278,34 @@ function OrderColumn({
                 </ul>
 
                 {/* Action buttons bottom row */}
-                {(NEXT_STATUS[o.status] || (onCancel && o.status !== "served" && o.status !== "cancelled")) && (
+                {(NEXT_STATUS[o.status] || o.status !== "served") && (
                   <div className="mt-4 flex gap-2">
+                    {/* Milestone 5 Edit action */}
+                    {o.status !== "served" && o.status !== "cancelled" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingOrder(o);
+                        }}
+                        className="h-9 px-3 rounded-xl border border-border/80 bg-secondary/60 hover:bg-secondary text-xs font-semibold text-foreground transition shrink-0 flex items-center justify-center gap-1 active:scale-95"
+                      >
+                        <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+                    {/* Milestone 4 Lifecycle Color Action Buttons */}
                     {NEXT_STATUS[o.status] && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onAdvance(o);
                         }}
-                        className="flex-1 h-9 rounded-xl btn-primary-action px-4 text-xs font-semibold"
+                        className={cn(
+                          "flex-1 h-9 rounded-xl px-4 text-xs font-bold transition shadow-sm active:scale-95",
+                          o.status === "pending" && "bg-amber-500 hover:bg-amber-600 text-amber-950 border border-amber-600/30",
+                          o.status === "preparing" && "bg-orange-500 hover:bg-orange-600 text-white border border-orange-600/30",
+                          o.status === "ready" && "bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700/30"
+                        )}
                       >
                         {NEXT_LABEL[o.status]}
                       </button>

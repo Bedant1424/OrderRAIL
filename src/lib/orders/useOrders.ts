@@ -98,6 +98,28 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
     }
   });
 
+  // Edit Mutation
+  const editMutation = useMutation({
+    mutationFn: async (params: {
+      orderId: string;
+      items: Parameters<typeof editOrderInDb>[0]["items"];
+      notes?: string | null;
+      updatedBy?: string;
+    }) => {
+      await editOrderInDb(params);
+    },
+    onSuccess: () => {
+      toast.success("Order updated successfully");
+      void queryClient.invalidateQueries({ queryKey: ["shared-orders", cafeId] });
+      void queryClient.invalidateQueries({ queryKey: ["staff-orders", cafeId] });
+      void queryClient.invalidateQueries({ queryKey: ["owner-orders-page", cafeId] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Failed to edit order";
+      toast.error(msg);
+    }
+  });
+
   const orders = ordersQ.data ?? [];
 
   const activeOrders = useMemo(
@@ -121,6 +143,7 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
     updateStatus: (orderId: string, nextStatus: Order["status"]) =>
       updateStatusMutation.mutateAsync({ orderId, nextStatus }),
     cancelOrder: (orderId: string) => cancelMutation.mutateAsync(orderId),
-    isUpdating: updateStatusMutation.isPending || cancelMutation.isPending,
+    editOrder: (params: Parameters<typeof editMutation.mutateAsync>[0]) => editMutation.mutateAsync(params),
+    isUpdating: updateStatusMutation.isPending || cancelMutation.isPending || editMutation.isPending,
   };
 }

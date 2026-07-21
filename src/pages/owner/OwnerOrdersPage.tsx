@@ -95,7 +95,7 @@ export default function OwnerOrdersPage() {
 
   // Active Pending Orders
   const pendingOrders = useMemo(
-    () => orders.filter((o) => o.status === "placed" || o.status === "in_kitchen" || o.status === "ready"),
+    () => orders.filter((o) => o.status === "pending" || o.status === "preparing" || o.status === "ready"),
     [orders]
   );
 
@@ -107,7 +107,7 @@ export default function OwnerOrdersPage() {
   }, [tables]);
 
   // Operational summary metrics
-  const summary = useMemo(() => calculateOperationalSummary(orders), [orders]);
+  const summary = useMemo(() => calculateOperationalSummary(orders, tables), [orders, tables]);
 
   // Deep-link trigger for orderId param
   useEffect(() => {
@@ -137,7 +137,7 @@ export default function OwnerOrdersPage() {
       }
 
       if (statusFilter === "pending") {
-        if (o.status !== "placed" && o.status !== "in_kitchen") return false;
+        if (o.status !== "pending") return false;
       } else if (statusFilter === "completed") {
         if (o.status !== "served" && o.status !== "ready") return false;
       } else if (statusFilter !== "all" && o.status !== statusFilter) {
@@ -250,12 +250,24 @@ export default function OwnerOrdersPage() {
         </div>
       </header>
 
-      {/* Summary Cards */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Summary Cards (Milestone 7 Operations Summary) */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Orders</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{summary.activeCount}</div>
-          <div className="text-[11px] text-muted-foreground">{summary.activeOrdersText} in pipeline</div>
+          <div className="text-[11px] text-muted-foreground">{summary.activeOrdersText} in queue</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed Today</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{summary.ordersCompletedToday}</div>
+          <div className="text-[11px] text-muted-foreground">Served orders today</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Revenue Today</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{formatMoney(summary.revenueTodayCents, currency)}</div>
+          <div className="text-[11px] text-muted-foreground">Gross revenue</div>
         </div>
 
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
@@ -265,7 +277,7 @@ export default function OwnerOrdersPage() {
         </div>
 
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg Active Wait</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Average Wait</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{summary.avgWaitMinsFormatted}</div>
           <div className="text-[11px] text-muted-foreground">Target &lt; 15 min</div>
         </div>
@@ -295,6 +307,8 @@ export default function OwnerOrdersPage() {
             onSelectOrder={(order) => setSelectedOrder(order)}
             onUpdateStatus={handleUpdateStatus}
             isUpdatingStatus={isUpdating}
+            cafeId={cafe?.id}
+            role="owner"
           />
         </section>
       )}
