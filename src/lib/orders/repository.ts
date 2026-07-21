@@ -222,6 +222,19 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
         .update({ status: "active" })
         .eq("id", payload.dining_session_id);
     }
+
+    // Synchronize table occupancy and active_session_id
+    const { error: tErr } = await supabase
+      .from("tables")
+      .update({
+        active_session_id: payload.dining_session_id,
+        status: "occupied",
+      })
+      .eq("id", payload.table_id);
+
+    if (tErr) {
+      console.warn("[createOrderInDb] Table status update to occupied skipped (RLS/Demo):", tErr.message);
+    }
   }
 
   return orderId;

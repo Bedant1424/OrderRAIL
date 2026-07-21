@@ -64,6 +64,7 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
   let activeSessionId = table.active_session_id;
   let isSessionValid = false;
 
+  // Step 1: Validate existing table.active_session_id
   if (activeSessionId) {
     const { data: sessionData, error: sCheckErr } = await supabase
       .from("dining_sessions")
@@ -76,8 +77,51 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
     }
   }
 
+  // Step 2: If active_session_id is missing or closed, search for any existing non-closed session for this table
   if (!isSessionValid) {
-    // Create a new dining session with 'browsing' status
+    const { data: existingSession, error: eCheckErr } = await supabase
+      .from("dining_sessions")
+      .select("id, status")
+      .eq("table_id", table.id)
+      .neq("status", "closed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!eCheckErr && existingSession) {
+      activeSessionId = existingSession.id;
+      isSessionValid = true;
+    }
+  }
+
+  // Step 3: Check if active orders exist for this table with a valid dining session
+  if (!isSessionValid) {
+    const { data: activeOrder, error: oCheckErr } = await supabase
+      .from("orders")
+      .select("dining_session_id")
+      .eq("table_id", table.id)
+      .in("status", ["pending", "preparing", "ready"])
+      .not("dining_session_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!oCheckErr && activeOrder?.dining_session_id) {
+      const { data: orderSession } = await supabase
+        .from("dining_sessions")
+        .select("id, status")
+        .eq("id", activeOrder.dining_session_id)
+        .maybeSingle();
+
+      if (orderSession && orderSession.status !== "closed") {
+        activeSessionId = orderSession.id;
+        isSessionValid = true;
+      }
+    }
+  }
+
+  // Step 4: Create a new session ONLY if no non-closed session or active orders exist
+  if (!isSessionValid) {
     const { data: session, error: sErr } = await supabase
       .from("dining_sessions")
       .insert({ table_id: table.id, status: "browsing" })
@@ -86,37 +130,36 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
     if (sErr) throw sErr;
 
     activeSessionId = session.id;
-
-    // Update the table with the active session ID
-    const { error: uErr } = await supabase
-      .from("tables")
-      .update({
-        active_session_id: activeSessionId,
-        status: "free",
-      })
-      .eq("id", table.id);
-
-    if (uErr) {
-      // Safely handle expected demo mode / RLS update restrictions
-      const isPermissionOrDemoError =
-        uErr.code === "42501" ||
-        uErr.message?.toLowerCase().includes("permission") ||
-        uErr.message?.toLowerCase().includes("row-level security") ||
-        uErr.message?.toLowerCase().includes("demo");
-
-      if (isPermissionOrDemoError) {
-        console.warn(
-          "[getOrCreateDiningSession] Table active_session_id update restricted (Demo/RLS):",
-          uErr.message
-        );
-      } else {
-        throw uErr;
-      }
-    }
-
-    table.active_session_id = activeSessionId;
-    table.status = "free";
   }
+
+  // Step 5: Always synchronize table's active_session_id and status = "occupied"
+  const { error: uErr } = await supabase
+    .from("tables")
+    .update({
+      active_session_id: activeSessionId,
+      status: "occupied",
+    })
+    .eq("id", table.id);
+
+  if (uErr) {
+    const isPermissionOrDemoError =
+      uErr.code === "42501" ||
+      uErr.message?.toLowerCase().includes("permission") ||
+      uErr.message?.toLowerCase().includes("row-level security") ||
+      uErr.message?.toLowerCase().includes("demo");
+
+    if (isPermissionOrDemoError) {
+      console.warn(
+        "[getOrCreateDiningSession] Table active_session_id update restricted (Demo/RLS):",
+        uErr.message
+      );
+    } else {
+      throw uErr;
+    }
+  }
+
+  table.active_session_id = activeSessionId;
+  table.status = "occupied";
 
   return activeSessionId;
 }
