@@ -33,6 +33,7 @@ import { GlobalNotificationControls } from "@/components/owner/GlobalNotificatio
 import { cn } from "@/lib/utils";
 import { calculateRevenueMetrics, calculateAveragePrepTime } from "@/lib/analytics/metrics";
 import { calculateOccupiedTables } from "@/lib/tables/occupancy";
+import { isOrderActive } from "@/lib/orders/orderUtils";
 
 type Range = 7 | 30 | 90;
 
@@ -123,9 +124,9 @@ export default function OwnerAnalyticsPage() {
   // Task 2: Preparation Time Calculation via Shared Analytics Utility
   const prepTimeStats = useMemo(() => calculateAveragePrepTime(orders), [orders]);
 
-  // Active / Pending orders metrics
+  // Active / Pending orders metrics via canonical order lifecycle
   const pendingOrders = useMemo(
-    () => orders.filter((o) => o.status === "pending" || o.status === "preparing" || o.status === "placed" || o.status === "in_kitchen"),
+    () => orders.filter((o) => isOrderActive(o.status)),
     [orders]
   );
   const readyOrders = useMemo(() => orders.filter((o) => o.status === "ready"), [orders]);
