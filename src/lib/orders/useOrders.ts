@@ -101,7 +101,7 @@ export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
   const orders = ordersQ.data ?? [];
 
   const activeOrders = useMemo(
-    () => orders.filter((o) => o.status === "placed" || o.status === "in_kitchen" || o.status === "ready"),
+    () => orders.filter((o) => o.status === "pending" || o.status === "preparing" || o.status === "ready"),
     [orders]
   );
 

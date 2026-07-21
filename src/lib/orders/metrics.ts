@@ -1,12 +1,11 @@
-import type { Order } from "@/lib/db";
-
-/**
- * Live Operational Metrics Engine
- * Centralizes all active order wait calculations, demo data protection, and timestamp validation.
- */
+import type { Order, TableRow } from "@/lib/db";
+import { calculateOccupiedTables } from "@/lib/tables/occupancy";
+import { isOrderActive } from "@/lib/orders/orderUtils";
 
 export interface OperationalSummaryModel {
   activeCount: number;
+  ordersCompletedToday: number;
+  revenueTodayCents: number;
   occupiedTablesCount: number;
   avgWaitMinsFormatted: string;
   longestWaitMinsFormatted: string;
@@ -15,52 +14,51 @@ export interface OperationalSummaryModel {
 }
 
 /**
- * Task 1, 2, 3, 4 & 6:
- * Calculates validated operational metrics strictly over active, un-stale orders.
+ * Calculates operational metrics reflecting today's service only.
  */
-export function calculateOperationalSummary(orders: Order[]): OperationalSummaryModel {
+export function calculateOperationalSummary(
+  orders: Order[],
+  tables: TableRow[] = []
+): OperationalSummaryModel {
   const now = Date.now();
-  const maxOperationalAgeMs = 24 * 60 * 60 * 1000; // 24 hours demo data protection limit
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartMs = todayStart.getTime();
 
-  // Task 1, 2 & 3: Filter active orders with valid, realistic timestamps
-  const activeOrders = orders.filter((o) => {
-    // Must be an active status
-    if (o.status !== "placed" && o.status !== "in_kitchen" && o.status !== "ready") {
-      return false;
-    }
-
-    // Task 2: Validate timestamp
+  // Filter orders for today's service
+  const todayOrders = orders.filter((o) => {
     if (!o.created_at) return false;
     const createdTime = new Date(o.created_at).getTime();
-    if (isNaN(createdTime)) return false;
-
-    const diffMs = now - createdTime;
-
-    // Task 3: Ignore future timestamps or stale demo data (> 24h)
-    if (diffMs < 0 || diffMs > maxOperationalAgeMs) {
-      return false;
-    }
-
-    return true;
+    return !isNaN(createdTime) && createdTime >= todayStartMs;
   });
 
+  // Active orders (pending, preparing, ready)
+  const activeOrders = orders.filter((o) => isOrderActive(o.status));
   const activeCount = activeOrders.length;
-  const occupiedTableSet = new Set(activeOrders.map((o) => o.table_id));
-  const occupiedTablesCount = occupiedTableSet.size;
 
-  // Task 6: Wording polish
+  // Served orders today
+  const servedOrdersToday = todayOrders.filter((o) => o.status === "served");
+  const ordersCompletedToday = servedOrdersToday.length;
+  const revenueTodayCents = servedOrdersToday.reduce((sum, o) => sum + (o.total_cents || 0), 0);
+
+  // Occupied tables using single occupancy engine
+  const occupiedTablesList = calculateOccupiedTables(tables, orders);
+  const occupiedTablesCount = occupiedTablesList.length;
+
   const activeOrdersText = activeCount === 1 ? "1 order" : `${activeCount} orders`;
-  const occupiedTablesText = occupiedTablesCount === 1 ? "1 table occupied" : `${occupiedTablesCount} tables occupied`;
+  const occupiedTablesText =
+    occupiedTablesCount === 1 ? "1 table occupied" : `${occupiedTablesCount} tables occupied`;
 
-  // Scenario A: 0 active orders
   if (activeCount === 0) {
     return {
       activeCount: 0,
-      occupiedTablesCount: 0,
+      ordersCompletedToday,
+      revenueTodayCents,
+      occupiedTablesCount,
       avgWaitMinsFormatted: "—",
       longestWaitMinsFormatted: "—",
       activeOrdersText,
-      occupiedTablesText
+      occupiedTablesText,
     };
   }
 
@@ -76,8 +74,7 @@ export function calculateOperationalSummary(orders: Order[]): OperationalSummary
     }
   }
 
-  // Task 6: Exact integer minutes without approximation symbols (~8 mins -> 8 min)
-  const avgMins = Math.round((totalWaitMs / activeCount) / (1000 * 60));
+  const avgMins = Math.round(totalWaitMs / activeCount / (1000 * 60));
   const maxMins = Math.round(maxWaitMs / (1000 * 60));
 
   const avgWaitMinsFormatted = avgMins === 1 ? "1 min" : `${avgMins} min`;
@@ -85,10 +82,12 @@ export function calculateOperationalSummary(orders: Order[]): OperationalSummary
 
   return {
     activeCount,
+    ordersCompletedToday,
+    revenueTodayCents,
     occupiedTablesCount,
     avgWaitMinsFormatted,
     longestWaitMinsFormatted,
     activeOrdersText,
-    occupiedTablesText
+    occupiedTablesText,
   };
 }

@@ -13,17 +13,17 @@ export interface OrderStatusMeta {
 }
 
 export const ORDER_STATUS_MAP: Record<Order["status"], OrderStatusMeta> = {
-  placed: {
+  pending: {
     label: "Placed",
-    badgeStyle: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-    columnTitle: "Placed",
-    columnHeaderBg: "bg-blue-500/10 text-blue-700 border-blue-500/20"
-  },
-  in_kitchen: {
-    label: "Cooking",
     badgeStyle: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    columnTitle: "Preparing",
+    columnTitle: "Incoming Orders",
     columnHeaderBg: "bg-amber-500/10 text-amber-700 border-amber-500/20"
+  },
+  preparing: {
+    label: "Preparing",
+    badgeStyle: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+    columnTitle: "Preparing",
+    columnHeaderBg: "bg-orange-500/10 text-orange-700 border-orange-500/20"
   },
   ready: {
     label: "Ready",
@@ -34,7 +34,7 @@ export const ORDER_STATUS_MAP: Record<Order["status"], OrderStatusMeta> = {
   served: {
     label: "Served",
     badgeStyle: "bg-secondary text-muted-foreground border-border",
-    columnTitle: "Served",
+    columnTitle: "Today's Served",
     columnHeaderBg: "bg-secondary text-muted-foreground border-border"
   },
   cancelled: {
@@ -136,12 +136,12 @@ export function formatTimeElapsed(createdAt: string): string {
 }
 
 export function isOrderActive(status: Order["status"]): boolean {
-  return status === "placed" || status === "in_kitchen" || status === "ready";
+  return status === "pending" || status === "preparing" || status === "ready";
 }
 
 export function getNextOrderStatus(status: Order["status"]): Order["status"] | null {
-  if (status === "placed") return "in_kitchen";
-  if (status === "in_kitchen") return "ready";
+  if (status === "pending") return "preparing";
+  if (status === "preparing") return "ready";
   if (status === "ready") return "served";
   return null;
 }
