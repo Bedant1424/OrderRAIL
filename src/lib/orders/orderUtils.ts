@@ -2,7 +2,6 @@ import type { Order, OrderItem } from "@/lib/db";
 
 /**
  * Shared Order Utilities, Aging Engine & Priority Calculations
- * Used across Owner Orders Hub, Staff KDS Dashboard, and Counter POS.
  */
 
 export interface OrderStatusMeta {
@@ -13,17 +12,17 @@ export interface OrderStatusMeta {
 }
 
 export const ORDER_STATUS_MAP: Record<Order["status"], OrderStatusMeta> = {
-  placed: {
-    label: "Placed",
-    badgeStyle: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-    columnTitle: "Placed",
-    columnHeaderBg: "bg-blue-500/10 text-blue-700 border-blue-500/20"
-  },
-  in_kitchen: {
-    label: "Cooking",
+  pending: {
+    label: "Incoming",
     badgeStyle: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    columnTitle: "Preparing",
+    columnTitle: "Incoming",
     columnHeaderBg: "bg-amber-500/10 text-amber-700 border-amber-500/20"
+  },
+  preparing: {
+    label: "Preparing",
+    badgeStyle: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+    columnTitle: "Preparing",
+    columnHeaderBg: "bg-orange-500/10 text-orange-700 border-orange-500/20"
   },
   ready: {
     label: "Ready",
@@ -34,7 +33,7 @@ export const ORDER_STATUS_MAP: Record<Order["status"], OrderStatusMeta> = {
   served: {
     label: "Served",
     badgeStyle: "bg-secondary text-muted-foreground border-border",
-    columnTitle: "Served",
+    columnTitle: "Completed Today",
     columnHeaderBg: "bg-secondary text-muted-foreground border-border"
   },
   cancelled: {
@@ -54,12 +53,6 @@ export interface AgingMeta {
   label: string;
 }
 
-/**
- * Task 1: Order Aging Indicator Thresholds:
- *   - Normal (0-10m): Green
- *   - Warning (10-20m): Amber
- *   - Urgent (20m+): Red
- */
 export function getOrderAging(createdAt: string): AgingMeta {
   const diffMs = Date.now() - new Date(createdAt).getTime();
   const diffMins = Math.max(0, Math.floor(diffMs / (1000 * 60)));
@@ -88,13 +81,6 @@ export function getOrderAging(createdAt: string): AgingMeta {
   };
 }
 
-/**
- * Task 8: Order Priority Engine
- * Priority points based on:
- *   - Age > 15 mins (+2)
- *   - Special notes (+1)
- *   - High item count >= 4 (+1)
- */
 export function getOrderPriority(order: Order & { order_items?: OrderItem[] }): {
   isHighPriority: boolean;
   score: number;
@@ -105,13 +91,13 @@ export function getOrderPriority(order: Order & { order_items?: OrderItem[] }): 
   const itemCount = (order.order_items ?? []).reduce((s, it) => s + it.qty, 0);
 
   if (diffMins >= 15) score += 2;
-  if (order.notes?.trim()) score += 1;
+  if ((order.note || (order as any).notes)?.trim()) score += 1;
   if (itemCount >= 4) score += 1;
 
   if (score >= 2) {
     let reason = "High priority";
     if (diffMins >= 20) reason = "Long wait time";
-    else if (order.notes) reason = "Special notes";
+    else if (order.note || (order as any).notes) reason = "Special notes";
     else if (itemCount >= 4) reason = "Large group order";
 
     return { isHighPriority: true, score, reason };
@@ -120,28 +106,25 @@ export function getOrderPriority(order: Order & { order_items?: OrderItem[] }): 
   return { isHighPriority: false, score };
 }
 
-/**
- * Format relative elapsed time
- */
 export function formatTimeElapsed(createdAt: string): string {
   const diffMs = Date.now() - new Date(createdAt).getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
 
   if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 60) return `${diffMins} min`;
 
   const diffHours = Math.floor(diffMins / 60);
   const remainingMins = diffMins % 60;
-  return `${diffHours}h ${remainingMins}m ago`;
+  return `${diffHours}h ${remainingMins}m`;
 }
 
 export function isOrderActive(status: Order["status"]): boolean {
-  return status === "placed" || status === "in_kitchen" || status === "ready";
+  return status === "pending" || status === "preparing" || status === "ready";
 }
 
 export function getNextOrderStatus(status: Order["status"]): Order["status"] | null {
-  if (status === "placed") return "in_kitchen";
-  if (status === "in_kitchen") return "ready";
+  if (status === "pending") return "preparing";
+  if (status === "preparing") return "ready";
   if (status === "ready") return "served";
   return null;
 }
