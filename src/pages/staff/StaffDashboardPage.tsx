@@ -34,6 +34,7 @@ import { getNotificationSetting, initNotificationSystem } from "@/lib/notificati
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { useAuth } from "@/lib/auth";
 import { calculateOccupiedTables } from "@/lib/tables/occupancy";
+import { updateOrderStatusInDb, cancelOrderInDb } from "@/lib/orders/repository";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -819,19 +820,19 @@ export default function StaffDashboardPage() {
   const advance = async (o: OrderWithItems) => {
     const next = NEXT_STATUS[o.status];
     if (!next) return;
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: next, last_updated_by: "staff", updated_at: new Date().toISOString() })
-      .eq("id", o.id);
-    if (error) toast.error(error.message);
+    try {
+      await updateOrderStatusInDb(o.id, next, "staff");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update order status");
+    }
   };
 
   const cancel = async (o: OrderWithItems) => {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "cancelled", last_updated_by: "staff", updated_at: new Date().toISOString() })
-      .eq("id", o.id);
-    if (error) toast.error(error.message);
+    try {
+      await cancelOrderInDb(o.id, "staff");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to cancel order");
+    }
   };
 
   const resolveSR = async (id: string) => {

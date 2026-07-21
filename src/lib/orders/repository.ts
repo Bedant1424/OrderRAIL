@@ -36,11 +36,16 @@ export async function fetchCafeOrders(cafeId: string, sinceDate?: string | null)
   return (data ?? []) as unknown as OrderWithItems[];
 }
 
-export async function updateOrderStatusInDb(orderId: string, nextStatus: Order["status"]): Promise<void> {
+export async function updateOrderStatusInDb(
+  orderId: string,
+  nextStatus: Order["status"],
+  updatedBy: "customer" | "staff" | "owner" = "staff"
+): Promise<void> {
   const { error } = await supabase
     .from("orders")
     .update({
       status: nextStatus,
+      last_updated_by: updatedBy,
       updated_at: new Date().toISOString()
     })
     .eq("id", orderId);
@@ -131,11 +136,15 @@ export async function editOrderInDb(params: {
   if (orderUpdateErr) throw orderUpdateErr;
 }
 
-export async function cancelOrderInDb(orderId: string): Promise<void> {
+export async function cancelOrderInDb(
+  orderId: string,
+  updatedBy: "customer" | "staff" | "owner" = "staff"
+): Promise<void> {
   const { error } = await supabase
     .from("orders")
     .update({
       status: "cancelled",
+      last_updated_by: updatedBy,
       updated_at: new Date().toISOString()
     })
     .eq("id", orderId);
