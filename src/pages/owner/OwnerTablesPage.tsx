@@ -7,6 +7,7 @@ import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 
 import { usePermissions } from "@/lib/permissions";
+import { getTableStatus } from "@/lib/tables/occupancy";
 import { cn } from "@/lib/utils";
 
 const QR_SIZE = 144;

@@ -33,6 +33,7 @@ import {
 import { getNotificationSetting, initNotificationSystem } from "@/lib/notificationSystem";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { useAuth } from "@/lib/auth";
+import { calculateOccupiedTables } from "@/lib/tables/occupancy";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1135,7 +1136,10 @@ export default function StaffDashboardPage() {
 
   const currency = cafe?.currency ?? "USD";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
-  const occupiedTablesCount = (tablesQ.data ?? []).filter((t) => (t as any).dining_sessions?.status === "active").length;
+  const occupiedTablesCount = useMemo(
+    () => calculateOccupiedTables((tablesQ.data ?? []) as TableRow[], (ordersQ.data ?? []) as any[]).length,
+    [tablesQ.data, ordersQ.data]
+  );
 
   return (
     <div className="space-y-8">

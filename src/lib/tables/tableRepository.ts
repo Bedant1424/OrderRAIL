@@ -45,3 +45,54 @@ export async function markTableFreeInDb(tableId: string, activeSessionId?: strin
 
   if (tableErr) throw tableErr;
 }
+
+/**
+ * Ensures an active dining session exists for the given table.
+ * Reuses existing non-closed session if present; creates a new 'browsing' session otherwise.
+ */
+export async function getOrCreateDiningSession(table: TableRow): Promise<string> {
+  // Clean up expired browsing sessions before loading table data
+  await supabase.rpc("cleanup_expired_browsing_sessions");
+
+  let activeSessionId = table.active_session_id;
+  let isSessionValid = false;
+
+  if (activeSessionId) {
+    const { data: sessionData, error: sCheckErr } = await supabase
+      .from("dining_sessions")
+      .select("id, status")
+      .eq("id", activeSessionId)
+      .maybeSingle();
+
+    if (!sCheckErr && sessionData && sessionData.status !== "closed") {
+      isSessionValid = true;
+    }
+  }
+
+  if (!isSessionValid) {
+    // Create a new dining session with 'browsing' status
+    const { data: session, error: sErr } = await supabase
+      .from("dining_sessions")
+      .insert({ table_id: table.id, status: "browsing" })
+      .select("id")
+      .single();
+    if (sErr) throw sErr;
+
+    activeSessionId = session.id;
+
+    // Update the table with the active session ID
+    const { error: uErr } = await supabase
+      .from("tables")
+      .update({
+        active_session_id: activeSessionId,
+        status: "free",
+      })
+      .eq("id", table.id);
+    if (uErr) throw uErr;
+
+    table.active_session_id = activeSessionId;
+    table.status = "free";
+  }
+
+  return activeSessionId;
+}
