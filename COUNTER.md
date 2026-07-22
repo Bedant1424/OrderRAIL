@@ -1,6 +1,6 @@
-# OrderRail — Counter Operational Architecture
+# OrderRail — Counter Operational Architecture & Governance Handbook
 
-> **Definitive Operational Architecture Document** for the OrderRail Counter application, detailing point-of-sale workflows, dining session orchestration, kitchen coordination, billing engines, printing pipelines, and hardware integration.
+> **Definitive Operational Architecture Document** for the OrderRail Counter application, detailing point-of-sale workflows, dining session orchestration, kitchen coordination, billing engines, shift management, exception handling, printing pipelines, and multi-counter synchronization.
 
 ---
 
@@ -10,18 +10,23 @@
 - [3. Core Responsibilities](#3-core-responsibilities)
 - [4. Operational Modes](#4-operational-modes)
 - [5. Counter Workspace Architecture](#5-counter-workspace-architecture)
-- [6. Dining Session Management](#6-dining-session-management)
-- [7. Order Workflow & Lifecycle](#7-order-workflow--lifecycle)
-- [8. Billing & Payment Workflow](#8-billing--payment-workflow)
-- [9. Table Management & Occupancy Control](#9-table-management--occupancy-control)
-- [10. Kitchen Coordination (KOT & KDS)](#10-kitchen-coordination-kot--kds)
-- [11. Printing Architecture](#11-printing-architecture)
-- [12. Hardware Integration](#12-hardware-integration)
-- [13. Offline Strategy & Synchronization](#13-offline-strategy--synchronization)
-- [14. Role-Based Permissions & Security](#14-role-based-permissions--security)
-- [15. Performance Goals & SLAs](#15-performance-goals--slas)
-- [16. Future Expansion & Roadmap](#16-future-expansion--roadmap)
-- [17. Cross-References & Related Documentation](#17-cross-references--related-documentation)
+- [6. Counter Application State Machine](#6-counter-application-state-machine)
+- [7. Shift Management & Cash Control](#7-shift-management--cash-control)
+- [8. Dining Session Management](#8-dining-session-management)
+- [9. Order Workflow & Lifecycle](#9-order-workflow--lifecycle)
+- [10. Billing & Payment Workflow](#10-billing--payment-workflow)
+- [11. Exception Handling & Edge Cases](#11-exception-handling--edge-cases)
+- [12. Operational Metrics & Key Performance Indicators](#12-operational-metrics--key-performance-indicators)
+- [13. Table Management & Occupancy Control](#13-table-management--occupancy-control)
+- [14. Kitchen Coordination (KOT & KDS)](#14-kitchen-coordination-kot--kds)
+- [15. Printing Architecture](#15-printing-architecture)
+- [16. Hardware Integration](#16-hardware-integration)
+- [17. Offline Strategy & Synchronization](#17-offline-strategy--synchronization)
+- [18. Multi-Counter Synchronization & Conflict Resolution](#18-multi-counter-synchronization--conflict-resolution)
+- [19. Role-Based Permissions & Security](#19-role-based-permissions--security)
+- [20. Performance Goals & SLAs](#20-performance-goals--slas)
+- [21. Appendix: Daily Operations Checklist](#21-appendix-daily-operations-checklist)
+- [22. Cross-References & Related Documentation](#22-cross-references--related-documentation)
 
 ---
 
@@ -129,21 +134,82 @@ The Counter application layout is divided into four functional workspaces:
 
 ---
 
-## 6. Dining Session Management
+## 6. Counter Application State Machine
 
-### 6.1 Creating a Session
+```mermaid
+stateDiagram-v2
+    [*] --> Startup : Terminal Launched
+    Startup --> DB_Connecting : Load Config & Auth
+    DB_Connecting --> Initial_Sync : Authenticated with Supabase
+    Initial_Sync --> Ready : Load Active Tables, Orders & Print Queue
+    
+    Ready --> Offline : Network Interruption / Disconnect
+    Offline --> Recovery : Reconnection Detected
+    Recovery --> Ready : Reconcile Local Queue with DB
+    
+    Ready --> Shutdown : Shift Close / App Exit
+    Shutdown --> [*]
+```
+
+### 6.1 Application State Transitions
+1. **Startup:** Loads local environment configuration, initializes hardware printing agents, and authenticates counter staff session.
+2. **Database Connection:** Establishes secure WebSocket connection to Supabase Realtime engine (`WAL LSN`).
+3. **Initial Synchronization:** Fetches active `tables`, open `dining_sessions`, pending `orders`, and active `service_requests` for the cafe tenant.
+4. **Ready State:** Operational state handling live order intake, kitchen dispatch, billing, and real-time updates.
+5. **Offline State:** Network failure fallback. Switches writes to local IndexedDB via `orderQueue.ts` and presents visual warning banner.
+6. **Recovery State:** Drains queued offline orders sequentially upon network restoration, resolving conflicts.
+7. **Shutdown:** Verifies zero un-synced offline orders exist, closes printer connections, and logs out counter shift session.
+
+---
+
+## 7. Shift Management & Cash Control
+
+Shift management guarantees accountability, cash drawer auditing, and smooth handovers between cashier shifts:
+
+```
+┌─────────────┐   Input Cash Float   ┌─────────────┐   Mid-Day Transactions   ┌─────────────┐
+│ Open Shift  │ ───────────────────► │ Shift Active│ ───────────────────────► │ Close Shift │
+└─────────────┘                      └─────────────┘                          └──────┬──────┘
+                                                                                     │
+                                                                         Reconcile Cash vs POS Total
+                                                                                     │
+                                                                                     ▼
+                                                                              ┌──────────────┐
+                                                                              │ Shift Report │
+                                                                              └──────────────┘
+```
+
+### 7.1 Open Shift & Opening Cash Float
+- When a cashier starts a shift, they log into the Counter terminal and enter the **Opening Cash Float** (e.g. `$200.00` in change).
+- The system logs an `open_shift` event recording `cashier_id`, timestamp, and initial float amount.
+
+### 7.2 Shift Handover
+- Mid-day shift handovers trigger a **Shift Handover Report**.
+- System calculates total cash collected during the shift: `Expected Cash = Opening Float + Cash Payments - Cash Refunds`.
+- Incoming cashier counts drawer cash and accepts the handover.
+
+### 7.3 Close Shift & Cash Reconciliation
+- At the end of the operating shift, the cashier performs **Cash Reconciliation**.
+- Staff enters actual physical cash counted. Discrepancies (`Over / Short`) are flagged automatically.
+- A **Z-Report Summary** is printed detailing: `Gross Sales`, `Net Sales`, `Cash Total`, `Card Total`, `UPI Total`, `Discounts Applied`, and `Voided Transactions`.
+
+---
+
+## 8. Dining Session Management
+
+### 8.1 Creating a Session
 - **Automatic (QR Scan):** Customer scans QR code; `getOrCreateDiningSession()` creates a `dining_sessions` record (`status: 'browsing'`) and updates `tables.active_session_id`.
 - **Manual (Counter Intake):** Staff taps a `free` table in the Counter grid and selects "Open Table", creating a new `dining_sessions` record (`status: 'active'`).
 
-### 6.2 Continuing a Session
+### 8.2 Continuing a Session
 - Subsequent orders placed by any diner at the table auto-attach to the existing `active_session_id`.
 - The Counter displays cumulative orders grouped chronologically.
 
-### 6.3 Merging Sessions (Future)
+### 8.3 Merging Sessions (Future)
 - Staff selects two active tables (e.g. Table 3 and Table 4) and invokes `merge_dining_sessions(source_session_id, target_session_id)`.
 - All orders under Table 3 are re-parented to Table 4's `dining_session_id`, and Table 3 is set to `free`.
 
-### 6.4 Closing & Table Release
+### 8.4 Closing & Table Release
 - Staff taps "Mark Table Free".
 - The Counter invokes `free_table(p_table_id)` RPC as detailed in [`DATABASE.md`](./DATABASE.md).
 - The RPC verifies zero unserved orders remain, updates `dining_sessions.status = 'closed'`, records `closed_at`, and clears `tables.active_session_id`.
@@ -172,7 +238,7 @@ sequenceDiagram
 
 ---
 
-## 7. Order Workflow & Lifecycle
+## 9. Order Workflow & Lifecycle
 
 ```mermaid
 stateDiagram-v2
@@ -186,33 +252,61 @@ stateDiagram-v2
     Preparing --> Cancelled : Manager Override
 ```
 
-### 7.1 QR Orders vs Walk-In Counter Orders
+### 9.1 QR Orders vs Walk-In Counter Orders
 - **QR Orders:** Created by customer mobile web app (`anon` role). Placed directly into `orders` with `status: 'pending'`. Real-time WAL triggers counter chime.
 - **Walk-In Counter Orders:** Staff selects items on the Counter POS menu grid and submits. Order is saved with `status: 'pending'` or automatically advanced to `'preparing'`.
 
-### 7.2 Order Cancellation Rules
+### 9.2 Order Cancellation Rules
 - **`pending` Orders:** Counter staff can cancel immediately.
 - **`preparing` / `ready` Orders:** Requires Manager/Owner PIN override to prevent food wastage fraud.
 
 ---
 
-## 8. Billing & Payment Workflow
+## 10. Billing & Payment Workflow
 
-### 8.1 Generating the Bill
+### 10.1 Generating the Bill
 1. Staff opens the billing panel for an active table.
 2. The Counter calculates the subtotal from all `served` orders in the session.
 3. Applicable taxes (e.g. GST, VAT) and service charges are computed.
 4. Staff taps "Print Bill" to generate a pre-payment invoice receipt for the customer.
 
-### 8.2 Payment Recording
+### 10.2 Payment Recording
 - Supported payment channels: `Cash`, `Credit/Debit Card`, `UPI / QR Code`, `Staff Comp / Wallet`.
 - Once payment is confirmed, the staff records the payment method, prints the final fiscal receipt, and the system executes `free_table`.
 
 ---
 
-## 9. Table Management & Occupancy Control
+## 11. Exception Handling & Edge Cases
 
-### 9.1 Real-Time Occupancy Engine
+| Exception Event | Immediate System Behavior | Recovery / Operational Procedure |
+|-----------------|---------------------------|----------------------------------|
+| **Thermal Printer Offline** | Print spooler catches socket timeout; logs `PRINT_FAILED`. | Counter UI displays red "Printer Offline" badge. Spooler retries job automatically every 5 seconds. Staff can re-trigger manually. |
+| **Printer Out of Paper** | Hardware error sensor triggers print buffer pause. | Paper roll replaced by staff; spooler detects paper feed and resumes job without loss of KOT data. |
+| **Duplicate KOT Ticket** | Re-sending or re-printing existing order. | Counter stamps header with **`*** REPRINT / DUPLICATE KOT ***`** to prevent kitchen double-cooking. |
+| **Failed Digital Payment** | UPI / Card transaction declined. | Counter keeps table `occupied` and session `active`. Staff prompts customer for alternative cash/card payment. |
+| **Customer Refund / Item Void** | Customer returns dish post-payment. | Manager inputs PIN override. System creates negative line-item adjustment and logs audit trail in `audit_logs`. |
+| **Customer Walkout / Unpaid Table** | Guests leave without settling bill. | Manager selects table, marks session as `closed_unpaid`, logs reason, and executes table release. Session total flagged in analytics. |
+| **Counter App Crash** | Terminal browser reboots or power cycles. | Upon relaunch, system restores state directly from PostgreSQL. Zero active session data lost. |
+
+---
+
+## 12. Operational Metrics & Key Performance Indicators
+
+The Counter tracks seven core operational metrics to optimize service speed and throughput:
+
+1. **Orders per Hour (OPH):** Total completed kitchen orders processed per hour.
+2. **Table Turnover Rate:** Average time (minutes) a table remains occupied per session.
+3. **Average Preparation Time:** Duration from order `pending` → `ready` in kitchen.
+4. **Billing Settlement Time:** Duration from customer "Bill Request" to `free_table` execution.
+5. **Pending Kitchen Queue Depth:** Count of unfulfilled orders currently in `pending` or `preparing`.
+6. **Pending Service Request Response Time:** Seconds elapsed between customer call and staff `resolved` action.
+7. **Staff Response SLA:** Target < 60 seconds for service requests; < 10 minutes for order preparation.
+
+---
+
+## 13. Table Management & Occupancy Control
+
+### 13.1 Real-Time Occupancy Engine
 The Counter relies on the shared occupancy engine in `src/lib/tables/occupancy.ts`:
 ```typescript
 isOccupied = (table.active_session_id !== null) || (table.status === 'occupied')
@@ -220,7 +314,7 @@ isOccupied = (table.active_session_id !== null) || (table.status === 'occupied')
 - **Occupied Table:** Rendered with an Amber/Red badge, session duration timer, and order count.
 - **Free Table:** Rendered with a Green badge, ready for new session binding.
 
-### 9.2 Table Reassignment (Transfer Table)
+### 13.2 Table Reassignment (Transfer Table)
 If guests move from Table 2 to Table 5:
 1. Staff selects Table 2 and taps "Transfer Table".
 2. Staff selects destination Table 5.
@@ -231,22 +325,22 @@ If guests move from Table 2 to Table 5:
 
 ---
 
-## 10. Kitchen Coordination (KOT & KDS)
+## 14. Kitchen Coordination (KOT & KDS)
 
-### 10.1 Kitchen Order Ticket (KOT) Generation
+### 14.1 Kitchen Order Ticket (KOT) Generation
 When an order transitions to `preparing`:
 1. The Counter extracts unprinted line items from `order_items`.
 2. Generates a KOT payload containing: `Table Label`, `Daily Order Number`, `Timestamp`, `Item Names`, `Quantities`, and `Special Notes`.
 3. Sends the payload to the local printing spooler.
 
-### 10.2 KDS (Kitchen Display System) Integration (Future)
+### 14.2 KDS (Kitchen Display System) Integration (Future)
 Future KDS tablets running in the kitchen will replace paper KOTs:
 - Real-time WebSockets stream new orders directly to station screens.
 - Kitchen staff tap items as "Done", automatically updating order status to `ready` on the Counter terminal.
 
 ---
 
-## 11. Printing Architecture
+## 15. Printing Architecture
 
 ```
 ┌──────────────────┐      WebSockets / HTTP      ┌──────────────────┐
@@ -270,7 +364,7 @@ Future KDS tablets running in the kitchen will replace paper KOTs:
 
 ---
 
-## 12. Hardware Integration
+## 16. Hardware Integration
 
 | Hardware Device | Connection Protocol | Counter Functionality |
 |-----------------|---------------------|-----------------------|
@@ -281,7 +375,7 @@ Future KDS tablets running in the kitchen will replace paper KOTs:
 
 ---
 
-## 13. Offline Strategy & Synchronization
+## 17. Offline Strategy & Synchronization
 
 1. **IndexedDB Local Storage:** If internet connectivity fails, counter intake orders are stored locally in IndexedDB via `orderQueue.ts`.
 2. **Visual Offline Banner:** Counter displays a yellow "Offline Mode — Orders Queued Locally" warning.
@@ -289,7 +383,17 @@ Future KDS tablets running in the kitchen will replace paper KOTs:
 
 ---
 
-## 14. Role-Based Permissions & Security
+## 18. Multi-Counter Synchronization & Conflict Resolution
+
+In large restaurant venues operating multiple counter terminals simultaneously (e.g. Counter Terminal 1 at Front Bar, Counter Terminal 2 at Main Cashier):
+
+1. **Shared Order Ownership:** All terminals subscribe to the same Supabase Realtime channel (`cafes:id`). Any state change on Terminal 1 broadcasts to Terminal 2 in < 150ms.
+2. **Optimistic Locking:** When updating order statuses or freeing tables, PostgreSQL checks `updated_at` timestamps. If Terminal 2 tries to update a table modified by Terminal 1 a millisecond prior, PostgreSQL rejects the stale write.
+3. **Cross-Terminal Sound Notifications:** When a new QR order arrives, all active Counter terminals emit an audio chime until acknowledged by any staff member.
+
+---
+
+## 19. Role-Based Permissions & Security
 
 | Counter Action | Counter Staff | Shift Manager | Cafe Owner |
 |----------------|---------------|---------------|------------|
@@ -305,7 +409,7 @@ Future KDS tablets running in the kitchen will replace paper KOTs:
 
 ---
 
-## 15. Performance Goals & SLAs
+## 20. Performance Goals & SLAs
 
 - **Order Intake Latency:** < 200ms from button tap to local UI confirmation.
 - **KOT Print Spool Time:** < 1.0 second from order submission to paper output start.
@@ -314,17 +418,36 @@ Future KDS tablets running in the kitchen will replace paper KOTs:
 
 ---
 
-## 16. Future Expansion & Roadmap
+## 21. Appendix: Daily Operations Checklist
 
-1. **Multi-Counter Synchronization:** Support for large venues operating multiple counter terminals (e.g., Bar Counter + Main Dining Counter) with optimistic locking.
-2. **Multi-Outlet Aggregation:** Centralized manager view for chain cafes operating across multiple physical branches.
-3. **Table Reservations & Pre-Booking:** Integrating reservation calendars directly into the table grid.
-4. **Customer Loyalty & Wallet Redemption:** Scanning customer phone numbers at the counter to auto-apply reward points.
-5. **Real-Time Inventory Deduction:** Automated ingredient stock reduction as KOTs are printed.
+### A. Opening Checklist (Morning Shift)
+- [ ] Power on Counter Terminal, POS display, and Thermal Printers.
+- [ ] Verify thermal printer paper roll levels (KOT + Receipt printers).
+- [ ] Log into OrderRail Counter Terminal; verify Supabase WebSocket connection status (Green indicator).
+- [ ] Count cash drawer float and perform **Open Shift** entry.
+- [ ] Verify physical table layout matches Active Tables Grid layout.
+
+### B. During-Service Checklist (Operational)
+- [ ] Monitor Kitchen Kanban columns for aging pending orders (> 10 mins).
+- [ ] Respond to floating Service Request alerts (`water`, `bill`, `waiter`) within 60 seconds.
+- [ ] Inspect paper receipts for clear print rendering; clear paper jams immediately.
+- [ ] Execute table transfers if guests move tables.
+
+### C. Closing Checklist (Night Shift)
+- [ ] Verify all physical tables are cleared and marked `free` (`free_table` RPC executed).
+- [ ] Ensure zero pending/preparing orders remain in Kitchen Kanban.
+- [ ] Perform Cash Drawer count and execute **Close Shift & Cash Reconciliation**.
+- [ ] Print Z-Report End-of-Day sales summary.
+- [ ] Log out Counter session and power off secondary hardware displays.
+
+### D. Emergency Procedures
+- **Internet Down:** Verify local offline banner; continue taking orders via local queue; do NOT clear browser local storage.
+- **Printer Failure:** Switch print destination to backup terminal printer in Settings; notify kitchen via backup display screen.
+- **Power Loss:** Re-open terminal on battery backup; state will restore automatically from PostgreSQL database upon reboot.
 
 ---
 
-## 17. Cross-References & Related Documentation
+## 22. Cross-References & Related Documentation
 
 - [`./DATABASE.md`](./DATABASE.md) — Comprehensive PostgreSQL database design, schema, RLS policies, and RPC specifications.
 - [`./ARCHITECTURE.md`](./ARCHITECTURE.md) — System Architecture, Component Hierarchy, and Realtime Engine.
