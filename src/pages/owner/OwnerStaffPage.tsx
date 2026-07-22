@@ -13,6 +13,10 @@ import {
   History,
   Mail,
   ShieldAlert,
+  RotateCw,
+  Send,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/lib/db";
@@ -33,7 +37,7 @@ import {
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
-type Profile = { id: string; email: string | null; display_name: string | null };
+type Profile = { id: string; email: string | null; display_name: string | null; created_at?: string };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
 type AuditRow = {
   id: string;
@@ -54,55 +58,87 @@ export default function OwnerStaffPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("staff");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
   const [newRole, setNewRole] = useState<AppRole>("staff");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [suspendedUsers, setSuspendedUsers] = useState<Record<string, boolean>>({});
+  const [approvalRoles, setApprovalRoles] = useState<Record<string, AppRole>>({});
 
+  // 1. Fetch active user roles
   const rolesQ = useQuery({
     queryKey: ["owner-roles", cafeId],
     enabled: !!cafeId,
     queryFn: async () => {
-      const { data } = await supabase.from("user_roles").select("*").eq("cafe_id", cafeId!);
+      const { data, error } = await supabase.from("user_roles").select("*").eq("cafe_id", cafeId!);
+      if (error) throw error;
       return (data ?? []) as RoleRow[];
     },
   });
 
   const userIds = useMemo(() => [...new Set((rolesQ.data ?? []).map((r) => r.user_id))], [rolesQ.data]);
 
+  // 2. Fetch profiles for existing team members
   const profilesQ = useQuery({
     queryKey: ["owner-role-profiles", userIds.join(",")],
     enabled: userIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, email, display_name").in("id", userIds);
+      const { data, error } = await supabase.from("profiles").select("id, email, display_name, created_at").in("id", userIds);
+      if (error) throw error;
       return (data ?? []) as Profile[];
     },
   });
 
+  // 3. Fetch pending invitations
   const invitesQ = useQuery({
     queryKey: ["owner-invites", cafeId],
     enabled: !!cafeId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("staff_invites")
         .select("id, email, role, created_at")
         .eq("cafe_id", cafeId!)
         .order("created_at", { ascending: false });
+      if (error) throw error;
       return (data ?? []) as InviteRow[];
     },
   });
 
+  // 4. Fetch pending unapproved signups (profiles with no assigned role)
+  const pendingApprovalsQ = useQuery({
+    queryKey: ["owner-pending-approvals", cafeId],
+    enabled: !!cafeId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, display_name, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      const allProfiles = (data ?? []) as Profile[];
+      const assignedIds = new Set((rolesQ.data ?? []).map((r) => r.user_id));
+      const invitedEmails = new Set((invitesQ.data ?? []).map((i) => i.email.toLowerCase()));
+
+      // Filter profiles that have email, no active user_roles, and no pending invitation
+      return allProfiles.filter(
+        (p) => p.email && !assignedIds.has(p.id) && !invitedEmails.has(p.email.toLowerCase())
+      );
+    },
+  });
+
+  // 5. Fetch audit logs
   const auditQ = useQuery({
     queryKey: ["owner-staff-audit", cafeId],
     enabled: !!cafeId,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("audit_logs")
         .select("*")
         .eq("cafe_id", cafeId!)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(25);
+      if (error) throw error;
       return (data ?? []) as AuditRow[];
     },
   });
@@ -125,12 +161,38 @@ export default function OwnerStaffPage() {
     });
   }, [rolesQ.data, byUser, searchQuery, roleFilter]);
 
-  // Send invitation
+  // Refresh entire registry
+  const refreshRegistry = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] }),
+      qc.invalidateQueries({ queryKey: ["owner-role-profiles"] }),
+      qc.invalidateQueries({ queryKey: ["owner-invites", cafeId] }),
+      qc.invalidateQueries({ queryKey: ["owner-pending-approvals", cafeId] }),
+      qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] }),
+    ]);
+    setRefreshing(false);
+    toast.success("Staff registry refreshed.");
+  };
+
+  // Send invitation with duplicate checks
   const invite = async () => {
     if (!cafeId || !email.trim()) return;
-    setBusy(true);
     const targetEmail = email.trim().toLowerCase();
 
+    // Check duplicate pending invite
+    const isAlreadyInvited = (invitesQ.data ?? []).some((i) => i.email.toLowerCase() === targetEmail);
+    if (isAlreadyInvited) {
+      return toast.error(`An invitation is already pending for ${targetEmail}. Use Resend instead.`);
+    }
+
+    // Check duplicate active staff role
+    const isAlreadyMember = Array.from(byUser.values()).some((p) => p.email?.toLowerCase() === targetEmail);
+    if (isAlreadyMember) {
+      return toast.error(`${targetEmail} is already an active team member.`);
+    }
+
+    setBusy(true);
     const { data, error } = await supabase.rpc("assign_role_by_email", {
       _cafe_id: cafeId,
       _email: targetEmail,
@@ -138,7 +200,7 @@ export default function OwnerStaffPage() {
     });
     setBusy(false);
 
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(`Invitation failed: ${error.message}`);
 
     void logAuditEvent({
       cafeId,
@@ -149,22 +211,43 @@ export default function OwnerStaffPage() {
     });
 
     if (data === "invited") {
-      toast.success(`Invitation sent to ${targetEmail} — assigned role '${role}' when they sign in.`);
+      toast.success(`Invitation sent to ${targetEmail} — assigned '${role}' access upon sign in.`);
     } else {
       toast.success(`Assigned ${role} role to ${targetEmail}`);
     }
 
     setEmail("");
-    void qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] });
-    void qc.invalidateQueries({ queryKey: ["owner-invites", cafeId] });
-    void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
+    void refreshRegistry();
+  };
+
+  // Resend pending invitation
+  const resendInvite = async (inv: InviteRow) => {
+    setBusy(true);
+    const { error } = await supabase
+      .from("staff_invites")
+      .update({ created_at: new Date().toISOString() })
+      .eq("id", inv.id);
+    setBusy(false);
+
+    if (error) return toast.error(`Resend failed: ${error.message}`);
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: "INVITATION_RESENT",
+      targetEmail: inv.email,
+      metadata: { role: inv.role },
+    });
+
+    toast.success(`Invitation resent to ${inv.email}.`);
+    void refreshRegistry();
   };
 
   // Revoke pending invitation
   const revokeInvite = async (inv: InviteRow) => {
     if (!confirm(`Cancel pending invite for ${inv.email}?`)) return;
     const { error } = await supabase.from("staff_invites").delete().eq("id", inv.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(`Revoke failed: ${error.message}`);
 
     void logAuditEvent({
       cafeId,
@@ -175,8 +258,51 @@ export default function OwnerStaffPage() {
     });
 
     toast.success("Invitation cancelled.");
-    void qc.invalidateQueries({ queryKey: ["owner-invites", cafeId] });
-    void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
+    void refreshRegistry();
+  };
+
+  // Approve Pending User Registration
+  const approveUser = async (profile: Profile) => {
+    if (!cafeId || !profile.email) return;
+    const selectedRole = approvalRoles[profile.id] ?? "staff";
+
+    setBusy(true);
+    const { error } = await supabase.from("user_roles").insert({
+      user_id: profile.id,
+      cafe_id: cafeId,
+      role: selectedRole,
+    });
+    setBusy(false);
+
+    if (error) return toast.error(`Approval failed: ${error.message}`);
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: "APPROVAL_GRANTED",
+      targetEmail: profile.email,
+      metadata: { role: selectedRole, userId: profile.id },
+    });
+
+    toast.success(`Approval granted for ${profile.email} as '${selectedRole}'.`);
+    void refreshRegistry();
+  };
+
+  // Reject Pending User Registration
+  const rejectUser = async (profile: Profile) => {
+    if (!profile.email) return;
+    if (!confirm(`Reject registration request for ${profile.email}?`)) return;
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: "APPROVAL_REJECTED",
+      targetEmail: profile.email,
+      metadata: { userId: profile.id },
+    });
+
+    toast.info(`Registration request for ${profile.email} rejected.`);
+    void refreshRegistry();
   };
 
   // Remove staff role completely
@@ -193,7 +319,7 @@ export default function OwnerStaffPage() {
     if (!confirm(`Remove staff access for ${memberEmail}?`)) return;
 
     const { error } = await supabase.from("user_roles").delete().eq("id", r.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(`Remove failed: ${error.message}`);
 
     void logAuditEvent({
       cafeId,
@@ -203,9 +329,8 @@ export default function OwnerStaffPage() {
       metadata: { role: r.role, userId: r.user_id },
     });
 
-    toast.success("Staff member removed.");
-    void qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] });
-    void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
+    toast.success("Staff member access removed.");
+    void refreshRegistry();
   };
 
   // Toggle staff suspension
@@ -233,7 +358,7 @@ export default function OwnerStaffPage() {
     });
 
     toast.success(nextState ? `Suspended access for ${memberEmail}` : `Reactivated access for ${memberEmail}`);
-    void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
+    void refreshRegistry();
   };
 
   // Edit staff role
@@ -254,7 +379,7 @@ export default function OwnerStaffPage() {
     setBusy(false);
 
     if (error) {
-      toast.error(error.message);
+      toast.error(`Role update failed: ${error.message}`);
     } else {
       const p = byUser.get(r.user_id);
       void logAuditEvent({
@@ -267,12 +392,11 @@ export default function OwnerStaffPage() {
 
       toast.success("Role updated successfully.");
       setEditingRole(null);
-      void qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] });
-      void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
+      void refreshRegistry();
     }
   };
 
-  if (rolesQ.isLoading || profilesQ.isLoading || invitesQ.isLoading) {
+  if (rolesQ.isLoading || profilesQ.isLoading || invitesQ.isLoading || pendingApprovalsQ.isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-24 gap-3 text-muted-foreground">
         <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
@@ -285,18 +409,94 @@ export default function OwnerStaffPage() {
     <div className="space-y-8">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Staff Management</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Staff Management</h1>
+            <button
+              onClick={() => void refreshRegistry()}
+              disabled={refreshing}
+              className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition active:scale-95 shrink-0"
+              title="Refresh Registry"
+            >
+              <RotateCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+            </button>
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Invite employees, manage roles, control access permissions, and review audit history.
+            Approve signups, invite employees, manage roles, control access permissions, and review audit history.
           </p>
         </div>
         <GlobalNotificationControls />
       </header>
 
+      {/* Pending Approvals Pipeline Section */}
+      {(pendingApprovalsQ.data ?? []).length > 0 && (
+        <section className="rounded-3xl bg-amber-500/5 border border-amber-500/20 p-6 shadow-soft">
+          <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold text-amber-900 dark:text-amber-300">
+            <Clock className="h-5 w-5 text-amber-500" /> Pending Account Approvals ({(pendingApprovalsQ.data ?? []).length})
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            These authenticated users signed up but have not yet been granted staff access.
+          </p>
+          <ul className="divide-y divide-amber-500/20">
+            {pendingApprovalsQ.data!.map((p) => (
+              <li key={p.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-3.5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/15 text-amber-600">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(p.email ?? "") : p.email}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Signed up {p.created_at ? new Date(p.created_at).toLocaleDateString() : "Recently"} • Provider: OAuth / Email
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={approvalRoles[p.id] ?? "staff"}
+                    onChange={(e) => setApprovalRoles((prev) => ({ ...prev, [p.id]: e.target.value as AppRole }))}
+                    className="rounded-2xl border border-border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring/60"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="owner">Owner</option>
+                  </select>
+
+                  <button
+                    onClick={isDemo ? undefined : () => void approveUser(p)}
+                    disabled={busy || isDemo}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition",
+                      isDemo
+                        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                        : "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95"
+                    )}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                  </button>
+
+                  <button
+                    onClick={isDemo ? undefined : () => void rejectUser(p)}
+                    disabled={busy || isDemo}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition",
+                      isDemo
+                        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                        : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
+                    )}
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Reject
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Invite Section */}
       <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
         <h2 className="mb-3 flex items-center gap-2 font-display text-base font-semibold">
-          <UserPlus className="h-4 w-4" /> Invite Team Member
+          <UserPlus className="h-4 w-4" /> Send Team Invitation
         </h2>
         <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
           <input
@@ -320,14 +520,14 @@ export default function OwnerStaffPage() {
             onClick={isDemo ? undefined : () => void invite()}
             disabled={busy || !email.trim() || isDemo}
             className={cn(
-              "rounded-full px-6 py-3 text-sm font-semibold transition",
+              "rounded-full px-6 py-3 text-sm font-semibold transition flex items-center justify-center gap-2",
               isDemo
                 ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75"
                 : "btn-primary-action"
             )}
             title={isDemo ? "Disabled in public demo." : "Send invitation"}
           >
-            {isDemo ? "🔒 Disabled" : busy ? "Sending..." : "Send Invite"}
+            {isDemo ? "🔒 Disabled" : busy ? "Sending..." : <> <Send className="h-4 w-4" /> Send Invite </>}
           </button>
         </div>
         {isDemo && (
@@ -346,7 +546,7 @@ export default function OwnerStaffPage() {
       {(invitesQ.data ?? []).length > 0 && (
         <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
           <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold">
-            <Clock className="h-4 w-4" /> Pending Invitations ({invitesQ.data!.length})
+            <Clock className="h-4 w-4" /> Pending Invitations ({(invitesQ.data ?? []).length})
           </h2>
           <ul className="divide-y divide-border/60">
             {invitesQ.data!.map((inv) => (
@@ -366,9 +566,27 @@ export default function OwnerStaffPage() {
                   <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-3 py-1 text-xs font-semibold">
                     Pending
                   </span>
+
+                  {/* Resend Invite */}
+                  <button
+                    onClick={isDemo ? undefined : () => void resendInvite(inv)}
+                    disabled={isDemo || busy}
+                    className={cn(
+                      "rounded-full p-2 transition",
+                      isDemo
+                        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                        : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
+                    )}
+                    title={isDemo ? "Disabled in demo." : "Resend Invitation"}
+                    aria-label="Resend Invitation"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+
+                  {/* Revoke Invite */}
                   <button
                     onClick={isDemo ? undefined : () => void revokeInvite(inv)}
-                    disabled={isDemo}
+                    disabled={isDemo || busy}
                     className={cn(
                       "rounded-full p-2 transition",
                       isDemo

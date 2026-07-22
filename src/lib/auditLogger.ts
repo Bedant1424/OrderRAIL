@@ -3,7 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 export type AuditEventType =
   | "INVITATION_CREATED"
   | "INVITATION_REVOKED"
+  | "INVITATION_RESENT"
   | "INVITATION_ACCEPTED"
+  | "APPROVAL_GRANTED"
+  | "APPROVAL_REJECTED"
   | "ROLE_CHANGED"
   | "STAFF_SUSPENDED"
   | "STAFF_REACTIVATED"
