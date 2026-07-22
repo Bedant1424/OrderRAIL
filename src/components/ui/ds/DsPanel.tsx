@@ -11,11 +11,11 @@ export const DsPanel = React.forwardRef<HTMLDivElement, DsPanelProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-3xl p-4 flex flex-col justify-between overflow-hidden select-none transition-all duration-150",
-          variant === "workspace" && "bg-card/70 backdrop-blur-md shadow-soft border border-border/20",
-          variant === "secondary" && "bg-muted/30 border border-border/30 shadow-none",
-          variant === "floating" && "bg-card border border-border/60 shadow-float",
-          variant === "drawer" && "bg-card/95 backdrop-blur-md border-l border-border/40 shadow-2xl h-full",
+          "rounded-3xl p-4 flex flex-col justify-between overflow-hidden select-none transition-all duration-200 backdrop-blur-md",
+          variant === "workspace" && "bg-card/70 border border-white/5 shadow-soft hover:border-white/10",
+          variant === "secondary" && "bg-muted/20 border border-white/5 shadow-none",
+          variant === "floating" && "bg-card/90 border border-white/15 shadow-float",
+          variant === "drawer" && "bg-card/95 backdrop-blur-xl border-l border-white/15 shadow-2xl h-full",
           className
         )}
         {...props}
