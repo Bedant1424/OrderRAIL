@@ -19,6 +19,8 @@ import {
   XCircle,
   RotateCcw,
   UserMinus,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/lib/db";
@@ -74,15 +76,25 @@ export default function OwnerStaffPage() {
   const cafeId = cafe?.id;
   const qc = useQueryClient();
 
+  // Form states
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("staff");
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
   const [newRole, setNewRole] = useState<AppRole>("staff");
-  const [searchQuery, setSearchQuery] = useState("");
+
+  // Section-specific Search & Filter states
+  const [searchQuery, setSearchQuery] = useState(""); // Active Staff
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [rejectedSearch, setRejectedSearch] = useState(""); // Rejected Applicants
+  const [formerSearch, setFormerSearch] = useState(""); // Former Employees
+  const [auditSearch, setAuditSearch] = useState(""); // Audit Log
   const [approvalRoles, setApprovalRoles] = useState<Record<string, AppRole>>({});
+
+  // Audit Log Collapsible & Pagination states
+  const [isAuditExpanded, setIsAuditExpanded] = useState(false);
+  const [auditLimit, setAuditLimit] = useState(50);
 
   // 1. Fetch active user roles (including is_suspended column)
   const rolesQ = useQuery({
@@ -194,9 +206,9 @@ export default function OwnerStaffPage() {
     },
   });
 
-  // 7. Fetch audit logs
+  // 7. Fetch audit logs (with dynamic auditLimit)
   const auditQ = useQuery({
-    queryKey: ["owner-staff-audit", cafeId],
+    queryKey: ["owner-staff-audit", cafeId, auditLimit],
     enabled: !!cafeId,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -204,7 +216,7 @@ export default function OwnerStaffPage() {
         .select("*")
         .eq("cafe_id", cafeId!)
         .order("created_at", { ascending: false })
-        .limit(25);
+        .limit(auditLimit);
       if (error) throw error;
       return (data ?? []) as AuditRow[];
     },
@@ -232,7 +244,7 @@ export default function OwnerStaffPage() {
     return { activeTeam: active, suspendedTeam: suspended };
   }, [rolesQ.data]);
 
-  // Filtered active team list
+  // Section 3: Filtered Active Team
   const filteredActiveTeam = useMemo(() => {
     return activeTeam.filter((r) => {
       const p = byUser.get(r.user_id);
@@ -243,6 +255,41 @@ export default function OwnerStaffPage() {
       return matchesSearch && matchesRole;
     });
   }, [activeTeam, byUser, searchQuery, roleFilter]);
+
+  // Section 5: Filtered Rejected Applicants
+  const filteredRejected = useMemo(() => {
+    const query = rejectedSearch.trim().toLowerCase();
+    if (!query) return rejectedQ.data ?? [];
+    return (rejectedQ.data ?? []).filter(
+      (r) =>
+        (r.email && r.email.toLowerCase().includes(query)) ||
+        r.user_id.toLowerCase().includes(query)
+    );
+  }, [rejectedQ.data, rejectedSearch]);
+
+  // Section 6: Filtered Former Employees
+  const filteredFormer = useMemo(() => {
+    const query = formerSearch.trim().toLowerCase();
+    if (!query) return formerStaffQ.data ?? [];
+    return (formerStaffQ.data ?? []).filter(
+      (fs) =>
+        fs.email.toLowerCase().includes(query) ||
+        fs.user_id.toLowerCase().includes(query) ||
+        fs.role.toLowerCase().includes(query)
+    );
+  }, [formerStaffQ.data, formerSearch]);
+
+  // Section 7: Filtered Audit Log
+  const filteredAudit = useMemo(() => {
+    const query = auditSearch.trim().toLowerCase();
+    if (!query) return auditQ.data ?? [];
+    return (auditQ.data ?? []).filter(
+      (log) =>
+        log.event_type.toLowerCase().includes(query) ||
+        (log.target_email && log.target_email.toLowerCase().includes(query)) ||
+        JSON.stringify(log.metadata).toLowerCase().includes(query)
+    );
+  }, [auditQ.data, auditSearch]);
 
   // Refresh entire registry with explicit refetch completion
   const refreshRegistry = async () => {
@@ -269,13 +316,11 @@ export default function OwnerStaffPage() {
     if (!cafeId || !email.trim()) return;
     const targetEmail = email.trim().toLowerCase();
 
-    // Check duplicate pending invite
     const isAlreadyInvited = (invitesQ.data ?? []).some((i) => i.email.toLowerCase() === targetEmail);
     if (isAlreadyInvited) {
       return toast.error(`An invitation is already pending for ${targetEmail}. Use Resend instead.`);
     }
 
-    // Check duplicate active staff role
     const isAlreadyMember = Array.from(byUser.values()).some((p) => p.email?.toLowerCase() === targetEmail);
     if (isAlreadyMember) {
       return toast.error(`${targetEmail} is already an active team member.`);
@@ -332,7 +377,7 @@ export default function OwnerStaffPage() {
     await refreshRegistry();
   };
 
-  // Revoke pending invitation (immutable soft-revocation)
+  // Revoke pending invitation
   const revokeInvite = async (inv: InviteRow) => {
     if (!confirm(`Cancel pending invite for ${inv.email}?`)) return;
     setBusy(true);
@@ -374,7 +419,6 @@ export default function OwnerStaffPage() {
       return toast.error(`Approval failed: ${error.message}`);
     }
 
-    // Clean up any remaining rejected or former staff records if present
     await supabase.from("rejected_approvals").delete().eq("cafe_id", cafeId).eq("user_id", profile.id);
     await supabase.from("former_staff").delete().eq("cafe_id", cafeId).eq("user_id", profile.id);
 
@@ -391,7 +435,7 @@ export default function OwnerStaffPage() {
     toast.success(`Approval granted for ${profile.email} as '${selectedRole}'.`);
   };
 
-  // Reject Pending User Registration (Persists in rejected_approvals)
+  // Reject Pending User Registration
   const rejectUser = async (profile: Profile) => {
     if (!cafeId || !profile.email) return;
     if (!confirm(`Reject registration request for ${profile.email}?`)) return;
@@ -409,7 +453,6 @@ export default function OwnerStaffPage() {
       return toast.error(`Rejection failed: ${error.message}`);
     }
 
-    // Clean former_staff record if present
     await supabase.from("former_staff").delete().eq("cafe_id", cafeId).eq("user_id", profile.id);
 
     void logAuditEvent({
@@ -425,7 +468,7 @@ export default function OwnerStaffPage() {
     toast.info(`Registration request for ${profile.email} rejected.`);
   };
 
-  // Reconsider Rejected Applicant (Removes rejection, moves back to Pending Approvals)
+  // Reconsider Rejected Applicant
   const reconsiderApplicant = async (rej: RejectedRow) => {
     if (!cafeId) return;
     const targetEmail = rej.email ?? rej.user_id;
@@ -449,7 +492,7 @@ export default function OwnerStaffPage() {
     await refreshRegistry();
   };
 
-  // Remove staff role completely (Transitions user to Former Employees)
+  // Remove staff role completely
   const removeStaffRole = async (r: RoleRow) => {
     const p = byUser.get(r.user_id);
     const memberEmail = p?.email ?? r.user_id;
@@ -464,7 +507,6 @@ export default function OwnerStaffPage() {
 
     setBusy(true);
 
-    // 1. Delete user role
     const { error: delErr } = await supabase.from("user_roles").delete().eq("id", r.id);
 
     if (delErr) {
@@ -472,7 +514,6 @@ export default function OwnerStaffPage() {
       return toast.error(`Removal failed: ${delErr.message}`);
     }
 
-    // 2. Record as former staff
     if (memberEmail) {
       await supabase.from("former_staff").upsert({
         cafe_id: cafeId!,
@@ -496,7 +537,7 @@ export default function OwnerStaffPage() {
     toast.success(`Staff member access removed. ${memberEmail} moved to Former Employees.`);
   };
 
-  // Invite Former Employee Again (Invitation Override)
+  // Invite Former Employee Again
   const inviteAgainFormerStaff = async (fs: FormerStaffRow) => {
     if (!cafeId || !fs.email) return;
 
@@ -522,7 +563,7 @@ export default function OwnerStaffPage() {
     await refreshRegistry();
   };
 
-  // Toggle staff suspension (Persists in user_roles.is_suspended)
+  // Toggle staff suspension
   const toggleSuspend = async (r: RoleRow) => {
     const p = byUser.get(r.user_id);
     const memberEmail = p?.email ?? r.user_id;
@@ -560,7 +601,7 @@ export default function OwnerStaffPage() {
     toast.success(nextState ? `Suspended access for ${memberEmail}` : `Reactivated access for ${memberEmail}`);
   };
 
-  // Edit staff role (Persists in user_roles)
+  // Edit staff role
   const saveRole = async (r: RoleRow, targetRole: AppRole) => {
     if (targetRole !== "staff" && targetRole !== "owner") {
       return toast.error("Invalid role value.");
@@ -614,8 +655,9 @@ export default function OwnerStaffPage() {
   }
 
   const pendingApprovals = pendingApprovalsQ.data ?? [];
-  const rejectedApplicants = rejectedQ.data ?? [];
-  const formerEmployees = formerStaffQ.data ?? [];
+  const pendingInvitesList = invitesQ.data ?? [];
+  const rejectedApplicants = filteredRejected;
+  const formerEmployees = filteredFormer;
 
   return (
     <div className="space-y-8">
@@ -639,86 +681,90 @@ export default function OwnerStaffPage() {
         <GlobalNotificationControls />
       </header>
 
-      {/* SECTION 1: Pending Account Approvals */}
+      {/* SECTION 1: Pending Account Approvals (Max height: 350px) */}
       <section className="rounded-3xl bg-amber-500/5 border border-amber-500/20 p-6 shadow-soft">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-display text-base font-semibold text-amber-900 dark:text-amber-300">
-            <Clock className="h-5 w-5 text-amber-500" /> 1. Pending Account Approvals ({pendingApprovals.length})
-          </h2>
+        <div className="sticky top-0 z-10 bg-amber-500/5 pb-3 mb-1 flex items-center justify-between border-b border-amber-500/15">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-base font-semibold text-amber-900 dark:text-amber-300">
+              <Clock className="h-5 w-5 text-amber-500" /> 1. Pending Account Approvals ({pendingApprovals.length})
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              These authenticated applicants signed up but have not yet been approved or assigned a role.
+            </p>
+          </div>
           {pendingApprovalsQ.isFetching && (
-            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium shrink-0">
               <RotateCw className="h-3.5 w-3.5 animate-spin" /> Updating…
             </div>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          These authenticated applicants signed up but have not yet been approved or assigned a role.
-        </p>
 
         {pendingApprovals.length === 0 ? (
-          <div className="rounded-2xl bg-background/50 border border-amber-500/10 p-6 text-center text-xs text-muted-foreground font-medium flex items-center justify-center gap-2">
+          <div className="mt-4 rounded-2xl bg-background/50 border border-amber-500/10 p-6 text-center text-xs text-muted-foreground font-medium flex items-center justify-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
             <span>No pending approvals. All signed-up applicants have assigned roles or status.</span>
           </div>
         ) : (
-          <ul className="divide-y divide-amber-500/20">
-            {pendingApprovals.map((p) => (
-              <li key={p.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-3.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/15 text-amber-600">
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(p.email ?? "") : p.email}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Signed up {p.created_at ? new Date(p.created_at).toLocaleDateString() : "Recently"} • Provider: OAuth / Email
+          <div className="max-h-[350px] section-scroll pr-1 mt-2">
+            <ul className="divide-y divide-amber-500/20">
+              {pendingApprovals.map((p) => (
+                <li key={p.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-3.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/15 text-amber-600 shrink-0">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(p.email ?? "") : p.email}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Signed up {p.created_at ? new Date(p.created_at).toLocaleDateString() : "Recently"} • Provider: OAuth / Email
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <select
-                    value={approvalRoles[p.id] ?? "staff"}
-                    onChange={(e) => setApprovalRoles((prev) => ({ ...prev, [p.id]: e.target.value as AppRole }))}
-                    className="rounded-2xl border border-border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring/60"
-                  >
-                    <option value="staff">Staff</option>
-                    <option value="owner">Owner</option>
-                  </select>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <select
+                      value={approvalRoles[p.id] ?? "staff"}
+                      onChange={(e) => setApprovalRoles((prev) => ({ ...prev, [p.id]: e.target.value as AppRole }))}
+                      className="rounded-2xl border border-border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring/60"
+                    >
+                      <option value="staff">Staff</option>
+                      <option value="owner">Owner</option>
+                    </select>
 
-                  <button
-                    onClick={isDemo ? undefined : () => void approveUser(p)}
-                    disabled={busy || isDemo}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition",
-                      isDemo
-                        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                        : "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95"
-                    )}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                  </button>
+                    <button
+                      onClick={isDemo ? undefined : () => void approveUser(p)}
+                      disabled={busy || isDemo}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition",
+                        isDemo
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95"
+                      )}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                    </button>
 
-                  <button
-                    onClick={isDemo ? undefined : () => void rejectUser(p)}
-                    disabled={busy || isDemo}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition",
-                      isDemo
-                        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                        : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
-                    )}
-                  >
-                    <XCircle className="h-3.5 w-3.5" /> Reject
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    <button
+                      onClick={isDemo ? undefined : () => void rejectUser(p)}
+                      disabled={busy || isDemo}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition",
+                        isDemo
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                          : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
+                      )}
+                    >
+                      <XCircle className="h-3.5 w-3.5" /> Reject
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 
-      {/* SECTION 2: Invite Form & Pending Invitations */}
+      {/* SECTION 2: Invite Form & Pending Invitations (Max height: 250px) */}
       <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-6">
         <div>
           <h2 className="mb-3 flex items-center gap-2 font-display text-base font-semibold">
@@ -763,70 +809,75 @@ export default function OwnerStaffPage() {
           )}
         </div>
 
-        {(invitesQ.data ?? []).length > 0 && (
-          <div className="border-t border-border/60 pt-6">
-            <h3 className="mb-4 flex items-center gap-2 font-display text-sm font-semibold text-muted-foreground">
-              <Mail className="h-4 w-4" /> Pending Invitations ({(invitesQ.data ?? []).length})
-            </h3>
-            <ul className="divide-y divide-border/60">
-              {invitesQ.data!.map((inv) => (
-                <li key={inv.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
-                      <Mail className="h-4.5 w-4.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{isDemo ? maskEmail(inv.email) : inv.email}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Invited {new Date(inv.created_at).toLocaleDateString()} • Role: <span className="capitalize font-semibold text-foreground">{inv.role}</span>
+        {pendingInvitesList.length > 0 && (
+          <div className="border-t border-border/60 pt-5">
+            <div className="sticky top-0 z-10 bg-card pb-2 mb-1 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 font-display text-sm font-semibold text-muted-foreground">
+                <Mail className="h-4 w-4" /> Pending Invitations ({pendingInvitesList.length})
+              </h3>
+            </div>
+
+            <div className="max-h-[250px] section-scroll pr-1">
+              <ul className="divide-y divide-border/60">
+                {pendingInvitesList.map((inv) => (
+                  <li key={inv.id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-amber-600 shrink-0">
+                        <Mail className="h-4.5 w-4.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{isDemo ? maskEmail(inv.email) : inv.email}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Invited {new Date(inv.created_at).toLocaleDateString()} • Role: <span className="capitalize font-semibold text-foreground">{inv.role}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-3 py-1 text-xs font-semibold">
-                      Pending
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-3 py-1 text-xs font-semibold">
+                        Pending
+                      </span>
 
-                    <button
-                      onClick={isDemo ? undefined : () => void resendInvite(inv)}
-                      disabled={isDemo || busy}
-                      className={cn(
-                        "rounded-full p-2 transition",
-                        isDemo
-                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                          : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
-                      )}
-                      title={isDemo ? "Disabled in demo." : "Resend Invitation"}
-                    >
-                      <Send className="h-4 w-4" />
-                    </button>
+                      <button
+                        onClick={isDemo ? undefined : () => void resendInvite(inv)}
+                        disabled={isDemo || busy}
+                        className={cn(
+                          "rounded-full p-2 transition",
+                          isDemo
+                            ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                            : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
+                        )}
+                        title={isDemo ? "Disabled in demo." : "Resend Invitation"}
+                      >
+                        <Send className="h-4 w-4" />
+                      </button>
 
-                    <button
-                      onClick={isDemo ? undefined : () => void revokeInvite(inv)}
-                      disabled={isDemo || busy}
-                      className={cn(
-                        "rounded-full p-2 transition",
-                        isDemo
-                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                          : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
-                      )}
-                      title={isDemo ? "Disabled in demo." : "Revoke Invitation"}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                      <button
+                        onClick={isDemo ? undefined : () => void revokeInvite(inv)}
+                        disabled={isDemo || busy}
+                        className={cn(
+                          "rounded-full p-2 transition",
+                          isDemo
+                            ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                            : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
+                        )}
+                        title={isDemo ? "Disabled in demo." : "Revoke Invitation"}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
       </section>
 
-      {/* SECTION 3: Active Staff Members */}
+      {/* SECTION 3: Active Staff Members (Max height: 450px) */}
       <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky top-0 z-10 bg-card pb-3 mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/40">
           <h2 className="flex items-center gap-2 font-display text-base font-semibold">
-            <ShieldCheck className="h-5 w-5 text-emerald-500" /> 3. Active Staff ({activeTeam.length})
+            <ShieldCheck className="h-5 w-5 text-emerald-500" /> 3. Active Staff ({filteredActiveTeam.length} / {activeTeam.length})
           </h2>
           
           <div className="flex items-center gap-2">
@@ -836,7 +887,7 @@ export default function OwnerStaffPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search staff..."
+                placeholder="Search active staff..."
                 className="w-full rounded-2xl border border-border bg-background py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-ring/60"
               />
             </div>
@@ -856,264 +907,353 @@ export default function OwnerStaffPage() {
         {filteredActiveTeam.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">No active team members match your criteria.</p>
         ) : (
-          <ul className="divide-y divide-border/60">
-            {filteredActiveTeam.map((r) => {
-              const p = byUser.get(r.user_id);
-              return (
-                <li key={r.id} className="flex items-center justify-between gap-3 py-3.5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-600">
-                      <ShieldCheck className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold">
-                          {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
-                        </span>
+          <div className="max-h-[450px] section-scroll pr-1">
+            <ul className="divide-y divide-border/60">
+              {filteredActiveTeam.map((r) => {
+                const p = byUser.get(r.user_id);
+                return (
+                  <li key={r.id} className="flex items-center justify-between gap-3 py-3.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-600 shrink-0">
+                        <ShieldCheck className="h-5 w-5" />
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "No email linked"}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-semibold">
+                            {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
+                          </span>
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "No email linked"}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold capitalize">
-                      {r.role}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold capitalize">
+                        {r.role}
+                      </span>
 
-                    <button
-                      onClick={isDemo ? undefined : () => { setEditingRole(r); setNewRole(r.role); }}
-                      disabled={isDemo}
-                      className={cn(
-                        "rounded-full p-2 transition",
-                        isDemo
-                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                          : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
-                      )}
-                      title={isDemo ? "Disabled in demo." : "Edit Role"}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
+                      <button
+                        onClick={isDemo ? undefined : () => { setEditingRole(r); setNewRole(r.role); }}
+                        disabled={isDemo}
+                        className={cn(
+                          "rounded-full p-2 transition",
+                          isDemo
+                            ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                            : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
+                        )}
+                        title={isDemo ? "Disabled in demo." : "Edit Role"}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
 
-                    <button
-                      onClick={isDemo ? undefined : () => void toggleSuspend(r)}
-                      disabled={isDemo || busy}
-                      className={cn(
-                        "rounded-full p-2 transition bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 active:scale-95",
-                        isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                      )}
-                      title={isDemo ? "Disabled in demo." : "Suspend Access"}
-                    >
-                      <UserX className="h-4 w-4" />
-                    </button>
+                      <button
+                        onClick={isDemo ? undefined : () => void toggleSuspend(r)}
+                        disabled={isDemo || busy}
+                        className={cn(
+                          "rounded-full p-2 transition bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 active:scale-95",
+                          isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                        )}
+                        title={isDemo ? "Disabled in demo." : "Suspend Access"}
+                      >
+                        <UserX className="h-4 w-4" />
+                      </button>
 
-                    <button
-                      onClick={isDemo ? undefined : () => void removeStaffRole(r)}
-                      disabled={isDemo || busy}
-                      className={cn(
-                        "rounded-full p-2 transition bg-secondary text-muted-foreground hover:text-destructive active:scale-95",
-                        isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                      )}
-                      title={isDemo ? "Disabled in demo." : "Remove Access (Move to Former Staff)"}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      <button
+                        onClick={isDemo ? undefined : () => void removeStaffRole(r)}
+                        disabled={isDemo || busy}
+                        className={cn(
+                          "rounded-full p-2 transition bg-secondary text-muted-foreground hover:text-destructive active:scale-95",
+                          isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                        )}
+                        title={isDemo ? "Disabled in demo." : "Remove Access (Move to Former Staff)"}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </section>
 
-      {/* SECTION 4: Suspended Staff Members */}
+      {/* SECTION 4: Suspended Staff Members (Max height: 300px) */}
       {suspendedTeam.length > 0 && (
         <section className="rounded-3xl bg-destructive/5 border border-destructive/20 p-6 shadow-soft">
-          <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold text-destructive">
-            <ShieldAlert className="h-5 w-5" /> 4. Suspended Staff ({suspendedTeam.length})
-          </h2>
-          <p className="text-xs text-muted-foreground mb-4">
-            Suspended employees retain their role assignment but are blocked from accessing cafe operations until reactivated.
-          </p>
+          <div className="sticky top-0 z-10 bg-destructive/5 pb-3 mb-2 border-b border-destructive/15">
+            <h2 className="flex items-center gap-2 font-display text-base font-semibold text-destructive">
+              <ShieldAlert className="h-5 w-5" /> 4. Suspended Staff ({suspendedTeam.length})
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Suspended employees retain their role assignment but are blocked from accessing cafe operations until reactivated.
+            </p>
+          </div>
 
-          <ul className="divide-y divide-destructive/15">
-            {suspendedTeam.map((r) => {
-              const p = byUser.get(r.user_id);
-              return (
-                <li key={r.id} className="flex items-center justify-between gap-3 py-3.5">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-destructive/15 text-destructive">
-                      <ShieldAlert className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold">
-                          {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
-                        </span>
-                        <span className="rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 text-[10px] font-bold">
-                          SUSPENDED
-                        </span>
+          <div className="max-h-[300px] section-scroll pr-1 mt-2">
+            <ul className="divide-y divide-destructive/15">
+              {suspendedTeam.map((r) => {
+                const p = byUser.get(r.user_id);
+                return (
+                  <li key={r.id} className="flex items-center justify-between gap-3 py-3.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-destructive/15 text-destructive shrink-0">
+                        <ShieldAlert className="h-5 w-5" />
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "No email linked"}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-semibold">
+                            {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
+                          </span>
+                          <span className="rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 text-[10px] font-bold">
+                            SUSPENDED
+                          </span>
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "No email linked"}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={isDemo ? undefined : () => void toggleSuspend(r)}
-                      disabled={isDemo || busy}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition",
-                        isDemo
-                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                          : "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95"
-                      )}
-                    >
-                      <UserCheck className="h-3.5 w-3.5" /> Reactivate
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={isDemo ? undefined : () => void toggleSuspend(r)}
+                        disabled={isDemo || busy}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition",
+                          isDemo
+                            ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                            : "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95"
+                        )}
+                      >
+                        <UserCheck className="h-3.5 w-3.5" /> Reactivate
+                      </button>
 
-                    <button
-                      onClick={isDemo ? undefined : () => void removeStaffRole(r)}
-                      disabled={isDemo || busy}
-                      className={cn(
-                        "rounded-full p-2 transition bg-secondary text-muted-foreground hover:text-destructive active:scale-95",
-                        isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                      )}
-                      title={isDemo ? "Disabled in demo." : "Remove Access (Move to Former Staff)"}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      <button
+                        onClick={isDemo ? undefined : () => void removeStaffRole(r)}
+                        disabled={isDemo || busy}
+                        className={cn(
+                          "rounded-full p-2 transition bg-secondary text-muted-foreground hover:text-destructive active:scale-95",
+                          isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                        )}
+                        title={isDemo ? "Disabled in demo." : "Remove Access (Move to Former Staff)"}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </section>
       )}
 
-      {/* SECTION 5: Rejected Applicants */}
+      {/* SECTION 5: Rejected Applicants (Max height: 350px with Search) */}
       <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
-        <h2 className="mb-2 flex items-center gap-2 font-display text-base font-semibold">
-          <XCircle className="h-5 w-5 text-destructive" /> 5. Rejected Applicants ({rejectedApplicants.length})
-        </h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Applicants whose registration requests were rejected. Reconsidering an applicant returns them to Pending Approvals.
-        </p>
+        <div className="sticky top-0 z-10 bg-card pb-3 mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/40">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-base font-semibold">
+              <XCircle className="h-5 w-5 text-destructive" /> 5. Rejected Applicants ({rejectedApplicants.length} / {(rejectedQ.data ?? []).length})
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Applicants whose registration requests were rejected. Reconsidering an applicant returns them to Pending Approvals.
+            </p>
+          </div>
+
+          <div className="relative sm:w-64 shrink-0">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={rejectedSearch}
+              onChange={(e) => setRejectedSearch(e.target.value)}
+              placeholder="Search rejected..."
+              className="w-full rounded-2xl border border-border bg-background py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-ring/60"
+            />
+          </div>
+        </div>
 
         {rejectedApplicants.length === 0 ? (
           <div className="rounded-2xl bg-muted/20 border border-border/40 p-6 text-center text-xs text-muted-foreground font-medium">
-            No rejected applicants recorded.
+            {rejectedSearch.trim() ? "No rejected applicants match your search." : "No rejected applicants recorded."}
           </div>
         ) : (
-          <ul className="divide-y divide-border/60">
-            {rejectedApplicants.map((rej) => {
-              const displayEmail = rej.email ?? rej.user_id;
-              return (
-                <li key={rej.id} className="flex items-center justify-between gap-3 py-3.5">
+          <div className="max-h-[350px] section-scroll pr-1">
+            <ul className="divide-y divide-border/60">
+              {rejectedApplicants.map((rej) => {
+                const displayEmail = rej.email ?? rej.user_id;
+                return (
+                  <li key={rej.id} className="flex items-center justify-between gap-3 py-3.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-destructive/10 text-destructive shrink-0">
+                        <XCircle className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(displayEmail) : displayEmail}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Rejected {new Date(rej.created_at).toLocaleDateString()} • Status: <span className="font-semibold text-destructive">Rejected</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={isDemo ? undefined : () => void reconsiderApplicant(rej)}
+                      disabled={isDemo || busy}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold border border-border bg-background hover:bg-secondary transition active:scale-95 shrink-0",
+                        isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                      )}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 text-brand" /> Reconsider
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      {/* SECTION 6: Former Employees (Max height: 300px with Search) */}
+      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
+        <div className="sticky top-0 z-10 bg-card pb-3 mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/40">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-base font-semibold">
+              <UserMinus className="h-5 w-5 text-muted-foreground" /> 6. Former Employees ({formerEmployees.length} / {(formerStaffQ.data ?? []).length})
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Past team members whose access was removed. Inviting a former employee again sends a new invitation overriding prior status.
+            </p>
+          </div>
+
+          <div className="relative sm:w-64 shrink-0">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={formerSearch}
+              onChange={(e) => setFormerSearch(e.target.value)}
+              placeholder="Search former staff..."
+              className="w-full rounded-2xl border border-border bg-background py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-ring/60"
+            />
+          </div>
+        </div>
+
+        {formerEmployees.length === 0 ? (
+          <div className="rounded-2xl bg-muted/20 border border-border/40 p-6 text-center text-xs text-muted-foreground font-medium">
+            {formerSearch.trim() ? "No former employees match your search." : "No former employees recorded."}
+          </div>
+        ) : (
+          <div className="max-h-[300px] section-scroll pr-1">
+            <ul className="divide-y divide-border/60">
+              {formerEmployees.map((fs) => (
+                <li key={fs.id} className="flex items-center justify-between gap-3 py-3.5">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-destructive/10 text-destructive">
-                      <XCircle className="h-5 w-5" />
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-muted text-muted-foreground shrink-0">
+                      <UserMinus className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(displayEmail) : displayEmail}</div>
+                      <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(fs.email) : fs.email}</div>
                       <div className="text-xs text-muted-foreground">
-                        Rejected {new Date(rej.created_at).toLocaleDateString()} • Status: <span className="font-semibold text-destructive">Rejected</span>
+                        Previous Role: <span className="capitalize font-semibold text-foreground">{fs.role}</span> • Removed {new Date(fs.created_at).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
 
                   <button
-                    onClick={isDemo ? undefined : () => void reconsiderApplicant(rej)}
+                    onClick={isDemo ? undefined : () => void inviteAgainFormerStaff(fs)}
                     disabled={isDemo || busy}
                     className={cn(
-                      "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold border border-border bg-background hover:bg-secondary transition active:scale-95",
+                      "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition btn-primary-action shrink-0",
                       isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                     )}
                   >
-                    <RotateCcw className="h-3.5 w-3.5 text-brand" /> Reconsider
+                    <Send className="h-3.5 w-3.5" /> Invite Again
                   </button>
                 </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      {/* SECTION 6: Former Employees */}
-      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
-        <h2 className="mb-2 flex items-center gap-2 font-display text-base font-semibold">
-          <UserMinus className="h-5 w-5 text-muted-foreground" /> 6. Former Employees ({formerEmployees.length})
-        </h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Past team members whose access was removed. Inviting a former employee again sends a new invitation overriding prior status.
-        </p>
-
-        {formerEmployees.length === 0 ? (
-          <div className="rounded-2xl bg-muted/20 border border-border/40 p-6 text-center text-xs text-muted-foreground font-medium">
-            No former employees recorded.
+              ))}
+            </ul>
           </div>
-        ) : (
-          <ul className="divide-y divide-border/60">
-            {formerEmployees.map((fs) => (
-              <li key={fs.id} className="flex items-center justify-between gap-3 py-3.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-muted text-muted-foreground">
-                    <UserMinus className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(fs.email) : fs.email}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Previous Role: <span className="capitalize font-semibold text-foreground">{fs.role}</span> • Removed {new Date(fs.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={isDemo ? undefined : () => void inviteAgainFormerStaff(fs)}
-                  disabled={isDemo || busy}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition btn-primary-action",
-                    isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                  )}
-                >
-                  <Send className="h-3.5 w-3.5" /> Invite Again
-                </button>
-              </li>
-            ))}
-          </ul>
         )}
       </section>
 
-      {/* SECTION 7: Audit Log Trail */}
+      {/* SECTION 7: Staff Management Audit Log (Collapsible, Max height: 400px with Search & Load More) */}
       <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
-        <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold">
-          <History className="h-4 w-4" /> 7. Staff Management Audit Log
-        </h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="flex items-center gap-2 font-display text-base font-semibold">
+              <History className="h-4 w-4" /> 7. Staff Management Audit Log ({(auditQ.data ?? []).length})
+            </h2>
+            <button
+              onClick={() => setIsAuditExpanded((prev) => !prev)}
+              className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-secondary/80 transition active:scale-95"
+            >
+              {isAuditExpanded ? (
+                <>
+                  <ChevronUp className="h-3.5 w-3.5" /> Collapse Log
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3.5 w-3.5" /> Expand Log
+                </>
+              )}
+            </button>
+          </div>
 
-        {(auditQ.data ?? []).length === 0 ? (
-          <p className="py-6 text-center text-xs text-muted-foreground">No audit entries recorded yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {auditQ.data!.map((log) => (
-              <div key={log.id} className="flex items-center justify-between rounded-2xl bg-muted/30 p-3 text-xs">
-                <div className="min-w-0 space-y-0.5">
-                  <div className="font-semibold text-foreground">
-                    {log.event_type.replace(/_/g, " ")} — <span className="font-normal text-muted-foreground">{log.target_email ?? "System"}</span>
-                  </div>
-                  {log.metadata && (
-                    <div className="text-[11px] text-muted-foreground">
-                      {JSON.stringify(log.metadata)}
+          {isAuditExpanded && (
+            <div className="relative sm:w-64 shrink-0">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={auditSearch}
+                onChange={(e) => setAuditSearch(e.target.value)}
+                placeholder="Search audit trail..."
+                className="w-full rounded-2xl border border-border bg-background py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-ring/60"
+              />
+            </div>
+          )}
+        </div>
+
+        {isAuditExpanded && (
+          <div className="mt-4 border-t border-border/40 pt-4">
+            {filteredAudit.length === 0 ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">
+                {auditSearch.trim() ? "No audit entries match your search." : "No audit entries recorded yet."}
+              </p>
+            ) : (
+              <div className="max-h-[400px] section-scroll pr-1 space-y-2">
+                {filteredAudit.map((log) => (
+                  <div key={log.id} className="flex items-center justify-between rounded-2xl bg-muted/30 p-3 text-xs">
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="font-semibold text-foreground">
+                        {log.event_type.replace(/_/g, " ")} — <span className="font-normal text-muted-foreground">{log.target_email ?? "System"}</span>
+                      </div>
+                      {log.metadata && (
+                        <div className="text-[11px] text-muted-foreground truncate">
+                          {JSON.stringify(log.metadata)}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="text-[11px] text-muted-foreground shrink-0 pl-3">
-                  {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </div>
+                    <div className="text-[11px] text-muted-foreground shrink-0 pl-3">
+                      {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  </div>
+                ))}
+
+                {(auditQ.data ?? []).length >= auditLimit && (
+                  <div className="pt-2 text-center">
+                    <button
+                      onClick={() => setAuditLimit((prev) => prev + 50)}
+                      disabled={auditQ.isFetching}
+                      className="rounded-full bg-secondary px-4 py-2 text-xs font-semibold hover:bg-secondary/80 transition active:scale-95"
+                    >
+                      {auditQ.isFetching ? "Loading..." : "Load 50 More Entries"}
+                    </button>
+                  </div>
+                )}
               </div>
-            ))}
+            )}
           </div>
         )}
       </section>
