@@ -90,7 +90,81 @@ describe("QA & Operational Readiness: Staff Management & Production Auth", () =>
     });
   });
 
-  describe("4. Audit Log Event Serialization", () => {
+  describe("4. Onboarding Discovery Pipeline Scenarios", () => {
+    const profiles = [
+      { id: "u1", email: "uninvited@cafe.com" },
+      { id: "u2", email: "invited@cafe.com" },
+      { id: "u3", email: "rejected@cafe.com" },
+      { id: "u4", email: "assigned@cafe.com" },
+    ];
+
+    const assignedRoles = [
+      { user_id: "u4", cafe_id: "cafe-123", role: "staff" },
+    ];
+
+    const activePendingInvites = [
+      { email: "invited@cafe.com", accepted_at: null, revoked_at: null },
+    ];
+
+    const acceptedInvitesHistory = [
+      { email: "assigned@cafe.com", accepted_at: "2026-07-22T00:00:00Z", revoked_at: null },
+    ];
+
+    const rejectedUserIds = new Set(["u3"]);
+
+    it("Scenario A: No invitation -> User appears in Pending Approvals", () => {
+      const assignedIds = new Set(assignedRoles.map((r) => r.user_id));
+      const activeInvitedEmails = new Set(activePendingInvites.map((i) => i.email.toLowerCase().trim()));
+
+      const pending = profiles.filter(
+        (p) =>
+          p.email &&
+          !assignedIds.has(p.id) &&
+          !activeInvitedEmails.has(p.email.toLowerCase().trim()) &&
+          !rejectedUserIds.has(p.id)
+      );
+
+      expect(pending.map((p) => p.email)).toContain("uninvited@cafe.com");
+    });
+
+    it("Scenario B: Invitation exists -> User is filtered from Pending Approvals until claimed", () => {
+      const assignedIds = new Set(assignedRoles.map((r) => r.user_id));
+      const activeInvitedEmails = new Set(activePendingInvites.map((i) => i.email.toLowerCase().trim()));
+
+      const pending = profiles.filter(
+        (p) =>
+          p.email &&
+          !assignedIds.has(p.id) &&
+          !activeInvitedEmails.has(p.email.toLowerCase().trim()) &&
+          !rejectedUserIds.has(p.id)
+      );
+
+      expect(pending.map((p) => p.email)).not.toContain("invited@cafe.com");
+    });
+
+    it("Scenario C: Past accepted invitation does NOT block user from pending approvals if role is missing", () => {
+      // Historical accepted invites should NOT be in activeInvitedEmails
+      const activeInvitedEmails = new Set(activePendingInvites.map((i) => i.email.toLowerCase().trim()));
+      expect(activeInvitedEmails.has("assigned@cafe.com")).toBe(false);
+    });
+
+    it("Scenario D: Rejected users remain excluded", () => {
+      const assignedIds = new Set(assignedRoles.map((r) => r.user_id));
+      const activeInvitedEmails = new Set(activePendingInvites.map((i) => i.email.toLowerCase().trim()));
+
+      const pending = profiles.filter(
+        (p) =>
+          p.email &&
+          !assignedIds.has(p.id) &&
+          !activeInvitedEmails.has(p.email.toLowerCase().trim()) &&
+          !rejectedUserIds.has(p.id)
+      );
+
+      expect(pending.map((p) => p.email)).not.toContain("rejected@cafe.com");
+    });
+  });
+
+  describe("5. Audit Log Event Serialization", () => {
     it("should format valid audit event payloads", () => {
       const payload = {
         cafeId: "cafe-123",

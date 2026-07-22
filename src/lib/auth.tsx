@@ -64,16 +64,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         let fetchedRoles = (data ?? []) as UserRoleEntry[];
 
-        // If user currently has 0 assigned roles, check for pending invitation by email
+        // If user currently has 0 assigned roles, check for pending invitation by normalized email
         if (fetchedRoles.length === 0) {
           const { data: userData } = await supabase.auth.getUser();
-          const userEmail = userData?.user?.email?.toLowerCase();
+          const rawEmail = userData?.user?.email;
+          const userEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
+
+          console.log("[Onboarding Debug] Authenticated email for auto-claim check:", userEmail);
           
           if (userEmail) {
-            const { data: invites } = await supabase
+            const { data: invites, error: invErr } = await supabase
               .from("staff_invites")
-              .select("id, cafe_id, role, email")
-              .eq("email", userEmail);
+              .select("id, cafe_id, role, email, accepted_at, revoked_at")
+              .eq("email", userEmail)
+              .is("accepted_at", null)
+              .is("revoked_at", null);
+
+            console.log("[Onboarding Debug] Invitation lookup result:", { invites, error: invErr });
 
             if (invites && invites.length > 0) {
               const pendingInvite = invites[0];
@@ -86,8 +93,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 is_suspended: false,
               });
 
+              console.log("[Onboarding Debug] Role creation result:", { insertErr, role: pendingInvite.role });
+
               if (!insertErr) {
-                // 2. Remove accepted invitation
+                // 2. Mark invitation as accepted
+                await supabase
+                  .from("staff_invites")
+                  .update({ accepted_at: new Date().toISOString() })
+                  .eq("id", pendingInvite.id);
+
+                // Fallback cleanup if table supports row deletion
                 await supabase.from("staff_invites").delete().eq("id", pendingInvite.id);
 
                 // 3. Record audit event
@@ -96,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   actorId: uid,
                   eventType: "INVITATION_ACCEPTED",
                   targetEmail: userEmail,
-                  metadata: { role: pendingInvite.role },
+                  metadata: { role: pendingInvite.role, inviteId: pendingInvite.id },
                 });
 
                 // 4. Re-fetch user roles
@@ -105,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   .select("role, cafe_id, is_suspended")
                   .eq("user_id", uid);
                 fetchedRoles = (reRefetched ?? []) as UserRoleEntry[];
+                console.log("[Onboarding Debug] Re-fetched roles after auto-claim:", fetchedRoles);
               }
             }
           }

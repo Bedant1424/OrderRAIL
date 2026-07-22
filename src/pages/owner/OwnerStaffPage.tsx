@@ -113,23 +113,33 @@ export default function OwnerStaffPage() {
         await Promise.all([
           supabase.from("profiles").select("id, email, display_name, created_at").order("created_at", { ascending: false }),
           supabase.from("user_roles").select("user_id").eq("cafe_id", cafeId!),
-          supabase.from("staff_invites").select("email").eq("cafe_id", cafeId!),
+          supabase.from("staff_invites").select("email").eq("cafe_id", cafeId!).is("accepted_at", null).is("revoked_at", null),
           supabase.from("rejected_approvals").select("user_id").eq("cafe_id", cafeId!),
         ]);
 
       if (pErr) throw pErr;
 
       const assignedIds = new Set((assignedData ?? []).map((r) => r.user_id));
-      const invitedEmails = new Set((invitesData ?? []).map((i) => i.email.toLowerCase()));
+      const activeInvitedEmails = new Set((invitesData ?? []).map((i) => i.email.trim().toLowerCase()));
       const rejectedUserIds = new Set((rejectedData ?? []).map((r) => r.user_id));
 
-      return (profiles ?? []).filter(
+      const pending = (profiles ?? []).filter(
         (p) =>
           p.email &&
           !assignedIds.has(p.id) &&
-          !invitedEmails.has(p.email.toLowerCase()) &&
+          !activeInvitedEmails.has(p.email.trim().toLowerCase()) &&
           !rejectedUserIds.has(p.id)
       ) as Profile[];
+
+      console.log("[Onboarding Debug] Pending approval query counts:", {
+        totalProfiles: profiles?.length ?? 0,
+        assignedUserRolesCount: assignedIds.size,
+        activePendingInvitesCount: activeInvitedEmails.size,
+        rejectedUsersCount: rejectedUserIds.size,
+        finalPendingApprovalsCount: pending.length,
+      });
+
+      return pending;
     },
   });
 
