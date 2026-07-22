@@ -104,27 +104,24 @@ export default function OwnerStaffPage() {
     },
   });
 
-  // 4. Fetch pending unapproved signups (profiles with no assigned role and not rejected)
+  // 4. Fetch pending unapproved signups (self-contained atomic query)
   const pendingApprovalsQ = useQuery({
     queryKey: ["owner-pending-approvals", cafeId],
     enabled: !!cafeId,
     queryFn: async () => {
-      const { data: profiles, error: pErr } = await supabase
-        .from("profiles")
-        .select("id, email, display_name, created_at")
-        .order("created_at", { ascending: false });
+      const [{ data: profiles, error: pErr }, { data: assignedData }, { data: invitesData }, { data: rejectedData }] =
+        await Promise.all([
+          supabase.from("profiles").select("id, email, display_name, created_at").order("created_at", { ascending: false }),
+          supabase.from("user_roles").select("user_id").eq("cafe_id", cafeId!),
+          supabase.from("staff_invites").select("email").eq("cafe_id", cafeId!),
+          supabase.from("rejected_approvals").select("user_id").eq("cafe_id", cafeId!),
+        ]);
 
       if (pErr) throw pErr;
 
-      // Fetch persistent rejected approvals for this cafe
-      const { data: rejectedData } = await supabase
-        .from("rejected_approvals")
-        .select("user_id")
-        .eq("cafe_id", cafeId!);
-
+      const assignedIds = new Set((assignedData ?? []).map((r) => r.user_id));
+      const invitedEmails = new Set((invitesData ?? []).map((i) => i.email.toLowerCase()));
       const rejectedUserIds = new Set((rejectedData ?? []).map((r) => r.user_id));
-      const assignedIds = new Set((rolesQ.data ?? []).map((r) => r.user_id));
-      const invitedEmails = new Set((invitesQ.data ?? []).map((i) => i.email.toLowerCase()));
 
       return (profiles ?? []).filter(
         (p) =>
@@ -170,18 +167,22 @@ export default function OwnerStaffPage() {
     });
   }, [rolesQ.data, byUser, searchQuery, roleFilter]);
 
-  // Refresh entire registry
+  // Refresh entire registry with explicit refetch completion
   const refreshRegistry = async () => {
     setRefreshing(true);
-    await Promise.all([
-      qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] }),
-      qc.invalidateQueries({ queryKey: ["owner-role-profiles"] }),
-      qc.invalidateQueries({ queryKey: ["owner-invites", cafeId] }),
-      qc.invalidateQueries({ queryKey: ["owner-pending-approvals", cafeId] }),
-      qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] }),
-    ]);
-    setRefreshing(false);
-    toast.success("Staff registry refreshed.");
+    try {
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["owner-roles", cafeId] }),
+        qc.refetchQueries({ queryKey: ["owner-role-profiles"] }),
+        qc.refetchQueries({ queryKey: ["owner-invites", cafeId] }),
+        qc.refetchQueries({ queryKey: ["owner-pending-approvals", cafeId] }),
+        qc.refetchQueries({ queryKey: ["owner-staff-audit", cafeId] }),
+      ]);
+    } catch (e) {
+      console.error("refreshRegistry refetch error:", e);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Send invitation with duplicate checks
@@ -226,7 +227,7 @@ export default function OwnerStaffPage() {
     }
 
     setEmail("");
-    void refreshRegistry();
+    await refreshRegistry();
   };
 
   // Resend pending invitation
@@ -249,7 +250,7 @@ export default function OwnerStaffPage() {
     });
 
     toast.success(`Invitation resent to ${inv.email}.`);
-    void refreshRegistry();
+    await refreshRegistry();
   };
 
   // Revoke pending invitation
@@ -270,7 +271,7 @@ export default function OwnerStaffPage() {
     });
 
     toast.success("Invitation cancelled.");
-    void refreshRegistry();
+    await refreshRegistry();
   };
 
   // Approve Pending User Registration
@@ -285,9 +286,11 @@ export default function OwnerStaffPage() {
       role: selectedRole,
       is_suspended: false,
     });
-    setBusy(false);
 
-    if (error) return toast.error(`Approval failed: ${error.message}`);
+    if (error) {
+      setBusy(false);
+      return toast.error(`Approval failed: ${error.message}`);
+    }
 
     void logAuditEvent({
       cafeId,
@@ -297,8 +300,9 @@ export default function OwnerStaffPage() {
       metadata: { role: selectedRole, userId: profile.id },
     });
 
+    await refreshRegistry();
+    setBusy(false);
     toast.success(`Approval granted for ${profile.email} as '${selectedRole}'.`);
-    void refreshRegistry();
   };
 
   // Reject Pending User Registration (Persists in rejected_approvals)
@@ -313,9 +317,9 @@ export default function OwnerStaffPage() {
       email: profile.email,
       rejected_by: user?.id,
     });
-    setBusy(false);
 
     if (error && !error.message.includes("duplicate")) {
+      setBusy(false);
       return toast.error(`Rejection failed: ${error.message}`);
     }
 
@@ -327,8 +331,9 @@ export default function OwnerStaffPage() {
       metadata: { userId: profile.id },
     });
 
+    await refreshRegistry();
+    setBusy(false);
     toast.info(`Registration request for ${profile.email} rejected.`);
-    void refreshRegistry();
   };
 
   // Remove staff role completely (Delete workflow)
@@ -346,9 +351,11 @@ export default function OwnerStaffPage() {
 
     setBusy(true);
     const { error } = await supabase.from("user_roles").delete().eq("id", r.id);
-    setBusy(false);
 
-    if (error) return toast.error(`Removal failed: ${error.message}`);
+    if (error) {
+      setBusy(false);
+      return toast.error(`Removal failed: ${error.message}`);
+    }
 
     void logAuditEvent({
       cafeId,
@@ -358,8 +365,9 @@ export default function OwnerStaffPage() {
       metadata: { role: r.role, userId: r.user_id },
     });
 
+    await refreshRegistry();
+    setBusy(false);
     toast.success("Staff member access removed.");
-    void refreshRegistry();
   };
 
   // Toggle staff suspension (Persists in user_roles.is_suspended)
@@ -381,9 +389,11 @@ export default function OwnerStaffPage() {
       .from("user_roles")
       .update({ is_suspended: nextState })
       .eq("id", r.id);
-    setBusy(false);
 
-    if (error) return toast.error(`Suspension update failed: ${error.message}`);
+    if (error) {
+      setBusy(false);
+      return toast.error(`Suspension update failed: ${error.message}`);
+    }
 
     void logAuditEvent({
       cafeId,
@@ -393,8 +403,9 @@ export default function OwnerStaffPage() {
       metadata: { role: r.role, userId: r.user_id },
     });
 
+    await refreshRegistry();
+    setBusy(false);
     toast.success(nextState ? `Suspended access for ${memberEmail}` : `Reactivated access for ${memberEmail}`);
-    void refreshRegistry();
   };
 
   // Edit staff role (Persists in user_roles)
@@ -412,9 +423,9 @@ export default function OwnerStaffPage() {
 
     setBusy(true);
     const { error } = await supabase.from("user_roles").update({ role: targetRole }).eq("id", r.id);
-    setBusy(false);
 
     if (error) {
+      setBusy(false);
       toast.error(`Role update failed: ${error.message}`);
     } else {
       const p = byUser.get(r.user_id);
@@ -426,13 +437,16 @@ export default function OwnerStaffPage() {
         metadata: { oldRole: r.role, newRole: targetRole },
       });
 
+      await refreshRegistry();
+      setBusy(false);
       toast.success("Role updated successfully.");
       setEditingRole(null);
-      void refreshRegistry();
     }
   };
 
-  if (rolesQ.isLoading || profilesQ.isLoading || invitesQ.isLoading || pendingApprovalsQ.isLoading) {
+  const initialLoading = rolesQ.isLoading || profilesQ.isLoading || invitesQ.isLoading || pendingApprovalsQ.isLoading;
+
+  if (initialLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-24 gap-3 text-muted-foreground">
         <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
@@ -440,6 +454,8 @@ export default function OwnerStaffPage() {
       </div>
     );
   }
+
+  const pendingApprovals = pendingApprovalsQ.data ?? [];
 
   return (
     <div className="space-y-8">
@@ -463,17 +479,30 @@ export default function OwnerStaffPage() {
         <GlobalNotificationControls />
       </header>
 
-      {/* Pending Approvals Pipeline Section */}
-      {(pendingApprovalsQ.data ?? []).length > 0 && (
-        <section className="rounded-3xl bg-amber-500/5 border border-amber-500/20 p-6 shadow-soft">
-          <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold text-amber-900 dark:text-amber-300">
-            <Clock className="h-5 w-5 text-amber-500" /> Pending Account Approvals ({(pendingApprovalsQ.data ?? []).length})
+      {/* Pending Approvals Pipeline Section — Always Mounted to Prevent Layout Shift */}
+      <section className="rounded-3xl bg-amber-500/5 border border-amber-500/20 p-6 shadow-soft">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-display text-base font-semibold text-amber-900 dark:text-amber-300">
+            <Clock className="h-5 w-5 text-amber-500" /> Pending Account Approvals ({pendingApprovals.length})
           </h2>
-          <p className="text-xs text-muted-foreground mb-4">
-            These authenticated users signed up but have not yet been granted staff access.
-          </p>
+          {pendingApprovalsQ.isFetching && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+              <RotateCw className="h-3.5 w-3.5 animate-spin" /> Updating…
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          These authenticated users signed up but have not yet been granted staff access.
+        </p>
+
+        {pendingApprovals.length === 0 ? (
+          <div className="rounded-2xl bg-background/50 border border-amber-500/10 p-6 text-center text-xs text-muted-foreground font-medium flex items-center justify-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+            <span>No pending approvals. All signed-up users have assigned roles.</span>
+          </div>
+        ) : (
           <ul className="divide-y divide-amber-500/20">
-            {pendingApprovalsQ.data!.map((p) => (
+            {pendingApprovals.map((p) => (
               <li key={p.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-3.5">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/15 text-amber-600">
@@ -526,8 +555,8 @@ export default function OwnerStaffPage() {
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* Invite Section */}
       <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
