@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useTableEngine } from "@/lib/counter/tableEngine/tableStore";
 import { CreditCard, DollarSign, QrCode, Printer, CheckCircle, Percent, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface BilledItem {
   id: string;
@@ -17,9 +19,14 @@ const SAMPLE_BILL_ITEMS: BilledItem[] = [
 ];
 
 export function BillingSidebar() {
+  const { selectedTable, requestBill, releaseTable } = useTableEngine();
   const [paymentMode, setPaymentMode] = useState<"cash" | "card" | "upi">("cash");
   const [cashTendered, setCashTendered] = useState<string>("40.00");
   const [discountPercent, setDiscountPercent] = useState<number>(10);
+
+  const activeLabel = selectedTable ? selectedTable.label : "Table 4";
+  const activeSessionCode = selectedTable?.activeSession?.sessionCode ?? "s-9821";
+  const activeSessionStatus = selectedTable?.activeSession?.status ?? "BILLING";
 
   const subtotal = SAMPLE_BILL_ITEMS.reduce((sum, item) => sum + item.price, 0); // 37.50
   const tax = subtotal * 0.08; // 3.00 (GST 8%)
@@ -28,6 +35,26 @@ export function BillingSidebar() {
 
   const cashNum = parseFloat(cashTendered) || 0;
   const changeDue = Math.max(0, cashNum - netTotal);
+
+  const handlePrintBillClick = () => {
+    if (!selectedTable) return;
+    const res = requestBill(selectedTable.id);
+    if (res.success) {
+      toast.success(`Bill Requested & Printed for ${selectedTable.label}!`);
+    } else {
+      toast.error(res.error ?? "Failed to request bill.");
+    }
+  };
+
+  const handleSettleAndReleaseClick = () => {
+    if (!selectedTable) return;
+    const res = releaseTable(selectedTable.id);
+    if (res.success) {
+      toast.success(`Payment Collected! ${selectedTable.label} session closed & freed.`);
+    } else {
+      toast.error(res.error ?? "Failed to release table.");
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-card rounded-3xl p-4 shadow-soft ring-1 ring-border/60 justify-between select-none">
@@ -40,7 +67,7 @@ export function BillingSidebar() {
               <span>BILLING & CASHIER</span>
             </h2>
             <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-              Table 4 (ID: #s-9821) • 34m session
+              {activeLabel} (ID: #{activeSessionCode}) • {activeSessionStatus}
             </div>
           </div>
           <span className="text-xs font-mono text-muted-foreground font-medium hidden sm:inline">
@@ -174,11 +201,17 @@ export function BillingSidebar() {
 
         {/* Primary Action Buttons */}
         <div className="space-y-1.5 pt-1">
-          <button className="w-full rounded-2xl border border-border bg-secondary/80 hover:bg-secondary text-foreground py-2.5 text-xs font-semibold transition flex items-center justify-center gap-2 active:scale-95 shadow-soft">
+          <button
+            onClick={handlePrintBillClick}
+            className="w-full rounded-2xl border border-border bg-secondary/80 hover:bg-secondary text-foreground py-2.5 text-xs font-semibold transition flex items-center justify-center gap-2 active:scale-95 shadow-soft"
+          >
             <Printer className="h-4 w-4 text-brand" /> F8: PRINT BILL INVOICE
           </button>
 
-          <button className="w-full rounded-2xl bg-brand hover:bg-brand/90 text-brand-foreground py-3 text-xs font-bold transition flex items-center justify-center gap-2 shadow-soft active:scale-95">
+          <button
+            onClick={handleSettleAndReleaseClick}
+            className="w-full rounded-2xl bg-brand hover:bg-brand/90 text-brand-foreground py-3 text-xs font-bold transition flex items-center justify-center gap-2 shadow-soft active:scale-95"
+          >
             <CheckCircle className="h-4 w-4" />
             {paymentMode === "cash"
               ? "F10: COLLECT CASH & FREE TABLE"

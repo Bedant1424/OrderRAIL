@@ -1,21 +1,16 @@
 import { useState } from "react";
+import { TableEngineProvider } from "@/lib/counter/tableEngine/tableStore";
 import { CounterHeader } from "@/components/counter/CounterHeader";
 import { TableGrid } from "@/components/counter/TableGrid";
 import { OrderWorkspace } from "@/components/counter/OrderWorkspace";
 import { BillingSidebar } from "@/components/counter/BillingSidebar";
 import { QuickActionsBar } from "@/components/counter/QuickActionsBar";
 import { StatusBar } from "@/components/counter/StatusBar";
-import { type TableCardData } from "@/components/counter/TableCard";
 import { LayoutGrid, Utensils, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function CounterV2Page() {
-  const [selectedTableId, setSelectedTableId] = useState<string | null>("t-4");
+function CounterV2Layout() {
   const [mobileTab, setMobileTab] = useState<"tables" | "workspace" | "billing">("workspace");
-
-  const handleSelectTable = (table: TableCardData) => {
-    setSelectedTableId(table.id);
-  };
 
   return (
     <div className="min-h-screen bg-background font-sans overflow-hidden text-foreground antialiased selection:bg-brand/20">
@@ -65,10 +60,7 @@ export default function CounterV2Page() {
               mobileTab !== "tables" && "hidden lg:block"
             )}
           >
-            <TableGrid
-              selectedTableId={selectedTableId}
-              onSelectTable={handleSelectTable}
-            />
+            <TableGrid />
           </div>
 
           {/* Center Column: Order Workspace (45% / col-span-5) */}
@@ -99,5 +91,13 @@ export default function CounterV2Page() {
       {/* 4. Persistent Status Bar */}
       <StatusBar />
     </div>
+  );
+}
+
+export default function CounterV2Page() {
+  return (
+    <TableEngineProvider>
+      <CounterV2Layout />
+    </TableEngineProvider>
   );
 }

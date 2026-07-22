@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Search, ShoppingBag, Plus, Minus, Trash2, Send, Utensils, Coffee, Pizza, Cake } from "lucide-react";
+import { useTableEngine } from "@/lib/counter/tableEngine/tableStore";
+import { Search, ShoppingBag, Plus, Minus, Trash2, Send, Utensils, Sparkles, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface CatalogItem {
   id: string;
@@ -37,10 +39,43 @@ const INITIAL_CART: CartLineItem[] = [
 ];
 
 export function OrderWorkspace() {
+  const { selectedTable, openTable, releaseTable, restoreAvailable } = useTableEngine();
   const [mode, setMode] = useState<"dine-in" | "takeaway">("dine-in");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [cart, setCart] = useState<CartLineItem[]>(INITIAL_CART);
+
+  const activeLabel = selectedTable ? selectedTable.label : "No Table Selected";
+
+  const handleOpenTableClick = () => {
+    if (!selectedTable) return;
+    const res = openTable(selectedTable.id);
+    if (res.success) {
+      toast.success(`${selectedTable.label} opened! New Dining Session created.`);
+    } else {
+      toast.error(res.error ?? "Failed to open table.");
+    }
+  };
+
+  const handleReleaseTableClick = () => {
+    if (!selectedTable) return;
+    const res = releaseTable(selectedTable.id);
+    if (res.success) {
+      toast.success(`${selectedTable.label} marked AVAILABLE!`);
+    } else {
+      toast.error(res.error ?? "Failed to release table.");
+    }
+  };
+
+  const handleRestoreAvailableClick = () => {
+    if (!selectedTable) return;
+    const res = restoreAvailable(selectedTable.id);
+    if (res.success) {
+      toast.success(`${selectedTable.label} restored to operational status.`);
+    } else {
+      toast.error(res.error ?? "Failed to restore table.");
+    }
+  };
 
   const filteredCatalog = SAMPLE_CATALOG.filter((item) => {
     const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
@@ -67,7 +102,7 @@ export function OrderWorkspace() {
               )}
             >
               <Utensils className="h-3.5 w-3.5" />
-              <span>MODE: Dine-In Table 4</span>
+              <span>MODE: Dine-In ({activeLabel})</span>
             </button>
             <button
               onClick={() => setMode("takeaway")}
@@ -87,6 +122,49 @@ export function OrderWorkspace() {
             ORDER WORKSPACE (Alt+M)
           </span>
         </div>
+
+        {/* Special Table Action Alert Banner if Table requires state action */}
+        {selectedTable?.status === "AVAILABLE" && (
+          <div className="flex items-center justify-between rounded-2xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-xs">
+            <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+              {selectedTable.label} is currently FREE.
+            </span>
+            <button
+              onClick={handleOpenTableClick}
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 font-bold shadow-soft transition active:scale-95"
+            >
+              + Open Session
+            </button>
+          </div>
+        )}
+
+        {selectedTable?.status === "CLEANING" && (
+          <div className="flex items-center justify-between rounded-2xl bg-blue-500/10 border border-blue-500/30 px-3 py-2 text-xs">
+            <span className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4" /> {selectedTable.label} needs cleaning.
+            </span>
+            <button
+              onClick={handleReleaseTableClick}
+              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 font-bold shadow-soft transition active:scale-95"
+            >
+              Mark Available
+            </button>
+          </div>
+        )}
+
+        {selectedTable?.status === "OUT_OF_SERVICE" && (
+          <div className="flex items-center justify-between rounded-2xl bg-muted border border-border px-3 py-2 text-xs">
+            <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+              <AlertTriangle className="h-4 w-4 text-amber-500" /> {selectedTable.label} is OUT OF SERVICE.
+            </span>
+            <button
+              onClick={handleRestoreAvailableClick}
+              className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1 font-bold transition active:scale-95"
+            >
+              Restore Service
+            </button>
+          </div>
+        )}
 
         {/* Menu Search Bar */}
         <div className="relative">
