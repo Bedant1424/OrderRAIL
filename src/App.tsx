@@ -22,6 +22,9 @@ const TableCartPage = lazy(() => import("./pages/table/TableCartPage"));
 const TableCallPage = lazy(() => import("./pages/table/TableCallPage"));
 const TableOrderPage = lazy(() => import("./pages/table/TableOrderPage"));
 
+// Counter V2 Interface
+const CounterV2Page = lazy(() => import("./pages/counter/CounterV2Page"));
+
 // Staff Dashboard
 const StaffLayout = lazy(() => import("./layouts/StaffLayout"));
 const StaffLoginPage = lazy(() => import("./pages/staff/StaffLoginPage"));
@@ -82,8 +85,11 @@ const App = () => {
                                             <Route path="order/:orderId" element={<TableOrderPage />} />
                                           </Route>
                                           <Route path="/staff/login" element={<StaffLoginPage />} />
+                                          <Route path="/staff/v2" element={<CounterV2Page />} />
+                                          <Route path="/counter" element={<CounterV2Page />} />
                                           <Route path="/staff" element={<StaffLayout />}>
                                             <Route index element={<StaffDashboardPage />} />
+                                            <Route path="v2" element={<CounterV2Page />} />
                                           </Route>
                                           <Route path="/owner" element={<OwnerLayout />}>
                                             <Route index element={<OwnerAnalyticsPage />} />
