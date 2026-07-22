@@ -29,30 +29,30 @@ export function CounterHeaderV3() {
     : "Sarah M.";
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-30 h-14 bg-card/95 backdrop-blur border-b border-border/80 px-4 flex items-center justify-between text-xs select-none shadow-soft">
+    <header className="fixed top-0 left-0 right-0 z-30 h-14 bg-card/80 backdrop-blur-md border-b border-border/20 px-4 flex items-center justify-between text-xs select-none shadow-soft">
       {/* Left: Branding & Cafe Name */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground font-display font-bold text-sm shadow-soft">
+          <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand text-brand-foreground font-display font-extrabold text-sm shadow-soft">
             OR
           </span>
           <div>
-            <div className="flex items-center gap-1.5 font-display font-semibold text-sm leading-tight text-foreground">
+            <div className="flex items-center gap-1.5 font-display font-extrabold text-sm leading-tight text-foreground">
               <Store className="h-3.5 w-3.5 text-brand" />
               <span>{cafe?.name ?? "Cafe Central"}</span>
             </div>
             <div className="text-[10px] text-muted-foreground font-mono">
-              Counter Interface v3 (Redesigned)
+              Counter Interface v3 (Polished)
             </div>
           </div>
         </div>
 
-        <div className="h-4 w-px bg-border/80 hidden sm:block" />
+        <div className="h-4 w-px bg-border/40 hidden sm:block" />
 
         {/* Cashier Badge */}
-        <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-secondary/80 px-3 py-1 text-secondary-foreground font-medium text-[11px]">
+        <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-muted/40 px-3 py-1 text-secondary-foreground font-medium text-[11px]">
           <User className="h-3 w-3 text-muted-foreground" />
-          <span>Cashier: <strong className="text-foreground capitalize">{cashierName}</strong></span>
+          <span>Cashier: <strong className="text-foreground capitalize font-bold">{cashierName}</strong></span>
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export function CounterHeaderV3() {
         <div className="relative">
           <button
             onClick={() => setIsCallsOpen(!isCallsOpen)}
-            className="flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1 text-amber-700 dark:text-amber-400 font-bold text-[11px] hover:bg-amber-500/20 transition active:scale-95"
+            className="flex items-center gap-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1 text-amber-700 dark:text-amber-400 font-extrabold text-[11px] transition active:scale-95 shadow-soft"
           >
             <Bell className="h-3.5 w-3.5 animate-pulse text-amber-500" />
             <span>🔔 2 Calls</span>
@@ -75,19 +75,19 @@ export function CounterHeaderV3() {
         </div>
 
         {/* Network Status */}
-        <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-emerald-700 dark:text-emerald-400 font-mono text-[11px] font-semibold">
+        <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-emerald-700 dark:text-emerald-400 font-mono text-[11px] font-bold">
           <Wifi className="h-3 w-3 text-emerald-500" />
           <span>● ONLINE</span>
         </div>
 
         {/* Printer Status */}
-        <div className="hidden md:flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-blue-700 dark:text-blue-400 font-mono text-[11px] font-semibold">
+        <div className="hidden md:flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-1 text-blue-700 dark:text-blue-400 font-mono text-[11px] font-bold">
           <Printer className="h-3 w-3 text-blue-500" />
           <span>● READY</span>
         </div>
 
         {/* Live System Clock */}
-        <div className="flex items-center gap-1.5 rounded-xl bg-muted px-3 py-1 font-mono text-xs font-bold text-foreground">
+        <div className="flex items-center gap-1.5 rounded-xl bg-muted/50 px-3 py-1 font-mono text-xs font-bold text-foreground">
           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
           <span>{timeStr || "14:32:05"}</span>
         </div>

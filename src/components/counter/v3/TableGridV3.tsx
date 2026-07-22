@@ -19,7 +19,6 @@ export function TableGridV3() {
 
   const [activeZone, setActiveZone] = useState<string>("All");
 
-  // Global Keyboard Listener for Grid Navigation (Arrow Keys & Escape)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -63,7 +62,7 @@ export function TableGridV3() {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-3xl p-3.5 shadow-soft ring-1 ring-border/60 justify-between select-none">
+    <div className="flex flex-col h-full bg-card/70 backdrop-blur-md rounded-3xl p-3.5 shadow-soft justify-between select-none border-none">
       {/* Header & Floor Zone Pills */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -76,17 +75,17 @@ export function TableGridV3() {
           </span>
         </div>
 
-        {/* Floor Zone Pills (Recommended in COUNTER_V3_DESIGN_REVIEW.md) */}
+        {/* Lightweight Floor Zone Pills */}
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 text-[11px] font-medium mb-2">
           {floorZones.map((zone) => (
             <button
               key={zone.id}
               onClick={() => setActiveZone(zone.id)}
               className={cn(
-                "px-2.5 py-1 rounded-xl transition whitespace-nowrap border shrink-0 flex items-center gap-1",
+                "px-2.5 py-1 rounded-xl transition whitespace-nowrap shrink-0 flex items-center gap-1",
                 activeZone === zone.id
-                  ? "bg-foreground text-background border-foreground font-semibold shadow-soft"
-                  : "bg-secondary/40 text-muted-foreground border-border/60 hover:text-foreground"
+                  ? "bg-foreground text-background font-semibold shadow-soft"
+                  : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
               )}
             >
               <Layers className="h-3 w-3" />
@@ -96,7 +95,7 @@ export function TableGridV3() {
         </div>
 
         {/* Status Filter Pills */}
-        <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-secondary/80 text-[11px] font-medium mb-2">
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-muted/30 text-[11px] font-medium mb-2">
           {filterTabs.map((tab) => (
             <button
               key={tab.id}
@@ -114,7 +113,7 @@ export function TableGridV3() {
         </div>
       </div>
 
-      {/* Grid of Table Cards */}
+      {/* Grid of Compressed Table Cards */}
       <div className="flex-1 overflow-y-auto section-scroll pr-1 my-1">
         {filteredTables.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground text-xs font-medium">

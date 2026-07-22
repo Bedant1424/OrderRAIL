@@ -84,13 +84,13 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-background/50 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-[420px] bg-card border-l border-border/80 h-full p-5 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200 select-none">
+    <div className="fixed inset-0 z-50 flex justify-end bg-background/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="w-full max-w-[420px] bg-card/95 backdrop-blur-md h-full p-5 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200 select-none border-l border-border/20">
         {/* Top Header */}
         <div>
-          <div className="flex items-center justify-between pb-3 border-b border-border/60">
+          <div className="flex items-center justify-between pb-3 border-b border-border/20">
             <div>
-              <h2 className="font-display text-base font-bold flex items-center gap-1.5 text-foreground">
+              <h2 className="font-display text-base font-extrabold flex items-center gap-1.5 text-foreground">
                 <Hash className="h-4 w-4 text-brand" />
                 <span>BILLING & SETTLEMENT</span>
               </h2>
@@ -100,7 +100,7 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
             </div>
             <button
               onClick={onClose}
-              className="rounded-xl p-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-secondary transition active:scale-95"
+              className="rounded-xl p-1.5 bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted transition active:scale-95"
             >
               <X className="h-4 w-4" />
             </button>
@@ -108,7 +108,7 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
 
           {/* Itemized Summary */}
           <div className="my-4">
-            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+            <div className="text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2">
               Item Summary ({SAMPLE_BILL_ITEMS.length} Items)
             </div>
 
@@ -116,9 +116,9 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
               {SAMPLE_BILL_ITEMS.map((item) => (
                 <div key={item.id} className="flex items-center justify-between text-muted-foreground">
                   <span className="truncate pr-2">
-                    <strong className="text-foreground">{item.qty}x</strong> {item.name}
+                    <strong className="text-foreground font-bold">{item.qty}x</strong> {item.name}
                   </span>
-                  <span className="font-semibold text-foreground shrink-0">
+                  <span className="font-bold text-foreground shrink-0">
                     ${item.price.toFixed(2)}
                   </span>
                 </div>
@@ -128,29 +128,29 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
         </div>
 
         {/* Financial Calculations */}
-        <div className="py-3 border-y border-border/60 space-y-2.5 font-mono text-xs">
+        <div className="py-3 border-y border-border/20 space-y-2 font-mono text-xs bg-muted/20 p-3 rounded-2xl">
           <div className="flex items-center justify-between text-muted-foreground">
             <span>SUBTOTAL:</span>
-            <span className="font-semibold text-foreground">${subtotal.toFixed(2)}</span>
+            <span className="font-bold text-foreground">${subtotal.toFixed(2)}</span>
           </div>
 
           <div className="flex items-center justify-between text-muted-foreground">
             <span>TAX (GST 8%):</span>
-            <span className="font-semibold text-foreground">${tax.toFixed(2)}</span>
+            <span className="font-bold text-foreground">${tax.toFixed(2)}</span>
           </div>
 
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="flex items-center gap-1">
               <Percent className="h-3.5 w-3.5 text-amber-500" /> DISCOUNT ({discountPercent}%):
             </span>
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+            <span className="font-bold text-emerald-600 dark:text-emerald-400">
               -${discountAmount.toFixed(2)}
             </span>
           </div>
 
-          <div className="pt-2 border-t border-border/60 flex items-center justify-between text-base font-bold text-foreground">
+          <div className="pt-2 border-t border-border/30 flex items-center justify-between text-base font-bold text-foreground">
             <span>NET TOTAL DUE:</span>
-            <span className="text-xl font-display text-brand font-extrabold">
+            <span className="text-2xl font-display text-brand font-extrabold">
               ${netTotal.toFixed(2)}
             </span>
           </div>
@@ -159,11 +159,11 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
         {/* Payment Tender Options */}
         <div className="space-y-3">
           <div>
-            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-              Payment Tender
+            <div className="text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mb-2">
+              Payment Tender Mode
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-secondary/80 text-xs font-semibold">
+            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-muted/40 text-xs font-semibold">
               <button
                 onClick={() => setPaymentMode("cash")}
                 className={cn(
@@ -204,7 +204,7 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
           {paymentMode === "cash" && (
             <div className="grid grid-cols-2 gap-2 text-xs font-mono">
               <div>
-                <label className="text-[10px] text-muted-foreground uppercase font-sans font-medium block mb-1">
+                <label className="text-[10px] text-muted-foreground uppercase font-sans font-semibold block mb-1">
                   Cash Tendered
                 </label>
                 <div className="relative">
@@ -214,16 +214,16 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
                     type="text"
                     value={cashTendered}
                     onChange={(e) => setCashTendered(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background py-2 pl-7 pr-2 font-bold text-foreground text-xs outline-none focus:ring-2 focus:ring-brand/60"
+                    className="w-full rounded-xl border-none bg-muted/40 py-2 pl-7 pr-2 font-bold text-foreground text-xs outline-none focus:ring-2 focus:ring-brand/60"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] text-muted-foreground uppercase font-sans font-medium block mb-1">
+                <label className="text-[10px] text-muted-foreground uppercase font-sans font-semibold block mb-1">
                   Change Due
                 </label>
-                <div className="rounded-xl bg-muted/60 border border-border py-2 px-3 font-bold text-emerald-600 dark:text-emerald-400 text-xs flex items-center">
+                <div className="rounded-xl bg-emerald-500/10 py-2 px-3 font-extrabold text-emerald-600 dark:text-emerald-400 text-sm flex items-center">
                   ${changeDue.toFixed(2)}
                 </div>
               </div>
@@ -234,14 +234,14 @@ export function BillingDrawerV3({ isOpen, onClose }: BillingDrawerV3Props) {
           <div className="space-y-2 pt-2">
             <button
               onClick={handlePrintBillClick}
-              className="w-full rounded-2xl border border-border bg-secondary/80 hover:bg-secondary text-foreground py-2.5 text-xs font-semibold transition flex items-center justify-center gap-2 active:scale-95 shadow-soft"
+              className="w-full rounded-2xl border border-border/30 bg-muted/40 hover:bg-muted/70 text-foreground py-2.5 text-xs font-semibold transition flex items-center justify-center gap-2 active:scale-95 shadow-soft"
             >
               <Printer className="h-4 w-4 text-brand" /> F8: PRINT BILL INVOICE
             </button>
 
             <button
               onClick={handleSettleAndReleaseClick}
-              className="w-full rounded-2xl bg-brand hover:bg-brand/90 text-brand-foreground py-3 text-xs font-bold transition flex items-center justify-center gap-2 shadow-soft active:scale-95"
+              className="w-full rounded-2xl bg-brand hover:bg-brand/90 text-brand-foreground py-3 text-xs font-extrabold transition flex items-center justify-center gap-2 shadow-soft active:scale-95"
             >
               <CheckCircle className="h-4 w-4" />
               {paymentMode === "cash"

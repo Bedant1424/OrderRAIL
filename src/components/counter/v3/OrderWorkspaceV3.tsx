@@ -129,18 +129,18 @@ export function OrderWorkspaceV3() {
   const categories = ["All", "Coffee", "Food", "Beverages", "Desserts"];
 
   return (
-    <div className="flex flex-col h-full bg-card rounded-3xl p-4 shadow-soft ring-1 ring-border/60 justify-between select-none">
+    <div className="flex flex-col h-full bg-card/70 backdrop-blur-md rounded-3xl p-4 shadow-soft justify-between select-none border-none">
       {/* Top Header: Session Status & Mode */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between border-b border-border/60 pb-2">
+        <div className="flex items-center justify-between pb-2 border-b border-border/20">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <h2 className="font-display text-sm font-bold text-foreground">
+            <h2 className="font-display text-sm font-extrabold text-foreground">
               {sessionMetadata}
             </h2>
           </div>
 
-          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-secondary/80 text-xs font-semibold">
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-muted/40 text-xs font-semibold">
             <button
               onClick={() => setMode("dine-in")}
               className={cn(
@@ -170,7 +170,7 @@ export function OrderWorkspaceV3() {
 
         {/* Special Table Action Banner if Table requires state action */}
         {selectedTable?.status === "AVAILABLE" && (
-          <div className="flex items-center justify-between rounded-2xl bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-xs">
+          <div className="flex items-center justify-between rounded-2xl bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2 text-xs">
             <span className="font-semibold text-emerald-800 dark:text-emerald-300">
               {selectedTable.label} is currently FREE.
             </span>
@@ -184,7 +184,7 @@ export function OrderWorkspaceV3() {
         )}
 
         {selectedTable?.status === "CLEANING" && (
-          <div className="flex items-center justify-between rounded-2xl bg-blue-500/10 border border-blue-500/30 px-3 py-2 text-xs">
+          <div className="flex items-center justify-between rounded-2xl bg-blue-500/10 border border-blue-500/20 px-3.5 py-2 text-xs">
             <span className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
               <Sparkles className="h-4 w-4" /> {selectedTable.label} needs cleaning.
             </span>
@@ -198,7 +198,7 @@ export function OrderWorkspaceV3() {
         )}
 
         {selectedTable?.status === "OUT_OF_SERVICE" && (
-          <div className="flex items-center justify-between rounded-2xl bg-muted border border-border px-3 py-2 text-xs">
+          <div className="flex items-center justify-between rounded-2xl bg-muted/50 border border-border/40 px-3.5 py-2 text-xs">
             <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
               <AlertTriangle className="h-4 w-4 text-amber-500" /> {selectedTable.label} is OUT OF SERVICE.
             </span>
@@ -220,21 +220,21 @@ export function OrderWorkspaceV3() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search Menu by name or code... (F2)"
-            className="w-full rounded-2xl border border-border bg-background py-2.5 pl-10 pr-4 text-xs outline-none focus:ring-2 focus:ring-brand/60 font-medium"
+            className="w-full rounded-2xl border-none bg-muted/40 py-2.5 pl-10 pr-4 text-xs outline-none focus:ring-2 focus:ring-brand/60 font-medium"
           />
         </div>
 
-        {/* Category Pills */}
+        {/* Lightweight Category Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-xs">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={cn(
-                "px-3 py-1 rounded-xl transition font-medium whitespace-nowrap border shrink-0",
+                "px-3 py-1.5 rounded-xl transition font-medium whitespace-nowrap shrink-0",
                 selectedCategory === cat
-                  ? "bg-foreground text-background border-foreground font-semibold shadow-soft"
-                  : "bg-secondary/40 text-muted-foreground border-border/60 hover:text-foreground"
+                  ? "bg-foreground text-background font-semibold shadow-soft"
+                  : "bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
               )}
             >
               {cat}
@@ -244,7 +244,7 @@ export function OrderWorkspaceV3() {
       </div>
 
       {/* Menu Catalog Items Grid */}
-      <div className="my-3 flex-1 overflow-y-auto section-scroll pr-1">
+      <div className="my-2 flex-1 overflow-y-auto section-scroll pr-1">
         <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
           Menu Catalog ({filteredCatalog.length} Items)
         </div>
@@ -254,7 +254,7 @@ export function OrderWorkspaceV3() {
             <div
               key={item.id}
               onClick={() => handleAddItem(item)}
-              className="group rounded-2xl border border-border/60 bg-muted/20 p-2.5 hover:bg-card hover:border-brand/40 transition cursor-pointer flex flex-col justify-between"
+              className="group rounded-2xl bg-muted/20 hover:bg-card p-2.5 hover:shadow-float transition cursor-pointer flex flex-col justify-between border border-border/10 hover:border-brand/30"
             >
               <div className="flex items-start justify-between gap-1 mb-1">
                 <span className="font-semibold text-xs text-foreground line-clamp-1">
@@ -269,7 +269,7 @@ export function OrderWorkspaceV3() {
                 />
               </div>
 
-              <div className="flex items-center justify-between text-xs mt-2 pt-1.5 border-t border-border/30">
+              <div className="flex items-center justify-between text-xs mt-2 pt-1.5 border-t border-border/15">
                 <span className="font-mono font-bold text-foreground">
                   ${item.price.toFixed(2)}
                 </span>
@@ -282,24 +282,24 @@ export function OrderWorkspaceV3() {
         </div>
       </div>
 
-      {/* Active Order Cart & Primary CTAs */}
-      <div className="pt-3 border-t border-border/60 flex flex-col gap-2">
+      {/* Active Order Cart (Elevated Visual Focal Point — Refinement Goal 5) */}
+      <div className="pt-3 border-t border-border/20 flex flex-col gap-2 bg-muted/30 p-3.5 rounded-3xl shadow-soft">
         <div className="flex items-center justify-between text-xs font-semibold text-foreground">
           <span className="flex items-center gap-1.5">
             <ShoppingBag className="h-4 w-4 text-brand" />
             <span>ACTIVE CART ({cart.reduce((acc, i) => acc + i.qty, 0)} Items)</span>
           </span>
-          <span className="font-mono font-bold text-brand text-sm">
+          <span className="font-display font-extrabold text-brand text-[15px]">
             Subtotal: ${cart.reduce((acc, i) => acc + i.price * i.qty, 0).toFixed(2)}
           </span>
         </div>
 
         {/* Cart Line Items */}
-        <div className="max-h-[120px] overflow-y-auto section-scroll pr-1 space-y-1.5">
+        <div className="max-h-[110px] overflow-y-auto section-scroll pr-1 space-y-1.5">
           {cart.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-xl bg-muted/40 p-2 text-xs"
+              className="flex items-center justify-between rounded-xl bg-card/80 p-2 text-xs shadow-sm"
             >
               <div className="min-w-0 pr-2">
                 <div className="font-semibold text-foreground truncate">{item.name}</div>
@@ -311,7 +311,7 @@ export function OrderWorkspaceV3() {
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
-                <div className="flex items-center gap-1.5 bg-background rounded-lg border border-border px-1.5 py-0.5">
+                <div className="flex items-center gap-1.5 bg-background rounded-lg border border-border/40 px-1.5 py-0.5">
                   <button
                     onClick={() =>
                       setCart((prev) =>
@@ -349,7 +349,7 @@ export function OrderWorkspaceV3() {
         <div className="grid grid-cols-3 gap-2 mt-1">
           <button
             onClick={() => setCart([])}
-            className="rounded-2xl border border-border bg-secondary/80 hover:bg-destructive/10 hover:border-destructive/30 text-muted-foreground hover:text-destructive py-2.5 text-xs font-semibold transition flex items-center justify-center gap-1"
+            className="rounded-2xl border border-border/40 bg-card hover:bg-destructive/10 hover:border-destructive/30 text-muted-foreground hover:text-destructive py-2.5 text-xs font-semibold transition flex items-center justify-center gap-1"
           >
             <Trash2 className="h-3.5 w-3.5" /> CLEAR (Esc)
           </button>
@@ -361,12 +361,11 @@ export function OrderWorkspaceV3() {
             <Send className="h-3.5 w-3.5" /> SUBMIT KOT (F5)
           </button>
 
-          {/* Directional Billing CTA Recommendation from COUNTER_V3_DESIGN_REVIEW.md */}
           <button
             onClick={() => setIsBillingOpen(true)}
             className="rounded-2xl bg-brand hover:bg-brand/90 text-brand-foreground py-2.5 text-xs font-bold shadow-soft transition flex items-center justify-center gap-1 active:scale-95"
           >
-            <span>COLLECT PAYMENT (F10)</span>
+            <span>COLLECT (F10)</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
