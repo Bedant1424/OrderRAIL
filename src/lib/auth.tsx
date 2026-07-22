@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (invites && invites.length > 0) {
               const pendingInvite = invites[0];
               
-              // 1. Grant the user role in database
+              // 1. Grant the user role in database (idempotent — trigger may have already claimed)
               const { error: insertErr } = await supabase.from("user_roles").insert({
                 user_id: uid,
                 cafe_id: pendingInvite.cafe_id,
@@ -93,26 +93,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 is_suspended: false,
               });
 
-              console.log("[Onboarding Debug] Role creation result:", { insertErr, role: pendingInvite.role });
+              // If duplicate key (trigger already claimed), treat as success
+              const isDuplicate = insertErr?.message?.includes("duplicate") || insertErr?.code === "23505";
+              console.log("[Onboarding Debug] Role creation result:", { insertErr, isDuplicate, role: pendingInvite.role });
 
-              if (!insertErr) {
-                // 2. Mark invitation as accepted
+              if (!insertErr || isDuplicate) {
+                // 2. Mark invitation as accepted (immutable — no physical deletion)
                 await supabase
                   .from("staff_invites")
                   .update({ accepted_at: new Date().toISOString() })
-                  .eq("id", pendingInvite.id);
+                  .eq("id", pendingInvite.id)
+                  .is("accepted_at", null); // Only update if not already accepted by trigger
 
-                // Fallback cleanup if table supports row deletion
-                await supabase.from("staff_invites").delete().eq("id", pendingInvite.id);
-
-                // 3. Record audit event
-                void logAuditEvent({
-                  cafeId: pendingInvite.cafe_id,
-                  actorId: uid,
-                  eventType: "INVITATION_ACCEPTED",
-                  targetEmail: userEmail,
-                  metadata: { role: pendingInvite.role, inviteId: pendingInvite.id },
-                });
+                // 3. Record audit event (only if we were the ones who inserted the role)
+                if (!insertErr) {
+                  void logAuditEvent({
+                    cafeId: pendingInvite.cafe_id,
+                    actorId: uid,
+                    eventType: "INVITATION_ACCEPTED",
+                    targetEmail: userEmail,
+                    metadata: { role: pendingInvite.role, inviteId: pendingInvite.id },
+                  });
+                }
 
                 // 4. Re-fetch user roles
                 const { data: reRefetched } = await supabase

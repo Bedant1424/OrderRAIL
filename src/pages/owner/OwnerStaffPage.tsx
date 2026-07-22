@@ -89,7 +89,7 @@ export default function OwnerStaffPage() {
     },
   });
 
-  // 3. Fetch pending invitations
+  // 3. Fetch pending invitations (only active: not accepted, not revoked)
   const invitesQ = useQuery({
     queryKey: ["owner-invites", cafeId],
     enabled: !!cafeId,
@@ -98,6 +98,8 @@ export default function OwnerStaffPage() {
         .from("staff_invites")
         .select("id, email, role, created_at")
         .eq("cafe_id", cafeId!)
+        .is("accepted_at", null)
+        .is("revoked_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as InviteRow[];
@@ -263,11 +265,14 @@ export default function OwnerStaffPage() {
     await refreshRegistry();
   };
 
-  // Revoke pending invitation
+  // Revoke pending invitation (immutable soft-revocation)
   const revokeInvite = async (inv: InviteRow) => {
     if (!confirm(`Cancel pending invite for ${inv.email}?`)) return;
     setBusy(true);
-    const { error } = await supabase.from("staff_invites").delete().eq("id", inv.id);
+    const { error } = await supabase
+      .from("staff_invites")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", inv.id);
     setBusy(false);
 
     if (error) return toast.error(`Revoke failed: ${error.message}`);
