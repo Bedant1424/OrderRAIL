@@ -28,6 +28,9 @@ const CounterV3Page = lazy(() => import("./pages/counter/CounterV3Page"));
 const CounterV5APage = lazy(() => import("./pages/counter/CounterV5APage"));
 const CounterV5BPage = lazy(() => import("./pages/counter/CounterV5BPage"));
 
+// Living Design System Showcase
+const DesignSystemShowcasePage = lazy(() => import("./pages/design-system/DesignSystemShowcasePage"));
+
 // Staff Dashboard
 const StaffLayout = lazy(() => import("./layouts/StaffLayout"));
 const StaffLoginPage = lazy(() => import("./pages/staff/StaffLoginPage"));
@@ -81,6 +84,7 @@ const App = () => {
                                       <Suspense fallback={<RouteLoadingFallback />}>
                                         <Routes>
                                           <Route path="/" element={<Index />} />
+                                          <Route path="/design-system" element={<DesignSystemShowcasePage />} />
                                           <Route path="/t/:tableId" element={<TableLayout />}>
                                             <Route index element={<TableMenuPage />} />
                                             <Route path="cart" element={<TableCartPage />} />
