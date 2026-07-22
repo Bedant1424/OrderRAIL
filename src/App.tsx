@@ -22,9 +22,11 @@ const TableCartPage = lazy(() => import("./pages/table/TableCartPage"));
 const TableCallPage = lazy(() => import("./pages/table/TableCallPage"));
 const TableOrderPage = lazy(() => import("./pages/table/TableOrderPage"));
 
-// Counter V2 & V3 Interface
+// Counter V2, V3 & V5 Prototype Interfaces
 const CounterV2Page = lazy(() => import("./pages/counter/CounterV2Page"));
 const CounterV3Page = lazy(() => import("./pages/counter/CounterV3Page"));
+const CounterV5APage = lazy(() => import("./pages/counter/CounterV5APage"));
+const CounterV5BPage = lazy(() => import("./pages/counter/CounterV5BPage"));
 
 // Staff Dashboard
 const StaffLayout = lazy(() => import("./layouts/StaffLayout"));
@@ -88,11 +90,17 @@ const App = () => {
                                           <Route path="/staff/login" element={<StaffLoginPage />} />
                                           <Route path="/staff/v2" element={<CounterV2Page />} />
                                           <Route path="/staff/v3" element={<CounterV3Page />} />
+                                          <Route path="/counter/v5-a" element={<CounterV5APage />} />
+                                          <Route path="/counter/v5-b" element={<CounterV5BPage />} />
+                                          <Route path="/staff/v5-a" element={<CounterV5APage />} />
+                                          <Route path="/staff/v5-b" element={<CounterV5BPage />} />
                                           <Route path="/counter" element={<CounterV3Page />} />
                                           <Route path="/staff" element={<StaffLayout />}>
                                             <Route index element={<StaffDashboardPage />} />
                                             <Route path="v2" element={<CounterV2Page />} />
                                             <Route path="v3" element={<CounterV3Page />} />
+                                            <Route path="v5-a" element={<CounterV5APage />} />
+                                            <Route path="v5-b" element={<CounterV5BPage />} />
                                           </Route>
                                           <Route path="/owner" element={<OwnerLayout />}>
                                             <Route index element={<OwnerAnalyticsPage />} />
