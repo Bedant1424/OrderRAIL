@@ -57,6 +57,7 @@ export type Database = {
           instagram: string | null
           operating_hours: string | null
           staff_can_manage_specials: boolean
+          is_demo_cafe: boolean
         }
         Insert: {
           created_at?: string
@@ -75,6 +76,7 @@ export type Database = {
           instagram?: string | null
           operating_hours?: string | null
           staff_can_manage_specials?: boolean
+          is_demo_cafe?: boolean
         }
         Update: {
           created_at?: string
@@ -93,6 +95,7 @@ export type Database = {
           instagram?: string | null
           operating_hours?: string | null
           staff_can_manage_specials?: boolean
+          is_demo_cafe?: boolean
         }
         Relationships: []
       }
