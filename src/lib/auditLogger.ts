@@ -10,7 +10,8 @@ export type AuditEventType =
   | "ROLE_CHANGED"
   | "STAFF_SUSPENDED"
   | "STAFF_REACTIVATED"
-  | "STAFF_REMOVED";
+  | "STAFF_REMOVED"
+  | "APPLICANT_RECONSIDERED";
 
 export async function logAuditEvent({
   cafeId,

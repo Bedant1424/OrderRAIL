@@ -252,4 +252,94 @@ describe("QA & Operational Readiness: Staff Management & Production Auth", () =>
       expect(shouldUpdate).toBe(false);
     });
   });
+
+  describe("8. Staff Lifecycle Refactor & Distinct Employment States", () => {
+    const profiles = [
+      { id: "u1", email: "applicant@cafe.com" },
+      { id: "u2", email: "active@cafe.com" },
+      { id: "u3", email: "suspended@cafe.com" },
+      { id: "u4", email: "rejected@cafe.com" },
+      { id: "u5", email: "former@cafe.com" },
+    ];
+
+    let userRoles = [
+      { user_id: "u2", cafe_id: "cafe-123", role: "staff", is_suspended: false },
+      { user_id: "u3", cafe_id: "cafe-123", role: "staff", is_suspended: true },
+    ];
+
+    let pendingInvites = [
+      { email: "invited@cafe.com", role: "staff", accepted_at: null, revoked_at: null, expires_at: "2099-01-01T00:00:00Z" },
+    ];
+
+    let rejectedApprovals = [
+      { user_id: "u4", cafe_id: "cafe-123", email: "rejected@cafe.com" },
+    ];
+
+    let formerStaff = [
+      { user_id: "u5", cafe_id: "cafe-123", email: "former@cafe.com", role: "staff" },
+    ];
+
+    const getPendingApprovals = () => {
+      const assignedIds = new Set(userRoles.map((r) => r.user_id));
+      const activeInvitedEmails = new Set(
+        pendingInvites
+          .filter((i) => i.accepted_at === null && i.revoked_at === null && new Date(i.expires_at) > new Date())
+          .map((i) => i.email.toLowerCase().trim())
+      );
+      const rejectedIds = new Set(rejectedApprovals.map((r) => r.user_id));
+      const formerIds = new Set(formerStaff.map((f) => f.user_id));
+
+      return profiles.filter(
+        (p) =>
+          p.email &&
+          !assignedIds.has(p.id) &&
+          !activeInvitedEmails.has(p.email.toLowerCase().trim()) &&
+          !rejectedIds.has(p.id) &&
+          !formerIds.has(p.id)
+      );
+    };
+
+    it("Former employees do NOT reappear in Pending Approvals", () => {
+      const pending = getPendingApprovals();
+      expect(pending.map((p) => p.email)).not.toContain("former@cafe.com");
+      expect(pending.map((p) => p.email)).toContain("applicant@cafe.com");
+    });
+
+    it("Reconsideration moves a rejected applicant back to Pending Approvals", () => {
+      // Before reconsider
+      expect(getPendingApprovals().map((p) => p.email)).not.toContain("rejected@cafe.com");
+
+      // Reconsider action (removes from rejectedApprovals)
+      rejectedApprovals = rejectedApprovals.filter((r) => r.user_id !== "u4");
+
+      // After reconsider
+      expect(getPendingApprovals().map((p) => p.email)).toContain("rejected@cafe.com");
+    });
+
+    it("Removing an active staff member moves them to Former Staff and excludes from Pending", () => {
+      // Remove active staff u2
+      userRoles = userRoles.filter((r) => r.user_id !== "u2");
+      formerStaff.push({ user_id: "u2", cafe_id: "cafe-123", email: "active@cafe.com", role: "staff" });
+
+      // Should not be in pending approvals
+      expect(getPendingApprovals().map((p) => p.email)).not.toContain("active@cafe.com");
+      expect(formerStaff.map((f) => f.email)).toContain("active@cafe.com");
+    });
+
+    it("Invitation Override: Inviting a former employee or rejected applicant clears previous status and creates pending invite", () => {
+      const targetEmail = "former@cafe.com";
+
+      // Owner invites former staff member
+      // Invitation override clears former staff & creates invite
+      formerStaff = formerStaff.filter((f) => f.email !== targetEmail);
+      rejectedApprovals = rejectedApprovals.filter((r) => r.email !== targetEmail);
+      pendingInvites.push({ email: targetEmail, role: "owner", accepted_at: null, revoked_at: null, expires_at: "2099-01-01T00:00:00Z" });
+
+      // Check states
+      expect(formerStaff.map((f) => f.email)).not.toContain(targetEmail);
+      expect(pendingInvites.map((i) => i.email)).toContain(targetEmail);
+      // Still excluded from pending approvals because active invitation exists
+      expect(getPendingApprovals().map((p) => p.email)).not.toContain(targetEmail);
+    });
+  });
 });

@@ -17,6 +17,8 @@ import {
   Send,
   CheckCircle2,
   XCircle,
+  RotateCcw,
+  UserMinus,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/lib/db";
@@ -39,6 +41,23 @@ type AppRole = Database["public"]["Enums"]["app_role"];
 type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null; is_suspended?: boolean };
 type Profile = { id: string; email: string | null; display_name: string | null; created_at?: string };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
+type RejectedRow = {
+  id: string;
+  cafe_id: string | null;
+  user_id: string;
+  email: string | null;
+  rejected_by: string | null;
+  created_at: string;
+};
+type FormerStaffRow = {
+  id: string;
+  cafe_id: string | null;
+  user_id: string;
+  email: string;
+  role: AppRole;
+  removed_by: string | null;
+  created_at: string;
+};
 type AuditRow = {
   id: string;
   event_type: string;
@@ -49,11 +68,11 @@ type AuditRow = {
 };
 
 export default function OwnerStaffPage() {
-  const qc = useQueryClient();
-  const permissions = usePermissions();
-  const isDemo = permissions.isDemo;
+  const { cafe } = useCafe();
   const { user } = useAuth();
-  const { cafeId } = useCafe();
+  const { isDemo } = usePermissions();
+  const cafeId = cafe?.id;
+  const qc = useQueryClient();
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("staff");
@@ -106,46 +125,76 @@ export default function OwnerStaffPage() {
     },
   });
 
-  // 4. Fetch pending unapproved signups (self-contained atomic query)
+  // 4. Fetch pending unapproved signups (atomic query excluding assigned, invited, rejected, and former staff)
   const pendingApprovalsQ = useQuery({
     queryKey: ["owner-pending-approvals", cafeId],
     enabled: !!cafeId,
     queryFn: async () => {
-      const [{ data: profiles, error: pErr }, { data: assignedData }, { data: invitesData }, { data: rejectedData }] =
-        await Promise.all([
-          supabase.from("profiles").select("id, email, display_name, created_at").order("created_at", { ascending: false }),
-          supabase.from("user_roles").select("user_id").eq("cafe_id", cafeId!),
-          supabase.from("staff_invites").select("email").eq("cafe_id", cafeId!).is("accepted_at", null).is("revoked_at", null),
-          supabase.from("rejected_approvals").select("user_id").eq("cafe_id", cafeId!),
-        ]);
+      const [
+        { data: profiles, error: pErr },
+        { data: assignedData },
+        { data: invitesData },
+        { data: rejectedData },
+        { data: formerData },
+      ] = await Promise.all([
+        supabase.from("profiles").select("id, email, display_name, created_at").order("created_at", { ascending: false }),
+        supabase.from("user_roles").select("user_id").eq("cafe_id", cafeId!),
+        supabase.from("staff_invites").select("email").eq("cafe_id", cafeId!).is("accepted_at", null).is("revoked_at", null),
+        supabase.from("rejected_approvals").select("user_id").eq("cafe_id", cafeId!),
+        supabase.from("former_staff").select("user_id").eq("cafe_id", cafeId!),
+      ]);
 
       if (pErr) throw pErr;
 
       const assignedIds = new Set((assignedData ?? []).map((r) => r.user_id));
       const activeInvitedEmails = new Set((invitesData ?? []).map((i) => i.email.trim().toLowerCase()));
       const rejectedUserIds = new Set((rejectedData ?? []).map((r) => r.user_id));
+      const formerUserIds = new Set((formerData ?? []).map((f) => f.user_id));
 
       const pending = (profiles ?? []).filter(
         (p) =>
           p.email &&
           !assignedIds.has(p.id) &&
           !activeInvitedEmails.has(p.email.trim().toLowerCase()) &&
-          !rejectedUserIds.has(p.id)
+          !rejectedUserIds.has(p.id) &&
+          !formerUserIds.has(p.id)
       ) as Profile[];
-
-      console.log("[Onboarding Debug] Pending approval query counts:", {
-        totalProfiles: profiles?.length ?? 0,
-        assignedUserRolesCount: assignedIds.size,
-        activePendingInvitesCount: activeInvitedEmails.size,
-        rejectedUsersCount: rejectedUserIds.size,
-        finalPendingApprovalsCount: pending.length,
-      });
 
       return pending;
     },
   });
 
-  // 5. Fetch audit logs
+  // 5. Fetch rejected applicants
+  const rejectedQ = useQuery({
+    queryKey: ["owner-rejected", cafeId],
+    enabled: !!cafeId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rejected_approvals")
+        .select("*")
+        .eq("cafe_id", cafeId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as RejectedRow[];
+    },
+  });
+
+  // 6. Fetch former employees
+  const formerStaffQ = useQuery({
+    queryKey: ["owner-former-staff", cafeId],
+    enabled: !!cafeId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("former_staff")
+        .select("*")
+        .eq("cafe_id", cafeId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as FormerStaffRow[];
+    },
+  });
+
+  // 7. Fetch audit logs
   const auditQ = useQuery({
     queryKey: ["owner-staff-audit", cafeId],
     enabled: !!cafeId,
@@ -167,9 +216,25 @@ export default function OwnerStaffPage() {
     return map;
   }, [profilesQ.data]);
 
+  // Active vs Suspended Team Member splitting
+  const { activeTeam, suspendedTeam } = useMemo(() => {
+    const all = rolesQ.data ?? [];
+    const active: RoleRow[] = [];
+    const suspended: RoleRow[] = [];
+
+    for (const r of all) {
+      if (r.is_suspended) {
+        suspended.push(r);
+      } else {
+        active.push(r);
+      }
+    }
+    return { activeTeam: active, suspendedTeam: suspended };
+  }, [rolesQ.data]);
+
   // Filtered active team list
-  const filteredTeam = useMemo(() => {
-    return (rolesQ.data ?? []).filter((r) => {
+  const filteredActiveTeam = useMemo(() => {
+    return activeTeam.filter((r) => {
       const p = byUser.get(r.user_id);
       const emailMatch = p?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
       const nameMatch = p?.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
@@ -177,7 +242,7 @@ export default function OwnerStaffPage() {
       const matchesRole = roleFilter === "all" || r.role === roleFilter;
       return matchesSearch && matchesRole;
     });
-  }, [rolesQ.data, byUser, searchQuery, roleFilter]);
+  }, [activeTeam, byUser, searchQuery, roleFilter]);
 
   // Refresh entire registry with explicit refetch completion
   const refreshRegistry = async () => {
@@ -188,6 +253,8 @@ export default function OwnerStaffPage() {
         qc.refetchQueries({ queryKey: ["owner-role-profiles"] }),
         qc.refetchQueries({ queryKey: ["owner-invites", cafeId] }),
         qc.refetchQueries({ queryKey: ["owner-pending-approvals", cafeId] }),
+        qc.refetchQueries({ queryKey: ["owner-rejected", cafeId] }),
+        qc.refetchQueries({ queryKey: ["owner-former-staff", cafeId] }),
         qc.refetchQueries({ queryKey: ["owner-staff-audit", cafeId] }),
       ]);
     } catch (e) {
@@ -197,7 +264,7 @@ export default function OwnerStaffPage() {
     }
   };
 
-  // Send invitation with duplicate checks
+  // Send invitation with duplicate checks & Invitation Override
   const invite = async () => {
     if (!cafeId || !email.trim()) return;
     const targetEmail = email.trim().toLowerCase();
@@ -307,6 +374,10 @@ export default function OwnerStaffPage() {
       return toast.error(`Approval failed: ${error.message}`);
     }
 
+    // Clean up any remaining rejected or former staff records if present
+    await supabase.from("rejected_approvals").delete().eq("cafe_id", cafeId).eq("user_id", profile.id);
+    await supabase.from("former_staff").delete().eq("cafe_id", cafeId).eq("user_id", profile.id);
+
     void logAuditEvent({
       cafeId,
       actorId: user?.id,
@@ -338,6 +409,9 @@ export default function OwnerStaffPage() {
       return toast.error(`Rejection failed: ${error.message}`);
     }
 
+    // Clean former_staff record if present
+    await supabase.from("former_staff").delete().eq("cafe_id", cafeId).eq("user_id", profile.id);
+
     void logAuditEvent({
       cafeId,
       actorId: user?.id,
@@ -351,7 +425,31 @@ export default function OwnerStaffPage() {
     toast.info(`Registration request for ${profile.email} rejected.`);
   };
 
-  // Remove staff role completely (Delete workflow)
+  // Reconsider Rejected Applicant (Removes rejection, moves back to Pending Approvals)
+  const reconsiderApplicant = async (rej: RejectedRow) => {
+    if (!cafeId) return;
+    const targetEmail = rej.email ?? rej.user_id;
+    if (!confirm(`Reconsider registration request for ${targetEmail}? This moves the applicant back to Pending Approvals.`)) return;
+
+    setBusy(true);
+    const { error } = await supabase.from("rejected_approvals").delete().eq("id", rej.id);
+    setBusy(false);
+
+    if (error) return toast.error(`Reconsideration failed: ${error.message}`);
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: "APPLICANT_RECONSIDERED",
+      targetEmail,
+      metadata: { userId: rej.user_id },
+    });
+
+    toast.success(`Reconsidered ${targetEmail} — moved back to Pending Approvals.`);
+    await refreshRegistry();
+  };
+
+  // Remove staff role completely (Transitions user to Former Employees)
   const removeStaffRole = async (r: RoleRow) => {
     const p = byUser.get(r.user_id);
     const memberEmail = p?.email ?? r.user_id;
@@ -362,14 +460,27 @@ export default function OwnerStaffPage() {
         return toast.error("Cannot remove the last owner. There must be at least one active owner.");
       }
     }
-    if (!confirm(`Remove staff role for ${memberEmail}?`)) return;
+    if (!confirm(`Remove staff role for ${memberEmail}? This transitions the user to Former Employees.`)) return;
 
     setBusy(true);
-    const { error } = await supabase.from("user_roles").delete().eq("id", r.id);
 
-    if (error) {
+    // 1. Delete user role
+    const { error: delErr } = await supabase.from("user_roles").delete().eq("id", r.id);
+
+    if (delErr) {
       setBusy(false);
-      return toast.error(`Removal failed: ${error.message}`);
+      return toast.error(`Removal failed: ${delErr.message}`);
+    }
+
+    // 2. Record as former staff
+    if (memberEmail) {
+      await supabase.from("former_staff").upsert({
+        cafe_id: cafeId!,
+        user_id: r.user_id,
+        email: memberEmail,
+        role: r.role,
+        removed_by: user?.id ?? null,
+      });
     }
 
     void logAuditEvent({
@@ -382,7 +493,33 @@ export default function OwnerStaffPage() {
 
     await refreshRegistry();
     setBusy(false);
-    toast.success("Staff member access removed.");
+    toast.success(`Staff member access removed. ${memberEmail} moved to Former Employees.`);
+  };
+
+  // Invite Former Employee Again (Invitation Override)
+  const inviteAgainFormerStaff = async (fs: FormerStaffRow) => {
+    if (!cafeId || !fs.email) return;
+
+    setBusy(true);
+    const { data, error } = await supabase.rpc("assign_role_by_email", {
+      _cafe_id: cafeId,
+      _email: fs.email,
+      _role: fs.role,
+    });
+    setBusy(false);
+
+    if (error) return toast.error(`Invitation failed: ${error.message}`);
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: "INVITATION_CREATED",
+      targetEmail: fs.email,
+      metadata: { role: fs.role, source: "invite_again_former_staff" },
+    });
+
+    toast.success(`Invitation sent to former employee ${fs.email} — assigned '${fs.role}' access upon sign in.`);
+    await refreshRegistry();
   };
 
   // Toggle staff suspension (Persists in user_roles.is_suspended)
@@ -459,7 +596,13 @@ export default function OwnerStaffPage() {
     }
   };
 
-  const initialLoading = rolesQ.isLoading || profilesQ.isLoading || invitesQ.isLoading || pendingApprovalsQ.isLoading;
+  const initialLoading =
+    rolesQ.isLoading ||
+    profilesQ.isLoading ||
+    invitesQ.isLoading ||
+    pendingApprovalsQ.isLoading ||
+    rejectedQ.isLoading ||
+    formerStaffQ.isLoading;
 
   if (initialLoading) {
     return (
@@ -471,6 +614,8 @@ export default function OwnerStaffPage() {
   }
 
   const pendingApprovals = pendingApprovalsQ.data ?? [];
+  const rejectedApplicants = rejectedQ.data ?? [];
+  const formerEmployees = formerStaffQ.data ?? [];
 
   return (
     <div className="space-y-8">
@@ -488,17 +633,17 @@ export default function OwnerStaffPage() {
             </button>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approve signups, invite employees, manage roles, control access permissions, and review audit history.
+            Manage applicant onboarding, active staff, suspensions, former employees, and staff audit trail.
           </p>
         </div>
         <GlobalNotificationControls />
       </header>
 
-      {/* Pending Approvals Pipeline Section — Always Mounted to Prevent Layout Shift */}
+      {/* SECTION 1: Pending Account Approvals */}
       <section className="rounded-3xl bg-amber-500/5 border border-amber-500/20 p-6 shadow-soft">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 font-display text-base font-semibold text-amber-900 dark:text-amber-300">
-            <Clock className="h-5 w-5 text-amber-500" /> Pending Account Approvals ({pendingApprovals.length})
+            <Clock className="h-5 w-5 text-amber-500" /> 1. Pending Account Approvals ({pendingApprovals.length})
           </h2>
           {pendingApprovalsQ.isFetching && (
             <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
@@ -507,13 +652,13 @@ export default function OwnerStaffPage() {
           )}
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          These authenticated users signed up but have not yet been granted staff access.
+          These authenticated applicants signed up but have not yet been approved or assigned a role.
         </p>
 
         {pendingApprovals.length === 0 ? (
           <div className="rounded-2xl bg-background/50 border border-amber-500/10 p-6 text-center text-xs text-muted-foreground font-medium flex items-center justify-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-            <span>No pending approvals. All signed-up users have assigned roles.</span>
+            <span>No pending approvals. All signed-up applicants have assigned roles or status.</span>
           </div>
         ) : (
           <ul className="divide-y divide-amber-500/20">
@@ -573,125 +718,118 @@ export default function OwnerStaffPage() {
         )}
       </section>
 
-      {/* Invite Section */}
-      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
-        <h2 className="mb-3 flex items-center gap-2 font-display text-base font-semibold">
-          <UserPlus className="h-4 w-4" /> Send Team Invitation
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
-          <input
-            type="email"
-            value={email}
-            disabled={isDemo}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={isDemo ? "Invitations disabled in demo" : "teammate@cafe.com"}
-            className="rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
-          />
-          <select
-            value={role}
-            disabled={isDemo}
-            onChange={(e) => setRole(e.target.value as AppRole)}
-            className="rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
-          >
-            <option value="staff">Staff</option>
-            <option value="owner">Owner</option>
-          </select>
-          <button
-            onClick={isDemo ? undefined : () => void invite()}
-            disabled={busy || !email.trim() || isDemo}
-            className={cn(
-              "rounded-full px-6 py-3 text-sm font-semibold transition flex items-center justify-center gap-2",
-              isDemo
-                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75"
-                : "btn-primary-action"
-            )}
-            title={isDemo ? "Disabled in public demo." : "Send invitation"}
-          >
-            {isDemo ? "🔒 Disabled" : busy ? "Sending..." : <> <Send className="h-4 w-4" /> Send Invite </>}
-          </button>
+      {/* SECTION 2: Invite Form & Pending Invitations */}
+      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-6">
+        <div>
+          <h2 className="mb-3 flex items-center gap-2 font-display text-base font-semibold">
+            <UserPlus className="h-4 w-4 text-brand" /> 2. Send Team Invitation
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
+            <input
+              type="email"
+              value={email}
+              disabled={isDemo}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={isDemo ? "Invitations disabled in demo" : "teammate@cafe.com"}
+              className="rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
+            />
+            <select
+              value={role}
+              disabled={isDemo}
+              onChange={(e) => setRole(e.target.value as AppRole)}
+              className="rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
+            >
+              <option value="staff">Staff</option>
+              <option value="owner">Owner</option>
+            </select>
+            <button
+              onClick={isDemo ? undefined : () => void invite()}
+              disabled={busy || !email.trim() || isDemo}
+              className={cn(
+                "rounded-full px-6 py-3 text-sm font-semibold transition flex items-center justify-center gap-2",
+                isDemo
+                  ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75"
+                  : "btn-primary-action"
+              )}
+              title={isDemo ? "Disabled in public demo." : "Send invitation"}
+            >
+              {isDemo ? "🔒 Disabled" : busy ? "Sending..." : <> <Send className="h-4 w-4" /> Send Invite </>}
+            </button>
+          </div>
+          {!isDemo && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Invited staff members receive access automatically upon signing in. Invitations override prior rejected or former staff states.
+            </p>
+          )}
         </div>
-        {isDemo && (
-          <p className="mt-3 text-[11px] text-amber-600 bg-amber-500/8 border border-amber-500/20 p-2.5 rounded-xl text-center font-medium">
-            This action is disabled in the public demo.
-          </p>
-        )}
-        {!isDemo && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Invited staff members receive access automatically when signing in with their invited email address.
-          </p>
+
+        {(invitesQ.data ?? []).length > 0 && (
+          <div className="border-t border-border/60 pt-6">
+            <h3 className="mb-4 flex items-center gap-2 font-display text-sm font-semibold text-muted-foreground">
+              <Mail className="h-4 w-4" /> Pending Invitations ({(invitesQ.data ?? []).length})
+            </h3>
+            <ul className="divide-y divide-border/60">
+              {invitesQ.data!.map((inv) => (
+                <li key={inv.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
+                      <Mail className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{isDemo ? maskEmail(inv.email) : inv.email}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Invited {new Date(inv.created_at).toLocaleDateString()} • Role: <span className="capitalize font-semibold text-foreground">{inv.role}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-3 py-1 text-xs font-semibold">
+                      Pending
+                    </span>
+
+                    <button
+                      onClick={isDemo ? undefined : () => void resendInvite(inv)}
+                      disabled={isDemo || busy}
+                      className={cn(
+                        "rounded-full p-2 transition",
+                        isDemo
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                          : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
+                      )}
+                      title={isDemo ? "Disabled in demo." : "Resend Invitation"}
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      onClick={isDemo ? undefined : () => void revokeInvite(inv)}
+                      disabled={isDemo || busy}
+                      className={cn(
+                        "rounded-full p-2 transition",
+                        isDemo
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                          : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
+                      )}
+                      title={isDemo ? "Disabled in demo." : "Revoke Invitation"}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 
-      {/* Pending Invites Section */}
-      {(invitesQ.data ?? []).length > 0 && (
-        <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
-          <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold">
-            <Clock className="h-4 w-4" /> Pending Invitations ({(invitesQ.data ?? []).length})
-          </h2>
-          <ul className="divide-y divide-border/60">
-            {invitesQ.data!.map((inv) => (
-              <li key={inv.id} className="flex items-center justify-between gap-3 py-3.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
-                    <Mail className="h-4.5 w-4.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{isDemo ? maskEmail(inv.email) : inv.email}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Invited {new Date(inv.created_at).toLocaleDateString()} • Role: <span className="capitalize font-semibold text-foreground">{inv.role}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-3 py-1 text-xs font-semibold">
-                    Pending
-                  </span>
-
-                  {/* Resend Invite */}
-                  <button
-                    onClick={isDemo ? undefined : () => void resendInvite(inv)}
-                    disabled={isDemo || busy}
-                    className={cn(
-                      "rounded-full p-2 transition",
-                      isDemo
-                        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                        : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
-                    )}
-                    title={isDemo ? "Disabled in demo." : "Resend Invitation"}
-                    aria-label="Resend Invitation"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-
-                  {/* Revoke Invite */}
-                  <button
-                    onClick={isDemo ? undefined : () => void revokeInvite(inv)}
-                    disabled={isDemo || busy}
-                    className={cn(
-                      "rounded-full p-2 transition",
-                      isDemo
-                        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                        : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
-                    )}
-                    title={isDemo ? "Disabled in demo." : "Revoke Invitation"}
-                    aria-label="Revoke Invitation"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Active Team Section */}
+      {/* SECTION 3: Active Staff Members */}
       <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-display text-base font-semibold">Active Team Members ({(rolesQ.data ?? []).length})</h2>
+          <h2 className="flex items-center gap-2 font-display text-base font-semibold">
+            <ShieldCheck className="h-5 w-5 text-emerald-500" /> 3. Active Staff ({activeTeam.length})
+          </h2>
           
           <div className="flex items-center gap-2">
-            {/* Search Input */}
             <div className="relative flex-1 sm:w-64">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -703,7 +841,6 @@ export default function OwnerStaffPage() {
               />
             </div>
 
-            {/* Role Filter */}
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
@@ -716,32 +853,23 @@ export default function OwnerStaffPage() {
           </div>
         </div>
 
-        {filteredTeam.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">No team members match your criteria.</p>
+        {filteredActiveTeam.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">No active team members match your criteria.</p>
         ) : (
           <ul className="divide-y divide-border/60">
-            {filteredTeam.map((r) => {
+            {filteredActiveTeam.map((r) => {
               const p = byUser.get(r.user_id);
-              const isSuspended = !!r.is_suspended;
               return (
                 <li key={r.id} className="flex items-center justify-between gap-3 py-3.5">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={cn(
-                      "grid h-10 w-10 place-items-center rounded-2xl transition",
-                      isSuspended ? "bg-destructive/10 text-destructive" : "bg-brand/10 text-brand"
-                    )}>
-                      {isSuspended ? <ShieldAlert className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-600">
+                      <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-semibold">
                           {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
                         </span>
-                        {isSuspended && (
-                          <span className="rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 text-[10px] font-bold">
-                            SUSPENDED
-                          </span>
-                        )}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
                         {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "No email linked"}
@@ -754,7 +882,6 @@ export default function OwnerStaffPage() {
                       {r.role}
                     </span>
 
-                    {/* Edit Role Button */}
                     <button
                       onClick={isDemo ? undefined : () => { setEditingRole(r); setNewRole(r.role); }}
                       disabled={isDemo}
@@ -765,41 +892,30 @@ export default function OwnerStaffPage() {
                           : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
                       )}
                       title={isDemo ? "Disabled in demo." : "Edit Role"}
-                      aria-label="Edit Role"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
 
-                    {/* Suspend / Reactivate Button */}
                     <button
                       onClick={isDemo ? undefined : () => void toggleSuspend(r)}
                       disabled={isDemo || busy}
                       className={cn(
-                        "rounded-full p-2 transition",
-                        isDemo
-                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                          : isSuspended
-                          ? "bg-success/10 text-success hover:bg-success/20 active:scale-95"
-                          : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 active:scale-95"
+                        "rounded-full p-2 transition bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 active:scale-95",
+                        isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                       )}
-                      title={isDemo ? "Disabled in demo." : isSuspended ? "Reactivate Access" : "Suspend Access"}
-                      aria-label={isSuspended ? "Reactivate Access" : "Suspend Access"}
+                      title={isDemo ? "Disabled in demo." : "Suspend Access"}
                     >
-                      {isSuspended ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                      <UserX className="h-4 w-4" />
                     </button>
 
-                    {/* Remove Staff Button */}
                     <button
                       onClick={isDemo ? undefined : () => void removeStaffRole(r)}
                       disabled={isDemo || busy}
                       className={cn(
-                        "rounded-full p-2 transition",
-                        isDemo
-                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-                          : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
+                        "rounded-full p-2 transition bg-secondary text-muted-foreground hover:text-destructive active:scale-95",
+                        isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                       )}
-                      title={isDemo ? "Disabled in demo." : "Remove Access"}
-                      aria-label="Remove Access"
+                      title={isDemo ? "Disabled in demo." : "Remove Access (Move to Former Staff)"}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -811,10 +927,170 @@ export default function OwnerStaffPage() {
         )}
       </section>
 
-      {/* Audit Log Trail Section */}
+      {/* SECTION 4: Suspended Staff Members */}
+      {suspendedTeam.length > 0 && (
+        <section className="rounded-3xl bg-destructive/5 border border-destructive/20 p-6 shadow-soft">
+          <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold text-destructive">
+            <ShieldAlert className="h-5 w-5" /> 4. Suspended Staff ({suspendedTeam.length})
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Suspended employees retain their role assignment but are blocked from accessing cafe operations until reactivated.
+          </p>
+
+          <ul className="divide-y divide-destructive/15">
+            {suspendedTeam.map((r) => {
+              const p = byUser.get(r.user_id);
+              return (
+                <li key={r.id} className="flex items-center justify-between gap-3 py-3.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-destructive/15 text-destructive">
+                      <ShieldAlert className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold">
+                          {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
+                        </span>
+                        <span className="rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 text-[10px] font-bold">
+                          SUSPENDED
+                        </span>
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "No email linked"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={isDemo ? undefined : () => void toggleSuspend(r)}
+                      disabled={isDemo || busy}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition",
+                        isDemo
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95"
+                      )}
+                    >
+                      <UserCheck className="h-3.5 w-3.5" /> Reactivate
+                    </button>
+
+                    <button
+                      onClick={isDemo ? undefined : () => void removeStaffRole(r)}
+                      disabled={isDemo || busy}
+                      className={cn(
+                        "rounded-full p-2 transition bg-secondary text-muted-foreground hover:text-destructive active:scale-95",
+                        isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                      )}
+                      title={isDemo ? "Disabled in demo." : "Remove Access (Move to Former Staff)"}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/* SECTION 5: Rejected Applicants */}
+      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
+        <h2 className="mb-2 flex items-center gap-2 font-display text-base font-semibold">
+          <XCircle className="h-5 w-5 text-destructive" /> 5. Rejected Applicants ({rejectedApplicants.length})
+        </h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Applicants whose registration requests were rejected. Reconsidering an applicant returns them to Pending Approvals.
+        </p>
+
+        {rejectedApplicants.length === 0 ? (
+          <div className="rounded-2xl bg-muted/20 border border-border/40 p-6 text-center text-xs text-muted-foreground font-medium">
+            No rejected applicants recorded.
+          </div>
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {rejectedApplicants.map((rej) => {
+              const displayEmail = rej.email ?? rej.user_id;
+              return (
+                <li key={rej.id} className="flex items-center justify-between gap-3 py-3.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-destructive/10 text-destructive">
+                      <XCircle className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(displayEmail) : displayEmail}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Rejected {new Date(rej.created_at).toLocaleDateString()} • Status: <span className="font-semibold text-destructive">Rejected</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={isDemo ? undefined : () => void reconsiderApplicant(rej)}
+                    disabled={isDemo || busy}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold border border-border bg-background hover:bg-secondary transition active:scale-95",
+                      isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                    )}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 text-brand" /> Reconsider
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* SECTION 6: Former Employees */}
+      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
+        <h2 className="mb-2 flex items-center gap-2 font-display text-base font-semibold">
+          <UserMinus className="h-5 w-5 text-muted-foreground" /> 6. Former Employees ({formerEmployees.length})
+        </h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Past team members whose access was removed. Inviting a former employee again sends a new invitation overriding prior status.
+        </p>
+
+        {formerEmployees.length === 0 ? (
+          <div className="rounded-2xl bg-muted/20 border border-border/40 p-6 text-center text-xs text-muted-foreground font-medium">
+            No former employees recorded.
+          </div>
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {formerEmployees.map((fs) => (
+              <li key={fs.id} className="flex items-center justify-between gap-3 py-3.5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-muted text-muted-foreground">
+                    <UserMinus className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{isDemo ? maskEmail(fs.email) : fs.email}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Previous Role: <span className="capitalize font-semibold text-foreground">{fs.role}</span> • Removed {new Date(fs.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={isDemo ? undefined : () => void inviteAgainFormerStaff(fs)}
+                  disabled={isDemo || busy}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold shadow-soft transition btn-primary-action",
+                    isDemo && "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                  )}
+                >
+                  <Send className="h-3.5 w-3.5" /> Invite Again
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* SECTION 7: Audit Log Trail */}
       <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
         <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold">
-          <History className="h-4 w-4" /> Staff Management Audit Log
+          <History className="h-4 w-4" /> 7. Staff Management Audit Log
         </h2>
 
         {(auditQ.data ?? []).length === 0 ? (

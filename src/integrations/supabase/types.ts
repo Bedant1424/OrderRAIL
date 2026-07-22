@@ -586,6 +586,44 @@ export type Database = {
           },
         ]
       }
+      former_staff: {
+        Row: {
+          id: string
+          cafe_id: string | null
+          user_id: string
+          email: string
+          role: Database["public"]["Enums"]["app_role"]
+          removed_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          cafe_id?: string | null
+          user_id: string
+          email: string
+          role: Database["public"]["Enums"]["app_role"]
+          removed_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          cafe_id?: string | null
+          user_id?: string
+          email?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          removed_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "former_staff_cafe_id_fkey"
+            columns: ["cafe_id"]
+            isOneToOne: false
+            referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rejected_approvals: {
         Row: {
           id: string
