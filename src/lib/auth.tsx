@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef, type ReactNode 
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { logAuditEvent } from "@/lib/auditLogger";
 
 export type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -50,8 +51,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const promise = (async () => {
       try {
         const { data, error } = await supabase.from("user_roles").select("role, cafe_id").eq("user_id", uid);
+        let fetchedRoles = (data ?? []) as AuthCtx["roles"];
+
+        // If user currently has 0 assigned roles, check for pending invitation by email
+        if (fetchedRoles.length === 0) {
+          const { data: userData } = await supabase.auth.getUser();
+          const userEmail = userData?.user?.email?.toLowerCase();
+          
+          if (userEmail) {
+            const { data: invites } = await supabase
+              .from("staff_invites")
+              .select("id, cafe_id, role, email")
+              .eq("email", userEmail);
+
+            if (invites && invites.length > 0) {
+              const pendingInvite = invites[0];
+              
+              // 1. Grant the user role in database
+              const { error: insertErr } = await supabase.from("user_roles").insert({
+                user_id: uid,
+                cafe_id: pendingInvite.cafe_id,
+                role: pendingInvite.role,
+              });
+
+              if (!insertErr) {
+                // 2. Remove accepted invitation
+                await supabase.from("staff_invites").delete().eq("id", pendingInvite.id);
+
+                // 3. Record audit event
+                void logAuditEvent({
+                  cafeId: pendingInvite.cafe_id,
+                  actorId: uid,
+                  eventType: "INVITATION_ACCEPTED",
+                  targetEmail: userEmail,
+                  metadata: { role: pendingInvite.role },
+                });
+
+                // 4. Re-fetch user roles
+                const { data: reRefetched } = await supabase
+                  .from("user_roles")
+                  .select("role, cafe_id")
+                  .eq("user_id", uid);
+                fetchedRoles = (reRefetched ?? []) as AuthCtx["roles"];
+              }
+            }
+          }
+        }
+
         if (!error) {
-          setRoles((data ?? []) as AuthCtx["roles"]);
+          setRoles(fetchedRoles);
         }
       } catch (e) {
         console.error("AuthProvider: loadRoles error:", e);

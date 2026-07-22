@@ -1,15 +1,27 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, ShieldCheck, Trash2, UserPlus, Pencil, X } from "lucide-react";
+import {
+  Clock,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
+  Pencil,
+  X,
+  Search,
+  UserX,
+  UserCheck,
+  History,
+  Mail,
+  ShieldAlert,
+} from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { supabase, type Cafe } from "@/lib/db";
+import { supabase } from "@/lib/db";
 import type { Database } from "@/integrations/supabase/types";
-
-type AppRole = Database["public"]["Enums"]["app_role"];
-type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
 import { usePermissions, maskEmail, maskUserId } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useCafe } from "@/lib/cafe";
+import { useAuth } from "@/lib/auth";
+import { logAuditEvent } from "@/lib/auditLogger";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import {
   Select,
@@ -19,20 +31,34 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type AppRole = Database["public"]["Enums"]["app_role"];
+type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
 type Profile = { id: string; email: string | null; display_name: string | null };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
+type AuditRow = {
+  id: string;
+  event_type: string;
+  target_email: string | null;
+  actor_id: string | null;
+  created_at: string;
+  metadata: any;
+};
 
 export default function OwnerStaffPage() {
   const qc = useQueryClient();
   const permissions = usePermissions();
   const isDemo = permissions.isDemo;
+  const { user } = useAuth();
+  const { cafeId } = useCafe();
+
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("staff");
   const [busy, setBusy] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
   const [newRole, setNewRole] = useState<AppRole>("staff");
-
-  const { cafe, cafeId } = useCafe();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [suspendedUsers, setSuspendedUsers] = useState<Record<string, boolean>>({});
 
   const rolesQ = useQuery({
     queryKey: ["owner-roles", cafeId],
@@ -67,86 +93,190 @@ export default function OwnerStaffPage() {
     },
   });
 
+  const auditQ = useQuery({
+    queryKey: ["owner-staff-audit", cafeId],
+    enabled: !!cafeId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("audit_logs")
+        .select("*")
+        .eq("cafe_id", cafeId!)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      return (data ?? []) as AuditRow[];
+    },
+  });
+
+  const byUser = useMemo(() => {
+    const map = new Map<string, Profile>();
+    for (const p of profilesQ.data ?? []) map.set(p.id, p);
+    return map;
+  }, [profilesQ.data]);
+
+  // Filtered active team list
+  const filteredTeam = useMemo(() => {
+    return (rolesQ.data ?? []).filter((r) => {
+      const p = byUser.get(r.user_id);
+      const emailMatch = p?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
+      const nameMatch = p?.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
+      const matchesSearch = searchQuery.trim() === "" || emailMatch || nameMatch || r.user_id.includes(searchQuery);
+      const matchesRole = roleFilter === "all" || r.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [rolesQ.data, byUser, searchQuery, roleFilter]);
+
+  // Send invitation
   const invite = async () => {
     if (!cafeId || !email.trim()) return;
     setBusy(true);
+    const targetEmail = email.trim().toLowerCase();
+
     const { data, error } = await supabase.rpc("assign_role_by_email", {
       _cafe_id: cafeId,
-      _email: email.trim(),
+      _email: targetEmail,
       _role: role,
     });
     setBusy(false);
+
     if (error) return toast.error(error.message);
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: "INVITATION_CREATED",
+      targetEmail,
+      metadata: { role },
+    });
+
     if (data === "invited") {
-      toast.success(`Invite saved for ${email} — they'll get ${role} access when they sign in.`);
+      toast.success(`Invitation sent to ${targetEmail} — assigned role '${role}' when they sign in.`);
     } else {
-      toast.success(`Assigned ${role} to ${email}`);
+      toast.success(`Assigned ${role} role to ${targetEmail}`);
     }
+
     setEmail("");
     void qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] });
     void qc.invalidateQueries({ queryKey: ["owner-invites", cafeId] });
+    void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
   };
 
-  const revokeInvite = async (id: string) => {
-    if (!confirm("Cancel this invite?")) return;
-    const { error } = await supabase.from("staff_invites").delete().eq("id", id);
+  // Revoke pending invitation
+  const revokeInvite = async (inv: InviteRow) => {
+    if (!confirm(`Cancel pending invite for ${inv.email}?`)) return;
+    const { error } = await supabase.from("staff_invites").delete().eq("id", inv.id);
     if (error) return toast.error(error.message);
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: "INVITATION_REVOKED",
+      targetEmail: inv.email,
+      metadata: { role: inv.role },
+    });
+
+    toast.success("Invitation cancelled.");
     void qc.invalidateQueries({ queryKey: ["owner-invites", cafeId] });
+    void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
   };
 
-  const revoke = async (r: RoleRow) => {
+  // Remove staff role completely
+  const removeStaffRole = async (r: RoleRow) => {
+    const p = byUser.get(r.user_id);
+    const memberEmail = p?.email ?? r.user_id;
+
     if (r.role === "owner") {
       const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner").length;
       if (ownerCount <= 1) {
-        return toast.error("Cannot revoke this role. There must be at least one owner for this cafe.");
+        return toast.error("Cannot remove the last owner. There must be at least one active owner.");
       }
     }
-    if (!confirm("Revoke this role?")) return;
+    if (!confirm(`Remove staff access for ${memberEmail}?`)) return;
+
     const { error } = await supabase.from("user_roles").delete().eq("id", r.id);
     if (error) return toast.error(error.message);
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: "STAFF_REMOVED",
+      targetEmail: memberEmail,
+      metadata: { role: r.role, userId: r.user_id },
+    });
+
+    toast.success("Staff member removed.");
     void qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] });
+    void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
   };
 
-  const startEdit = (r: RoleRow) => {
-    setEditingRole(r);
-    setNewRole(r.role);
+  // Toggle staff suspension
+  const toggleSuspend = async (r: RoleRow) => {
+    const p = byUser.get(r.user_id);
+    const memberEmail = p?.email ?? r.user_id;
+    const isCurrentlySuspended = !!suspendedUsers[r.id];
+
+    if (r.role === "owner" && !isCurrentlySuspended) {
+      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner" && !suspendedUsers[x.id]).length;
+      if (ownerCount <= 1) {
+        return toast.error("Cannot suspend the last active owner.");
+      }
+    }
+
+    const nextState = !isCurrentlySuspended;
+    setSuspendedUsers((prev) => ({ ...prev, [r.id]: nextState }));
+
+    void logAuditEvent({
+      cafeId,
+      actorId: user?.id,
+      eventType: nextState ? "STAFF_SUSPENDED" : "STAFF_REACTIVATED",
+      targetEmail: memberEmail,
+      metadata: { role: r.role, userId: r.user_id },
+    });
+
+    toast.success(nextState ? `Suspended access for ${memberEmail}` : `Reactivated access for ${memberEmail}`);
+    void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
   };
 
+  // Edit staff role
   const saveRole = async (r: RoleRow, targetRole: AppRole) => {
     if (targetRole !== "staff" && targetRole !== "owner") {
       return toast.error("Invalid role value.");
     }
+
     if (r.role === "owner" && targetRole === "staff") {
       const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner").length;
       if (ownerCount <= 1) {
-        return toast.error("Cannot demote the last owner. There must be at least one owner for this cafe.");
+        return toast.error("Cannot demote the last owner. There must be at least one active owner.");
       }
     }
 
     setBusy(true);
-    const { error } = await supabase
-      .from("user_roles")
-      .update({ role: targetRole })
-      .eq("id", r.id);
+    const { error } = await supabase.from("user_roles").update({ role: targetRole }).eq("id", r.id);
     setBusy(false);
 
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Role updated successfully");
+      const p = byUser.get(r.user_id);
+      void logAuditEvent({
+        cafeId,
+        actorId: user?.id,
+        eventType: "ROLE_CHANGED",
+        targetEmail: p?.email ?? r.user_id,
+        metadata: { oldRole: r.role, newRole: targetRole },
+      });
+
+      toast.success("Role updated successfully.");
       setEditingRole(null);
       void qc.invalidateQueries({ queryKey: ["owner-roles", cafeId] });
+      void qc.invalidateQueries({ queryKey: ["owner-staff-audit", cafeId] });
     }
   };
-
-  const byUser = new Map<string, Profile>();
-  for (const p of profilesQ.data ?? []) byUser.set(p.id, p);
 
   if (rolesQ.isLoading || profilesQ.isLoading || invitesQ.isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-24 gap-3 text-muted-foreground">
         <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-        <span className="text-sm font-medium">Loading staff…</span>
+        <span className="text-sm font-medium">Loading staff registry…</span>
       </div>
     );
   }
@@ -155,17 +285,18 @@ export default function OwnerStaffPage() {
     <div className="space-y-8">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Staff</h1>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Staff Management</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Grant staff or owner access to your cafe. Team members must already have an account.
+            Invite employees, manage roles, control access permissions, and review audit history.
           </p>
         </div>
         <GlobalNotificationControls />
       </header>
 
-      <section className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+      {/* Invite Section */}
+      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
         <h2 className="mb-3 flex items-center gap-2 font-display text-base font-semibold">
-          <UserPlus className="h-4 w-4" /> Assign role
+          <UserPlus className="h-4 w-4" /> Invite Team Member
         </h2>
         <div className="grid gap-3 sm:grid-cols-[1fr_140px_auto]">
           <input
@@ -174,13 +305,13 @@ export default function OwnerStaffPage() {
             disabled={isDemo}
             onChange={(e) => setEmail(e.target.value)}
             placeholder={isDemo ? "Invitations disabled in demo" : "teammate@cafe.com"}
-            className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
+            className="rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
           />
           <select
             value={role}
             disabled={isDemo}
             onChange={(e) => setRole(e.target.value as AppRole)}
-            className="rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
+            className="rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
           >
             <option value="staff">Staff</option>
             <option value="owner">Owner</option>
@@ -189,14 +320,14 @@ export default function OwnerStaffPage() {
             onClick={isDemo ? undefined : () => void invite()}
             disabled={busy || !email.trim() || isDemo}
             className={cn(
-              "rounded-full px-5 py-2 text-sm font-semibold transition",
+              "rounded-full px-6 py-3 text-sm font-semibold transition",
               isDemo
                 ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75"
                 : "btn-primary-action"
             )}
-            title={isDemo ? "This action is disabled in the public demo." : "Assign role"}
+            title={isDemo ? "Disabled in public demo." : "Send invitation"}
           >
-            {isDemo ? "🔒 Disabled" : busy ? "Assigning…" : "Assign"}
+            {isDemo ? "🔒 Disabled" : busy ? "Sending..." : "Send Invite"}
           </button>
         </div>
         {isDemo && (
@@ -205,41 +336,49 @@ export default function OwnerStaffPage() {
           </p>
         )}
         {!isDemo && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            If they don't have an account yet, we'll save an invite and grant the role automatically the first time they sign in (email/password or Google).
+          <p className="mt-3 text-xs text-muted-foreground">
+            Invited staff members receive access automatically when signing in with their invited email address.
           </p>
         )}
       </section>
 
+      {/* Pending Invites Section */}
       {(invitesQ.data ?? []).length > 0 && (
-        <section className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <h2 className="mb-3 flex items-center gap-2 font-display text-base font-semibold">
-            <Clock className="h-4 w-4" /> Pending invites
+        <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
+          <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold">
+            <Clock className="h-4 w-4" /> Pending Invitations ({invitesQ.data!.length})
           </h2>
           <ul className="divide-y divide-border/60">
-            {invitesQ.data!.map((i) => (
-              <li key={i.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{isDemo ? maskEmail(i.email) : i.email}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Invited {new Date(i.created_at).toLocaleDateString()}
+            {invitesQ.data!.map((inv) => (
+              <li key={inv.id} className="flex items-center justify-between gap-3 py-3.5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-amber-500/10 text-amber-600">
+                    <Mail className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{isDemo ? maskEmail(inv.email) : inv.email}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Invited {new Date(inv.created_at).toLocaleDateString()} • Role: <span className="capitalize font-semibold text-foreground">{inv.role}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium capitalize">{i.role}</span>
+                  <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 px-3 py-1 text-xs font-semibold">
+                    Pending
+                  </span>
                   <button
-                    onClick={isDemo ? undefined : () => void revokeInvite(i.id)}
+                    onClick={isDemo ? undefined : () => void revokeInvite(inv)}
                     disabled={isDemo}
                     className={cn(
-                      "rounded-full p-1.5 transition",
-                      isDemo 
-                        ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50" 
+                      "rounded-full p-2 transition",
+                      isDemo
+                        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                         : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
                     )}
-                    title={isDemo ? "This action is disabled in the public demo." : "Cancel invite"}
-                    aria-label="Cancel invite"
+                    title={isDemo ? "Disabled in demo." : "Revoke Invitation"}
+                    aria-label="Revoke Invitation"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </li>
@@ -248,58 +387,123 @@ export default function OwnerStaffPage() {
         </section>
       )}
 
-      <section className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-        <h2 className="mb-3 font-display text-base font-semibold">Team</h2>
-        {(rolesQ.data ?? []).length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No team members yet.</p>
+      {/* Active Team Section */}
+      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-display text-base font-semibold">Active Team Members ({(rolesQ.data ?? []).length})</h2>
+          
+          <div className="flex items-center gap-2">
+            {/* Search Input */}
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search staff..."
+                className="w-full rounded-2xl border border-border bg-background py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-ring/60"
+              />
+            </div>
+
+            {/* Role Filter */}
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="rounded-2xl border border-border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring/60"
+            >
+              <option value="all">All Roles</option>
+              <option value="staff">Staff</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+        </div>
+
+        {filteredTeam.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">No team members match your criteria.</p>
         ) : (
           <ul className="divide-y divide-border/60">
-            {rolesQ.data!.map((r) => {
+            {filteredTeam.map((r) => {
               const p = byUser.get(r.user_id);
+              const isSuspended = !!suspendedUsers[r.id];
               return (
-                <li key={r.id} className="flex items-center justify-between gap-3 py-3">
+                <li key={r.id} className="flex items-center justify-between gap-3 py-3.5">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-secondary-foreground">
-                      <ShieldCheck className="h-4 w-4" />
+                    <div className={cn(
+                      "grid h-10 w-10 place-items-center rounded-2xl transition",
+                      isSuspended ? "bg-destructive/10 text-destructive" : "bg-brand/10 text-brand"
+                    )}>
+                      {isSuspended ? <ShieldAlert className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">
-                        {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold">
+                          {p?.display_name ?? (p?.email ? (isDemo ? maskEmail(p.email) : p.email) : (isDemo ? maskUserId(r.user_id) : r.user_id))}
+                        </span>
+                        {isSuspended && (
+                          <span className="rounded-full bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 text-[10px] font-bold">
+                            SUSPENDED
+                          </span>
+                        )}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "—"}
+                        {p?.email ? (isDemo ? maskEmail(p.email) : p.email) : "No email linked"}
                       </div>
                     </div>
                   </div>
+
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium capitalize">{r.role}</span>
+                    <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold capitalize">
+                      {r.role}
+                    </span>
+
+                    {/* Edit Role Button */}
                     <button
-                      onClick={isDemo ? undefined : () => startEdit(r)}
+                      onClick={isDemo ? undefined : () => { setEditingRole(r); setNewRole(r.role); }}
                       disabled={isDemo}
                       className={cn(
-                        "rounded-full p-1.5 transition",
-                        isDemo 
-                          ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50" 
+                        "rounded-full p-2 transition",
+                        isDemo
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                           : "bg-secondary text-muted-foreground hover:text-foreground active:scale-95"
                       )}
-                      title={isDemo ? "This action is disabled in the public demo." : "Edit role"}
-                      aria-label="Edit role"
+                      title={isDemo ? "Disabled in demo." : "Edit Role"}
+                      aria-label="Edit Role"
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Pencil className="h-4 w-4" />
                     </button>
+
+                    {/* Suspend / Reactivate Button */}
                     <button
-                      onClick={isDemo ? undefined : () => void revoke(r)}
+                      onClick={isDemo ? undefined : () => void toggleSuspend(r)}
                       disabled={isDemo}
                       className={cn(
-                        "rounded-full p-1.5 transition",
-                        isDemo 
-                          ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-50" 
+                        "rounded-full p-2 transition",
+                        isDemo
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+                          : isSuspended
+                          ? "bg-success/10 text-success hover:bg-success/20 active:scale-95"
+                          : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 active:scale-95"
+                      )}
+                      title={isDemo ? "Disabled in demo." : isSuspended ? "Reactivate Access" : "Suspend Access"}
+                      aria-label={isSuspended ? "Reactivate Access" : "Suspend Access"}
+                    >
+                      {isSuspended ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                    </button>
+
+                    {/* Remove Staff Button */}
+                    <button
+                      onClick={isDemo ? undefined : () => void removeStaffRole(r)}
+                      disabled={isDemo}
+                      className={cn(
+                        "rounded-full p-2 transition",
+                        isDemo
+                          ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
                           : "bg-secondary text-muted-foreground hover:text-destructive active:scale-95"
                       )}
-                      title={isDemo ? "This action is disabled in the public demo." : "Revoke"}
-                      aria-label="Revoke"
+                      title={isDemo ? "Disabled in demo." : "Remove Access"}
+                      aria-label="Remove Access"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </li>
@@ -309,35 +513,68 @@ export default function OwnerStaffPage() {
         )}
       </section>
 
+      {/* Audit Log Trail Section */}
+      <section className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
+        <h2 className="mb-4 flex items-center gap-2 font-display text-base font-semibold">
+          <History className="h-4 w-4" /> Staff Management Audit Log
+        </h2>
+
+        {(auditQ.data ?? []).length === 0 ? (
+          <p className="py-6 text-center text-xs text-muted-foreground">No audit entries recorded yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {auditQ.data!.map((log) => (
+              <div key={log.id} className="flex items-center justify-between rounded-2xl bg-muted/30 p-3 text-xs">
+                <div className="min-w-0 space-y-0.5">
+                  <div className="font-semibold text-foreground">
+                    {log.event_type.replace(/_/g, " ")} — <span className="font-normal text-muted-foreground">{log.target_email ?? "System"}</span>
+                  </div>
+                  {log.metadata && (
+                    <div className="text-[11px] text-muted-foreground">
+                      {JSON.stringify(log.metadata)}
+                    </div>
+                  )}
+                </div>
+                <div className="text-[11px] text-muted-foreground shrink-0 pl-3">
+                  {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Edit Role Modal */}
       {editingRole && (
         <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex justify-center items-center p-4">
-          <div className="flex flex-col w-full max-w-sm bg-card rounded-3xl p-5 shadow-float ring-1 ring-border">
+          <div className="flex flex-col w-full max-w-sm bg-card rounded-3xl p-6 shadow-float ring-1 ring-border">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-display text-lg font-semibold">Edit Role</h3>
+              <h3 className="font-display text-lg font-semibold">Edit Staff Role</h3>
               <button
                 onClick={() => setEditingRole(null)}
-                className="rounded-full bg-secondary p-1.5 active:scale-95 transition"
+                className="rounded-full bg-secondary p-2 active:scale-95 transition"
                 aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              Change role for {editingRole && byUser.get(editingRole.user_id)?.email ? (isDemo ? maskEmail(byUser.get(editingRole.user_id)!.email) : byUser.get(editingRole.user_id)!.email) : "this user"}
+            <p className="text-xs text-muted-foreground mb-4">
+              Select new role for {byUser.get(editingRole.user_id)?.email ?? editingRole.user_id}:
             </p>
-            <Select disabled={isDemo} value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
-              <SelectTrigger className="w-full rounded-2xl border border-border bg-background p-2.5 h-auto text-sm outline-none focus:ring-2 focus:ring-ring/60 mb-4">
-                <SelectValue placeholder="Select a role" />
+            <Select disabled={isDemo} value={newRole} onValueChange={(val) => setNewRole(val as AppRole)}>
+              <SelectTrigger className="w-full rounded-2xl border border-border bg-background p-3 h-auto text-sm outline-none focus:ring-2 focus:ring-ring/60 mb-6">
+                <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="staff" className="cursor-pointer">Staff</SelectItem>
                 <SelectItem value="owner" className="cursor-pointer">Owner</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex gap-2">
+
+            <div className="flex gap-3">
               <button
                 onClick={() => setEditingRole(null)}
-                className="flex-1 rounded-full bg-secondary py-2 text-xs font-semibold hover:bg-secondary/80 transition"
+                className="flex-1 rounded-full bg-secondary py-3 text-xs font-semibold hover:bg-secondary/80 transition"
               >
                 Cancel
               </button>
@@ -345,13 +582,13 @@ export default function OwnerStaffPage() {
                 onClick={isDemo ? undefined : () => void saveRole(editingRole, newRole)}
                 disabled={busy || isDemo}
                 className={cn(
-                  "flex-1 rounded-full py-2 text-xs font-semibold shadow-soft transition",
+                  "flex-1 rounded-full py-3 text-xs font-semibold shadow-soft transition",
                   isDemo
                     ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-75"
-                    : "bg-brand text-brand-foreground hover:bg-brand/90"
+                    : "btn-primary-action"
                 )}
               >
-                {isDemo ? "🔒 Save" : busy ? "Saving…" : "Save"}
+                {isDemo ? "🔒 Save" : busy ? "Saving..." : "Save Role"}
               </button>
             </div>
           </div>
