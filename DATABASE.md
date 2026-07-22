@@ -1,26 +1,31 @@
 # OrderRail — Comprehensive Database Architecture Documentation
 
-> **Single Source of Truth** for OrderRail PostgreSQL database design, ERD, domain modules, RLS security matrix, state machines, trigger dependencies, RPC contracts, frontend mapping, and deployment evolution.
+> **Single Source of Truth** for OrderRail PostgreSQL database design, ERD, domain modules, RLS security matrix, state machines, trigger dependencies, RPC contracts, frontend mapping, operational constraints, and deployment evolution.
 
 ---
 
 ## Table of Contents
 - [1. Overview](#1-overview)
 - [2. Design Philosophy](#2-design-philosophy)
-- [3. Entity Relationship Diagram (ERD)](#3-entity-relationship-diagram-erd)
-- [4. Complete Table Inventory](#4-complete-table-inventory)
-- [5. Core Table Deep-Dive Documentation](#5-core-table-deep-dive-documentation)
-- [6. Frontend ↔ Database Mapping](#6-frontend--database-mapping)
-- [7. End-to-End Event Flows & Sequences](#7-end-to-end-event-flows--sequences)
-- [8. State Machines & Lifecycles](#8-state-machines--lifecycles)
-- [9. Row Level Security (RLS) Permissions Matrix](#9-row-level-security-rls-permissions-matrix)
-- [10. Trigger Dependency & Execution Graph](#10-trigger-dependency--execution-graph)
-- [11. RPC Functions & Stored Procedures](#11-rpc-functions--stored-procedures)
-- [12. Data Integrity & Constraints](#12-data-integrity--constraints)
-- [13. Performance & Realtime Architecture](#13-performance--realtime-architecture)
-- [14. Migration History & Deployment Strategy](#14-migration-history--deployment-strategy)
-- [15. Future Database Evolution](#15-future-database-evolution)
-- [16. Cross-References & Related Documentation](#16-cross-references--related-documentation)
+- [3. Source of Truth Matrix](#3-source-of-truth-matrix)
+- [4. Architectural Invariants](#4-architectural-invariants)
+- [5. Entity Relationship Diagram (ERD)](#5-entity-relationship-diagram-erd)
+- [6. Complete Table Inventory](#6-complete-table-inventory)
+- [7. Core Table Deep-Dive Documentation](#7-core-table-deep-dive-documentation)
+- [8. Frontend ↔ Database Mapping](#8-frontend--database-mapping)
+- [9. End-to-End Event Flows & Sequences](#9-end-to-end-event-flows--sequences)
+- [10. Failure & Recovery Scenarios](#10-failure--recovery-scenarios)
+- [11. Concurrency & Consistency](#11-concurrency--consistency)
+- [12. Operational Constraints](#12-operational-constraints)
+- [13. State Machines & Lifecycles](#13-state-machines--lifecycles)
+- [14. Row Level Security (RLS) Permissions Matrix](#14-row-level-security-rls-permissions-matrix)
+- [15. Trigger Dependency & Execution Graph](#15-trigger-dependency--execution-graph)
+- [16. RPC Functions & Stored Procedures](#16-rpc-functions--stored-procedures)
+- [17. Data Integrity & Constraints](#17-data-integrity--constraints)
+- [18. Performance & Realtime Architecture](#18-performance--realtime-architecture)
+- [19. Migration History & Deployment Strategy](#19-migration-history--deployment-strategy)
+- [20. Future Database Evolution](#20-future-database-evolution)
+- [21. Cross-References & Related Documentation](#21-cross-references--related-documentation)
 
 ---
 
@@ -72,7 +77,45 @@ Table occupancy is decoupled from order completion.
 
 ---
 
-## 3. Entity Relationship Diagram (ERD)
+## 3. Source of Truth Matrix
+
+The following matrix documents which database entity owns each primary business concern within OrderRail:
+
+| Business Concern | Owning Entity / Table | Primary Fields | Responsibilities & Authority |
+|------------------|----------------------|----------------|------------------------------|
+| **Physical Layout & Capacity** | `tables` | `label`, `seats`, `cafe_id` | Physical restaurant layout, seat count, and active session binding. |
+| **Occupancy & Visit State** | `dining_sessions` | `status`, `opened_at`, `closed_at` | Customer visit lifecycle (`browsing` → `active` → `closed`) and cumulative session total. |
+| **Fulfillment & Kitchen Progress** | `orders` | `status`, `order_number`, `total_cents` | Kitchen preparation state (`pending` → `preparing` → `ready` → `served`) and daily sequence. |
+| **Price Snapshots & Line Items** | `order_items` | `price_cents`, `qty`, `name` | Immutable historical pricing and quantity per ordered dish. |
+| **Staff Assistance Calls** | `service_requests` | `type`, `status` | Real-time customer call tickets (`water`, `bill`, `waiter`) and resolution. |
+| **Menu Catalog & Pricing** | `menu_items`, `menu_categories` | `price_cents`, `is_available`, `veg_type` | Current menu catalog offerings, active pricing, and availability. |
+| **Staff & RBAC Permissions** | `profiles`, `user_roles`, `staff_invites` | `role`, `cafe_id` | Multi-tenant tenant access control and role authorization (`owner`, `staff`). |
+| **Customer Feedback** | `reviews` | `rating`, `comment` | Star ratings and qualitative customer feedback per visit. |
+| **Business Intelligence & Metrics** | Realtime Rollup Queries / Views | `total_cents`, `created_at` | Historical revenue calculation, peak volume analysis, and table turnover metrics. |
+| **Billing & Payments (Future)** | `bills`, `payments` | `amount_cents`, `payment_method` | Split invoicing, payment gateway transaction status, and receipt accounting. |
+
+---
+
+## 4. Architectural Invariants
+
+OrderRail enforces six non-negotiable architectural invariants across the database layer:
+
+1. **Single Active Session per Table:**  
+   `tables.active_session_id` can reference at most one non-closed `dining_sessions` row (`status = 'browsing'` or `'active'`).
+2. **Orders Must Belong to a Dining Session:**  
+   Every order placed in a dining workflow must reference a valid `dining_session_id`. Orders cannot exist in isolation without a parent session context.
+3. **Order Items Cannot Exist Without an Order:**  
+   `order_items` records enforce `FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE`. Line items cannot exist unlinked to an order header.
+4. **Closed Dining Sessions Are Immutable:**  
+   Once a `dining_sessions` record reaches `status = 'closed'`, its status and cumulative `total_amount` cannot be modified. New customer scans spawn a fresh `dining_sessions` row.
+5. **Structural Metadata Protected in Demo Mode:**  
+   On demo cafes (`is_demo_cafe(cafe_id) = true`), the `trg_enforce_demo_table_update_protection` trigger explicitly rejects any `UPDATE` targeting structural table columns (`id`, `cafe_id`, `label`, `seats`, `is_active`). Only runtime fields (`active_session_id`, `status`) may be mutated.
+6. **Table Can Only Be Freed When No Active Orders Exist:**  
+   The `free_table` RPC and `trg_check_table_can_be_freed` trigger strictly block table release if any linked order remains in `'pending'`, `'preparing'`, or `'ready'` status.
+
+---
+
+## 5. Entity Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
@@ -102,7 +145,7 @@ erDiagram
 
 ---
 
-## 4. Complete Table Inventory
+## 6. Complete Table Inventory
 
 | Table Name | Schema | Domain | Core Purpose | RLS Enabled |
 |------------|--------|--------|--------------|-------------|
@@ -123,9 +166,9 @@ erDiagram
 
 ---
 
-## 5. Core Table Deep-Dive Documentation
+## 7. Core Table Deep-Dive Documentation
 
-### 5.1 `tables`
+### 7.1 `tables`
 - **Responsibilities:** Manages physical seat allocations, layout labels, and active session binding.
 - **Relationships:**
   - Belongs to `cafes` (`cafe_id` → `cafes.id`).
@@ -137,7 +180,7 @@ erDiagram
 - **Related RPCs:** `free_table()`, `cleanup_expired_browsing_sessions()`.
 - **Future Extensions:** Dynamic seat merging, floor plan X/Y spatial mapping, QR secret key validation.
 
-### 5.2 `dining_sessions`
+### 7.2 `dining_sessions`
 - **Responsibilities:** Serves as the primary operational container for a customer visit. Aggregates multiple order rounds and service requests under a single billing context.
 - **Relationships:**
   - Belongs to `tables` (`table_id` → `tables.id`).
@@ -149,7 +192,7 @@ erDiagram
 - **Related RPCs:** `free_table()`, `cleanup_expired_browsing_sessions()`.
 - **Future Extensions:** Splitting sessions across tables, binding to customer loyalty accounts, pre-pay deposit integration.
 
-### 5.3 `orders`
+### 7.3 `orders`
 - **Responsibilities:** Stores kitchen fulfillment units, status tracking, sequential daily order numbering, and total pricing.
 - **Relationships:**
   - Belongs to `cafes` (`cafe_id` → `cafes.id`).
@@ -162,7 +205,7 @@ erDiagram
 - **Related RPCs:** `cancel_order_v2()`.
 - **Future Extensions:** Kitchen station routing tag (`station_id`), estimate preparation time countdown.
 
-### 5.4 `order_items`
+### 7.4 `order_items`
 - **Responsibilities:** Stores individual menu item line items within an order, capturing immutable price snapshots at order placement time.
 - **Relationships:**
   - Belongs to `orders` (`order_id` → `orders.id` `ON DELETE CASCADE`).
@@ -173,7 +216,7 @@ erDiagram
 - **Related RPCs:** `populate_missing_order_items()`.
 - **Future Extensions:** Customization add-ons/modifiers (JSONB), dietary warning flags.
 
-### 5.5 `service_requests`
+### 7.5 `service_requests`
 - **Responsibilities:** Captures real-time customer requests ("Water", "Bill", "Waiter") for staff assistance.
 - **Relationships:**
   - Belongs to `cafes` (`cafe_id` → `cafes.id`).
@@ -187,7 +230,7 @@ erDiagram
 
 ---
 
-## 6. Frontend ↔ Database Mapping
+## 8. Frontend ↔ Database Mapping
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────────────┐
@@ -225,9 +268,9 @@ erDiagram
 
 ---
 
-## 7. End-to-End Event Flows & Sequences
+## 9. End-to-End Event Flows & Sequences
 
-### 7.1 Customer Arrival & QR Scan Sequence
+### 9.1 Customer Arrival & QR Scan Sequence
 ```mermaid
 sequenceDiagram
     autonumber
@@ -252,7 +295,7 @@ sequenceDiagram
     DB-->>UI: Confirm session initialized
 ```
 
-### 7.2 Order Placement & Realtime Kitchen Synchronisation
+### 9.2 Order Placement & Realtime Kitchen Synchronisation
 ```mermaid
 sequenceDiagram
     autonumber
@@ -270,7 +313,7 @@ sequenceDiagram
     Staff->>Staff: Audio Chime & Append Order Card to "Pending" Column
 ```
 
-### 7.3 Staff Table Release (`markTableFree`)
+### 9.3 Staff Table Release (`markTableFree`)
 ```mermaid
 sequenceDiagram
     autonumber
@@ -292,9 +335,56 @@ sequenceDiagram
 
 ---
 
-## 8. State Machines & Lifecycles
+## 10. Failure & Recovery Scenarios
 
-### 8.1 Dining Session Lifecycle
+| Failure Scenario | Database / System Impact | Recovery & Self-Healing Mechanism |
+|------------------|--------------------------|-----------------------------------|
+| **Customer Refresh During Ordering** | Customer reloads browser mid-session. | `TableLayout.tsx` reads `tableId` from URL, executes `getOrCreateDiningSession()`, finds active session in PostgreSQL, and rebinds active orders seamlessly. |
+| **Duplicate QR Scans at Same Table** | Multiple diners scan the same table QR code simultaneously. | `getOrCreateDiningSession()` queries non-closed `dining_sessions` for `table_id`. All diners receive the exact same `active_session_id` and view collaborative live order updates. |
+| **Offline / Network Interruption** | Network disconnects while submitting an order. | Client `orderQueue.ts` saves order payload locally in IndexedDB. On network reconnect, queue drains and executes `createOrderInDb()`. |
+| **Concurrent Customer Ordering** | Two diners submit orders at the same second. | PostgreSQL serializes order inserts. Both orders receive distinct `order_number` values and attach cleanly to the shared `dining_session_id`. |
+| **Staff Freeing Occupied Table** | Staff attempts to free a table with unserved kitchen orders. | RPC `free_table` and trigger `trg_check_table_can_be_freed` abort the transaction, returning an error toast (`"Cannot mark table free: there are active orders..."`). |
+| **Realtime Connection Drop** | Staff dashboard loses WebSocket connection. | React Query automatically executes a full refetch (`invalidateQueries(['staff-tables', 'staff-orders'])`) upon WebSocket reconnection. |
+
+---
+
+## 11. Concurrency & Consistency
+
+### 11.1 Transaction Boundaries & Atomicity
+Critical state transitions are wrapped in atomic database transactions to guarantee all-or-nothing completion:
+- **`free_table` RPC:** Executes order checks, session closure, service request resolution, and table pointer clearing within a single Postgres transaction block (`BEGIN ... COMMIT`). If any step fails, all changes roll back cleanly.
+- **Order Placement (`createOrderInDb`):** Inserts order header, line items, and updates session status (`'browsing'` → `'active'`) atomically.
+
+### 11.2 Race-Condition Prevention
+- **Table Occupancy Drift:** Prevented via `trg_check_table_can_be_freed` which validates order state at the Postgres engine level before allowing `tables.active_session_id` to be cleared.
+- **Daily Order Numbering:** Sequential order numbers (`order_number`) are generated using daily atomic sequence counters per cafe.
+
+### 11.3 Realtime Synchronization & Ordering
+Supabase Realtime broadcasts changes based on PostgreSQL Write-Ahead Logs (WAL).
+- Change notifications guarantee event ordering per record (`WAL LSN`).
+- Clients maintain optimistic UI states while reconciling incoming WAL payloads against cached query data.
+
+---
+
+## 12. Operational Constraints
+
+### 12.1 Session Timeout Rules
+- **`browsing` Sessions:** Automatically marked `'closed'` after **15 minutes** of inactivity via `cleanup_expired_browsing_sessions()`.
+- **`active` Sessions:** Do **NOT** time out automatically. Active sessions persist indefinitely until staff explicitly frees the table.
+
+### 12.2 Daily Order Numbering
+- Daily order sequence resets at **00:00:00 local cafe time**.
+- Order numbers start at `1` each day for each cafe tenant.
+
+### 12.3 Realtime Latency & Performance Guarantees
+- Postgres Realtime WAL event latency: **< 150ms** under normal load.
+- Target index lookup time: **< 5ms** for primary key and index queries on `tables`, `orders`, and `dining_sessions`.
+
+---
+
+## 13. State Machines & Lifecycles
+
+### 13.1 Dining Session Lifecycle
 ```
        [ QR Scan ]
             │
@@ -311,7 +401,7 @@ sequenceDiagram
 └───────────────────────┘                        └───────────────────────┘
 ```
 
-### 8.2 Table Lifecycle
+### 13.2 Table Lifecycle
 ```
 ┌───────────────────────┐    QR Scan / Active Session    ┌───────────────────────┐
 │         free          │ ─────────────────────────────► │       occupied        │
@@ -320,7 +410,7 @@ sequenceDiagram
             │────────────── Mark Table Free (RPC) ───────────────────│
 ```
 
-### 8.3 Order Lifecycle
+### 13.3 Order Lifecycle
 ```
 ┌─────────────┐   Staff Ack    ┌─────────────┐  Kitchen Done  ┌─────────────┐  Delivered  ┌─────────────┐
 │   pending   │ ─────────────► │  preparing  │ ─────────────► │    ready    │ ───────────►│   served    │
@@ -333,7 +423,7 @@ sequenceDiagram
 
 ---
 
-## 9. Row Level Security (RLS) Permissions Matrix
+## 14. Row Level Security (RLS) Permissions Matrix
 
 | Table Name | Anonymous (`anon`) | Authenticated Staff (`staff`) | Cafe Owner (`owner`) | Demo Restrictions |
 |------------|--------------------|-------------------------------|----------------------|-------------------|
@@ -348,7 +438,7 @@ sequenceDiagram
 
 ---
 
-## 10. Trigger Dependency & Execution Graph
+## 15. Trigger Dependency & Execution Graph
 
 ```
                           ┌───────────────────────────┐
@@ -370,20 +460,20 @@ sequenceDiagram
 
 ---
 
-## 11. RPC Functions & Stored Procedures
+## 16. RPC Functions & Stored Procedures
 
-### 11.1 `public.free_table(p_table_id UUID, p_staff_id UUID DEFAULT NULL)`
+### 16.1 `public.free_table(p_table_id UUID, p_staff_id UUID DEFAULT NULL)`
 - **Purpose:** Safely closes an active dining session, verifies no pending kitchen orders remain, auto-resolves open service requests, and resets the table status to `'free'`.
 - **Validation:** Checks if `active_session_id` is non-null. Throws `'Table is not currently occupied.'` if null. Checks if active orders exist (`status IN ('pending', 'preparing', 'ready')`). Throws `'Cannot mark table free: there are active orders...'` if found.
 - **Database Changes:** Sums `total_cents` across all session orders and updates `dining_sessions.total_amount`. Updates `service_requests` status to `'resolved'` for all open requests in the session. Updates `dining_sessions.status = 'closed'` and `closed_at = now()`. Updates `tables.active_session_id = NULL` and `status = 'free'`.
 
-### 11.2 `public.cleanup_expired_browsing_sessions()`
+### 16.2 `public.cleanup_expired_browsing_sessions()`
 - **Purpose:** Housekeeping procedure to close abandoned `browsing` sessions older than 15 minutes.
 - **Database Changes:** Sets `tables.active_session_id = NULL` and `status = 'free'` for tables holding expired browsing sessions. Updates `dining_sessions.status = 'closed'` for browsing sessions where `opened_at < now() - INTERVAL '15 minutes'`.
 
 ---
 
-## 12. Data Integrity & Constraints
+## 17. Data Integrity & Constraints
 
 - **Foreign Keys:** All parent-child relationships enforce referential integrity (`ON DELETE CASCADE` for line items; `ON DELETE SET NULL` for table sessions).
 - **Check Constraints:** Validates enumerated statuses (`CHECK (status IN ('free', 'occupied'))`, `CHECK (seats > 0)`).
@@ -391,16 +481,16 @@ sequenceDiagram
 
 ---
 
-## 13. Performance & Realtime Architecture
+## 18. Performance & Realtime Architecture
 
 - **Indexes:** B-tree indexes are maintained on `tables(cafe_id)`, `orders(table_id)`, `orders(dining_session_id)`, and `dining_sessions(table_id, status)`.
 - **Realtime Subscriptions:** Supabase Realtime listens to PostgreSQL WAL changes on `orders`, `service_requests`, and `tables`, broadcasting live updates to staff dashboards without client polling.
 
 ---
 
-## 14. Migration History & Deployment Strategy
+## 19. Migration History & Deployment Strategy
 
-### 14.1 Key Schema Migration Milestones
+### 19.1 Key Schema Migration Milestones
 
 | Timestamp / Version | Migration File Name | Core Architectural Milestones |
 |---------------------|---------------------|-------------------------------|
@@ -412,13 +502,13 @@ sequenceDiagram
 | `20260721210000` | `allow_demo_table_runtime_updates` | Introduced `trg_enforce_demo_table_update_protection` trigger. |
 | `20260721224500` | `fix_demo_table_update_rls` | Fixed RLS policy name mismatch, granting permissive `tables_runtime_update` to `anon`. |
 
-### 14.2 Production Migration Workflow Lessons
+### 19.2 Production Migration Workflow Lessons
 - **Pipeline Separation:** Frontend deployments to Vercel (`vite build`) do **not** run database migrations. Migrations must be explicitly deployed via `npx supabase db push`.
 - **Policy Name Integrity:** PostgreSQL policy names in `DROP POLICY IF EXISTS` must match live database catalog names exactly (`tables_demo_update_restrict` vs `tables_demo_restrict`).
 
 ---
 
-## 15. Future Database Evolution
+## 20. Future Database Evolution
 
 1. **Counter POS Module:** `counter_orders` and `walk_in_customers` for quick-service takeaway ordering without table binding.
 2. **Billing & Split Invoicing:** `bills`, `bill_items`, and `split_payments` bound to `dining_session_id` for individual guest payment calculation.
@@ -430,8 +520,8 @@ sequenceDiagram
 
 ---
 
-## 16. Cross-References & Related Documentation
+## 21. Cross-References & Related Documentation
 
-- [ARCHITECTURE.md](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/ARCHITECTURE.md) — System Architecture & Component Hierarchy.
-- [PRODUCT.md](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/PRODUCT.md) — Product Requirements & Feature Specifications.
-- [DEVELOPMENT_WORKFLOW.md](file:///C:/Users/17042/Downloads/orderrail-pro-main%20old/orderrail-pro-main/DEVELOPMENT_WORKFLOW.md) — Git workflow and quality standards.
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — System Architecture & Component Hierarchy.
+- [PRODUCT.md](./PRODUCT.md) — Product Requirements & Feature Specifications.
+- [DEVELOPMENT_WORKFLOW.md](./DEVELOPMENT_WORKFLOW.md) — Git workflow and quality standards.
