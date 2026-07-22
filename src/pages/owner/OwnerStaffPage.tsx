@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/select";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
-type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null };
+type RoleRow = { id: string; user_id: string; role: AppRole; cafe_id: string | null; is_suspended?: boolean };
 type Profile = { id: string; email: string | null; display_name: string | null; created_at?: string };
 type InviteRow = { id: string; email: string; role: AppRole; created_at: string };
 type AuditRow = {
@@ -63,10 +63,9 @@ export default function OwnerStaffPage() {
   const [newRole, setNewRole] = useState<AppRole>("staff");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [suspendedUsers, setSuspendedUsers] = useState<Record<string, boolean>>({});
   const [approvalRoles, setApprovalRoles] = useState<Record<string, AppRole>>({});
 
-  // 1. Fetch active user roles
+  // 1. Fetch active user roles (including is_suspended column)
   const rolesQ = useQuery({
     queryKey: ["owner-roles", cafeId],
     enabled: !!cafeId,
@@ -105,25 +104,35 @@ export default function OwnerStaffPage() {
     },
   });
 
-  // 4. Fetch pending unapproved signups (profiles with no assigned role)
+  // 4. Fetch pending unapproved signups (profiles with no assigned role and not rejected)
   const pendingApprovalsQ = useQuery({
     queryKey: ["owner-pending-approvals", cafeId],
     enabled: !!cafeId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: profiles, error: pErr } = await supabase
         .from("profiles")
         .select("id, email, display_name, created_at")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      const allProfiles = (data ?? []) as Profile[];
+      if (pErr) throw pErr;
+
+      // Fetch persistent rejected approvals for this cafe
+      const { data: rejectedData } = await supabase
+        .from("rejected_approvals")
+        .select("user_id")
+        .eq("cafe_id", cafeId!);
+
+      const rejectedUserIds = new Set((rejectedData ?? []).map((r) => r.user_id));
       const assignedIds = new Set((rolesQ.data ?? []).map((r) => r.user_id));
       const invitedEmails = new Set((invitesQ.data ?? []).map((i) => i.email.toLowerCase()));
 
-      // Filter profiles that have email, no active user_roles, and no pending invitation
-      return allProfiles.filter(
-        (p) => p.email && !assignedIds.has(p.id) && !invitedEmails.has(p.email.toLowerCase())
-      );
+      return (profiles ?? []).filter(
+        (p) =>
+          p.email &&
+          !assignedIds.has(p.id) &&
+          !invitedEmails.has(p.email.toLowerCase()) &&
+          !rejectedUserIds.has(p.id)
+      ) as Profile[];
     },
   });
 
@@ -246,7 +255,10 @@ export default function OwnerStaffPage() {
   // Revoke pending invitation
   const revokeInvite = async (inv: InviteRow) => {
     if (!confirm(`Cancel pending invite for ${inv.email}?`)) return;
+    setBusy(true);
     const { error } = await supabase.from("staff_invites").delete().eq("id", inv.id);
+    setBusy(false);
+
     if (error) return toast.error(`Revoke failed: ${error.message}`);
 
     void logAuditEvent({
@@ -271,6 +283,7 @@ export default function OwnerStaffPage() {
       user_id: profile.id,
       cafe_id: cafeId,
       role: selectedRole,
+      is_suspended: false,
     });
     setBusy(false);
 
@@ -288,10 +301,23 @@ export default function OwnerStaffPage() {
     void refreshRegistry();
   };
 
-  // Reject Pending User Registration
+  // Reject Pending User Registration (Persists in rejected_approvals)
   const rejectUser = async (profile: Profile) => {
-    if (!profile.email) return;
+    if (!cafeId || !profile.email) return;
     if (!confirm(`Reject registration request for ${profile.email}?`)) return;
+
+    setBusy(true);
+    const { error } = await supabase.from("rejected_approvals").insert({
+      cafe_id: cafeId,
+      user_id: profile.id,
+      email: profile.email,
+      rejected_by: user?.id,
+    });
+    setBusy(false);
+
+    if (error && !error.message.includes("duplicate")) {
+      return toast.error(`Rejection failed: ${error.message}`);
+    }
 
     void logAuditEvent({
       cafeId,
@@ -305,21 +331,24 @@ export default function OwnerStaffPage() {
     void refreshRegistry();
   };
 
-  // Remove staff role completely
+  // Remove staff role completely (Delete workflow)
   const removeStaffRole = async (r: RoleRow) => {
     const p = byUser.get(r.user_id);
     const memberEmail = p?.email ?? r.user_id;
 
     if (r.role === "owner") {
-      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner").length;
+      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner" && !x.is_suspended).length;
       if (ownerCount <= 1) {
         return toast.error("Cannot remove the last owner. There must be at least one active owner.");
       }
     }
-    if (!confirm(`Remove staff access for ${memberEmail}?`)) return;
+    if (!confirm(`Remove staff role for ${memberEmail}?`)) return;
 
+    setBusy(true);
     const { error } = await supabase.from("user_roles").delete().eq("id", r.id);
-    if (error) return toast.error(`Remove failed: ${error.message}`);
+    setBusy(false);
+
+    if (error) return toast.error(`Removal failed: ${error.message}`);
 
     void logAuditEvent({
       cafeId,
@@ -333,21 +362,28 @@ export default function OwnerStaffPage() {
     void refreshRegistry();
   };
 
-  // Toggle staff suspension
+  // Toggle staff suspension (Persists in user_roles.is_suspended)
   const toggleSuspend = async (r: RoleRow) => {
     const p = byUser.get(r.user_id);
     const memberEmail = p?.email ?? r.user_id;
-    const isCurrentlySuspended = !!suspendedUsers[r.id];
+    const isCurrentlySuspended = !!r.is_suspended;
 
     if (r.role === "owner" && !isCurrentlySuspended) {
-      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner" && !suspendedUsers[x.id]).length;
+      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner" && !x.is_suspended).length;
       if (ownerCount <= 1) {
         return toast.error("Cannot suspend the last active owner.");
       }
     }
 
     const nextState = !isCurrentlySuspended;
-    setSuspendedUsers((prev) => ({ ...prev, [r.id]: nextState }));
+    setBusy(true);
+    const { error } = await supabase
+      .from("user_roles")
+      .update({ is_suspended: nextState })
+      .eq("id", r.id);
+    setBusy(false);
+
+    if (error) return toast.error(`Suspension update failed: ${error.message}`);
 
     void logAuditEvent({
       cafeId,
@@ -361,14 +397,14 @@ export default function OwnerStaffPage() {
     void refreshRegistry();
   };
 
-  // Edit staff role
+  // Edit staff role (Persists in user_roles)
   const saveRole = async (r: RoleRow, targetRole: AppRole) => {
     if (targetRole !== "staff" && targetRole !== "owner") {
       return toast.error("Invalid role value.");
     }
 
     if (r.role === "owner" && targetRole === "staff") {
-      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner").length;
+      const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner" && !x.is_suspended).length;
       if (ownerCount <= 1) {
         return toast.error("Cannot demote the last owner. There must be at least one active owner.");
       }
@@ -642,7 +678,7 @@ export default function OwnerStaffPage() {
           <ul className="divide-y divide-border/60">
             {filteredTeam.map((r) => {
               const p = byUser.get(r.user_id);
-              const isSuspended = !!suspendedUsers[r.id];
+              const isSuspended = !!r.is_suspended;
               return (
                 <li key={r.id} className="flex items-center justify-between gap-3 py-3.5">
                   <div className="flex items-center gap-3 min-w-0">
@@ -693,7 +729,7 @@ export default function OwnerStaffPage() {
                     {/* Suspend / Reactivate Button */}
                     <button
                       onClick={isDemo ? undefined : () => void toggleSuspend(r)}
-                      disabled={isDemo}
+                      disabled={isDemo || busy}
                       className={cn(
                         "rounded-full p-2 transition",
                         isDemo
@@ -711,7 +747,7 @@ export default function OwnerStaffPage() {
                     {/* Remove Staff Button */}
                     <button
                       onClick={isDemo ? undefined : () => void removeStaffRole(r)}
-                      disabled={isDemo}
+                      disabled={isDemo || busy}
                       className={cn(
                         "rounded-full p-2 transition",
                         isDemo

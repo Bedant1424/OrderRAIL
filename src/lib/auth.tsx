@@ -6,10 +6,17 @@ import { logAuditEvent } from "@/lib/auditLogger";
 
 export type AppRole = Database["public"]["Enums"]["app_role"];
 
+export type UserRoleEntry = {
+  role: AppRole;
+  cafe_id: string | null;
+  is_suspended?: boolean;
+};
+
 type AuthCtx = {
   session: Session | null;
   user: User | null;
-  roles: { role: AppRole; cafe_id: string | null }[];
+  roles: UserRoleEntry[];
+  isSuspended: boolean;
   loading: boolean;
   refreshRoles: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -19,7 +26,7 @@ const Ctx = createContext<AuthCtx | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [roles, setRoles] = useState<AuthCtx["roles"]>([]);
+  const [roles, setRoles] = useState<UserRoleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUid, setLastUid] = useState<string | null>(null);
   const activePromiseRef = useRef<{ uid: string; promise: Promise<void> } | null>(null);
@@ -50,8 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const promise = (async () => {
       try {
-        const { data, error } = await supabase.from("user_roles").select("role, cafe_id").eq("user_id", uid);
-        let fetchedRoles = (data ?? []) as AuthCtx["roles"];
+        const { data, error } = await supabase
+          .from("user_roles")
+          .select("role, cafe_id, is_suspended")
+          .eq("user_id", uid);
+
+        let fetchedRoles = (data ?? []) as UserRoleEntry[];
 
         // If user currently has 0 assigned roles, check for pending invitation by email
         if (fetchedRoles.length === 0) {
@@ -72,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user_id: uid,
                 cafe_id: pendingInvite.cafe_id,
                 role: pendingInvite.role,
+                is_suspended: false,
               });
 
               if (!insertErr) {
@@ -90,9 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // 4. Re-fetch user roles
                 const { data: reRefetched } = await supabase
                   .from("user_roles")
-                  .select("role, cafe_id")
+                  .select("role, cafe_id, is_suspended")
                   .eq("user_id", uid);
-                fetchedRoles = (reRefetched ?? []) as AuthCtx["roles"];
+                fetchedRoles = (reRefetched ?? []) as UserRoleEntry[];
               }
             }
           }
@@ -120,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(({ data, error }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       setSession(data.session);
       void loadRoles(data.session?.user.id, true).finally(() => {
@@ -151,10 +163,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const isSuspended = roles.length > 0 && roles.every((r) => r.is_suspended === true);
+
   const value: AuthCtx = {
     session,
     user: session?.user ?? null,
     roles,
+    isSuspended,
     loading,
     refreshRoles: () => loadRoles(session?.user.id, true, true),
     signOut: async () => {
@@ -170,6 +185,6 @@ export function useAuth() {
   return ctx;
 }
 
-export function hasRole(roles: { role: AppRole }[], ...allowed: AppRole[]) {
-  return roles.some((r) => allowed.includes(r.role));
+export function hasRole(roles: UserRoleEntry[], ...allowed: AppRole[]) {
+  return roles.some((r) => allowed.includes(r.role) && !r.is_suspended);
 }

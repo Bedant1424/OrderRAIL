@@ -6,10 +6,11 @@ import { useAuth, hasRole } from "@/lib/auth";
 import { useCafe } from "@/lib/cafe";
 import { useImageUrl } from "@/lib/useImageUrl";
 import AwaitingApproval from "@/components/auth/AwaitingApproval";
+import AccountSuspended from "@/components/auth/AccountSuspended";
 
 export default function StaffLoginPage() {
   const nav = useNavigate();
-  const { session, roles, loading } = useAuth();
+  const { session, roles, isSuspended, loading } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,15 +23,16 @@ export default function StaffLoginPage() {
       loading,
       sessionExists: !!session,
       roles,
+      isSuspended,
       isOwner: hasRole(roles, "owner"),
       isStaff: hasRole(roles, "staff")
     });
-    if (!loading && session && hasRole(roles, "staff", "owner")) {
+    if (!loading && session && !isSuspended && hasRole(roles, "staff", "owner")) {
       const target = hasRole(roles, "owner") ? "/owner" : "/staff";
       console.log("StaffLoginPage: Redirecting to:", target);
       nav(target, { replace: true });
     }
-  }, [loading, session, roles, nav]);
+  }, [loading, session, roles, isSuspended, nav]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,6 +171,8 @@ export default function StaffLoginPage() {
               {mode === "signin" ? "No account? Sign up" : "Already have an account? Sign in"}
             </button>
           </div>
+        ) : isSuspended ? (
+          <AccountSuspended />
         ) : (
           <AwaitingApproval />
         )}

@@ -583,6 +583,41 @@ export type Database = {
           },
         ]
       }
+      rejected_approvals: {
+        Row: {
+          id: string
+          cafe_id: string | null
+          user_id: string
+          email: string | null
+          rejected_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          cafe_id?: string | null
+          user_id: string
+          email?: string | null
+          rejected_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          cafe_id?: string | null
+          user_id?: string
+          email?: string | null
+          rejected_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rejected_approvals_cafe_id_fkey"
+            columns: ["cafe_id"]
+            isOneToOne: false
+            referencedRelation: "cafes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           cafe_id: string
@@ -790,18 +825,21 @@ export type Database = {
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          is_suspended: boolean
         }
         Insert: {
           cafe_id?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+          is_suspended?: boolean
         }
         Update: {
           cafe_id?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+          is_suspended?: boolean
         }
         Relationships: [
           {
