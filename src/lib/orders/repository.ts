@@ -186,6 +186,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
       dining_session_id: payload.dining_session_id || null,
       total_cents: payload.total_cents,
       note: payload.note ?? null,
+      status: "pending",
     });
     if (orderErr && orderErr.code !== "23505") throw orderErr;
   }

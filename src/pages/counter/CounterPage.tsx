@@ -42,7 +42,7 @@ export interface SessionOrder {
   id: string;
   orderNumber: number;
   timestamp: string;
-  status: 'KOT_SENT' | 'PREPARING' | 'SERVED' | 'PAID';
+  status: 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'PAID';
   items: CartLineItem[];
   subtotal: number;
 }
@@ -297,19 +297,22 @@ const MenuPanel = ({
 };
 
 // --- 4. MULTI-ORDER DINING SESSION HERO PANEL ---
-const OrderCard = memo(({ order }: { order: SessionOrder }) => {
+const OrderCard = memo(({ order, onAcceptOrder }: { order: SessionOrder; onAcceptOrder?: (id: string, num: number) => void }) => {
   const getStatusBadgeClass = (status: SessionOrder['status']) => {
     switch (status) {
-      case 'KOT_SENT': return 'bg-amber-500/15 text-amber-600 border-amber-500/20';
+      case 'PENDING': return 'bg-amber-500/20 text-amber-600 border-amber-500/30 animate-pulse';
       case 'PREPARING': return 'bg-blue-500/15 text-blue-600 border-blue-500/20';
+      case 'READY': return 'bg-purple-500/15 text-purple-600 border-purple-500/20';
       case 'SERVED': return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20';
       case 'PAID': return 'bg-muted text-muted-foreground border-border';
       default: return 'bg-muted text-muted-foreground';
     }
   };
 
+  const isPending = order.status === 'PENDING';
+
   return (
-    <div className="p-3.5 rounded-xl border border-border/40 bg-card/80 flex flex-col gap-2 shadow-xs">
+    <div className={cn("p-3.5 rounded-xl border flex flex-col gap-2 shadow-xs transition", isPending ? "border-amber-500/40 bg-amber-500/5" : "border-border/40 bg-card/80")}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="font-extrabold text-xs text-foreground">Order #{order.orderNumber}</span>
@@ -318,7 +321,7 @@ const OrderCard = memo(({ order }: { order: SessionOrder }) => {
           </span>
         </div>
         <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-extrabold border uppercase tracking-wider', getStatusBadgeClass(order.status))}>
-          {order.status.replace('_', ' ')}
+          {isPending ? 'NEW ORDER' : order.status.replace('_', ' ')}
         </span>
       </div>
 
@@ -335,6 +338,18 @@ const OrderCard = memo(({ order }: { order: SessionOrder }) => {
         <span className="text-muted-foreground text-[11px]">Order Total:</span>
         <span className="v8-font-mono">{formatCurrency(order.subtotal)}</span>
       </div>
+
+      {isPending && onAcceptOrder && (
+        <div className="flex justify-between items-center pt-2 border-t border-amber-500/20">
+          <span className="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">Awaiting Acceptance</span>
+          <button 
+            className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold"
+            onClick={() => onAcceptOrder(order.id, order.orderNumber)}
+          >
+            <Check className="w-3.5 h-3.5 inline mr-1" /> Accept & Send KOT
+          </button>
+        </div>
+      )}
     </div>
   );
 });
@@ -375,7 +390,8 @@ const ActiveOrderPanel = ({
   onOpenSession,
   onReleaseTable,
   onRestoreTable,
-  onUpdateQty
+  onUpdateQty,
+  onAcceptOrder
 }: {
   table: TableEntity | null;
   session: TableSessionData | null;
@@ -384,6 +400,7 @@ const ActiveOrderPanel = ({
   onReleaseTable: () => void;
   onRestoreTable: () => void;
   onUpdateQty: (id: string, delta: number) => void;
+  onAcceptOrder?: (id: string, num: number) => void;
 }) => {
   const isAvailable = table?.status === 'AVAILABLE';
   const isCleaning = table?.status === 'CLEANING';
@@ -446,7 +463,7 @@ const ActiveOrderPanel = ({
               <ShoppingBag className="w-3.5 h-3.5 text-primary" /> Active Session Orders ({orders.length})
             </span>
             {orders.map((ord) => (
-              <OrderCard key={ord.id} order={ord} />
+              <OrderCard key={ord.id} order={ord} onAcceptOrder={onAcceptOrder} />
             ))}
           </div>
         )}
@@ -1101,11 +1118,19 @@ const CounterLayout = () => {
           qty: it.qty,
         }));
 
+        const mappedStatus = ord.status === 'pending'
+          ? 'PENDING'
+          : ord.status === 'ready'
+          ? 'READY'
+          : ord.status === 'served'
+          ? 'SERVED'
+          : 'PREPARING';
+
         const sessOrder: SessionOrder = {
           id: ord.id,
           orderNumber: ord.order_number || Math.floor(100 + Math.random() * 900),
           timestamp: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-          status: ord.status === 'served' ? 'SERVED' : ord.status === 'preparing' ? 'PREPARING' : 'KOT_SENT',
+          status: mappedStatus,
           items: mappedItems,
           subtotal: (ord.total_cents || 0) / 100
         };
@@ -1361,7 +1386,7 @@ const CounterLayout = () => {
           dining_session_id: targetSessionId,
           order_number: newOrderNumber,
           total_cents: Math.round(subtotal * 100),
-          status: "pending"
+          status: "preparing" // Workflow B: Counter orders set status directly to preparing
         })
         .select()
         .single();
@@ -1512,6 +1537,25 @@ const CounterLayout = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKot, handlePrintBill, isPaymentOpen]);
 
+  // Workflow A: Accept Customer QR Order and send KOT
+  const handleAcceptQrOrder = useCallback(async (orderId: string, orderNumber: number) => {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: "preparing" })
+        .eq("id", orderId);
+
+      if (!error) {
+        toast.success(`✅ QR Order #${orderNumber} Accepted & Sent to Kitchen!`);
+        await loadSessionsFromDb();
+      } else {
+        toast.error("Failed to accept QR order");
+      }
+    } catch (e) {
+      console.warn("[handleAcceptQrOrder] Error:", e);
+    }
+  }, [loadSessionsFromDb]);
+
   // Calculate Cumulative Totals for Active Session
   const submittedSubtotal = activeSessionData.orders.reduce((a, o) => a + o.subtotal, 0);
   const draftSubtotal = activeSessionData.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
@@ -1543,6 +1587,7 @@ const CounterLayout = () => {
           onReleaseTable={handleReleaseTable}
           onRestoreTable={handleRestoreTable}
           onUpdateQty={handleUpdateQty}
+          onAcceptOrder={handleAcceptQrOrder}
         />
         <SummaryPanel 
           session={activeSessionData}
