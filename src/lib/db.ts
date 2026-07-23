@@ -16,8 +16,25 @@ export type VegType = Database["public"]["Enums"]["veg_type"];
 
 export { supabase };
 
-export const formatMoney = (cents: number, currency = "USD") =>
-  new Intl.NumberFormat(undefined, { style: "currency", currency }).format(cents / 100);
+/** Central Currency Formatter for INR (Indian Rupees) */
+export const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
+
+/** Format money from cents using INR as default currency */
+export const formatMoney = (cents: number, currency = "INR"): string => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: currency || 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+};
 
 /** Standard display label for an order: "Order #27". Never expose raw UUIDs. */
 export const formatOrderLabel = (orderNumber: number): string =>

@@ -26,7 +26,7 @@ export default function OwnerSettingsPage() {
 
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("INR");
   const [logoUrl, setLogoUrl] = useState("");
   const [phone, setPhone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -47,9 +47,9 @@ export default function OwnerSettingsPage() {
 
   useEffect(() => {
     if (cafe) {
-      setName(cafe.name);
+      setName(cafe.name || "");
       setTagline(cafe.tagline ?? "");
-      setCurrency(cafe.currency || "USD");
+      setCurrency(cafe.currency || "INR");
       setLogoUrl(cafe.logo_url ?? "");
       setPhone(cafe.phone ?? "");
       setWhatsapp(cafe.whatsapp ?? "");

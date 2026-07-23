@@ -51,7 +51,7 @@ export function generateOrdersCSV(
     
     // Task 6: Human-readable Date (YYYY-MM-DD) and Time (10:35 PM)
     const dateStr = createdDate.toISOString().slice(0, 10);
-    const timeStr = createdDate.toLocaleTimeString("en-US", {
+    const timeStr = createdDate.toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true
@@ -74,8 +74,8 @@ export function generateOrdersCSV(
     const createdAt = createdDate.toISOString();
     const updatedAt = o.updated_at ? new Date(o.updated_at).toISOString() : "";
     const paymentMethod = "Digital / QR";
-    const servedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
-    const completedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+    const servedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+    const completedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
 
     return [
       escapeCSVCell(formatOrderLabel(o.order_number)),

@@ -30,7 +30,7 @@ export default function EditOrderDialog({
   onOpenChange,
   order,
   tableLabel = "?",
-  currency = "USD",
+  currency = "INR",
   cafeId,
   role = "staff",
   onSaved

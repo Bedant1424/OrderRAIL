@@ -359,7 +359,7 @@ export default function OwnerMenuPage() {
                   <ItemCard
                     key={i.id}
                     item={i}
-                    currency={cafe?.currency ?? "USD"}
+                    currency={cafe?.currency ?? "INR"}
                     onEdit={() => setEditingItem(i)}
                     onToggle={() => void toggleAvail(i)}
                     onDelete={() => void removeItem(i)}

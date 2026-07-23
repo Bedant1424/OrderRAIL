@@ -41,7 +41,7 @@ type DateRangeFilter = "today" | "7d" | "30d" | "all";
 export default function OwnerOrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { cafe } = useCafe();
-  const currency = cafe?.currency ?? "USD";
+  const currency = cafe?.currency ?? "INR";
 
   // Navigation Tab State
   const [activeTab, setActiveTab] = useState<MainTab>(

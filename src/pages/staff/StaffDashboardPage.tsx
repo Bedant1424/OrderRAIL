@@ -1132,7 +1132,7 @@ export default function StaffDashboardPage() {
     };
   }, [ordersQ.data, srQ.data, tick]);
 
-  const currency = cafe?.currency ?? "USD";
+  const currency = cafe?.currency ?? "INR";
   const openSRTables = new Set((srQ.data ?? []).map((s) => s.table_id));
   const occupiedTablesCount = useMemo(
     () => calculateOccupiedTables((tablesQ.data ?? []) as TableRow[], (ordersQ.data ?? []) as any[]).length,

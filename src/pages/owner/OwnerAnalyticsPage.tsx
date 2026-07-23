@@ -40,7 +40,7 @@ type Range = 7 | 30 | 90;
 export default function OwnerAnalyticsPage() {
   const [range, setRange] = useState<Range>(7);
   const { cafe } = useCafe();
-  const currency = cafe?.currency ?? "USD";
+  const currency = cafe?.currency ?? "INR";
 
   const since = useMemo(() => {
     const d = new Date();
