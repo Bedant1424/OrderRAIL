@@ -320,7 +320,7 @@ const MenuPanel = ({
   );
 };
 
-// --- 4. MULTI-ORDER DINING SESSION HERO PANEL (SPRINT 2) ---
+// --- 4. MULTI-ORDER DINING SESSION HERO PANEL ---
 const OrderCard = memo(({ order }: { order: SessionOrder }) => {
   const getStatusBadgeClass = (status: SessionOrder['status']) => {
     switch (status) {
@@ -785,7 +785,7 @@ const IndianRupeeIcon = ({ className }: { className?: string }) => (
   <span className={cn("font-bold inline-block text-center", className)}>₹</span>
 );
 
-// --- 6. DINING SESSION RECEIPT PRINT MODAL (THERMAL INR FORMAT) ---
+// --- 6. DINING SESSION RECEIPT PRINT MODAL ---
 const ReceiptModal = ({
   receipt,
   onClose
@@ -818,7 +818,6 @@ const ReceiptModal = ({
         </div>
 
         <div className="v8-dialog-body">
-          {/* Printable Thermal Receipt Card */}
           <div className="v8-receipt-paper v8-receipt-printable">
             <div className="text-center pb-2 border-b border-dashed border-gray-300">
               <div className="font-extrabold text-sm tracking-wider">ORDERRAIL CAFE</div>
@@ -831,7 +830,6 @@ const ReceiptModal = ({
               <span>Dining Session {receipt.sessionId}</span>
             </div>
 
-            {/* List of Orders in this Session */}
             <div className="flex flex-col gap-2 py-2 border-y border-dashed border-gray-300 text-xs">
               {receipt.orders.map((ord) => (
                 <div key={ord.id} className="flex flex-col gap-0.5">
@@ -929,7 +927,6 @@ const SummaryPanel = ({
   const [discountPct, setDiscountPct] = useState<number>(0);
   const [showDiscount, setShowDiscount] = useState<boolean>(false);
 
-  // Calculate Cumulative Running Bill Across All Session Orders + Active Draft
   const submittedOrders = session?.orders ?? [];
   const submittedSubtotal = submittedOrders.reduce((sAcc, ord) => sAcc + ord.subtotal, 0);
   const draftSubtotal = draftCart.reduce((acc, item) => acc + item.price * item.qty, 0);
@@ -1079,6 +1076,78 @@ const CounterLayout = () => {
   const menu = useMenu(cafeId);
 
   const activeTableId = tableEngine.selectedTableId || 'express';
+
+  // Real-time synchronization: Subscribes to Supabase PostgreSQL orders & service_requests table
+  useEffect(() => {
+    if (!cafeId) return;
+
+    const ordersChannel = supabase
+      .channel(`counter-realtime-orders-${cafeId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `cafe_id=eq.${cafeId}` },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newOrder = payload.new as any;
+            
+            // Query order_items for line details
+            const { data: items } = await supabase
+              .from("order_items")
+              .select("id, name, price_cents, qty")
+              .eq("order_id", newOrder.id);
+
+            const mappedItems: CartLineItem[] = (items || []).map((it) => ({
+              id: it.id,
+              name: it.name,
+              price: it.price_cents / 100,
+              qty: it.qty,
+            }));
+
+            const targetTableId = newOrder.table_id || "express";
+
+            const incomingSessionOrder: SessionOrder = {
+              id: newOrder.id,
+              orderNumber: newOrder.order_number || Math.floor(100 + Math.random() * 900),
+              timestamp: new Date(newOrder.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+              status: newOrder.status === 'served' ? 'SERVED' : newOrder.status === 'preparing' ? 'PREPARING' : 'KOT_SENT',
+              items: mappedItems,
+              subtotal: (newOrder.total_cents || 0) / 100
+            };
+
+            setTableSessions((prev) => {
+              const cur = prev[targetTableId] || {
+                sessionId: newOrder.dining_session_id || `s-${Math.floor(100 + Math.random() * 900)}`,
+                sessionCode: `#S-${Math.floor(10 + Math.random() * 90)}`,
+                startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+                guestCount: 2,
+                orders: [],
+                draftCart: []
+              };
+
+              return {
+                ...prev,
+                [targetTableId]: {
+                  ...cur,
+                  orders: [...cur.orders.filter(o => o.id !== newOrder.id), incomingSessionOrder]
+                }
+              };
+            });
+
+            // Automatically transition table status to OCCUPIED
+            if (targetTableId !== "express") {
+              tableEngine.openTable(targetTableId);
+            }
+
+            toast.success(`🛒 Live QR Order #${incomingSessionOrder.orderNumber} received in real-time!`);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(ordersChannel);
+    };
+  }, [cafeId, tableEngine]);
 
   // Ensure current table session is initialized
   const activeSessionData: TableSessionData = tableSessions[activeTableId] || {
