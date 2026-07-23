@@ -69,6 +69,12 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
           currentSessionId: t.active_session_id || undefined,
         }));
         setTables(mapped);
+        setSelectedTableId((currentId) => {
+          if (!currentId || !mapped.some((t) => t.id === currentId)) {
+            return mapped[0].id;
+          }
+          return currentId;
+        });
       }
     }
 

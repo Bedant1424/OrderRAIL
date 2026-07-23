@@ -1392,29 +1392,15 @@ const CounterLayout = () => {
       console.warn("[handleKot] Database write warning:", e);
     }
 
-    // Construct optimistic newly created session order
-    const optimisticOrder: SessionOrder = {
-      id: `ord-${Date.now()}`,
-      orderNumber: newOrderNumber,
-      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-      status: 'KOT_SENT',
-      items: [...cur.draftCart],
-      subtotal
-    };
-
-    // Move draft cart items into submitted orders array locally and clear draft
-    setTableSessions((prev) => {
-      const existingOrders = prev[activeTableId]?.orders || cur.orders;
-      return {
-        ...prev,
-        [activeTableId]: {
-          ...cur,
-          sessionId: targetSessionId || cur.sessionId,
-          orders: [...existingOrders, optimisticOrder],
-          draftCart: []
-        }
-      };
-    });
+    // Clear local draft cart and reload 100% database-driven active sessions from Supabase
+    setTableSessions((prev) => ({
+      ...prev,
+      [activeTableId]: {
+        ...(prev[activeTableId] || cur),
+        sessionId: targetSessionId || cur.sessionId,
+        draftCart: []
+      }
+    }));
 
     await loadSessionsFromDb();
     toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
