@@ -1078,10 +1078,12 @@ const CounterLayout = () => {
     try {
       const { activeSessions, orders: dbOrders } = await fetchActiveDiningSessionOrders(cafeId);
 
-      const activeSessionMap = new Map<string, string>(); // table_id -> session_id
+      const activeSessionMap = new Map<string, string>(); // table_id -> active_session_id
       if (activeSessions) {
         for (const s of activeSessions) {
-          if (s.table_id) activeSessionMap.set(s.table_id, s.id);
+          if (s.table_id && s.status !== "closed") {
+            activeSessionMap.set(s.table_id, s.id);
+          }
         }
       }
 
@@ -1092,10 +1094,13 @@ const CounterLayout = () => {
       for (const ord of dbOrders) {
         const tId = ord.table_id || "express";
 
-        // Skip historical orders that do not belong to active sessions
-        if (tId !== "express" && activeSessionMap.size > 0 && ord.dining_session_id) {
-          const sessionStatus = activeSessions?.find((s) => s.id === ord.dining_session_id)?.status;
-          if (sessionStatus === "closed") continue;
+        // Strict Session Enforcement:
+        // Table orders MUST belong to the active dining session of that table.
+        // If table has no active session, or if order's session ID doesn't match activeSessionId, skip it!
+        if (tId !== "express") {
+          const activeSessionId = activeSessionMap.get(tId);
+          if (!activeSessionId) continue;
+          if (ord.dining_session_id && ord.dining_session_id !== activeSessionId) continue;
         }
 
         const mappedItems: CartLineItem[] = (ord.order_items || []).map((it: any) => ({

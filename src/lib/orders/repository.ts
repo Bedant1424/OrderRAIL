@@ -317,9 +317,8 @@ export async function fetchActiveDiningSessionOrders(cafeId: string): Promise<{
 
   const activeSessionIds = activeSessions.map((s) => s.id);
 
-  // 3. Query ALL non-cancelled orders for cafe belonging to active sessions or active tables
+  // 3. Query ONLY orders belonging to active sessions (including pending, preparing, ready, served)
   let orders: OrderWithItems[] = [];
-
   if (activeSessionIds.length > 0) {
     const { data: ordData } = await supabase
       .from("orders")
@@ -332,26 +331,23 @@ export async function fetchActiveDiningSessionOrders(cafeId: string): Promise<{
     if (ordData) orders = ordData as unknown as OrderWithItems[];
   }
 
-  // Also query active orders for cafe's tables or express orders
-  const { data: tableOrders } = await supabase
+  // 4. Also query express orders without a dining session that are active (not served & not cancelled)
+  const { data: expressOrders } = await supabase
     .from("orders")
     .select("*, order_items(*)")
     .eq("cafe_id", cafeId)
+    .is("dining_session_id", null)
     .neq("status", "cancelled")
+    .neq("status", "served")
     .order("created_at", { ascending: true });
 
   const combinedMap = new Map<string, OrderWithItems>();
   for (const o of orders) {
     combinedMap.set(o.id, o);
   }
-  if (tableOrders) {
-    for (const o of tableOrders as unknown as OrderWithItems[]) {
-      if (
-        (o.dining_session_id && activeSessionIds.includes(o.dining_session_id)) ||
-        o.status !== "served"
-      ) {
-        combinedMap.set(o.id, o);
-      }
+  if (expressOrders) {
+    for (const o of expressOrders as unknown as OrderWithItems[]) {
+      combinedMap.set(o.id, o);
     }
   }
 
