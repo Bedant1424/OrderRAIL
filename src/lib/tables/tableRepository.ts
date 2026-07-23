@@ -134,7 +134,7 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
     try {
       const { data: session, error: sErr } = await supabase
         .from("dining_sessions")
-        .insert({ cafe_id: table.cafe_id, table_id: table.id, status: "active" })
+        .insert({ table_id: table.id, status: "active" })
         .select("id")
         .single();
       if (sErr) throw sErr;
@@ -177,10 +177,10 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
   return activeSessionId;
 }
 
-export async function createDiningSessionInDb(tableId: string, cafeId: string): Promise<string> {
+export async function createDiningSessionInDb(tableId: string, cafeId?: string): Promise<string> {
   const { data: session, error } = await supabase
     .from("dining_sessions")
-    .insert({ cafe_id: cafeId, table_id: tableId, status: "active" })
+    .insert({ table_id: tableId, status: "active" })
     .select("id")
     .single();
 

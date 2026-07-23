@@ -173,6 +173,33 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
   const orderId = payload.id || crypto.randomUUID();
   const initialStatus = payload.status || "pending";
 
+  let diningSessionId = payload.dining_session_id || null;
+
+  // Resolve or create active dining session for table if dining_session_id is missing or invalid dummy
+  if ((!diningSessionId || diningSessionId.startsWith("session-")) && payload.table_id) {
+    const { data: activeSess } = await supabase
+      .from("dining_sessions")
+      .select("id")
+      .eq("table_id", payload.table_id)
+      .neq("status", "closed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (activeSess) {
+      diningSessionId = activeSess.id;
+    } else {
+      const { data: newSess } = await supabase
+        .from("dining_sessions")
+        .insert({ table_id: payload.table_id, status: "active" })
+        .select("id")
+        .maybeSingle();
+      if (newSess) {
+        diningSessionId = newSess.id;
+      }
+    }
+  }
+
   const { data: existingOrder } = await supabase
     .from("orders")
     .select("id")
@@ -185,7 +212,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
       cafe_id: payload.cafe_id,
       table_id: payload.table_id,
       session_id: payload.session_id || null,
-      dining_session_id: payload.dining_session_id || null,
+      dining_session_id: diningSessionId,
       total_cents: payload.total_cents,
       note: payload.note ?? null,
       status: initialStatus,
@@ -211,26 +238,25 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     if (itemsErr) throw itemsErr;
   }
 
-  // If order matches a dining session, check if it's currently 'browsing' and activate it
-  if (payload.dining_session_id) {
+  // Synchronize table occupancy and active_session_id
+  if (diningSessionId && payload.table_id) {
     const { data: session } = await supabase
       .from("dining_sessions")
       .select("status")
-      .eq("id", payload.dining_session_id)
+      .eq("id", diningSessionId)
       .maybeSingle();
 
     if (session && session.status === "browsing") {
       await supabase
         .from("dining_sessions")
         .update({ status: "active" })
-        .eq("id", payload.dining_session_id);
+        .eq("id", diningSessionId);
     }
 
-    // Synchronize table occupancy and active_session_id
     const { error: tErr } = await supabase
       .from("tables")
       .update({
-        active_session_id: payload.dining_session_id,
+        active_session_id: diningSessionId,
         status: "occupied",
       })
       .eq("id", payload.table_id);
@@ -261,21 +287,41 @@ export async function fetchActiveDiningSessionOrders(cafeId: string): Promise<{
   activeSessions: { id: string; table_id: string; status: string; created_at: string }[];
   orders: OrderWithItems[];
 }> {
-  // 1. Fetch active dining sessions for cafe where status != 'closed'
-  const { data: activeSessions, error: sessErr } = await supabase
-    .from("dining_sessions")
-    .select("id, table_id, status, created_at")
-    .or(`cafe_id.eq.${cafeId},cafe_id.is.null`)
-    .neq("status", "closed");
+  // 1. Fetch table IDs for the cafe
+  const { data: cafeTables } = await supabase
+    .from("tables")
+    .select("id")
+    .eq("cafe_id", cafeId);
 
-  if (sessErr) throw sessErr;
+  const tableIds = (cafeTables ?? []).map((t) => t.id);
 
-  const activeSessionIds = (activeSessions ?? []).map((s) => s.id);
+  // 2. Fetch active dining sessions for the cafe's tables where status != 'closed'
+  let activeSessions: { id: string; table_id: string; status: string; created_at: string }[] = [];
+  if (tableIds.length > 0) {
+    const { data: sessions } = await supabase
+      .from("dining_sessions")
+      .select("id, table_id, status, created_at")
+      .in("table_id", tableIds)
+      .neq("status", "closed");
 
-  // 2. Query ALL orders belonging to active sessions (including pending, preparing, ready, served)
+    if (sessions) {
+      activeSessions = sessions;
+    }
+  } else {
+    const { data: sessions } = await supabase
+      .from("dining_sessions")
+      .select("id, table_id, status, created_at")
+      .neq("status", "closed");
+    if (sessions) activeSessions = sessions;
+  }
+
+  const activeSessionIds = activeSessions.map((s) => s.id);
+
+  // 3. Query ALL non-cancelled orders for cafe belonging to active sessions or active tables
   let orders: OrderWithItems[] = [];
+
   if (activeSessionIds.length > 0) {
-    const { data: ordData, error: ordErr } = await supabase
+    const { data: ordData } = await supabase
       .from("orders")
       .select("*, order_items(*)")
       .eq("cafe_id", cafeId)
@@ -283,25 +329,35 @@ export async function fetchActiveDiningSessionOrders(cafeId: string): Promise<{
       .neq("status", "cancelled")
       .order("created_at", { ascending: true });
 
-    if (ordErr) throw ordErr;
-    orders = (ordData ?? []) as unknown as OrderWithItems[];
+    if (ordData) orders = ordData as unknown as OrderWithItems[];
   }
 
-  // Also query express orders without dining session that are active
-  const { data: expressOrders } = await supabase
+  // Also query active orders for cafe's tables or express orders
+  const { data: tableOrders } = await supabase
     .from("orders")
     .select("*, order_items(*)")
     .eq("cafe_id", cafeId)
-    .is("dining_session_id", null)
     .neq("status", "cancelled")
-    .neq("status", "served")
     .order("created_at", { ascending: true });
 
-  const allOrders = [...orders, ...((expressOrders ?? []) as unknown as OrderWithItems[])];
+  const combinedMap = new Map<string, OrderWithItems>();
+  for (const o of orders) {
+    combinedMap.set(o.id, o);
+  }
+  if (tableOrders) {
+    for (const o of tableOrders as unknown as OrderWithItems[]) {
+      if (
+        (o.dining_session_id && activeSessionIds.includes(o.dining_session_id)) ||
+        o.status !== "served"
+      ) {
+        combinedMap.set(o.id, o);
+      }
+    }
+  }
 
   return {
-    activeSessions: activeSessions ?? [],
-    orders: allOrders,
+    activeSessions,
+    orders: Array.from(combinedMap.values()),
   };
 }
 
