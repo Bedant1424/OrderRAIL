@@ -1,4 +1,5 @@
 import { supabase, type Order, type OrderItem } from "@/lib/db";
+import { getSessionId } from "@/lib/session";
 
 /**
  * Shared Order Repository
@@ -291,14 +292,17 @@ export async function fetchCustomerOrders(
   const combinedMap = new Map<string, OrderWithItems>();
 
   // 1. Fetch by dining_session_id if valid
+  let sessCount = 0;
   if (diningSessionId && !diningSessionId.startsWith("session-")) {
-    const { data: sessOrders } = await supabase
+    const { data: sessOrders, error: err1 } = await supabase
       .from("orders")
       .select("*, order_items(*)")
       .eq("dining_session_id", diningSessionId)
       .order("created_at", { ascending: false });
 
+    if (err1) console.warn("[Instrumentation Query 1 Error]", err1.message);
     if (sessOrders) {
+      sessCount = sessOrders.length;
       for (const o of sessOrders as unknown as OrderWithItems[]) {
         combinedMap.set(o.id, o);
       }
@@ -306,14 +310,17 @@ export async function fetchCustomerOrders(
   }
 
   // 2. Fetch by local sessionStorage order IDs (from addOrderToHistory)
+  let localCount = 0;
   if (localOrderIds.length > 0) {
-    const { data: localOrders } = await supabase
+    const { data: localOrders, error: err2 } = await supabase
       .from("orders")
       .select("*, order_items(*)")
       .in("id", localOrderIds)
       .order("created_at", { ascending: false });
 
+    if (err2) console.warn("[Instrumentation Query 2 Error]", err2.message);
     if (localOrders) {
+      localCount = localOrders.length;
       for (const o of localOrders as unknown as OrderWithItems[]) {
         combinedMap.set(o.id, o);
       }
@@ -321,22 +328,52 @@ export async function fetchCustomerOrders(
   }
 
   // 3. Fetch active orders for this table
+  let tableCount = 0;
   if (tableId) {
-    const { data: tableOrders } = await supabase
+    const { data: tableOrders, error: err3 } = await supabase
       .from("orders")
       .select("*, order_items(*)")
       .eq("table_id", tableId)
       .neq("status", "cancelled")
       .order("created_at", { ascending: false });
 
+    if (err3) console.warn("[Instrumentation Query 3 Error]", err3.message);
     if (tableOrders) {
+      tableCount = tableOrders.length;
       for (const o of tableOrders as unknown as OrderWithItems[]) {
         combinedMap.set(o.id, o);
       }
     }
   }
 
-  // Sort descending by created_at
+  // 4. Fetch by browser session_id if available
+  const browserSessionId = getSessionId();
+  let sessionCount = 0;
+  if (browserSessionId) {
+    const { data: browserOrders, error: err4 } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .eq("session_id", browserSessionId)
+      .order("created_at", { ascending: false });
+
+    if (err4) console.warn("[Instrumentation Query 4 Error]", err4.message);
+    if (browserOrders) {
+      sessionCount = browserOrders.length;
+      for (const o of browserOrders as unknown as OrderWithItems[]) {
+        combinedMap.set(o.id, o);
+      }
+    }
+  }
+
+  console.log("[Instrumentation Output - fetchCustomerOrders]:", {
+    "1. dining_session query count": sessCount,
+    "2. local order ID query count": localCount,
+    "3. table_id query count": tableCount,
+    "4. session_id query count": sessionCount,
+    "Merged total count": combinedMap.size,
+    "Order IDs": Array.from(combinedMap.keys()),
+  });
+
   return Array.from(combinedMap.values()).sort(
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );

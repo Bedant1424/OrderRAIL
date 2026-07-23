@@ -37,12 +37,25 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   const loadHistory = async () => {
     setLoadingHistory(true);
+    const localIds = getOrderHistory();
+    const browserSessionId = getSessionId();
+
+    console.log("[MyOrders Instrumentation Step 1] Inputs:", {
+      "table.id": table?.id,
+      "table.active_session_id": table?.active_session_id,
+      "browser_session_id": browserSessionId,
+      "localOrderIds": localIds,
+    });
+
     try {
-      const localIds = getOrderHistory();
-      const ords = await fetchCustomerOrders(table.id, table.active_session_id, localIds);
+      const ords = await fetchCustomerOrders(table?.id, table?.active_session_id, localIds);
+      console.log("[MyOrders Instrumentation Step 5] Returned rows from fetchCustomerOrders:", {
+        count: ords.length,
+        orders: ords,
+      });
       setHistoryOrders(ords as any);
     } catch (err) {
-      console.error("Error loading order history:", err);
+      console.error("[MyOrders Instrumentation Error] loadHistory error:", err);
     } finally {
       setLoadingHistory(false);
     }
@@ -220,10 +233,32 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   );
 
   // Active orders contains all active orders (not served and not cancelled)
-  const activeOrders = sortedHistory.filter((o) => o.status !== "served" && o.status !== "cancelled");
+  const activeOrders = sortedHistory.filter((o) => {
+    const s = (o.status || "").toLowerCase();
+    return s !== "served" && s !== "cancelled";
+  });
 
   // Previous orders contains all served and cancelled orders
-  const previousOrders = sortedHistory.filter((o) => o.status === "served" || o.status === "cancelled");
+  const previousOrders = sortedHistory.filter((o) => {
+    const s = (o.status || "").toLowerCase();
+    return s === "served" || s === "cancelled";
+  });
+
+  console.log("[TRACE Render]", {
+    currentRoute: typeof window !== "undefined" ? window.location.pathname : "",
+    componentMounted: "CartView",
+    "historyOrders.length": historyOrders.length,
+    "activeOrders.length": activeOrders.length,
+    "previousOrders.length": previousOrders.length,
+    "draftCart.length": lines.length,
+    loadingHistory,
+  });
+
+  if (activeOrders.length === 0 && previousOrders.length === 0) {
+    console.log("EMPTY STATE RENDERED");
+  } else {
+    console.log("ORDER LIST RENDERED");
+  }
 
   // Renders a single history order card
   const renderOrderCard = (o: Order & { order_items: OrderItem[] }) => {
