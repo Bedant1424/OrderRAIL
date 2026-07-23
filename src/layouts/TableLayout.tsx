@@ -34,11 +34,22 @@ export default function TableLayout() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["table", tableId],
     queryFn: async () => {
-      const { data: table, error: tErr } = await supabase
+      let { data: table, error: tErr } = await supabase
         .from("tables")
         .select("*")
         .eq("id", tableId!)
         .maybeSingle();
+
+      if (!table && !tErr) {
+        const cleanLabel = tableId!.replace(/^t-/i, "").trim();
+        const { data: tableByLabel } = await supabase
+          .from("tables")
+          .select("*")
+          .or(`label.eq.${tableId},label.eq.${cleanLabel},label.ilike.Table ${cleanLabel}`)
+          .maybeSingle();
+        table = tableByLabel;
+      }
+
       if (tErr) throw tErr;
       if (!table) return null;
 
