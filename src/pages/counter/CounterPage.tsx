@@ -1079,7 +1079,7 @@ const CounterLayout = () => {
       const { data: activeSessions } = await supabase
         .from("dining_sessions")
         .select("id, table_id, status, created_at")
-        .eq("cafe_id", cafeId)
+        .or(`cafe_id.eq.${cafeId},cafe_id.is.null`)
         .neq("status", "closed");
 
       const activeSessionMap = new Map<string, string>(); // table_id -> session_id

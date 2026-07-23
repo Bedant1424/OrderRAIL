@@ -133,7 +133,7 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
   if (!isSessionValid) {
     const { data: session, error: sErr } = await supabase
       .from("dining_sessions")
-      .insert({ table_id: table.id, status: "browsing" })
+      .insert({ cafe_id: table.cafe_id, table_id: table.id, status: "active" })
       .select("id")
       .single();
     if (sErr) throw sErr;
