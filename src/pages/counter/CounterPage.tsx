@@ -437,11 +437,11 @@ const ActiveOrderPanel = ({
       )}
 
       <div className="v8-order-items-scroll v8-scroll flex flex-col gap-3">
-        {/* Submitted Orders in this Session */}
+        {/* Submitted Active Session Orders */}
         {orders.length > 0 && (
           <div className="flex flex-col gap-2">
             <span className="text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <ShoppingBag className="w-3.5 h-3.5 text-primary" /> Submitted Session Orders ({orders.length})
+              <ShoppingBag className="w-3.5 h-3.5 text-primary" /> Active Session Orders ({orders.length})
             </span>
             {orders.map((ord) => (
               <OrderCard key={ord.id} order={ord} />
@@ -456,7 +456,7 @@ const ActiveOrderPanel = ({
           </span>
           {draftCart.length === 0 ? (
             <div className="p-6 text-center text-xs text-muted-foreground">
-              {orders.length > 0 ? 'Tap menu items to add another KOT order.' : 'No items in active order session.'}
+              {orders.length > 0 ? 'Tap menu items to add another KOT order.' : 'No active items in dining session.'}
             </div>
           ) : (
             draftCart.map((item) => (
@@ -1039,7 +1039,7 @@ const CounterLayout = () => {
   const { cafeId } = useCafe();
   const { user } = useAuth();
   
-  // Database-driven table sessions map
+  // Database-driven active table sessions map
   const [tableSessions, setTableSessions] = useState<Record<string, TableSessionData>>({});
   const [discountPct, setDiscountPct] = useState<number>(0);
   const [isPaymentOpen, setIsPaymentOpen] = useState<boolean>(false);
@@ -1051,16 +1051,32 @@ const CounterLayout = () => {
 
   const activeTableId = tableEngine.selectedTableId || 'express';
 
-  // Load active dining session orders dynamically from Supabase database
+  // Load ACTIVE dining session orders ONLY from Supabase database (Ignore closed/paid/cancelled historical records)
   const loadSessionsFromDb = useCallback(async () => {
     if (!cafeId) return;
 
     try {
+      // 1. Fetch active dining sessions for cafe where status != 'closed'
+      const { data: activeSessions } = await supabase
+        .from("dining_sessions")
+        .select("id, table_id, status, created_at")
+        .eq("cafe_id", cafeId)
+        .neq("status", "closed");
+
+      const activeSessionMap = new Map<string, string>(); // table_id -> session_id
+      if (activeSessions) {
+        for (const s of activeSessions) {
+          if (s.table_id) activeSessionMap.set(s.table_id, s.id);
+        }
+      }
+
+      // 2. Query ACTIVE orders (status not cancelled or served) from Supabase DB
       const { data: dbOrders, error } = await supabase
         .from("orders")
         .select("*, order_items(*)")
         .eq("cafe_id", cafeId)
         .neq("status", "cancelled")
+        .neq("status", "served")
         .order("created_at", { ascending: true });
 
       if (error || !dbOrders) return;
@@ -1069,6 +1085,13 @@ const CounterLayout = () => {
 
       for (const ord of dbOrders) {
         const tId = ord.table_id || "express";
+
+        // Skip historical orders that do not belong to active sessions
+        if (tId !== "express" && activeSessionMap.size > 0 && ord.dining_session_id) {
+          const sessionStatus = activeSessions?.find((s) => s.id === ord.dining_session_id)?.status;
+          if (sessionStatus === "closed") continue;
+        }
+
         const mappedItems: CartLineItem[] = (ord.order_items || []).map((it: any) => ({
           id: it.id,
           name: it.name,
@@ -1101,7 +1124,7 @@ const CounterLayout = () => {
 
       setTableSessions(sessionsMap);
     } catch (e) {
-      console.warn("[CounterPage] Error fetching DB orders:", e);
+      console.warn("[CounterPage] Error fetching active DB orders:", e);
     }
   }, [cafeId]);
 
@@ -1264,7 +1287,7 @@ const CounterLayout = () => {
     toast('Draft order cleared');
   }, [activeTableId]);
 
-  // Send KOT — Writes directly to Supabase Database!
+  // Send KOT — Creates kitchen order; does NOT close session or complete payment!
   const handleKot = useCallback(async () => {
     const cur = activeSessionData;
     if (cur.draftCart.length === 0) {
@@ -1276,7 +1299,7 @@ const CounterLayout = () => {
     const newOrderNumber = 100 + cur.orders.length + 1;
 
     try {
-      // 1. Insert order to Supabase orders table
+      // 1. Insert order to Supabase orders table with status: "pending"
       const { data: orderRes, error: orderErr } = await supabase
         .from("orders")
         .insert({
@@ -1291,7 +1314,7 @@ const CounterLayout = () => {
         .single();
 
       if (!orderErr && orderRes) {
-        // 2. Insert order items
+        // 2. Insert order line items
         const orderItemsPayload = cur.draftCart.map((i) => ({
           order_id: orderRes.id,
           name: i.name,
@@ -1301,7 +1324,7 @@ const CounterLayout = () => {
 
         await supabase.from("order_items").insert(orderItemsPayload);
 
-        // 3. Mark table occupied in database
+        // 3. Update table status to OCCUPIED in database
         if (selectedTable) {
           tableEngine.openTable(selectedTable.id);
         }
@@ -1310,7 +1333,7 @@ const CounterLayout = () => {
       console.warn("[handleKot] Database write warning:", e);
     }
 
-    // Clear local draft cart and re-query DB
+    // Clear local draft cart and refresh active orders
     setTableSessions((prev) => ({
       ...prev,
       [activeTableId]: {
@@ -1320,7 +1343,7 @@ const CounterLayout = () => {
     }));
 
     void loadSessionsFromDb();
-    toast.success(`✅ KOT Spooled & Sent! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
+    toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
   }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
   const handlePrintBill = useCallback(() => {
@@ -1328,7 +1351,7 @@ const CounterLayout = () => {
     toast.success(`🖨️ Bill Printed for ${selectedTable?.label ?? 'Express Sale'}`);
   }, [selectedTable, tableEngine]);
 
-  // Complete Payment & Close Session in Supabase DB
+  // Complete Payment & CLOSE Active Session (Archives active session from Counter view)
   const handlePaymentComplete = useCallback(async (tenders: PaymentTenderRecord[]) => {
     const cur = activeSessionData;
     const submittedSubtotal = cur.orders.reduce((acc, o) => acc + o.subtotal, 0);
@@ -1355,7 +1378,7 @@ const CounterLayout = () => {
       tenders
     };
 
-    // Update orders & session status in Supabase Database
+    // 1. Mark orders as served / paid in Supabase Database
     try {
       const orderIds = cur.orders.map((o) => o.id);
       if (orderIds.length > 0) {
@@ -1365,20 +1388,30 @@ const CounterLayout = () => {
           .in("id", orderIds);
       }
 
+      // 2. Close active dining session in database
+      if (cur.sessionId && !cur.sessionId.startsWith("s-")) {
+        await supabase
+          .from("dining_sessions")
+          .update({ status: "closed", closed_at: new Date().toISOString() })
+          .eq("id", cur.sessionId);
+      }
+
+      // 3. Move table to "cleaning" (Needs Cleaning) in Supabase DB
       if (selectedTable) {
         await supabase
           .from("tables")
-          .update({ status: "cleaning" })
+          .update({ status: "cleaning", active_session_id: null })
           .eq("id", selectedTable.id);
       }
     } catch (e) {
-      console.warn("[handlePaymentComplete] DB status update error:", e);
+      console.warn("[handlePaymentComplete] DB session closure warning:", e);
     }
 
     if (selectedTable) {
       tableEngine.markCleaning(selectedTable.id);
     }
 
+    // Immediately remove closed session from Counter active view
     setTableSessions((prev) => {
       const copy = { ...prev };
       delete copy[activeTableId];
