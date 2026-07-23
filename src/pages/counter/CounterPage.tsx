@@ -101,32 +101,6 @@ const FALLBACK_CATALOG: CatalogItem[] = [
   { id: 'm-18', name: 'Crème Brûlée', price: 260.00, category: 'Desserts', isVeg: true, isAvailable: true },
 ];
 
-const INITIAL_SESSIONS: Record<string, TableSessionData> = {
-  't-4': {
-    sessionId: 's-84',
-    sessionCode: '#S-84',
-    startedAt: '12:45 PM',
-    guestCount: 4,
-    orders: [
-      {
-        id: 'ord-101',
-        orderNumber: 101,
-        timestamp: '12:48 PM',
-        status: 'PREPARING',
-        items: [
-          { id: 'c-1', name: 'Double Espresso', price: 180.00, qty: 2 },
-          { id: 'c-2', name: 'Artisan Club Sandwich', price: 380.00, qty: 1, notes: 'No onions' }
-        ],
-        subtotal: 740.00
-      }
-    ],
-    draftCart: [
-      { id: 'c-3', name: 'Iced Vanilla Latte', price: 220.00, qty: 1, notes: 'Extra ice' },
-      { id: 'c-4', name: 'Truffle Fries', price: 280.00, qty: 1 }
-    ]
-  }
-};
-
 // --- 1. AUTHENTIC ORDERRAIL HEADER (56px) ---
 const Header = memo(() => {
   const { cafe } = useCafe();
@@ -1065,8 +1039,8 @@ const CounterLayout = () => {
   const { cafeId } = useCafe();
   const { user } = useAuth();
   
-  // Independent Table Session Architecture
-  const [tableSessions, setTableSessions] = useState<Record<string, TableSessionData>>(INITIAL_SESSIONS);
+  // Database-driven table sessions map
+  const [tableSessions, setTableSessions] = useState<Record<string, TableSessionData>>({});
   const [discountPct, setDiscountPct] = useState<number>(0);
   const [isPaymentOpen, setIsPaymentOpen] = useState<boolean>(false);
   const [activeReceipt, setActiveReceipt] = useState<CompletedOrderReceipt | null>(null);
@@ -1077,7 +1051,65 @@ const CounterLayout = () => {
 
   const activeTableId = tableEngine.selectedTableId || 'express';
 
-  // Real-time synchronization: Subscribes to Supabase PostgreSQL orders & service_requests table
+  // Load active dining session orders dynamically from Supabase database
+  const loadSessionsFromDb = useCallback(async () => {
+    if (!cafeId) return;
+
+    try {
+      const { data: dbOrders, error } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("cafe_id", cafeId)
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: true });
+
+      if (error || !dbOrders) return;
+
+      const sessionsMap: Record<string, TableSessionData> = {};
+
+      for (const ord of dbOrders) {
+        const tId = ord.table_id || "express";
+        const mappedItems: CartLineItem[] = (ord.order_items || []).map((it: any) => ({
+          id: it.id,
+          name: it.name,
+          price: it.price_cents / 100,
+          qty: it.qty,
+        }));
+
+        const sessOrder: SessionOrder = {
+          id: ord.id,
+          orderNumber: ord.order_number || Math.floor(100 + Math.random() * 900),
+          timestamp: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          status: ord.status === 'served' ? 'SERVED' : ord.status === 'preparing' ? 'PREPARING' : 'KOT_SENT',
+          items: mappedItems,
+          subtotal: (ord.total_cents || 0) / 100
+        };
+
+        if (!sessionsMap[tId]) {
+          sessionsMap[tId] = {
+            sessionId: ord.dining_session_id || `s-${Math.floor(100 + Math.random() * 900)}`,
+            sessionCode: `#S-${Math.floor(10 + Math.random() * 90)}`,
+            startedAt: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            guestCount: 2,
+            orders: [],
+            draftCart: []
+          };
+        }
+
+        sessionsMap[tId].orders.push(sessOrder);
+      }
+
+      setTableSessions(sessionsMap);
+    } catch (e) {
+      console.warn("[CounterPage] Error fetching DB orders:", e);
+    }
+  }, [cafeId]);
+
+  useEffect(() => {
+    void loadSessionsFromDb();
+  }, [loadSessionsFromDb]);
+
+  // Real-time synchronization: Subscribes to Supabase PostgreSQL orders table
   useEffect(() => {
     if (!cafeId) return;
 
@@ -1086,60 +1118,8 @@ const CounterLayout = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders", filter: `cafe_id=eq.${cafeId}` },
-        async (payload) => {
-          if (payload.eventType === "INSERT") {
-            const newOrder = payload.new as any;
-            
-            // Query order_items for line details
-            const { data: items } = await supabase
-              .from("order_items")
-              .select("id, name, price_cents, qty")
-              .eq("order_id", newOrder.id);
-
-            const mappedItems: CartLineItem[] = (items || []).map((it) => ({
-              id: it.id,
-              name: it.name,
-              price: it.price_cents / 100,
-              qty: it.qty,
-            }));
-
-            const targetTableId = newOrder.table_id || "express";
-
-            const incomingSessionOrder: SessionOrder = {
-              id: newOrder.id,
-              orderNumber: newOrder.order_number || Math.floor(100 + Math.random() * 900),
-              timestamp: new Date(newOrder.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-              status: newOrder.status === 'served' ? 'SERVED' : newOrder.status === 'preparing' ? 'PREPARING' : 'KOT_SENT',
-              items: mappedItems,
-              subtotal: (newOrder.total_cents || 0) / 100
-            };
-
-            setTableSessions((prev) => {
-              const cur = prev[targetTableId] || {
-                sessionId: newOrder.dining_session_id || `s-${Math.floor(100 + Math.random() * 900)}`,
-                sessionCode: `#S-${Math.floor(10 + Math.random() * 90)}`,
-                startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-                guestCount: 2,
-                orders: [],
-                draftCart: []
-              };
-
-              return {
-                ...prev,
-                [targetTableId]: {
-                  ...cur,
-                  orders: [...cur.orders.filter(o => o.id !== newOrder.id), incomingSessionOrder]
-                }
-              };
-            });
-
-            // Automatically transition table status to OCCUPIED
-            if (targetTableId !== "express") {
-              tableEngine.openTable(targetTableId);
-            }
-
-            toast.success(`🛒 Live QR Order #${incomingSessionOrder.orderNumber} received in real-time!`);
-          }
+        () => {
+          void loadSessionsFromDb();
         }
       )
       .subscribe();
@@ -1147,7 +1127,7 @@ const CounterLayout = () => {
     return () => {
       void supabase.removeChannel(ordersChannel);
     };
-  }, [cafeId, tableEngine]);
+  }, [cafeId, loadSessionsFromDb]);
 
   // Ensure current table session is initialized
   const activeSessionData: TableSessionData = tableSessions[activeTableId] || {
@@ -1284,8 +1264,8 @@ const CounterLayout = () => {
     toast('Draft order cleared');
   }, [activeTableId]);
 
-  // Send KOT — Creates a NEW order inside table session!
-  const handleKot = useCallback(() => {
+  // Send KOT — Writes directly to Supabase Database!
+  const handleKot = useCallback(async () => {
     const cur = activeSessionData;
     if (cur.draftCart.length === 0) {
       toast.error('Add items to draft before sending KOT.');
@@ -1295,38 +1275,61 @@ const CounterLayout = () => {
     const subtotal = cur.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
     const newOrderNumber = 100 + cur.orders.length + 1;
 
-    const newOrder: SessionOrder = {
-      id: `ord-${Date.now()}`,
-      orderNumber: newOrderNumber,
-      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-      status: 'KOT_SENT',
-      items: [...cur.draftCart],
-      subtotal
-    };
+    try {
+      // 1. Insert order to Supabase orders table
+      const { data: orderRes, error: orderErr } = await supabase
+        .from("orders")
+        .insert({
+          cafe_id: cafeId,
+          table_id: selectedTable?.id || null,
+          dining_session_id: cur.sessionId.startsWith("s-") ? null : cur.sessionId,
+          order_number: newOrderNumber,
+          total_cents: Math.round(subtotal * 100),
+          status: "pending"
+        })
+        .select()
+        .single();
 
+      if (!orderErr && orderRes) {
+        // 2. Insert order items
+        const orderItemsPayload = cur.draftCart.map((i) => ({
+          order_id: orderRes.id,
+          name: i.name,
+          price_cents: Math.round(i.price * 100),
+          qty: i.qty
+        }));
+
+        await supabase.from("order_items").insert(orderItemsPayload);
+
+        // 3. Mark table occupied in database
+        if (selectedTable) {
+          tableEngine.openTable(selectedTable.id);
+        }
+      }
+    } catch (e) {
+      console.warn("[handleKot] Database write warning:", e);
+    }
+
+    // Clear local draft cart and re-query DB
     setTableSessions((prev) => ({
       ...prev,
       [activeTableId]: {
         ...cur,
-        orders: [...cur.orders, newOrder],
         draftCart: []
       }
     }));
 
-    if (selectedTable && selectedTable.status === 'AVAILABLE') {
-      tableEngine.openTable(selectedTable.id);
-    }
-
+    void loadSessionsFromDb();
     toast.success(`✅ KOT Spooled & Sent! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
-  }, [activeSessionData, activeTableId, selectedTable, tableEngine]);
+  }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
   const handlePrintBill = useCallback(() => {
     if (selectedTable) tableEngine.requestBill(selectedTable.id);
     toast.success(`🖨️ Bill Printed for ${selectedTable?.label ?? 'Express Sale'}`);
   }, [selectedTable, tableEngine]);
 
-  // Complete Payment & Close Session
-  const handlePaymentComplete = useCallback((tenders: PaymentTenderRecord[]) => {
+  // Complete Payment & Close Session in Supabase DB
+  const handlePaymentComplete = useCallback(async (tenders: PaymentTenderRecord[]) => {
     const cur = activeSessionData;
     const submittedSubtotal = cur.orders.reduce((acc, o) => acc + o.subtotal, 0);
     const draftSubtotal = cur.draftCart.reduce((acc, i) => acc + i.price * i.qty, 0);
@@ -1352,12 +1355,30 @@ const CounterLayout = () => {
       tenders
     };
 
-    // Transition table state to CLEANING ("Needs Cleaning") upon payment completion
+    // Update orders & session status in Supabase Database
+    try {
+      const orderIds = cur.orders.map((o) => o.id);
+      if (orderIds.length > 0) {
+        await supabase
+          .from("orders")
+          .update({ status: "served" })
+          .in("id", orderIds);
+      }
+
+      if (selectedTable) {
+        await supabase
+          .from("tables")
+          .update({ status: "cleaning" })
+          .eq("id", selectedTable.id);
+      }
+    } catch (e) {
+      console.warn("[handlePaymentComplete] DB status update error:", e);
+    }
+
     if (selectedTable) {
       tableEngine.markCleaning(selectedTable.id);
     }
 
-    // Reset table session
     setTableSessions((prev) => {
       const copy = { ...prev };
       delete copy[activeTableId];
@@ -1383,7 +1404,7 @@ const CounterLayout = () => {
         searchRef.current?.focus();
       } else if (e.key === 'F5') {
         e.preventDefault();
-        handleKot();
+        void handleKot();
       } else if (e.key === 'F8') {
         e.preventDefault();
         handlePrintBill();
@@ -1435,7 +1456,7 @@ const CounterLayout = () => {
           draftCart={activeSessionData.draftCart}
           tableLabel={selectedTable?.label ?? 'Express'}
           onClear={handleClearDraft}
-          onKot={handleKot}
+          onKot={() => void handleKot()}
           onPrintBill={handlePrintBill}
           onOpenPayment={() => setIsPaymentOpen(true)}
         />
@@ -1451,7 +1472,7 @@ const CounterLayout = () => {
             tax={tax}
             discountPct={discountPct}
             discountAmt={discountAmt}
-            onComplete={handlePaymentComplete}
+            onComplete={(tenders) => void handlePaymentComplete(tenders)}
             onClose={() => setIsPaymentOpen(false)}
           />
         )}

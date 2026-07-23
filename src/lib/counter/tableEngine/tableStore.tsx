@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from "react";
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from "react";
+import { supabase } from "@/lib/db";
 import {
   TableEntity,
   TableState,
@@ -51,6 +52,41 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
   const [filter, setFilter] = useState<TableFilterType>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  // Load tables from Supabase database and subscribe to Realtime updates
+  useEffect(() => {
+    async function loadTablesFromDb() {
+      const { data, error } = await supabase
+        .from("tables")
+        .select("*")
+        .order("label", { numeric: true, sensitivity: "base" });
+
+      if (!error && data && data.length > 0) {
+        const mapped: TableEntity[] = data.map((t) => ({
+          id: t.id,
+          label: t.label.startsWith("Table") ? t.label : `Table ${t.label}`,
+          status: t.status === "occupied" ? "OCCUPIED" : t.status === "cleaning" ? "CLEANING" : t.status === "reserved" ? "RESERVED" : "AVAILABLE",
+          seats: t.seats || 4,
+          currentSessionId: t.active_session_id || undefined,
+        }));
+        setTables(mapped);
+      }
+    }
+
+    void loadTablesFromDb();
+
+    // Supabase Realtime Channel for live table state updates across Customer, Counter, Staff & Owner
+    const channel = supabase
+      .channel("tables-db-sync-channel")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tables" }, () => {
+        void loadTablesFromDb();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Selectors
   const filteredTables = useMemo(
     () => filterTables(tables, filter, searchQuery),
@@ -76,10 +112,8 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
   );
 
   const clearSelection = useCallback(() => {
-    if (selectedTableId) {
-      setPreviousSelectedTableId(selectedTableId);
-      setSelectedTableId(null);
-    }
+    setPreviousSelectedTableId(selectedTableId);
+    setSelectedTableId(null);
   }, [selectedTableId]);
 
   const restorePreviousSelection = useCallback(() => {
@@ -91,12 +125,16 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
     }
   }, [previousSelectedTableId, tables]);
 
-  // State Transition Executor
+  // Core State Engine Mutation (Updates local state & persists to Supabase DB)
   const mutateTableState = useCallback(
-    (tableId: string, targetStatus: TableState, sessionPayload?: DiningSessionModel | null): TransitionResult => {
+    (
+      tableId: string,
+      targetStatus: TableState,
+      sessionPayload?: DiningSessionModel | null
+    ): TransitionResult => {
       const currentTable = tables.find((t) => t.id === tableId);
       if (!currentTable) {
-        return { success: false, error: `Table with ID ${tableId} not found.` };
+        return { success: false, error: "Table not found." };
       }
 
       // Check transition validity
@@ -112,7 +150,6 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
         updatedSession = sessionPayload;
         activeSessionId = sessionPayload ? sessionPayload.id : null;
       } else if (targetStatus === "AVAILABLE" || targetStatus === "CLEANING" || targetStatus === "OUT_OF_SERVICE") {
-        // Clear session if returning to AVAILABLE, CLEANING, or OUT_OF_SERVICE
         updatedSession = null;
         activeSessionId = null;
       }
@@ -126,6 +163,27 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
       };
 
       setTables((prev) => prev.map((t) => (t.id === tableId ? updatedTable : t)));
+
+      // Persist table status mutation to Supabase Database
+      const dbStatusMap: Record<TableState, string> = {
+        AVAILABLE: "free",
+        OCCUPIED: "occupied",
+        BILL_REQUESTED: "occupied",
+        CLEANING: "cleaning",
+        RESERVED: "reserved",
+        OUT_OF_SERVICE: "free",
+      };
+
+      void (async () => {
+        try {
+          await supabase
+            .from("tables")
+            .update({ status: dbStatusMap[targetStatus] })
+            .eq("id", tableId);
+        } catch (e) {
+          console.warn("[mutateTableState] Could not sync table status to DB:", e);
+        }
+      })();
 
       return {
         success: true,
@@ -143,9 +201,13 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
       if (!currentTable) return { success: false, error: "Table not found." };
 
       const canOpen = canOpenTable(currentTable.status);
-      if (!canOpen.valid) return { success: false, error: canOpen.reason };
+      if (!canOpen) {
+        return {
+          success: false,
+          error: `Table ${currentTable.label} cannot be opened from state ${currentTable.status}.`,
+        };
+      }
 
-      // Restore existing session if OCCUPIED; create new session if AVAILABLE/RESERVED
       let session = currentTable.activeSession;
       if (!session) {
         session = createDiningSession(currentTable.id, currentTable.label, guestCount);
@@ -226,7 +288,7 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
       if (currentIndex === -1) {
         nextIndex = 0;
       } else {
-        const columns = 2; // Grid has 2 columns
+        const columns = 2;
         if (direction === "left") {
           nextIndex = Math.max(0, currentIndex - 1);
         } else if (direction === "right") {
