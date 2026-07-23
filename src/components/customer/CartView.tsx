@@ -36,10 +36,10 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadHistory = async () => {
-    if (!table.active_session_id) return;
     setLoadingHistory(true);
     try {
-      const ords = await fetchOrdersByDiningSession(table.active_session_id);
+      const localIds = getOrderHistory();
+      const ords = await fetchCustomerOrders(table.id, table.active_session_id, localIds);
       setHistoryOrders(ords as any);
     } catch (err) {
       console.error("Error loading order history:", err);
@@ -56,16 +56,16 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   useEffect(() => {
     void loadHistory();
-  }, [table.active_session_id]);
+  }, [table.id, table.active_session_id]);
 
-  // Realtime subscription: sync orders (INSERT, UPDATE, DELETE) for active session without refresh
+  // Realtime subscription: sync orders (INSERT, UPDATE, DELETE) for table without refresh
   useEffect(() => {
-    if (!table.active_session_id) return;
+    if (!table.id) return;
     const channel = supabase
-      .channel(`cart-orders-${table.active_session_id}`)
+      .channel(`cart-orders-${table.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `dining_session_id=eq.${table.active_session_id}` },
+        { event: "*", schema: "public", table: "orders", filter: `table_id=eq.${table.id}` },
         () => {
           void loadHistory();
         },
@@ -75,7 +75,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [table.active_session_id]);
+  }, [table.id]);
 
   const placeOrder = async () => {
     if (!lines.length) return;

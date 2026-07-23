@@ -283,6 +283,65 @@ export async function fetchOrdersByDiningSession(diningSessionId: string): Promi
   return (data ?? []) as unknown as OrderWithItems[];
 }
 
+export async function fetchCustomerOrders(
+  tableId: string,
+  diningSessionId: string | null = null,
+  localOrderIds: string[] = []
+): Promise<OrderWithItems[]> {
+  const combinedMap = new Map<string, OrderWithItems>();
+
+  // 1. Fetch by dining_session_id if valid
+  if (diningSessionId && !diningSessionId.startsWith("session-")) {
+    const { data: sessOrders } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .eq("dining_session_id", diningSessionId)
+      .order("created_at", { ascending: false });
+
+    if (sessOrders) {
+      for (const o of sessOrders as unknown as OrderWithItems[]) {
+        combinedMap.set(o.id, o);
+      }
+    }
+  }
+
+  // 2. Fetch by local sessionStorage order IDs (from addOrderToHistory)
+  if (localOrderIds.length > 0) {
+    const { data: localOrders } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .in("id", localOrderIds)
+      .order("created_at", { ascending: false });
+
+    if (localOrders) {
+      for (const o of localOrders as unknown as OrderWithItems[]) {
+        combinedMap.set(o.id, o);
+      }
+    }
+  }
+
+  // 3. Fetch active orders for this table
+  if (tableId) {
+    const { data: tableOrders } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .eq("table_id", tableId)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false });
+
+    if (tableOrders) {
+      for (const o of tableOrders as unknown as OrderWithItems[]) {
+        combinedMap.set(o.id, o);
+      }
+    }
+  }
+
+  // Sort descending by created_at
+  return Array.from(combinedMap.values()).sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+}
+
 export async function fetchActiveDiningSessionOrders(cafeId: string): Promise<{
   activeSessions: { id: string; table_id: string; status: string; created_at: string }[];
   orders: OrderWithItems[];
