@@ -14,6 +14,8 @@ import {
   Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag
 } from 'lucide-react';
 
+import { getOrCreateDiningSession } from '@/lib/tables/tableRepository';
+
 import './counter.css';
 
 // --- DATA TYPES & INTERFACES ---
@@ -1109,9 +1111,11 @@ const CounterLayout = () => {
         };
 
         if (!sessionsMap[tId]) {
+          const sId = ord.dining_session_id || activeSessionMap.get(tId) || `session-${tId}`;
+          const codeSuffix = sId.substring(0, 4).toUpperCase();
           sessionsMap[tId] = {
-            sessionId: ord.dining_session_id || `s-${Math.floor(100 + Math.random() * 900)}`,
-            sessionCode: `#S-${Math.floor(10 + Math.random() * 90)}`,
+            sessionId: sId,
+            sessionCode: `#S-${codeSuffix}`,
             startedAt: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
             guestCount: 2,
             orders: [],
@@ -1152,10 +1156,10 @@ const CounterLayout = () => {
     };
   }, [cafeId, loadSessionsFromDb]);
 
-  // Ensure current table session is initialized
+  // Ensure current table session is initialized with a stable session code per table
   const activeSessionData: TableSessionData = tableSessions[activeTableId] || {
-    sessionId: `s-${Math.floor(100 + Math.random() * 900)}`,
-    sessionCode: `#S-${Math.floor(10 + Math.random() * 90)}`,
+    sessionId: `session-${activeTableId}`,
+    sessionCode: `#S-${activeTableId.replace(/[^0-9]/g, '') || '01'}`,
     startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
     guestCount: 2,
     orders: [],
@@ -1181,15 +1185,36 @@ const CounterLayout = () => {
   const selectedTable = tableEngine.tables.find((t) => t.id === tableEngine.selectedTableId) || null;
 
   // Table State Actions
-  const handleOpenSession = useCallback(() => {
-    if (!selectedTable) return;
+  const handleOpenSession = useCallback(async () => {
+    if (!selectedTable || !cafeId) return;
+    
+    // Create real active dining session row in Supabase DB
+    let newSessionId = `session-${selectedTable.id}`;
+    try {
+      const { data: dbSess, error: sErr } = await supabase
+        .from("dining_sessions")
+        .insert({
+          cafe_id: cafeId,
+          table_id: selectedTable.id,
+          status: "active"
+        })
+        .select("id")
+        .single();
+
+      if (!sErr && dbSess) {
+        newSessionId = dbSess.id;
+      }
+    } catch (e) {
+      console.warn("[handleOpenSession] DB session creation warning:", e);
+    }
+
     const res = tableEngine.openTable(selectedTable.id);
     if (res.success) {
       setTableSessions((prev) => ({
         ...prev,
         [selectedTable.id]: {
-          sessionId: `s-${Math.floor(100 + Math.random() * 900)}`,
-          sessionCode: `#S-${Math.floor(10 + Math.random() * 90)}`,
+          sessionId: newSessionId,
+          sessionCode: `#S-${selectedTable.label.replace(/[^0-9]/g, '') || '01'}`,
           startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
           guestCount: selectedTable.seats || 2,
           orders: [],
@@ -1198,7 +1223,7 @@ const CounterLayout = () => {
       }));
       toast.success(`${selectedTable.label} dining session opened`);
     }
-  }, [selectedTable, tableEngine]);
+  }, [cafeId, selectedTable, tableEngine]);
 
   const handleReleaseTable = useCallback(() => {
     if (!selectedTable) return;
@@ -1221,8 +1246,8 @@ const CounterLayout = () => {
 
     setTableSessions((prev) => {
       const cur = prev[activeTableId] || {
-        sessionId: `s-${Math.floor(100 + Math.random() * 900)}`,
-        sessionCode: `#S-${Math.floor(10 + Math.random() * 90)}`,
+        sessionId: `session-${activeTableId}`,
+        sessionCode: `#S-${activeTableId.replace(/[^0-9]/g, '') || '01'}`,
         startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
         guestCount: 2,
         orders: [],
@@ -1287,7 +1312,7 @@ const CounterLayout = () => {
     toast('Draft order cleared');
   }, [activeTableId]);
 
-  // Send KOT — Creates kitchen order; does NOT close session or complete payment!
+  // Send KOT — Creates kitchen order with valid dining_session_id; does NOT close session or complete payment!
   const handleKot = useCallback(async () => {
     const cur = activeSessionData;
     if (cur.draftCart.length === 0) {
@@ -1298,14 +1323,33 @@ const CounterLayout = () => {
     const subtotal = cur.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
     const newOrderNumber = 100 + cur.orders.length + 1;
 
+    // Guarantee a valid dining_session_id in Supabase DB before inserting order using getOrCreateDiningSession helper
+    let targetSessionId: string | null = (cur.sessionId && !cur.sessionId.startsWith("session-")) ? cur.sessionId : null;
+    
+    if (selectedTable && !targetSessionId) {
+      try {
+        const tableRow = {
+          id: selectedTable.id,
+          cafe_id: cafeId || '',
+          active_session_id: selectedTable.currentSessionId || null,
+          label: selectedTable.label,
+          seats: selectedTable.seats,
+          status: 'free'
+        };
+        targetSessionId = await getOrCreateDiningSession(tableRow as any);
+      } catch (e) {
+        console.warn("[handleKot] getOrCreateDiningSession warning:", e);
+      }
+    }
+
     try {
-      // 1. Insert order to Supabase orders table with status: "pending"
+      // 1. Insert order to Supabase orders table with status: "pending" and valid dining_session_id
       const { data: orderRes, error: orderErr } = await supabase
         .from("orders")
         .insert({
           cafe_id: cafeId,
           table_id: selectedTable?.id || null,
-          dining_session_id: cur.sessionId.startsWith("s-") ? null : cur.sessionId,
+          dining_session_id: targetSessionId,
           order_number: newOrderNumber,
           total_cents: Math.round(subtotal * 100),
           status: "pending"
@@ -1324,25 +1368,32 @@ const CounterLayout = () => {
 
         await supabase.from("order_items").insert(orderItemsPayload);
 
-        // 3. Update table status to OCCUPIED in database
+        // 3. Update table status to OCCUPIED and active_session_id in database
         if (selectedTable) {
           tableEngine.openTable(selectedTable.id);
+          if (targetSessionId) {
+            await supabase
+              .from("tables")
+              .update({ active_session_id: targetSessionId, status: "occupied" })
+              .eq("id", selectedTable.id);
+          }
         }
       }
     } catch (e) {
       console.warn("[handleKot] Database write warning:", e);
     }
 
-    // Clear local draft cart and refresh active orders
+    // Clear local draft cart and re-query active DB orders immediately
     setTableSessions((prev) => ({
       ...prev,
       [activeTableId]: {
         ...cur,
+        sessionId: targetSessionId || cur.sessionId,
         draftCart: []
       }
     }));
 
-    void loadSessionsFromDb();
+    await loadSessionsFromDb();
     toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
   }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
@@ -1389,7 +1440,7 @@ const CounterLayout = () => {
       }
 
       // 2. Close active dining session in database
-      if (cur.sessionId && !cur.sessionId.startsWith("s-")) {
+      if (cur.sessionId && !cur.sessionId.startsWith("session-")) {
         await supabase
           .from("dining_sessions")
           .update({ status: "closed", closed_at: new Date().toISOString() })
