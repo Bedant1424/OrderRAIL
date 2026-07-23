@@ -1126,7 +1126,16 @@ const CounterLayout = () => {
         sessionsMap[tId].orders.push(sessOrder);
       }
 
-      setTableSessions(sessionsMap);
+      setTableSessions((prev) => {
+        const merged: Record<string, TableSessionData> = { ...prev };
+        for (const [tId, sess] of Object.entries(sessionsMap)) {
+          merged[tId] = {
+            ...sess,
+            draftCart: prev[tId]?.draftCart || []
+          };
+        }
+        return merged;
+      });
     } catch (e) {
       console.warn("[CounterPage] Error fetching active DB orders:", e);
     }
@@ -1383,15 +1392,29 @@ const CounterLayout = () => {
       console.warn("[handleKot] Database write warning:", e);
     }
 
-    // Clear local draft cart and re-query active DB orders immediately
-    setTableSessions((prev) => ({
-      ...prev,
-      [activeTableId]: {
-        ...cur,
-        sessionId: targetSessionId || cur.sessionId,
-        draftCart: []
-      }
-    }));
+    // Construct optimistic newly created session order
+    const optimisticOrder: SessionOrder = {
+      id: `ord-${Date.now()}`,
+      orderNumber: newOrderNumber,
+      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      status: 'KOT_SENT',
+      items: [...cur.draftCart],
+      subtotal
+    };
+
+    // Move draft cart items into submitted orders array locally and clear draft
+    setTableSessions((prev) => {
+      const existingOrders = prev[activeTableId]?.orders || cur.orders;
+      return {
+        ...prev,
+        [activeTableId]: {
+          ...cur,
+          sessionId: targetSessionId || cur.sessionId,
+          orders: [...existingOrders, optimisticOrder],
+          draftCart: []
+        }
+      };
+    });
 
     await loadSessionsFromDb();
     toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
