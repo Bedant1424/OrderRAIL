@@ -39,16 +39,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     if (!table.active_session_id) return;
     setLoadingHistory(true);
     try {
-      const { data: ords, error } = await supabase
-        .from("orders")
-        .select("*, order_items(*)")
-        .eq("dining_session_id", table.active_session_id)
-        .eq("table_id", table.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      if (ords) {
-        setHistoryOrders(ords as any);
-      }
+      const ords = await fetchOrdersByDiningSession(table.active_session_id);
+      setHistoryOrders(ords as any);
     } catch (err) {
       console.error("Error loading order history:", err);
     } finally {
@@ -66,19 +58,16 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     void loadHistory();
   }, [table.active_session_id]);
 
-  // Keep order cards live (status/eta/items) even when this view isn't the focused page.
+  // Realtime subscription: sync orders (INSERT, UPDATE, DELETE) for active session without refresh
   useEffect(() => {
     if (!table.active_session_id) return;
     const channel = supabase
       .channel(`cart-orders-${table.active_session_id}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `dining_session_id=eq.${table.active_session_id}` },
-        (payload) => {
-          const updated = payload.new as Order;
-          setHistoryOrders((prev) =>
-            prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)),
-          );
+        { event: "*", schema: "public", table: "orders", filter: `dining_session_id=eq.${table.active_session_id}` },
+        () => {
+          void loadHistory();
         },
       )
       .subscribe();

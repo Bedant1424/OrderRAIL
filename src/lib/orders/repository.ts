@@ -156,12 +156,13 @@ export interface CreateOrderPayload {
   id?: string;
   cafe_id: string;
   table_id: string;
-  session_id: string;
+  session_id?: string | null;
   dining_session_id?: string | null;
   note?: string | null;
   total_cents: number;
+  status?: Order["status"];
   items: {
-    menu_item_id: string;
+    menu_item_id?: string | null;
     name: string;
     price_cents: number;
     qty: number;
@@ -170,6 +171,7 @@ export interface CreateOrderPayload {
 
 export async function createOrderInDb(payload: CreateOrderPayload): Promise<string> {
   const orderId = payload.id || crypto.randomUUID();
+  const initialStatus = payload.status || "pending";
 
   const { data: existingOrder } = await supabase
     .from("orders")
@@ -182,11 +184,11 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
       id: orderId,
       cafe_id: payload.cafe_id,
       table_id: payload.table_id,
-      session_id: payload.session_id,
+      session_id: payload.session_id || null,
       dining_session_id: payload.dining_session_id || null,
       total_cents: payload.total_cents,
       note: payload.note ?? null,
-      status: "pending",
+      status: initialStatus,
     });
     if (orderErr && orderErr.code !== "23505") throw orderErr;
   }
@@ -200,7 +202,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     const { error: itemsErr } = await supabase.from("order_items").insert(
       payload.items.map((i) => ({
         order_id: orderId,
-        menu_item_id: i.menu_item_id,
+        menu_item_id: i.menu_item_id || null,
         name: i.name,
         price_cents: i.price_cents,
         qty: i.qty,
@@ -241,6 +243,68 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
   return orderId;
 }
 
+export const createOrder = createOrderInDb;
+export const updateOrderStatus = updateOrderStatusInDb;
+
+export async function fetchOrdersByDiningSession(diningSessionId: string): Promise<OrderWithItems[]> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("dining_session_id", diningSessionId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as unknown as OrderWithItems[];
+}
+
+export async function fetchActiveDiningSessionOrders(cafeId: string): Promise<{
+  activeSessions: { id: string; table_id: string; status: string; created_at: string }[];
+  orders: OrderWithItems[];
+}> {
+  // 1. Fetch active dining sessions for cafe where status != 'closed'
+  const { data: activeSessions, error: sessErr } = await supabase
+    .from("dining_sessions")
+    .select("id, table_id, status, created_at")
+    .or(`cafe_id.eq.${cafeId},cafe_id.is.null`)
+    .neq("status", "closed");
+
+  if (sessErr) throw sessErr;
+
+  const activeSessionIds = (activeSessions ?? []).map((s) => s.id);
+
+  // 2. Query ALL orders belonging to active sessions (including pending, preparing, ready, served)
+  let orders: OrderWithItems[] = [];
+  if (activeSessionIds.length > 0) {
+    const { data: ordData, error: ordErr } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .eq("cafe_id", cafeId)
+      .in("dining_session_id", activeSessionIds)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: true });
+
+    if (ordErr) throw ordErr;
+    orders = (ordData ?? []) as unknown as OrderWithItems[];
+  }
+
+  // Also query express orders without dining session that are active
+  const { data: expressOrders } = await supabase
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("cafe_id", cafeId)
+    .is("dining_session_id", null)
+    .neq("status", "cancelled")
+    .neq("status", "served")
+    .order("created_at", { ascending: true });
+
+  const allOrders = [...orders, ...((expressOrders ?? []) as unknown as OrderWithItems[])];
+
+  return {
+    activeSessions: activeSessions ?? [],
+    orders: allOrders,
+  };
+}
+
 export function subscribeToOrdersChannel(
   cafeId: string,
   onOrderChange: (payload: { eventType: string; new: Order; old: Partial<Order> }) => void
@@ -272,3 +336,4 @@ export function subscribeToOrdersChannel(
     void supabase.removeChannel(channel);
   };
 }
+

@@ -33,6 +33,8 @@ import { useOrders } from "@/lib/orders/useOrders";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
+import { fetchCafeTables } from "@/lib/tables/tableRepository";
+
 type MainTab = "live" | "history";
 type SortOption = "newest" | "oldest" | "highest" | "lowest";
 type StatusFilter = "all" | "pending" | "placed" | "in_kitchen" | "ready" | "completed" | "served" | "cancelled";
@@ -85,10 +87,7 @@ export default function OwnerOrdersPage() {
   const tablesQ = useQuery({
     queryKey: ["owner-orders-tables", cafe?.id],
     enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data } = await supabase.from("tables").select("*").eq("cafe_id", cafe!.id);
-      return (data ?? []) as TableRow[];
-    },
+    queryFn: () => fetchCafeTables(cafe!.id),
   });
 
   const tables = tablesQ.data ?? [];

@@ -172,3 +172,56 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
 
   return activeSessionId;
 }
+
+export async function createDiningSessionInDb(tableId: string, cafeId: string): Promise<string> {
+  const { data: session, error } = await supabase
+    .from("dining_sessions")
+    .insert({ cafe_id: cafeId, table_id: tableId, status: "active" })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+
+  await supabase
+    .from("tables")
+    .update({
+      active_session_id: session.id,
+      status: "occupied",
+    })
+    .eq("id", tableId);
+
+  return session.id;
+}
+
+export async function closeDiningSessionInDb(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from("dining_sessions")
+    .update({
+      status: "closed",
+      closed_at: new Date().toISOString(),
+    })
+    .eq("id", sessionId);
+
+  if (error) throw error;
+}
+
+export async function updateTableStatusInDb(
+  tableId: string,
+  status: TableRow["status"],
+  activeSessionId: string | null = null
+): Promise<void> {
+  const { error } = await supabase
+    .from("tables")
+    .update({
+      status,
+      active_session_id: activeSessionId,
+    })
+    .eq("id", tableId);
+
+  if (error) throw error;
+}
+
+export const createDiningSession = createDiningSessionInDb;
+export const closeDiningSession = closeDiningSessionInDb;
+export const updateTableStatus = updateTableStatusInDb;
+

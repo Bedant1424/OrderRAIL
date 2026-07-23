@@ -436,16 +436,7 @@ export default function StaffDashboardPage() {
   const ordersQ = useQuery({
     queryKey: ["staff-orders", cafeId],
     enabled: !!cafeId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*, order_items(*), tables(label)")
-        .eq("cafe_id", cafeId!)
-        .order("created_at", { ascending: false })
-        .limit(120);
-      if (error) throw error;
-      return (data ?? []) as unknown as OrderWithItems[];
-    },
+    queryFn: () => fetchCafeOrders(cafeId!),
   });
 
   // Listen to open-order-drawer requests from notification clicks
@@ -475,15 +466,7 @@ export default function StaffDashboardPage() {
     queryFn: async () => {
       // Clean up expired browsing sessions before loading table list
       await supabase.rpc("cleanup_expired_browsing_sessions");
-
-      const { data } = await supabase
-        .from("tables")
-        .select("*, dining_sessions:active_session_id(*)")
-        .eq("cafe_id", cafeId!)
-        .order("label");
-      
-      const sorted = ((data ?? []) as any[]).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
-      return sorted as TableWithSession[];
+      return fetchCafeTables(cafeId!);
     },
   });
 
