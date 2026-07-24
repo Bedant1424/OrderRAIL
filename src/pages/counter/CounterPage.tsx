@@ -1059,8 +1059,9 @@ const CounterLayout = () => {
   const { cafeId } = useCafe();
   const { user } = useAuth();
   
-  // Database-driven active table sessions map
+  // Database-driven active table sessions map & real DB tables state
   const [tableSessions, setTableSessions] = useState<Record<string, TableSessionData>>({});
+  const [dbTablesMap, setDbTablesMap] = useState<Record<string, { status: string; active_session_id: string | null }>>({});
   const [discountPct, setDiscountPct] = useState<number>(0);
   const [isPaymentOpen, setIsPaymentOpen] = useState<boolean>(false);
   const [activeReceipt, setActiveReceipt] = useState<CompletedOrderReceipt | null>(null);
@@ -1078,20 +1079,23 @@ const CounterLayout = () => {
     try {
       const { activeSessions, orders: dbOrders } = await fetchActiveDiningSessionOrders(cafeId);
 
-      // Query database tables directly for official active_session_id
-      const { data: dbTables } = await supabase
+      // Query database tables directly for official status & active_session_id
+      const { data: dbTablesData } = await supabase
         .from("tables")
-        .select("id, active_session_id")
+        .select("id, status, active_session_id")
         .eq("cafe_id", cafeId);
 
+      const tableMap: Record<string, { status: string; active_session_id: string | null }> = {};
       const activeSessionMap = new Map<string, string>(); // table_id -> active_session_id
-      if (dbTables) {
-        for (const t of dbTables) {
+      if (dbTablesData) {
+        for (const t of dbTablesData) {
+          tableMap[t.id] = { status: t.status, active_session_id: t.active_session_id };
           if (t.active_session_id) {
             activeSessionMap.set(t.id, t.active_session_id);
           }
         }
       }
+      setDbTablesMap(tableMap);
 
       if (activeSessions) {
         for (const s of activeSessions) {
@@ -1213,7 +1217,35 @@ const CounterLayout = () => {
     };
   }, [cafeId, loadSessionsFromDb]);
 
-  const selectedTable = tableEngine.tables.find((t) => t.id === tableEngine.selectedTableId) || null;
+  // Build database-synced tables list for TableRail & ActiveOrderPanel
+  const syncedTables: TableEntity[] = tableEngine.tables.map((t) => {
+    const dbT = dbTablesMap[t.id];
+    const sess = tableSessions[t.id];
+    const hasActiveSession = Boolean(
+      (dbT?.active_session_id) || 
+      (sess?.sessionId && sess.sessionId.length > 10) ||
+      (sess?.orders && sess.orders.length > 0)
+    );
+
+    let effectiveStatus: TableEntity['status'] = t.status;
+    if (hasActiveSession || dbT?.status === 'occupied') {
+      effectiveStatus = 'OCCUPIED';
+    } else if (dbT?.status === 'cleaning') {
+      effectiveStatus = 'CLEANING';
+    } else if (dbT?.status === 'out_of_service') {
+      effectiveStatus = 'OUT_OF_SERVICE';
+    } else if (dbT?.status === 'free' || dbT?.status === 'available') {
+      effectiveStatus = 'AVAILABLE';
+    }
+
+    return {
+      ...t,
+      status: effectiveStatus,
+      currentSessionId: dbT?.active_session_id || sess?.sessionId || t.currentSessionId,
+    };
+  });
+
+  const selectedTable = syncedTables.find((t) => t.id === tableEngine.selectedTableId) || null;
 
   // Ensure current table session is initialized with a stable session code per table
   const activeSessionData: TableSessionData = tableSessions[activeTableId] || {
@@ -1556,7 +1588,7 @@ const CounterLayout = () => {
     <div className="v8-counter-root">
       <Header />
       <TableRail 
-        tables={tableEngine.tables}
+        tables={syncedTables}
         selectedId={tableEngine.selectedTableId}
         onSelect={tableEngine.selectTable}
       />
