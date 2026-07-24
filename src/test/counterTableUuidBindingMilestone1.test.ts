@@ -15,24 +15,12 @@ describe("Milestone 1 Acceptance Criteria: Real Database Table UUID Binding", ()
     const tableUuid = testTable.id;
 
     // Reset table & lingering sessions
-    const { data: openOrders } = await supabase
-      .from("orders")
-      .select("id, session_id")
-      .eq("table_id", tableUuid)
-      .in("status", ["pending", "preparing", "ready"]);
-
-    if (openOrders && openOrders.length > 0) {
-      for (const o of openOrders) {
-        if (o.session_id) {
-          await supabase.rpc("cancel_order", { p_order_id: o.id, p_session_id: o.session_id });
-        }
-      }
-    }
-
-    await supabase.from("dining_sessions").update({ status: "closed", closed_at: new Date().toISOString() }).eq("table_id", tableUuid);
+    await supabase.from("orders").update({ status: "cancelled" }).eq("table_id", tableUuid);
     if (testTable.active_session_id) {
-      await markTableFreeInDb(tableUuid, testTable.active_session_id);
+      await supabase.from("orders").update({ status: "cancelled" }).eq("dining_session_id", testTable.active_session_id);
     }
+    await supabase.from("tables").update({ status: "free", active_session_id: null }).eq("id", tableUuid);
+    await supabase.from("dining_sessions").update({ status: "closed", closed_at: new Date().toISOString() }).eq("table_id", tableUuid);
 
     // 2. Resolve/Create active dining session
     const targetSessionId = await getOrCreateDiningSession(testTable as any);

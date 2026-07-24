@@ -247,15 +247,36 @@ export async function closeDiningSessionInDb(sessionId: string): Promise<void> {
   if (error) throw error;
 }
 
+export function toCanonicalDbTableStatus(status: string): TableRow["status"] {
+  switch (status.toLowerCase()) {
+    case "cleaning":
+    case "cleaning_required":
+      return "cleaning_required";
+    case "available":
+    case "free":
+      return "free";
+    case "out_of_service":
+      return "out_of_service";
+    case "occupied":
+    case "bill_requested":
+    case "reserved":
+      return "occupied";
+    default:
+      return status as TableRow["status"];
+  }
+}
+
 export async function updateTableStatusInDb(
   tableId: string,
   status: TableRow["status"],
   activeSessionId: string | null = null
 ): Promise<void> {
+  const dbStatus = toCanonicalDbTableStatus(status);
+
   const { error } = await supabase
     .from("tables")
     .update({
-      status,
+      status: dbStatus,
       active_session_id: activeSessionId,
     })
     .eq("id", tableId);
