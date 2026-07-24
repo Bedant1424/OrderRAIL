@@ -107,37 +107,46 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
   const counts = useMemo(() => getTableCounts(tables), [tables]);
 
   // Selection handlers
-  const selectTable = useCallback(
-    (id: string | null) => {
-      if (id !== selectedTableId) {
-        setPreviousSelectedTableId(selectedTableId);
-        setSelectedTableId(id);
+  const selectTable = useCallback((id: string | null) => {
+    setSelectedTableId((prev) => {
+      if (prev !== id) {
+        setPreviousSelectedTableId(prev);
       }
-    },
-    [selectedTableId]
-  );
+      return id;
+    });
+  }, []);
 
   const clearSelection = useCallback(() => {
-    setPreviousSelectedTableId(selectedTableId);
-    setSelectedTableId(null);
-  }, [selectedTableId]);
+    selectTable(null);
+  }, [selectTable]);
 
   const restorePreviousSelection = useCallback(() => {
     if (previousSelectedTableId) {
       const exists = tables.some((t) => t.id === previousSelectedTableId);
       if (exists) {
-        setSelectedTableId(previousSelectedTableId);
+        selectTable(previousSelectedTableId);
       }
     }
-  }, [previousSelectedTableId, tables]);
+  }, [previousSelectedTableId, tables, selectTable]);
+
+  // Restore selection when current table is unmounted or invalidated
+  useEffect(() => {
+    if (selectedTableId && !tables.some((t) => t.id === selectedTableId)) {
+      if (previousSelectedTableId && tables.some((t) => t.id === previousSelectedTableId)) {
+        selectTable(previousSelectedTableId);
+      } else {
+        selectTable(tables.length > 0 ? tables[0].id : null);
+      }
+    }
+  }, [selectedTableId, previousSelectedTableId, tables, selectTable]);
 
   // Core State Engine Mutation (Updates local state & persists to Supabase DB)
   const mutateTableState = useCallback(
-    (
+    async (
       tableId: string,
       targetStatus: TableState,
       sessionPayload?: DiningSessionModel | null
-    ): TransitionResult => {
+    ): Promise<TransitionResult> => {
       const currentTable = tables.find((t) => t.id === tableId);
       if (!currentTable) {
         return { success: false, error: "Table not found." };
@@ -170,26 +179,25 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
 
       setTables((prev) => prev.map((t) => (t.id === tableId ? updatedTable : t)));
 
-      // Persist table status mutation to Supabase Database
+      // Persist table status mutation to Supabase Database using canonical database values
       const dbStatusMap: Record<TableState, string> = {
         AVAILABLE: "free",
         OCCUPIED: "occupied",
         BILL_REQUESTED: "occupied",
-        CLEANING: "cleaning",
-        RESERVED: "reserved",
-        OUT_OF_SERVICE: "free",
+        CLEANING: "cleaning_required",
+        RESERVED: "occupied",
+        OUT_OF_SERVICE: "out_of_service",
       };
 
-      void (async () => {
-        try {
-          await supabase
-            .from("tables")
-            .update({ status: dbStatusMap[targetStatus] })
-            .eq("id", tableId);
-        } catch (e) {
-          console.warn("[mutateTableState] Could not sync table status to DB:", e);
-        }
-      })();
+      const { error } = await supabase
+        .from("tables")
+        .update({ status: dbStatusMap[targetStatus], active_session_id: activeSessionId })
+        .eq("id", tableId);
+
+      if (error) {
+        console.warn("[mutateTableState] Could not sync table status to DB:", error.message);
+        throw error;
+      }
 
       return {
         success: true,
@@ -202,7 +210,7 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
 
   // Business Action Handlers
   const openTable = useCallback(
-    (tableId: string, guestCount: number = 2): TransitionResult => {
+    async (tableId: string, guestCount: number = 2): Promise<TransitionResult> => {
       const currentTable = tables.find((t) => t.id === tableId);
       if (!currentTable) return { success: false, error: "Table not found." };
 
@@ -219,7 +227,7 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
         session = createDiningSession(currentTable.id, currentTable.label, guestCount);
       }
 
-      const result = mutateTableState(tableId, "OCCUPIED", session);
+      const result = await mutateTableState(tableId, "OCCUPIED", session);
       if (result.success) {
         selectTable(tableId);
       }
@@ -229,7 +237,7 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
   );
 
   const requestBill = useCallback(
-    (tableId: string): TransitionResult => {
+    async (tableId: string): Promise<TransitionResult> => {
       const currentTable = tables.find((t) => t.id === tableId);
       if (!currentTable) return { success: false, error: "Table not found." };
 
@@ -242,42 +250,42 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
         status: "BILLING",
       };
 
-      return mutateTableState(tableId, "BILL_REQUESTED", updatedSession);
+      return await mutateTableState(tableId, "BILL_REQUESTED", updatedSession);
     },
     [tables, mutateTableState]
   );
 
   const markCleaning = useCallback(
-    (tableId: string): TransitionResult => {
-      return mutateTableState(tableId, "CLEANING", null);
+    async (tableId: string): Promise<TransitionResult> => {
+      return await mutateTableState(tableId, "CLEANING", null);
     },
     [mutateTableState]
   );
 
   const releaseTable = useCallback(
-    (tableId: string): TransitionResult => {
-      return mutateTableState(tableId, "AVAILABLE", null);
+    async (tableId: string): Promise<TransitionResult> => {
+      return await mutateTableState(tableId, "AVAILABLE", null);
     },
     [mutateTableState]
   );
 
   const reserveTable = useCallback(
-    (tableId: string): TransitionResult => {
-      return mutateTableState(tableId, "RESERVED", null);
+    async (tableId: string): Promise<TransitionResult> => {
+      return await mutateTableState(tableId, "RESERVED", null);
     },
     [mutateTableState]
   );
 
   const markOutOfService = useCallback(
-    (tableId: string): TransitionResult => {
-      return mutateTableState(tableId, "OUT_OF_SERVICE", null);
+    async (tableId: string): Promise<TransitionResult> => {
+      return await mutateTableState(tableId, "OUT_OF_SERVICE", null);
     },
     [mutateTableState]
   );
 
   const restoreAvailable = useCallback(
-    (tableId: string): TransitionResult => {
-      return mutateTableState(tableId, "AVAILABLE", null);
+    async (tableId: string): Promise<TransitionResult> => {
+      return await mutateTableState(tableId, "AVAILABLE", null);
     },
     [mutateTableState]
   );

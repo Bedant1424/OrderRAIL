@@ -1323,7 +1323,7 @@ const CounterLayout = () => {
       console.warn("[handleOpenSession] DB session creation warning:", e);
     }
 
-    const res = tableEngine.openTable(selectedTable.id);
+    const res = await tableEngine.openTable(selectedTable.id);
     if (res.success) {
       setTableSessions((prev) => ({
         ...prev,
@@ -1348,7 +1348,7 @@ const CounterLayout = () => {
     } catch (e) {
       console.warn("[handleReleaseTable] Error:", e);
     }
-    const res = tableEngine.releaseTable(selectedTable.id);
+    const res = await tableEngine.releaseTable(selectedTable.id);
     await loadSessionsFromDb();
     if (res.success) toast.success(`${selectedTable.label} marked available`);
   }, [selectedTable, tableEngine, loadSessionsFromDb]);
@@ -1360,7 +1360,7 @@ const CounterLayout = () => {
     } catch (e) {
       console.warn("[handleRestoreTable] Error:", e);
     }
-    const res = tableEngine.restoreAvailable(selectedTable.id);
+    const res = await tableEngine.restoreAvailable(selectedTable.id);
     if (res.success) toast.success(`${selectedTable.label} restored`);
   }, [selectedTable, tableEngine]);
 
@@ -1489,7 +1489,7 @@ const CounterLayout = () => {
       });
 
       if (selectedTable) {
-        tableEngine.openTable(selectedTable.id);
+        await tableEngine.openTable(selectedTable.id);
       }
     } catch (e) {
       console.warn("[handleKot] Database write warning:", e);
@@ -1509,8 +1509,8 @@ const CounterLayout = () => {
     toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
   }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
-  const handlePrintBill = useCallback(() => {
-    if (selectedTable) tableEngine.requestBill(selectedTable.id);
+  const handlePrintBill = useCallback(async () => {
+    if (selectedTable) await tableEngine.requestBill(selectedTable.id);
     toast.success(`🖨️ Bill Printed for ${selectedTable?.label ?? 'Express Sale'}`);
   }, [selectedTable, tableEngine]);
 
@@ -1563,13 +1563,13 @@ const CounterLayout = () => {
       let updateRes: any = null;
       let updateErr: any = null;
       try {
-        updateRes = await updateTableStatusInDb(selectedTable.id, "cleaning", null);
+        updateRes = await updateTableStatusInDb(selectedTable.id, "cleaning_required", null);
         console.log("[INSTRUMENT_STEP_2_UPDATE_SUCCESS]", { updateRes });
       } catch (e: any) {
         updateErr = e?.message || e;
         console.log("[INSTRUMENT_STEP_2_UPDATE_EXCEPTION]", { updateErr });
       }
-      tableEngine.markCleaning(selectedTable.id);
+      await tableEngine.markCleaning(selectedTable.id);
 
       // Fresh DB read immediately after updateTableStatusInDb
       const { data: freshDbTable, error: readErr } = await supabase

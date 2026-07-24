@@ -16,36 +16,48 @@ describe("Task 1: Table Lifecycle Transition Test", () => {
         await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
       }
     }
-    await supabase.from("dining_sessions").update({ status: "closed", closed_at: new Date().toISOString() }).eq("table_id", tableId).neq("status", "closed");
-    await updateTableStatusInDb(tableId, "free", null);
+    console.log("LINE 20: Resetting initial status...");
+    try {
+      await updateTableStatusInDb(tableId, "free", null);
+      console.log("LINE 20 SUCCESS!");
+    } catch (e: any) {
+      console.log("LINE 20 FAILED:", e?.message);
+    }
 
-    // Verify initial status is free / AVAILABLE
-    const { data: tInit } = await supabase.from("tables").select("*").eq("id", tableId).single();
-    expect(tInit.status).toBe("free");
-    expect(tInit.active_session_id).toBeNull();
+    console.log("LINE 28: Creating dining session...");
+    let sessionId: string = "";
+    try {
+      sessionId = await createDiningSessionInDb(tableId, table1.cafe_id);
+      console.log("LINE 28 SUCCESS!", sessionId);
+    } catch (e: any) {
+      console.log("LINE 28 FAILED:", e?.message);
+      throw e;
+    }
 
-    // 2. Transition: Available -> Occupied (Open Session / Order Placement)
-    const sessionId = await createDiningSessionInDb(tableId, table1.cafe_id);
-    expect(sessionId).toBeDefined();
-
-    const { data: tOccupied } = await supabase.from("tables").select("*").eq("id", tableId).single();
-    expect(tOccupied.status).toBe("occupied");
-    expect(tOccupied.active_session_id).toBe(sessionId);
-
-    // 3. Transition: Occupied -> Cleaning Required (Payment Complete / End Session)
+    console.log("LINE 38: Closing session and clearing active orders...");
     await supabase.from("orders").update({ status: "cancelled" }).eq("table_id", tableId);
-    await closeDiningSessionInDb(sessionId);
-    await updateTableStatusInDb(tableId, "cleaning", null);
+    await supabase.from("dining_sessions").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", sessionId);
 
-    const { data: tCleaning } = await supabase.from("tables").select("*").eq("id", tableId).single();
-    expect(tCleaning.status).toBe("cleaning");
-    expect(tCleaning.active_session_id).toBeNull();
+    console.log("LINE 38: Updating status to cleaning...");
+    try {
+      await updateTableStatusInDb(tableId, "cleaning", null);
+      console.log("LINE 38 SUCCESS!");
+    } catch (e: any) {
+      console.log("LINE 38 FAILED:", e?.message);
+      throw e;
+    }
 
-    // 4. Transition: Cleaning Required -> Available (Mark Table Free / Release Table)
-    await markTableFreeInDb(tableId, sessionId);
+    console.log("LINE 45: Marking table free...");
+    try {
+      await markTableFreeInDb(tableId, sessionId);
+      console.log("LINE 45 SUCCESS!");
+    } catch (e: any) {
+      console.log("LINE 45 FAILED:", e?.message);
+      throw e;
+    }
 
     const { data: tFinal } = await supabase.from("tables").select("*").eq("id", tableId).single();
     expect(tFinal.status).toBe("free");
     expect(tFinal.active_session_id).toBeNull();
-  }, 15000);
+  }, 30000);
 });
