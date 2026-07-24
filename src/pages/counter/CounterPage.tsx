@@ -1541,29 +1541,38 @@ const CounterLayout = () => {
       tenders
     };
 
-    // 1. Mark orders as served via shared repository function
+    // 1. Mark all active orders as served in database
     try {
       const orderIds = cur.orders.map((o) => o.id);
       for (const orderId of orderIds) {
         await updateOrderStatusInDb(orderId, "served", "staff");
       }
-
-      // 2. Close active dining session in database
-      if (cur.sessionId && !cur.sessionId.startsWith("session-")) {
-        await closeDiningSessionInDb(cur.sessionId);
-      }
-
-      // 3. Move table to "cleaning" in Supabase DB
-      if (selectedTable) {
-        await updateTableStatusInDb(selectedTable.id, "cleaning", null);
-      }
     } catch (e) {
-      console.warn("[handlePaymentComplete] DB session closure warning:", e);
+      console.warn("[handlePaymentComplete] Error updating order status to served:", e);
     }
 
+    // 2. Transition table to "cleaning" in Supabase DB immediately
     if (selectedTable) {
+      try {
+        await updateTableStatusInDb(selectedTable.id, "cleaning", null);
+      } catch (e) {
+        console.warn("[handlePaymentComplete] Error updating table status to cleaning:", e);
+      }
       tableEngine.markCleaning(selectedTable.id);
     }
+
+    // 3. Attempt to close active dining session independently in database
+    if (cur.sessionId && !cur.sessionId.startsWith("session-")) {
+      try {
+        await closeDiningSessionInDb(cur.sessionId);
+      } catch (e: any) {
+        console.warn("[handlePaymentComplete] DB session closure notice:", e?.message || e);
+        toast.info("Session payment recorded. Active kitchen tickets remain for staff review.");
+      }
+    }
+
+    // 4. Refresh local state from DB ground truth
+    await loadSessionsFromDb();
 
     // Immediately remove closed session from Counter active view
     setTableSessions((prev) => {
@@ -1575,7 +1584,7 @@ const CounterLayout = () => {
     toast.success(`💰 Session Paid & Closed! ${selectedTable ? selectedTable.label + ' needs cleaning.' : ''}`);
     setIsPaymentOpen(false);
     setActiveReceipt(receipt);
-  }, [activeSessionData, activeTableId, discountPct, selectedTable, tableEngine, user]);
+  }, [activeSessionData, activeTableId, discountPct, loadSessionsFromDb, selectedTable, tableEngine, user]);
 
   // Keyboard Shortcuts
   useEffect(() => {

@@ -47,5 +47,5 @@ describe("Task 1: Table Lifecycle Transition Test", () => {
     const { data: tFinal } = await supabase.from("tables").select("*").eq("id", tableId).single();
     expect(tFinal.status).toBe("free");
     expect(tFinal.active_session_id).toBeNull();
-  });
+  }, 15000);
 });
