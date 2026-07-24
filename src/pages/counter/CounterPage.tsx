@@ -1237,17 +1237,6 @@ const CounterLayout = () => {
       effectiveStatus = 'OCCUPIED';
     }
 
-    if (dbT?.id === selectedTableId || protoT?.id === selectedTableId) {
-      console.log("[INSTRUMENT_STEP_4_RENDER]", {
-        tableId,
-        dbTStatus: dbT?.status,
-        dbTActiveSessionId: dbT?.active_session_id,
-        protoTStatus: protoT?.status,
-        effectiveStatus,
-        tableEngineStatus: protoT?.status
-      });
-    }
-
     const rawLabel = dbT?.label || protoT?.label || `${idx + 1}`;
     const formattedLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel : `Table ${rawLabel}`;
 
