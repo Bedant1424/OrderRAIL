@@ -1222,18 +1222,18 @@ const CounterLayout = () => {
 
   // Build database-synced tables list using real PostgreSQL table UUIDs
   const syncedTables: TableEntity[] = (dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
-    const protoT = tableEngine.tables[idx] || tableEngine.tables.find((t) => t.id === dbT.id);
+    const protoT = tableEngine.tables.find((t) => t.id === dbT.id);
     const tableId = dbT.id || protoT?.id || `table-${idx}`;
     const sess = tableSessions[tableId];
 
-    const dbStatus = (dbT?.status || protoT?.status || '').toLowerCase();
+    const dbStatus = (dbT ? dbT.status : (protoT?.status || '')).toLowerCase();
 
     let effectiveStatus: TableEntity['status'] = 'AVAILABLE';
     if (dbStatus === 'cleaning' || dbStatus === 'cleaning_required') {
       effectiveStatus = 'CLEANING';
     } else if (dbStatus === 'out_of_service') {
       effectiveStatus = 'OUT_OF_SERVICE';
-    } else if (Boolean(dbT?.active_session_id) || dbStatus === 'occupied') {
+    } else if (Boolean(dbT ? dbT.active_session_id : (protoT?.activeSession ? true : false)) || dbStatus === 'occupied') {
       effectiveStatus = 'OCCUPIED';
     }
 
@@ -1245,7 +1245,7 @@ const CounterLayout = () => {
       label: formattedLabel,
       seats: dbT?.seats || protoT?.seats || 4,
       status: effectiveStatus,
-      currentSessionId: dbT?.active_session_id || sess?.sessionId || null,
+      currentSessionId: dbT ? dbT.active_session_id : (sess?.sessionId || null),
       notes: protoT?.notes
     };
   });
