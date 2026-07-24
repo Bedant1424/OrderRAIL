@@ -1213,6 +1213,8 @@ const CounterLayout = () => {
     };
   }, [cafeId, loadSessionsFromDb]);
 
+  const selectedTable = tableEngine.tables.find((t) => t.id === tableEngine.selectedTableId) || null;
+
   // Ensure current table session is initialized with a stable session code per table
   const activeSessionData: TableSessionData = tableSessions[activeTableId] || {
     sessionId: selectedTable?.currentSessionId || "",
@@ -1238,8 +1240,6 @@ const CounterLayout = () => {
   const categoriesList = (menu.categories && menu.categories.length > 0)
     ? menu.categories.map((c) => c.name)
     : Array.from(new Set(catalog.map((i) => i.category)));
-
-  const selectedTable = tableEngine.tables.find((t) => t.id === tableEngine.selectedTableId) || null;
 
   // Table State Actions
   const handleOpenSession = useCallback(async () => {
