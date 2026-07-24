@@ -17,6 +17,7 @@ import {
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
 import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders } from '@/lib/orders/repository';
 import { getSessionId } from '@/lib/session';
+import { sortTablesNatural } from '@/lib/tables/naturalTableSort';
 
 import './counter.css';
 
@@ -1090,8 +1091,9 @@ const CounterLayout = () => {
       const tableMap: Record<string, { status: string; active_session_id: string | null }> = {};
       const activeSessionMap = new Map<string, string>(); // table_id -> active_session_id
       if (dbTablesData) {
-        setDbTablesList(dbTablesData);
-        for (const t of dbTablesData) {
+        const sortedDbTables = sortTablesNatural(dbTablesData);
+        setDbTablesList(sortedDbTables);
+        for (const t of sortedDbTables) {
           tableMap[t.id] = { status: t.status, active_session_id: t.active_session_id };
           if (t.active_session_id) {
             activeSessionMap.set(t.id, t.active_session_id);
@@ -1221,7 +1223,7 @@ const CounterLayout = () => {
   }, [cafeId, loadSessionsFromDb]);
 
   // Build database-synced tables list using real PostgreSQL table UUIDs
-  const syncedTables: TableEntity[] = (dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
+  const syncedTables: TableEntity[] = sortTablesNatural((dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
     const protoT = tableEngine.tables.find((t) => t.id === dbT.id);
     const tableId = dbT.id || protoT?.id || `table-${idx}`;
     const sess = tableSessions[tableId];
@@ -1248,7 +1250,7 @@ const CounterLayout = () => {
       currentSessionId: dbT ? dbT.active_session_id : (sess?.sessionId || null),
       notes: protoT?.notes
     };
-  });
+  }));
 
   const isExpress = tableEngine.selectedTableId === 'express';
 

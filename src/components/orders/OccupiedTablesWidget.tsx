@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Utensils } from "lucide-react";
 import type { TableRow, Order } from "@/lib/db";
 import { getTableStatus, calculateOccupiedTables } from "@/lib/tables/occupancy";
+import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 import { cn } from "@/lib/utils";
 
 export interface OccupiedTablesWidgetProps {
@@ -17,15 +18,8 @@ export default function OccupiedTablesWidget({
   onSelectTable,
   selectedTableId = null,
 }: OccupiedTablesWidgetProps) {
-  // Numerically sort tables (1 2 3 4 5 6 7 8 9 10)
-  const sortedTables = useMemo(() => {
-    return [...tables].sort((a, b) => {
-      const numA = parseInt(a.label.replace(/\D/g, ""), 10);
-      const numB = parseInt(b.label.replace(/\D/g, ""), 10);
-      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-      return a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: "base" });
-    });
-  }, [tables]);
+  // Naturally sort tables (1 2 3 ... 10 11)
+  const sortedTables = useMemo(() => sortTablesNatural(tables), [tables]);
 
   const occupiedCount = useMemo(() => calculateOccupiedTables(tables, orders).length, [tables, orders]);
   const totalTables = tables.length || 1;

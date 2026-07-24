@@ -76,7 +76,7 @@ export default function OwnerAnalyticsPage() {
     enabled: !!cafe?.id,
     queryFn: async () => {
       const { data } = await supabase.from("tables").select("*").eq("cafe_id", cafe!.id);
-      return (data ?? []) as TableRow[];
+      return sortTablesNatural((data ?? []) as TableRow[]);
     },
   });
 

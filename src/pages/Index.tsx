@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { QrCode, Coffee, Zap, WifiOff, ArrowRight, ChefHat, LayoutDashboard } from "lucide-react";
 import { supabase, type TableRow } from "@/lib/db";
+import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 import { useCafe } from "@/lib/cafe";
 import { useAuth, hasRole } from "@/lib/auth";
 import { isDemoDeployment } from "@/lib/permissions";
@@ -13,21 +14,20 @@ function TableQR({ tableId, label }: { tableId: string; label: string }) {
   useEffect(() => {
     if (!canvasRef.current) return;
     const url = `${window.location.origin}/t/${tableId}`;
-    import("qrcode").then((QRCodeModule) => {
-      const QRCode = QRCodeModule.default || QRCodeModule;
-      if (canvasRef.current) {
-        void QRCode.toCanvas(canvasRef.current, url, { margin: 1, width: 180, color: { dark: "#1a1210", light: "#ffffff" } });
-      }
+    import("qrcode").then((QRCode) => {
+      QRCode.toCanvas(canvasRef.current, url, { width: 140, margin: 1 });
     });
   }, [tableId]);
+
   return (
     <Link
       to={`/t/${tableId}`}
-      className="group flex flex-col items-center gap-3 rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition hover:shadow-float"
+      className="group relative flex flex-col items-center rounded-2xl border border-border/80 bg-card p-4 text-center shadow-soft transition hover:border-primary/50 hover:shadow-card active:scale-[0.99]"
     >
-      <canvas ref={canvasRef} className="rounded-xl" aria-label={`QR for table ${label}`} />
-      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground group-hover:text-foreground">
-        Table {label} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+      <canvas ref={canvasRef} className="rounded-xl border border-border/60 bg-white p-1" />
+      <div className="mt-3 font-display font-semibold text-foreground group-hover:text-primary">Table {label}</div>
+      <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+        Scan or tap <ArrowRight className="h-3 w-3 transition group-hover:translate-x-0.5" />
       </div>
     </Link>
   );
@@ -48,7 +48,7 @@ export default function Index() {
         .select("*")
         .eq("cafe_id", cafeId!)
         .order("label");
-      return ((data ?? []) as TableRow[]).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+      return sortTablesNatural((data ?? []) as TableRow[]);
     },
   });
 

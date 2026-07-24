@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from "react";
 import { supabase } from "@/lib/db";
+import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 import {
   TableEntity,
   TableState,
@@ -31,13 +32,13 @@ export interface TableEngineContextType {
   setSearchQuery: (query: string) => void;
 
   // Table State Engine Transitions
-  openTable: (tableId: string, guestCount?: number) => TransitionResult;
-  requestBill: (tableId: string) => TransitionResult;
-  markCleaning: (tableId: string) => TransitionResult;
-  releaseTable: (tableId: string) => TransitionResult;
-  reserveTable: (tableId: string) => TransitionResult;
-  markOutOfService: (tableId: string) => TransitionResult;
-  restoreAvailable: (tableId: string) => TransitionResult;
+  openTable: (tableId: string, guestCount?: number) => Promise<TransitionResult>;
+  requestBill: (tableId: string) => Promise<TransitionResult>;
+  markCleaning: (tableId: string) => Promise<TransitionResult>;
+  releaseTable: (tableId: string) => Promise<TransitionResult>;
+  reserveTable: (tableId: string) => Promise<TransitionResult>;
+  markOutOfService: (tableId: string) => Promise<TransitionResult>;
+  restoreAvailable: (tableId: string) => Promise<TransitionResult>;
   
   // Keyboard Navigation Helper
   navigateGrid: (direction: "up" | "down" | "left" | "right") => void;
@@ -68,10 +69,11 @@ export function TableEngineProvider({ children }: { children: React.ReactNode })
           seats: t.seats || 4,
           currentSessionId: t.active_session_id || undefined,
         }));
-        setTables(mapped);
+        const sortedMapped = sortTablesNatural(mapped);
+        setTables(sortedMapped);
         setSelectedTableId((currentId) => {
-          if (!currentId || !mapped.some((t) => t.id === currentId)) {
-            return mapped[0].id;
+          if (!currentId || !sortedMapped.some((t) => t.id === currentId)) {
+            return sortedMapped[0].id;
           }
           return currentId;
         });

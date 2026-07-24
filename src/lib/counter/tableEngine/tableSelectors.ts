@@ -1,4 +1,5 @@
 import { TableEntity, TableFilterType } from "./tableTypes";
+import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 
 export function filterTables(
   tables: TableEntity[],
@@ -22,7 +23,7 @@ export function filterTables(
     );
   }
 
-  return result;
+  return sortTablesNatural(result);
 }
 
 export function getTableCounts(tables: TableEntity[]) {

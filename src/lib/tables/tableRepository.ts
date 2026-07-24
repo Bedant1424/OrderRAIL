@@ -1,4 +1,5 @@
 import { supabase, type TableRow, type ServiceRequest } from "@/lib/db";
+import { sortTablesNatural } from "./naturalTableSort";
 
 /**
  * Table Repository for Dining Sessions & Table Lifecycle Management.
@@ -13,7 +14,7 @@ export async function fetchCafeTables(cafeId: string): Promise<TableRow[]> {
     .order("label", { numeric: true, sensitivity: "base" });
 
   if (error) throw error;
-  return (data ?? []) as TableRow[];
+  return sortTablesNatural((data ?? []) as TableRow[]);
 }
 
 export async function markTableFreeInDb(tableId: string, activeSessionId?: string | null): Promise<void> {

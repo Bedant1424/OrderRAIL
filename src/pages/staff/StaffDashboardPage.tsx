@@ -35,6 +35,7 @@ import { GlobalNotificationControls } from "@/components/owner/GlobalNotificatio
 import { useAuth } from "@/lib/auth";
 import { calculateOccupiedTables, getTableStatus } from "@/lib/tables/occupancy";
 import { markTableFreeInDb, fetchCafeTables } from "@/lib/tables/tableRepository";
+import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 import { updateOrderStatusInDb, cancelOrderInDb, fetchCafeOrders } from "@/lib/orders/repository";
 import {
   fetchActiveServiceRequests,
@@ -1580,7 +1581,7 @@ export default function StaffDashboardPage() {
       <section>
         <h2 className="mb-3 font-display text-lg font-semibold">Tables</h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-8">
-          {(tablesQ.data ?? []).map((t) => {
+          {sortTablesNatural((tablesQ.data ?? []) as TableRow[]).map((t) => {
             const { isOccupied } = getTableStatus(t as TableRow, (ordersQ.data ?? []) as any[]);
             return (
               <div
