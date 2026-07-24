@@ -62,7 +62,7 @@ export default function TableLayout() {
       const lastSession = localStorage.getItem(sessionKey);
       if (lastSession && lastSession !== activeSessionId) {
         localStorage.removeItem(`orderrail.cart.${tableId}`);
-        clearOrderHistory();
+        clearOrderHistory(tableId, lastSession);
       }
       localStorage.setItem(sessionKey, activeSessionId);
 

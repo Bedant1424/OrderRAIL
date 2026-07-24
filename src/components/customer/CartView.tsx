@@ -37,7 +37,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   const loadHistory = async () => {
     setLoadingHistory(true);
-    const localIds = getOrderHistory();
+    const localIds = getOrderHistory(table?.id, table?.active_session_id);
     const browserSessionId = getSessionId();
 
     try {
@@ -151,7 +151,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         })),
       });
 
-      addOrderToHistory(orderId);
+      addOrderToHistory(orderId, tableId, table?.active_session_id);
       clear();
       
       if (queued) {

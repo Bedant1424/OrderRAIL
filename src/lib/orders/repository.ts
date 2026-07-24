@@ -328,16 +328,60 @@ export async function fetchCustomerOrders(
 ): Promise<OrderWithItems[]> {
   const combinedMap = new Map<string, OrderWithItems>();
 
+  // Resolve active non-closed session ID for the table
+  let activeSessionId = diningSessionId && !diningSessionId.startsWith("session-") ? diningSessionId : null;
+
+  if (!activeSessionId && tableId) {
+    const { data: tableData } = await supabase
+      .from("tables")
+      .select("active_session_id")
+      .eq("id", tableId)
+      .maybeSingle();
+
+    if (tableData?.active_session_id) {
+      activeSessionId = tableData.active_session_id;
+    } else {
+      const { data: sessData } = await supabase
+        .from("dining_sessions")
+        .select("id")
+        .eq("table_id", tableId)
+        .neq("status", "closed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (sessData) {
+        activeSessionId = sessData.id;
+      }
+    }
+  }
+
+  // If no active dining session exists for table, return [] (closed sessions must not appear)
+  if (!activeSessionId) {
+    return [];
+  }
+
+  // Verify that activeSessionId itself is not closed in DB
+  const { data: activeSessData } = await supabase
+    .from("dining_sessions")
+    .select("status")
+    .eq("id", activeSessionId)
+    .maybeSingle();
+
+  if (activeSessData && activeSessData.status === "closed") {
+    return [];
+  }
+
   // 1. Fetch by dining_session_id if valid
   let sessCount = 0;
-  if (diningSessionId && !diningSessionId.startsWith("session-")) {
+  if (activeSessionId) {
     const { data: sessOrders, error: err1 } = await supabase
       .from("orders")
       .select("*, order_items(*)")
-      .eq("dining_session_id", diningSessionId)
+      .eq("dining_session_id", activeSessionId)
+      .neq("status", "cancelled")
       .order("created_at", { ascending: false });
 
-    if (err1) console.warn("[Instrumentation Query 1 Error]", err1.message);
+    if (err1) console.warn("[fetchCustomerOrders Query 1 Warning]", err1.message);
     if (sessOrders) {
       sessCount = sessOrders.length;
       for (const o of sessOrders as unknown as OrderWithItems[]) {
@@ -346,16 +390,18 @@ export async function fetchCustomerOrders(
     }
   }
 
-  // 2. Fetch by local sessionStorage order IDs (from addOrderToHistory)
+  // 2. Fetch by local sessionStorage order IDs restricted to activeSessionId
   let localCount = 0;
   if (localOrderIds.length > 0) {
     const { data: localOrders, error: err2 } = await supabase
       .from("orders")
       .select("*, order_items(*)")
       .in("id", localOrderIds)
+      .eq("dining_session_id", activeSessionId)
+      .neq("status", "cancelled")
       .order("created_at", { ascending: false });
 
-    if (err2) console.warn("[Instrumentation Query 2 Error]", err2.message);
+    if (err2) console.warn("[fetchCustomerOrders Query 2 Warning]", err2.message);
     if (localOrders) {
       localCount = localOrders.length;
       for (const o of localOrders as unknown as OrderWithItems[]) {
@@ -364,17 +410,18 @@ export async function fetchCustomerOrders(
     }
   }
 
-  // 3. Fetch active orders for this table
+  // 3. Fetch active orders for this table restricted to activeSessionId
   let tableCount = 0;
   if (tableId) {
     const { data: tableOrders, error: err3 } = await supabase
       .from("orders")
       .select("*, order_items(*)")
       .eq("table_id", tableId)
+      .eq("dining_session_id", activeSessionId)
       .neq("status", "cancelled")
       .order("created_at", { ascending: false });
 
-    if (err3) console.warn("[Instrumentation Query 3 Error]", err3.message);
+    if (err3) console.warn("[fetchCustomerOrders Query 3 Warning]", err3.message);
     if (tableOrders) {
       tableCount = tableOrders.length;
       for (const o of tableOrders as unknown as OrderWithItems[]) {
@@ -383,7 +430,7 @@ export async function fetchCustomerOrders(
     }
   }
 
-  // 4. Fetch by browser session_id if available
+  // 4. Fetch by browser session_id restricted to activeSessionId
   const browserSessionId = getSessionId();
   let sessionCount = 0;
   if (browserSessionId) {
@@ -391,9 +438,11 @@ export async function fetchCustomerOrders(
       .from("orders")
       .select("*, order_items(*)")
       .eq("session_id", browserSessionId)
+      .eq("dining_session_id", activeSessionId)
+      .neq("status", "cancelled")
       .order("created_at", { ascending: false });
 
-    if (err4) console.warn("[Instrumentation Query 4 Error]", err4.message);
+    if (err4) console.warn("[fetchCustomerOrders Query 4 Warning]", err4.message);
     if (browserOrders) {
       sessionCount = browserOrders.length;
       for (const o of browserOrders as unknown as OrderWithItems[]) {
@@ -402,18 +451,23 @@ export async function fetchCustomerOrders(
     }
   }
 
+  // Filter out any order that does not match activeSessionId
+  const result = Array.from(combinedMap.values()).filter(
+    (o) => o.dining_session_id === activeSessionId
+  );
+
   if (import.meta.env.DEV) {
     console.log("[Instrumentation Output - fetchCustomerOrders]:", {
       "1. dining_session query count": sessCount,
       "2. local order ID query count": localCount,
       "3. table_id query count": tableCount,
       "4. session_id query count": sessionCount,
-      "Merged total count": combinedMap.size,
-      "Order IDs": Array.from(combinedMap.keys()),
+      "Merged total count": result.length,
+      "Order IDs": result.map((o) => o.id),
     });
   }
 
-  return Array.from(combinedMap.values()).sort(
+  return result.sort(
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );
 }
