@@ -12,7 +12,7 @@ import {
   Search, Plus, Minus, Trash2, Send, CreditCard, DollarSign, 
   QrCode, Printer, CheckCircle, X, ChevronDown, User, Store, 
   Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck,
-  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt
+  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt, Smartphone
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
@@ -770,7 +770,7 @@ const PaymentDialogModal = ({
               )}
               onClick={() => setMethod('upi')}
             >
-              <QrCode className="w-4 h-4" /> UPI QR
+              <Smartphone className="w-4 h-4" /> UPI
             </button>
           </div>
 
@@ -857,10 +857,35 @@ const PaymentDialogModal = ({
           )}
 
           {method === 'upi' && (
-            <div className="p-4 bg-muted/20 rounded-xl border border-border/40 flex flex-col items-center gap-2 text-center">
-              <QrCode className="w-24 h-24 text-primary animate-pulse" />
-              <span className="text-xs font-bold">Dynamic UPI QR Ready</span>
-              <span className="text-[11px] text-muted-foreground font-mono">Scan to pay {formatCurrency(currentTenderVal)}</span>
+            <div className="p-4 bg-muted/20 rounded-xl border border-border/40 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+                  <Smartphone className="w-4 h-4 text-primary" />
+                  <span>📱 UPI Payment</span>
+                </div>
+                <span className="v8-font-mono font-extrabold text-xs text-foreground">
+                  {formatCurrency(currentTenderVal)}
+                </span>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-left">
+                Customer is paying using the restaurant's QR.
+              </p>
+
+              <div className="flex flex-col gap-1 p-2.5 rounded-lg bg-card border border-border/40 text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</span>
+                {isSubmitting ? (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>✅ Payment Received</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <Clock className="w-3.5 h-3.5 animate-spin" />
+                    <span>⏳ Awaiting cashier confirmation</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -869,7 +894,11 @@ const PaymentDialogModal = ({
             disabled={isSubmitting}
             onClick={handleAddTender}
           >
-            <CheckCircle className="w-4 h-4" /> {isSplitMode ? `Record ${method.toUpperCase()} Payment` : `Confirm & Complete Session (${formatCurrency(netTotal)})`}
+            <CheckCircle className="w-4 h-4" /> {
+              method === 'upi'
+                ? (isSubmitting ? '✅ Payment Received' : '✓ Confirm Payment')
+                : (isSplitMode ? `Record ${method.toUpperCase()} Payment` : `Confirm & Complete Session (${formatCurrency(netTotal)})`)
+            }
           </button>
         </div>
       </motion.div>
