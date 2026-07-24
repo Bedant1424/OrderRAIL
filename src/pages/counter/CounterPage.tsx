@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { 
   Search, Plus, Minus, Trash2, Send, CreditCard, DollarSign, 
-  QrCode, Printer, CheckCircle, X, ChevronDown, User, Store, 
+  QrCode, Printer, CheckCircle, X, ChevronDown, ChevronUp, User, Store, 
   Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck,
   Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt, Smartphone
 } from 'lucide-react';
@@ -600,6 +600,7 @@ const PaymentDialogModal = ({
   tax,
   discountPct,
   discountAmt,
+  session,
   onComplete,
   onClose
 }: {
@@ -609,16 +610,64 @@ const PaymentDialogModal = ({
   tax: number;
   discountPct: number;
   discountAmt: number;
+  session?: TableSessionData;
   onComplete: (tenders: PaymentTenderRecord[]) => void;
   onClose: () => void;
 }) => {
   const [isSplitMode, setIsSplitMode] = useState<boolean>(false);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState<boolean>(false);
   const [method, setMethod] = useState<'cash' | 'card' | 'upi'>('cash');
   const [tenderAmount, setTenderAmount] = useState<string>('');
   const [receivedAmount, setReceivedAmount] = useState<string>('');
   const [transactionRef, setTransactionRef] = useState<string>('');
   const [tenders, setTenders] = useState<PaymentTenderRecord[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Compute itemized list & statistics across active orders & draft cart
+  const { totalOrdersCount, totalItemsCount, itemizedItems } = useMemo(() => {
+    let ordersCount = session?.orders?.length || 1;
+    if (session?.draftCart && session.draftCart.length > 0) {
+      ordersCount += 1;
+    }
+
+    let itemsCount = 0;
+    const itemMap = new Map<string, { name: string; qty: number; totalPrice: number }>();
+
+    session?.orders?.forEach((ord) => {
+      ord.items?.forEach((i) => {
+        itemsCount += i.qty;
+        const existing = itemMap.get(i.name);
+        if (existing) {
+          existing.qty += i.qty;
+          existing.totalPrice += i.price * i.qty;
+        } else {
+          itemMap.set(i.name, { name: i.name, qty: i.qty, totalPrice: i.price * i.qty });
+        }
+      });
+    });
+
+    session?.draftCart?.forEach((i) => {
+      itemsCount += i.qty;
+      const existing = itemMap.get(i.name);
+      if (existing) {
+        existing.qty += i.qty;
+        existing.totalPrice += i.price * i.qty;
+      } else {
+        itemMap.set(i.name, { name: i.name, qty: i.qty, totalPrice: i.price * i.qty });
+      }
+    });
+
+    const itemsList = Array.from(itemMap.values());
+    if (itemsCount === 0 && itemsList.length === 0) {
+      itemsCount = 1;
+    }
+
+    return {
+      totalOrdersCount: ordersCount,
+      totalItemsCount: itemsCount,
+      itemizedItems: itemsList,
+    };
+  }, [session]);
 
   const paidTotal = tenders.reduce((acc, t) => acc + t.amount, 0);
   const remainingBalance = Math.max(0, netTotal - paidTotal);
@@ -681,6 +730,8 @@ const PaymentDialogModal = ({
 
   const isHighBill = currentTenderVal > 1000;
 
+  const displayTableLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
+
   return (
     <div className="v8-modal-overlay">
       <motion.div 
@@ -690,21 +741,115 @@ const PaymentDialogModal = ({
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.15 }}
       >
-        <div className="v8-dialog-header">
+        <div className="v8-dialog-header border-b border-border/40 pb-3">
           <div>
-            <h3 className="font-extrabold text-base flex items-center gap-2">
-              <IndianRupeeIcon className="w-5 h-5 text-primary" /> Settle Session — {tableLabel}
+            <h3 className="font-extrabold text-lg text-foreground flex items-center gap-2">
+              Collect Payment
             </h3>
-            <div className="text-xs text-muted-foreground font-mono">
-              Net Session Total: {formatCurrency(netTotal)}
+            <div className="text-xs font-semibold text-muted-foreground mt-0.5">
+              {displayTableLabel}
             </div>
           </div>
-          <button className="text-muted-foreground hover:text-foreground" onClick={onClose}>
+          <button className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition" onClick={onClose} aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="v8-dialog-body">
+        <div className="v8-dialog-body flex flex-col gap-3">
+          {/* Amount Due Visual Focus Section */}
+          <div className="p-3.5 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/20 text-center flex flex-col items-center justify-center">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Amount Due</span>
+            <span className="text-3xl font-black text-primary v8-font-mono tracking-tight mt-0.5">
+              {formatCurrency(netTotal)}
+            </span>
+          </div>
+
+          {/* Collapsible Bill Summary Card */}
+          <div className="rounded-xl border border-border/50 bg-card overflow-hidden transition-all text-left">
+            <button
+              type="button"
+              onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+              className="w-full px-3.5 py-2.5 flex items-center justify-between font-bold text-xs bg-muted/30 hover:bg-muted/50 transition cursor-pointer select-none"
+            >
+              <span className="flex items-center gap-1.5 text-foreground">
+                {isSummaryExpanded ? <ChevronUp className="w-4 h-4 text-primary" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                Bill Summary
+              </span>
+              <span className="text-[11px] font-mono text-muted-foreground font-normal">
+                {totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'}
+              </span>
+            </button>
+
+            {!isSummaryExpanded ? (
+              <div className="p-3 flex flex-col gap-1.5 text-xs">
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Orders</span>
+                  <span className="font-mono font-medium">{totalOrdersCount}</span>
+                </div>
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Items</span>
+                  <span className="font-mono font-medium">{totalItemsCount}</span>
+                </div>
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span className="font-mono font-medium">{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>GST</span>
+                  <span className="font-mono font-medium">{formatCurrency(tax)}</span>
+                </div>
+                {discountAmt > 0 && (
+                  <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                    <span>Discount ({discountPct}%)</span>
+                    <span className="font-mono font-medium">-{formatCurrency(discountAmt)}</span>
+                  </div>
+                )}
+                <div className="border-t border-border/40 pt-1.5 mt-0.5 flex justify-between items-center font-bold text-foreground">
+                  <span>Total</span>
+                  <span className="font-mono text-sm text-primary">{formatCurrency(netTotal)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 flex flex-col gap-2 text-xs">
+                <div className="max-h-36 overflow-y-auto flex flex-col gap-1.5 pr-1 divide-y divide-border/20">
+                  {itemizedItems.length === 0 ? (
+                    <div className="py-2 text-center text-muted-foreground text-xs">No items on bill</div>
+                  ) : (
+                    itemizedItems.map((item, idx) => (
+                      <div key={idx} className="pt-1.5 first:pt-0 flex justify-between items-center">
+                        <span className="font-medium text-foreground">
+                          <span className="font-bold text-primary mr-1.5">{item.qty} ×</span>
+                          {item.name}
+                        </span>
+                        <span className="font-mono text-muted-foreground">{formatCurrency(item.totalPrice)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="border-t border-border/40 pt-2 flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span className="font-mono font-medium">{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-muted-foreground">
+                    <span>GST</span>
+                    <span className="font-mono font-medium">{formatCurrency(tax)}</span>
+                  </div>
+                  {discountAmt > 0 && (
+                    <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                      <span>Discount ({discountPct}%)</span>
+                      <span className="font-mono font-medium">-{formatCurrency(discountAmt)}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-border/40 pt-1.5 flex justify-between items-center font-extrabold text-foreground">
+                    <span>Grand Total</span>
+                    <span className="font-mono text-sm text-primary">{formatCurrency(netTotal)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border/40 text-xs">
             <span className="font-semibold text-muted-foreground">Payment Mode:</span>
             <div className="flex items-center gap-1.5">
@@ -2530,6 +2675,7 @@ const CounterLayout = () => {
             tax={tax}
             discountPct={discountPct}
             discountAmt={discountAmt}
+            session={activeSessionData}
             onComplete={(tenders) => void handlePaymentComplete(tenders)}
             onClose={() => setIsPaymentOpen(false)}
           />
