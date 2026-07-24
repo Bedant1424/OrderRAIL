@@ -34,8 +34,8 @@ import { getNotificationSetting, initNotificationSystem } from "@/lib/notificati
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { useAuth } from "@/lib/auth";
 import { calculateOccupiedTables, getTableStatus } from "@/lib/tables/occupancy";
-import { markTableFreeInDb } from "@/lib/tables/tableRepository";
-import { updateOrderStatusInDb, cancelOrderInDb } from "@/lib/orders/repository";
+import { markTableFreeInDb, fetchCafeTables } from "@/lib/tables/tableRepository";
+import { updateOrderStatusInDb, cancelOrderInDb, fetchCafeOrders } from "@/lib/orders/repository";
 import {
   fetchActiveServiceRequests,
   acknowledgeServiceRequestInDb,
