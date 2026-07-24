@@ -51,7 +51,19 @@ export async function updateOrderStatusInDb(
     })
     .eq("id", orderId);
 
-  if (error) throw error;
+  if (error) {
+    const isPermissionOrDemoError =
+      error.code === "42501" ||
+      error.message?.toLowerCase().includes("permission") ||
+      error.message?.toLowerCase().includes("row-level security") ||
+      error.message?.toLowerCase().includes("demo");
+
+    if (isPermissionOrDemoError) {
+      console.warn("[updateOrderStatusInDb] Order status update restricted (RLS/Demo):", error.message);
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function editOrderInDb(params: {
@@ -192,7 +204,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     } else {
       const { data: newSess } = await supabase
         .from("dining_sessions")
-        .insert({ table_id: payload.table_id, status: "active" })
+        .insert({ table_id: payload.table_id, status: "browsing" })
         .select("id")
         .maybeSingle();
       if (newSess) {
@@ -227,7 +239,23 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
       note: payload.note ?? null,
       status: initialStatus,
     });
-    if (orderErr && orderErr.code !== "23505") throw orderErr;
+    if (orderErr && orderErr.code !== "23505") {
+      console.error("[createOrderInDb ERROR DETAILS]", {
+        message: orderErr.message,
+        code: orderErr.code,
+        details: orderErr.details,
+        hint: orderErr.hint,
+        payload: {
+          id: orderId,
+          cafe_id: payload.cafe_id,
+          table_id: payload.table_id,
+          session_id: payload.session_id || null,
+          dining_session_id: diningSessionId,
+          status: initialStatus,
+        },
+      });
+      throw orderErr;
+    }
   }
 
   const { data: existingItems } = await supabase

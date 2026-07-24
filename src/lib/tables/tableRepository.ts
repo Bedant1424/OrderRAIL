@@ -134,7 +134,7 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
     try {
       const { data: session, error: sErr } = await supabase
         .from("dining_sessions")
-        .insert({ table_id: table.id, status: "active" })
+        .insert({ table_id: table.id, status: "browsing" })
         .select("id")
         .single();
       if (sErr) throw sErr;
@@ -145,12 +145,11 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
     }
   }
 
-  // Step 5: Always synchronize table's active_session_id and status = "occupied"
+  // Step 5: Synchronize table's active_session_id without forcing status = "occupied"
   const { error: uErr } = await supabase
     .from("tables")
     .update({
       active_session_id: activeSessionId,
-      status: "occupied",
     })
     .eq("id", table.id);
 
@@ -172,7 +171,6 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
   }
 
   table.active_session_id = activeSessionId;
-  table.status = "occupied";
 
   return activeSessionId;
 }
