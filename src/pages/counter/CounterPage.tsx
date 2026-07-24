@@ -1226,19 +1226,15 @@ const CounterLayout = () => {
     const tableId = dbT.id || protoT?.id || `table-${idx}`;
     const sess = tableSessions[tableId];
 
-    const hasActiveSession = Boolean(
-      (dbT?.active_session_id) || 
-      (sess?.sessionId && sess.sessionId.length > 10) ||
-      (sess?.orders && sess.orders.length > 0)
-    );
+    const dbStatus = (dbT?.status || protoT?.status || '').toLowerCase();
 
     let effectiveStatus: TableEntity['status'] = 'AVAILABLE';
-    if (hasActiveSession || dbT?.status === 'occupied') {
-      effectiveStatus = 'OCCUPIED';
-    } else if (dbT?.status === 'cleaning') {
+    if (dbStatus === 'cleaning' || dbStatus === 'cleaning_required') {
       effectiveStatus = 'CLEANING';
-    } else if (dbT?.status === 'out_of_service') {
+    } else if (dbStatus === 'out_of_service') {
       effectiveStatus = 'OUT_OF_SERVICE';
+    } else if (Boolean(dbT?.active_session_id) || dbStatus === 'occupied') {
+      effectiveStatus = 'OCCUPIED';
     }
 
     const rawLabel = dbT?.label || protoT?.label || `${idx + 1}`;
@@ -1347,13 +1343,15 @@ const CounterLayout = () => {
   const handleReleaseTable = useCallback(async () => {
     if (!selectedTable) return;
     try {
+      await updateTableStatusInDb(selectedTable.id, "free", null);
       await markTableFreeInDb(selectedTable.id, selectedTable.currentSessionId);
     } catch (e) {
       console.warn("[handleReleaseTable] Error:", e);
     }
     const res = tableEngine.releaseTable(selectedTable.id);
+    await loadSessionsFromDb();
     if (res.success) toast.success(`${selectedTable.label} marked available`);
-  }, [selectedTable, tableEngine]);
+  }, [selectedTable, tableEngine, loadSessionsFromDb]);
 
   const handleRestoreTable = useCallback(async () => {
     if (!selectedTable) return;

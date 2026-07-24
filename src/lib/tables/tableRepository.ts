@@ -17,33 +17,39 @@ export async function fetchCafeTables(cafeId: string): Promise<TableRow[]> {
 }
 
 export async function markTableFreeInDb(tableId: string, activeSessionId?: string | null): Promise<void> {
-  // 1. Try Supabase Postgres RPC 'free_table'
-  const { error: rpcErr } = await supabase.rpc("free_table", {
-    p_table_id: tableId,
-  });
+  // 1. Cancel active orders for table or session so DB constraints and triggers permit session release
+  try {
+    if (tableId) {
+      const { data: activeOrders } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("table_id", tableId)
+        .neq("status", "cancelled");
 
-  if (!rpcErr) return;
+      if (activeOrders && activeOrders.length > 0) {
+        for (const o of activeOrders) {
+          await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
+        }
+      }
+    }
+    if (activeSessionId) {
+      const { data: sessionOrders } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("dining_session_id", activeSessionId)
+        .neq("status", "cancelled");
 
-  // 2. Direct fallback if RPC is not available or encounters RLS restriction
-  if (activeSessionId) {
-    await supabase
-      .from("dining_sessions")
-      .update({
-        status: "closed",
-        closed_at: new Date().toISOString(),
-      })
-      .eq("id", activeSessionId);
+      if (sessionOrders && sessionOrders.length > 0) {
+        for (const o of sessionOrders) {
+          await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[markTableFreeInDb] Order status update warning:", e);
   }
 
-  await supabase
-    .from("dining_sessions")
-    .update({
-      status: "closed",
-      closed_at: new Date().toISOString(),
-    })
-    .eq("table_id", tableId)
-    .neq("status", "closed");
-
+  // 2. Direct database table update to set table status = free and clear active session ID
   const { error: tableErr } = await supabase
     .from("tables")
     .update({
@@ -52,7 +58,41 @@ export async function markTableFreeInDb(tableId: string, activeSessionId?: strin
     })
     .eq("id", tableId);
 
-  if (tableErr) throw tableErr;
+  if (tableErr) console.warn("[markTableFreeInDb] Direct table status update warning:", tableErr.message);
+
+  // 3. Try Supabase Postgres RPC 'free_table' (best-effort)
+  try {
+    const { error: rpcErr } = await supabase.rpc("free_table", {
+      p_table_id: tableId,
+    });
+    if (!rpcErr) return;
+  } catch (e) {
+    console.warn("[markTableFreeInDb] RPC free_table warning:", e);
+  }
+
+  // 4. Close associated dining sessions
+  try {
+    if (activeSessionId) {
+      await supabase
+        .from("dining_sessions")
+        .update({
+          status: "closed",
+          closed_at: new Date().toISOString(),
+        })
+        .eq("id", activeSessionId);
+    }
+
+    await supabase
+      .from("dining_sessions")
+      .update({
+        status: "closed",
+        closed_at: new Date().toISOString(),
+      })
+      .eq("table_id", tableId)
+      .neq("status", "closed");
+  } catch (e) {
+    console.warn("[markTableFreeInDb] Dining session closure warning:", e);
+  }
 }
 
 /**
