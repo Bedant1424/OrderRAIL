@@ -4,10 +4,15 @@ import {
   saveCounterNotifications,
   sortNotificationsNewestFirst,
   formatRelativeTime,
-  type CounterNotification
+  loadNotificationSettings,
+  saveNotificationSettings,
+  isEventNotificationEnabled,
+  DEFAULT_NOTIFICATION_SETTINGS,
+  type CounterNotification,
+  type CounterNotificationSettings
 } from "@/lib/counter/counterNotifications";
 
-describe("Counter Notifications Utility", () => {
+describe("Counter Notifications & Settings Utility", () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -44,5 +49,54 @@ describe("Counter Notifications Utility", () => {
     expect(formatRelativeTime("2026-07-24T12:29:00.000Z", now)).toBe("1m ago");
     expect(formatRelativeTime("2026-07-24T12:15:00.000Z", now)).toBe("15m ago");
     expect(formatRelativeTime("2026-07-24T10:30:00.000Z", now)).toBe("2h ago");
+  });
+
+  it("loads default notification settings when none stored", () => {
+    const settings = loadNotificationSettings("cafe-456");
+    expect(settings).toEqual(DEFAULT_NOTIFICATION_SETTINGS);
+  });
+
+  it("persists and loads custom notification settings by cafeId", () => {
+    const cafeId = "cafe-789";
+    const customSettings: CounterNotificationSettings = {
+      general: {
+        enableNotifications: true,
+        enableSound: false,
+        enableBrowserNotifications: true,
+      },
+      eventTypes: {
+        newOrder: true,
+        orderServed: false,
+        needWater: true,
+        needBill: true,
+        callWaiter: false,
+        needHelp: true,
+      },
+    };
+
+    saveNotificationSettings(cafeId, customSettings);
+    const loaded = loadNotificationSettings(cafeId);
+
+    expect(loaded.general.enableSound).toBe(false);
+    expect(loaded.general.enableBrowserNotifications).toBe(true);
+    expect(loaded.eventTypes.orderServed).toBe(false);
+    expect(loaded.eventTypes.callWaiter).toBe(false);
+  });
+
+  it("respects master toggle and event type toggles when checking enabled events", () => {
+    const settings: CounterNotificationSettings = {
+      general: { enableNotifications: true, enableSound: true, enableBrowserNotifications: false },
+      eventTypes: { newOrder: true, orderServed: false, needWater: true, needBill: true, callWaiter: true, needHelp: true }
+    };
+
+    expect(isEventNotificationEnabled("new_order", settings)).toBe(true);
+    expect(isEventNotificationEnabled("order_served", settings)).toBe(false);
+
+    // When master enableNotifications is false
+    const disabledMaster: CounterNotificationSettings = {
+      ...settings,
+      general: { ...settings.general, enableNotifications: false }
+    };
+    expect(isEventNotificationEnabled("new_order", disabledMaster)).toBe(false);
   });
 });

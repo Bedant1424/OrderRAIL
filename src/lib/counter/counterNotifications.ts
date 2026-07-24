@@ -1,10 +1,10 @@
 /**
- * Counter Notification Data Types & Helper Utilities.
+ * Counter Notification Data Types, Helper Utilities & Settings Manager.
  */
 
 export interface CounterNotification {
   id: string;
-  type: 'new_order' | 'order_served' | 'order_updated';
+  type: 'new_order' | 'order_served' | 'order_updated' | 'need_water' | 'need_bill' | 'call_waiter' | 'need_help';
   title: string;
   description: string;
   timestamp: string; // ISO 8601 string
@@ -13,7 +13,40 @@ export interface CounterNotification {
   orderNumber?: number;
 }
 
+export interface CounterNotificationSettings {
+  general: {
+    enableNotifications: boolean;
+    enableSound: boolean;
+    enableBrowserNotifications: boolean;
+  };
+  eventTypes: {
+    newOrder: boolean;
+    orderServed: boolean;
+    needWater: boolean;
+    needBill: boolean;
+    callWaiter: boolean;
+    needHelp: boolean;
+  };
+}
+
+export const DEFAULT_NOTIFICATION_SETTINGS: CounterNotificationSettings = {
+  general: {
+    enableNotifications: true,
+    enableSound: true,
+    enableBrowserNotifications: false,
+  },
+  eventTypes: {
+    newOrder: true,
+    orderServed: true,
+    needWater: true,
+    needBill: true,
+    callWaiter: true,
+    needHelp: true,
+  },
+};
+
 const STORAGE_KEY = "orderrail.counter.notifications";
+const SETTINGS_STORAGE_KEY = "orderrail.counter.notification_settings";
 
 export function loadCounterNotifications(cafeId?: string): CounterNotification[] {
   if (typeof window === "undefined" || !cafeId) return [];
@@ -31,11 +64,59 @@ export function loadCounterNotifications(cafeId?: string): CounterNotification[]
 export function saveCounterNotifications(cafeId: string | undefined, notifications: CounterNotification[]): void {
   if (typeof window === "undefined" || !cafeId) return;
   try {
-    // Keep max 50 recent notifications
     const trimmed = sortNotificationsNewestFirst(notifications).slice(0, 50);
     localStorage.setItem(`${STORAGE_KEY}.${cafeId}`, JSON.stringify(trimmed));
   } catch (e) {
     console.warn("[saveCounterNotifications] Error saving notifications:", e);
+  }
+}
+
+export function loadNotificationSettings(cafeId?: string): CounterNotificationSettings {
+  if (typeof window === "undefined" || !cafeId) return DEFAULT_NOTIFICATION_SETTINGS;
+  try {
+    const raw = localStorage.getItem(`${SETTINGS_STORAGE_KEY}.${cafeId}`);
+    if (!raw) return DEFAULT_NOTIFICATION_SETTINGS;
+    const parsed = JSON.parse(raw);
+    return {
+      general: { ...DEFAULT_NOTIFICATION_SETTINGS.general, ...parsed?.general },
+      eventTypes: { ...DEFAULT_NOTIFICATION_SETTINGS.eventTypes, ...parsed?.eventTypes },
+    };
+  } catch (e) {
+    console.warn("[loadNotificationSettings] Error:", e);
+    return DEFAULT_NOTIFICATION_SETTINGS;
+  }
+}
+
+export function saveNotificationSettings(cafeId: string | undefined, settings: CounterNotificationSettings): void {
+  if (typeof window === "undefined" || !cafeId) return;
+  try {
+    localStorage.setItem(`${SETTINGS_STORAGE_KEY}.${cafeId}`, JSON.stringify(settings));
+  } catch (e) {
+    console.warn("[saveNotificationSettings] Error:", e);
+  }
+}
+
+export function isEventNotificationEnabled(
+  type: CounterNotification['type'],
+  settings: CounterNotificationSettings
+): boolean {
+  if (!settings.general.enableNotifications) return false;
+
+  switch (type) {
+    case 'new_order':
+      return settings.eventTypes.newOrder;
+    case 'order_served':
+      return settings.eventTypes.orderServed;
+    case 'need_water':
+      return settings.eventTypes.needWater;
+    case 'need_bill':
+      return settings.eventTypes.needBill;
+    case 'call_waiter':
+      return settings.eventTypes.callWaiter;
+    case 'need_help':
+      return settings.eventTypes.needHelp;
+    default:
+      return true;
   }
 }
 
@@ -44,7 +125,7 @@ export function sortNotificationsNewestFirst(notifications: CounterNotification[
     const timeA = new Date(a.timestamp).getTime();
     const timeB = new Date(b.timestamp).getTime();
     if (isNaN(timeA) || isNaN(timeB)) return 0;
-    return timeB - timeA; // Descending: Newest first
+    return timeB - timeA;
   });
 }
 
@@ -64,4 +145,41 @@ export function formatRelativeTime(dateString: string, nowMs: number = Date.now(
   if (diffHr < 24) return `${diffHr}h ago`;
 
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+export function playNotificationSound(): void {
+  try {
+    if (typeof window === "undefined") return;
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.25);
+  } catch (e) {
+    // Audio Context fallback
+  }
+}
+
+export async function triggerBrowserNotification(title: string, body: string): Promise<void> {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+
+  if (Notification.permission === "granted") {
+    new Notification(title, { body });
+  } else if (Notification.permission !== "denied") {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      new Notification(title, { body });
+    }
+  }
 }

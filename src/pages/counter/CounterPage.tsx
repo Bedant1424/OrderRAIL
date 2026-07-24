@@ -11,7 +11,8 @@ import { toast } from 'sonner';
 import { 
   Search, Plus, Minus, Trash2, Send, CreditCard, DollarSign, 
   QrCode, Printer, CheckCircle, X, ChevronDown, User, Store, 
-  Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck
+  Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck,
+  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
@@ -25,7 +26,13 @@ import {
   saveCounterNotifications,
   sortNotificationsNewestFirst,
   formatRelativeTime,
-  type CounterNotification
+  loadNotificationSettings,
+  saveNotificationSettings,
+  isEventNotificationEnabled,
+  playNotificationSound,
+  triggerBrowserNotification,
+  type CounterNotification,
+  type CounterNotificationSettings
 } from '@/lib/counter/counterNotifications';
 
 import './counter.css';
@@ -1106,23 +1113,64 @@ const SummaryPanel = ({
 const CounterNotificationDrawer = ({
   isOpen,
   notifications,
+  settings,
   nowMs,
   onClose,
   onMarkAllAsRead,
+  onClearHistory,
   onDismiss,
   onMarkAsRead,
+  onUpdateSettings,
 }: {
   isOpen: boolean;
   notifications: CounterNotification[];
+  settings: CounterNotificationSettings;
   nowMs: number;
   onClose: () => void;
   onMarkAllAsRead: () => void;
+  onClearHistory: () => void;
   onDismiss: (id: string) => void;
   onMarkAsRead: (id: string) => void;
+  onUpdateSettings: (updated: CounterNotificationSettings) => void;
 }) => {
+  const [activeTab, setActiveTab] = useState<'notifications' | 'settings'>('notifications');
+
   if (!isOpen) return null;
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const toggleGeneralSetting = (key: keyof CounterNotificationSettings['general']) => {
+    const updated: CounterNotificationSettings = {
+      ...settings,
+      general: {
+        ...settings.general,
+        [key]: !settings.general[key],
+      },
+    };
+
+    if (key === 'enableSound' && updated.general.enableSound) {
+      playNotificationSound();
+    }
+
+    if (key === 'enableBrowserNotifications' && updated.general.enableBrowserNotifications) {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        void Notification.requestPermission();
+      }
+    }
+
+    onUpdateSettings(updated);
+  };
+
+  const toggleEventTypeSetting = (key: keyof CounterNotificationSettings['eventTypes']) => {
+    const updated: CounterNotificationSettings = {
+      ...settings,
+      eventTypes: {
+        ...settings.eventTypes,
+        [key]: !settings.eventTypes[key],
+      },
+    };
+    onUpdateSettings(updated);
+  };
 
   return (
     <AnimatePresence>
@@ -1144,102 +1192,281 @@ const CounterNotificationDrawer = ({
           {/* Header */}
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-primary" />
-              <h3 className="font-bold text-sm text-foreground">Notifications</h3>
-              {unreadCount > 0 && (
+              {activeTab === 'settings' ? (
+                <button
+                  onClick={() => setActiveTab('notifications')}
+                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground mr-1"
+                  title="Back to Notifications"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              ) : (
+                <Bell className="w-4 h-4 text-primary" />
+              )}
+              <h3 className="font-bold text-sm text-foreground">
+                {activeTab === 'settings' ? 'Notification Settings' : 'Notifications'}
+              </h3>
+              {activeTab === 'notifications' && unreadCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-primary/10 text-primary">
                   {unreadCount} new
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
+              {activeTab === 'notifications' ? (
+                <>
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition"
+                    title="Notification Settings"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              ) : (
                 <button
-                  onClick={onMarkAllAsRead}
-                  className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                  onClick={onClose}
+                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
                 >
-                  <CheckCheck className="w-3.5 h-3.5" /> Mark all read
+                  <X className="w-4 h-4" />
                 </button>
               )}
-              <button
-                onClick={onClose}
-                className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
           </div>
 
-          {/* Notification List */}
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-            {notifications.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
-                <Bell className="w-8 h-8 text-muted-foreground/40" />
-                <span>No notifications yet.</span>
-              </div>
-            ) : (
-              notifications.map((n) => {
-                const relativeTime = formatRelativeTime(n.timestamp, nowMs);
-                const isServed = n.type === "order_served";
+          {activeTab === 'settings' ? (
+            /* Settings Panel */
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 text-xs">
+              {/* 1. General Settings */}
+              <div className="flex flex-col gap-3">
+                <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
+                  General
+                </h4>
 
-                return (
-                  <div
-                    key={n.id}
-                    onClick={() => onMarkAsRead(n.id)}
-                    className={cn(
-                      "p-3 rounded-xl border flex items-start gap-3 transition cursor-pointer relative",
-                      n.read
-                        ? "bg-card/40 border-border/40 opacity-70"
-                        : "bg-card border-border shadow-xs"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "p-2 rounded-xl shrink-0 mt-0.5",
-                        isServed
-                          ? "bg-emerald-500/10 text-emerald-600"
-                          : "bg-amber-500/10 text-amber-600"
-                      )}
-                    >
-                      {isServed ? (
-                        <CheckCircle className="w-4 h-4" />
-                      ) : (
-                        <ShoppingBag className="w-4 h-4" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-bold text-xs text-foreground">
-                          {n.title}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          {relativeTime}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {n.description}
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDismiss(n.id);
-                      }}
-                      className="text-muted-foreground/60 hover:text-foreground p-1"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-
-                    {!n.read && (
-                      <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-primary" />
-                    )}
+                <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-foreground">Enable notifications</span>
+                    <span className="text-[11px] text-muted-foreground">Master alert notifications</span>
                   </div>
-                );
-              })
-            )}
-          </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.general.enableNotifications}
+                    onChange={() => toggleGeneralSetting('enableNotifications')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                      <Volume2 className="w-3.5 h-3.5 text-primary" /> Notification sound
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">Play chime on new alert</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.general.enableSound}
+                    onChange={() => toggleGeneralSetting('enableSound')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-foreground">Browser notifications</span>
+                    <span className="text-[11px] text-muted-foreground">Desktop popups when unfocused</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.general.enableBrowserNotifications}
+                    onChange={() => toggleGeneralSetting('enableBrowserNotifications')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Event Types */}
+              <div className="flex flex-col gap-3">
+                <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
+                  Event Types
+                </h4>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                  <span className="font-medium text-foreground flex items-center gap-2">
+                    <ShoppingBag className="w-3.5 h-3.5 text-amber-500" /> New customer orders
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.eventTypes.newOrder}
+                    onChange={() => toggleEventTypeSetting('newOrder')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                  <span className="font-medium text-foreground flex items-center gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Order served
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.eventTypes.orderServed}
+                    onChange={() => toggleEventTypeSetting('orderServed')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                  <span className="font-medium text-foreground flex items-center gap-2">
+                    <Droplet className="w-3.5 h-3.5 text-blue-500" /> Need Water
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.eventTypes.needWater}
+                    onChange={() => toggleEventTypeSetting('needWater')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                  <span className="font-medium text-foreground flex items-center gap-2">
+                    <Receipt className="w-3.5 h-3.5 text-warning" /> Need Bill
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.eventTypes.needBill}
+                    onChange={() => toggleEventTypeSetting('needBill')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                  <span className="font-medium text-foreground flex items-center gap-2">
+                    <HandPlatter className="w-3.5 h-3.5 text-purple-500" /> Call Waiter
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.eventTypes.callWaiter}
+                    onChange={() => toggleEventTypeSetting('callWaiter')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                  <span className="font-medium text-foreground flex items-center gap-2">
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" /> Need Help
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.eventTypes.needHelp}
+                    onChange={() => toggleEventTypeSetting('needHelp')}
+                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* 3. History Actions */}
+              <div className="flex flex-col gap-3 pt-2 border-t border-border">
+                <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
+                  History
+                </h4>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onMarkAllAsRead}
+                    disabled={unreadCount === 0}
+                    className="flex-1 py-2 px-3 rounded-xl border border-border bg-secondary/50 hover:bg-secondary disabled:opacity-50 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5 text-primary" /> Mark all as read
+                  </button>
+
+                  <button
+                    onClick={onClearHistory}
+                    disabled={notifications.length === 0}
+                    className="flex-1 py-2 px-3 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Clear history
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Notification List */
+            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                  <Bell className="w-8 h-8 text-muted-foreground/40" />
+                  <span>No notifications yet.</span>
+                </div>
+              ) : (
+                notifications.map((n) => {
+                  const relativeTime = formatRelativeTime(n.timestamp, nowMs);
+                  const isServed = n.type === "order_served";
+
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => onMarkAsRead(n.id)}
+                      className={cn(
+                        "p-3 rounded-xl border flex items-start gap-3 transition cursor-pointer relative",
+                        n.read
+                          ? "bg-card/40 border-border/40 opacity-70"
+                          : "bg-card border-border shadow-xs"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "p-2 rounded-xl shrink-0 mt-0.5",
+                          isServed
+                            ? "bg-emerald-500/10 text-emerald-600"
+                            : "bg-amber-500/10 text-amber-600"
+                        )}
+                      >
+                        {isServed ? (
+                          <CheckCircle className="w-4 h-4" />
+                        ) : (
+                          <ShoppingBag className="w-4 h-4" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold text-xs text-foreground">
+                            {n.title}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {relativeTime}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {n.description}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDismiss(n.id);
+                        }}
+                        className="text-muted-foreground/60 hover:text-foreground p-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+
+                      {!n.read && (
+                        <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-primary" />
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -1291,16 +1518,23 @@ const CounterLayout = () => {
   // Consume shared production menu hook
   const menu = useMenu(cafeId);
 
-  // Notification State & Event Trackers
+  // Notification State, Settings & Event Trackers
   const [notifications, setNotifications] = useState<CounterNotification[]>(() => loadCounterNotifications(cafeId));
+  const [notifSettings, setNotifSettings] = useState<CounterNotificationSettings>(() => loadNotificationSettings(cafeId));
   const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const knownServedOrderIdsRef = useRef<Set<string>>(new Set());
+  const notifSettingsRef = useRef<CounterNotificationSettings>(notifSettings);
 
-  // Load persisted notifications on cafeId change
+  useEffect(() => {
+    notifSettingsRef.current = notifSettings;
+  }, [notifSettings]);
+
+  // Load persisted notifications and settings on cafeId change
   useEffect(() => {
     if (cafeId) {
       setNotifications(loadCounterNotifications(cafeId));
+      setNotifSettings(loadNotificationSettings(cafeId));
     }
   }, [cafeId]);
 
@@ -1310,6 +1544,21 @@ const CounterLayout = () => {
       saveCounterNotifications(cafeId, notifications);
     }
   }, [cafeId, notifications]);
+
+  const handleUpdateSettings = useCallback((updated: CounterNotificationSettings) => {
+    setNotifSettings(updated);
+    if (cafeId) {
+      saveNotificationSettings(cafeId, updated);
+    }
+  }, [cafeId]);
+
+  const handleClearHistory = useCallback(() => {
+    setNotifications([]);
+    if (cafeId) {
+      saveCounterNotifications(cafeId, []);
+    }
+    toast.success("Notification history cleared");
+  }, [cafeId]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
@@ -1417,7 +1666,18 @@ const CounterLayout = () => {
       }
 
       if (incomingNotifs.length > 0) {
-        setNotifications((prev) => sortNotificationsNewestFirst([...incomingNotifs, ...prev]));
+        const filteredNotifs = incomingNotifs.filter((n) => isEventNotificationEnabled(n.type, notifSettingsRef.current));
+        if (filteredNotifs.length > 0) {
+          setNotifications((prev) => sortNotificationsNewestFirst([...filteredNotifs, ...prev]));
+
+          if (notifSettingsRef.current.general.enableSound) {
+            playNotificationSound();
+          }
+
+          if (notifSettingsRef.current.general.enableBrowserNotifications) {
+            filteredNotifs.forEach((n) => void triggerBrowserNotification(n.title, n.description));
+          }
+        }
       }
 
       const sessionsMap: Record<string, TableSessionData> = {};
@@ -1859,8 +2119,18 @@ const CounterLayout = () => {
       knownOrderIdsRef.current.add(createdOrderId);
     }
 
-    // 1. Dispatch payload to Notification Center state
-    setNotifications((prev) => sortNotificationsNewestFirst([eventPayload, ...prev.filter((n) => n.id !== eventPayload.id)]));
+    // 1. Dispatch payload to Notification Center state if enabled in settings
+    if (isEventNotificationEnabled('new_order', notifSettingsRef.current)) {
+      setNotifications((prev) => sortNotificationsNewestFirst([eventPayload, ...prev.filter((n) => n.id !== eventPayload.id)]));
+      
+      if (notifSettingsRef.current.general.enableSound) {
+        playNotificationSound();
+      }
+
+      if (notifSettingsRef.current.general.enableBrowserNotifications) {
+        void triggerBrowserNotification(eventPayload.title, eventPayload.description);
+      }
+    }
 
     // 2. Display Toast consuming the exact same event payload
     toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${eventPayload.orderNumber} for ${cleanTableLabel !== 'Express' ? 'Table ' + cleanTableLabel : 'Express'})`);
@@ -2078,11 +2348,14 @@ const CounterLayout = () => {
       <CounterNotificationDrawer
         isOpen={isNotifOpen}
         notifications={notifications}
+        settings={notifSettings}
         nowMs={nowMs}
         onClose={() => setIsNotifOpen(false)}
         onMarkAllAsRead={handleMarkAllAsRead}
+        onClearHistory={handleClearHistory}
         onDismiss={handleDismissNotif}
         onMarkAsRead={handleMarkAsRead}
+        onUpdateSettings={handleUpdateSettings}
       />
 
       <AnimatePresence>
