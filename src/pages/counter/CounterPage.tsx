@@ -1494,8 +1494,11 @@ const CounterLayout = () => {
         }
         return merged;
       });
+
+      return { activeSessions, dbOrders };
     } catch (e) {
       console.warn("[CounterPage] Error fetching active DB orders:", e);
+      return { activeSessions: [], dbOrders: [] };
     }
   }, [cafeId]);
 
@@ -1768,7 +1771,6 @@ const CounterLayout = () => {
     }
 
     const subtotal = cur.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
-    const newOrderNumber = 100 + cur.orders.length + 1;
 
     // Guarantee a valid dining_session_id in Supabase DB before inserting order using getOrCreateDiningSession helper
     let targetSessionId: string | null = (cur.sessionId && cur.sessionId.length > 10 && !cur.sessionId.startsWith("session-"))
@@ -1791,9 +1793,10 @@ const CounterLayout = () => {
       }
     }
 
+    let createdOrderId: string | null = null;
     try {
       // Create order using unified createOrderInDb pipeline with status "preparing"
-      await createOrderInDb({
+      createdOrderId = await createOrderInDb({
         cafe_id: cafeId || '',
         table_id: selectedTable?.id || '',
         session_id: getSessionId(),
@@ -1825,8 +1828,42 @@ const CounterLayout = () => {
       }
     }));
 
-    await loadSessionsFromDb("Send KOT Post-Write");
-    toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
+    const res = await loadSessionsFromDb("Send KOT Post-Write");
+    const dbOrders = res?.dbOrders;
+
+    // Retrieve exact order created in database
+    const createdDbOrder = dbOrders?.find((o: any) => o.id === createdOrderId);
+
+    const rawLabel = selectedTable ? selectedTable.label : 'Express';
+    const cleanTableLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel.substring(5).trim() : rawLabel;
+
+    const orderNum = createdDbOrder?.order_number 
+      ? createdDbOrder.order_number 
+      : (createdOrderId ? Math.floor(100 + Math.random() * 900) : cur.orders.length + 101);
+
+    const orderTimestamp = createdDbOrder?.created_at || new Date().toISOString();
+
+    // Single canonical event payload consumed by BOTH Toast and Notification Center
+    const eventPayload: CounterNotification = {
+      id: `notif-new-${createdOrderId || Date.now()}`,
+      type: 'new_order',
+      title: 'New Order',
+      description: cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel} placed Order #${orderNum}` : `Express placed Order #${orderNum}`,
+      timestamp: orderTimestamp,
+      read: false,
+      tableLabel: cleanTableLabel,
+      orderNumber: orderNum,
+    };
+
+    if (createdOrderId) {
+      knownOrderIdsRef.current.add(createdOrderId);
+    }
+
+    // 1. Dispatch payload to Notification Center state
+    setNotifications((prev) => sortNotificationsNewestFirst([eventPayload, ...prev.filter((n) => n.id !== eventPayload.id)]));
+
+    // 2. Display Toast consuming the exact same event payload
+    toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${eventPayload.orderNumber} for ${cleanTableLabel !== 'Express' ? 'Table ' + cleanTableLabel : 'Express'})`);
   }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
   const handlePrintBill = useCallback(async () => {
