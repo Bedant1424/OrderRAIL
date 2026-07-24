@@ -34,6 +34,7 @@ interface CatalogItem {
 
 interface CartLineItem {
   id: string;
+  menuItemId?: string;
   name: string;
   price: number;
   qty: number;
@@ -1388,7 +1389,7 @@ const CounterLayout = () => {
       if (existing) {
         updatedDraft = cur.draftCart.map((i) => (i.name === item.name ? { ...i, qty: i.qty + 1 } : i));
       } else {
-        updatedDraft = [...cur.draftCart, { id: `c-${Date.now()}`, name: item.name, price: item.price, qty: 1 }];
+        updatedDraft = [...cur.draftCart, { id: item.id || `c-${Date.now()}`, menuItemId: item.id, name: item.name, price: item.price, qty: 1 }];
       }
 
       return {
@@ -1482,7 +1483,7 @@ const CounterLayout = () => {
         total_cents: Math.round(subtotal * 100),
         status: "preparing", // Rule 1: Counter orders have initial status = preparing
         items: cur.draftCart.map((i) => ({
-          menu_item_id: i.id.startsWith("c-") ? undefined : i.id,
+          menu_item_id: i.menuItemId || (i.id.startsWith("c-") ? undefined : i.id),
           name: i.name,
           price_cents: Math.round(i.price * 100),
           qty: i.qty,
