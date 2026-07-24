@@ -18,6 +18,7 @@ import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionIn
 import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders } from '@/lib/orders/repository';
 import { getSessionId } from '@/lib/session';
 import { sortTablesNatural } from '@/lib/tables/naturalTableSort';
+import { sortCounterOrders } from '@/lib/orders/sortCounterOrders';
 
 import './counter.css';
 
@@ -46,6 +47,7 @@ export interface SessionOrder {
   id: string;
   orderNumber: number;
   timestamp: string;
+  createdAt?: string;
   status: 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'PAID';
   items: CartLineItem[];
   subtotal: number;
@@ -410,7 +412,8 @@ const ActiveOrderPanel = ({
   const isCleaning = table?.status === 'CLEANING';
   const isOutOfService = table?.status === 'OUT_OF_SERVICE';
 
-  const orders = session?.orders ?? [];
+  const rawOrders = session?.orders ?? [];
+  const orders = useMemo(() => sortCounterOrders(rawOrders), [rawOrders]);
 
   return (
     <div className="v8-panel-order">
@@ -828,7 +831,7 @@ const ReceiptModal = ({
             </div>
 
             <div className="flex flex-col gap-2 py-2 border-y border-dashed border-gray-300 text-xs">
-              {receipt.orders.map((ord) => (
+              {sortCounterOrders(receipt.orders).map((ord) => (
                 <div key={ord.id} className="flex flex-col gap-0.5">
                   <div className="font-extrabold text-[10px] text-gray-600 uppercase">Order #{ord.orderNumber} ({ord.timestamp})</div>
                   {ord.items.map((item) => (
@@ -1139,6 +1142,7 @@ const CounterLayout = () => {
           id: ord.id,
           orderNumber: ord.order_number || Math.floor(100 + Math.random() * 900),
           timestamp: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          createdAt: ord.created_at || new Date().toISOString(),
           status: mappedStatus,
           items: mappedItems,
           subtotal: (ord.total_cents || 0) / 100
