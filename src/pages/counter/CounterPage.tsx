@@ -1078,10 +1078,24 @@ const CounterLayout = () => {
     try {
       const { activeSessions, orders: dbOrders } = await fetchActiveDiningSessionOrders(cafeId);
 
+      // Query database tables directly for official active_session_id
+      const { data: dbTables } = await supabase
+        .from("tables")
+        .select("id, active_session_id")
+        .eq("cafe_id", cafeId);
+
       const activeSessionMap = new Map<string, string>(); // table_id -> active_session_id
+      if (dbTables) {
+        for (const t of dbTables) {
+          if (t.active_session_id) {
+            activeSessionMap.set(t.id, t.active_session_id);
+          }
+        }
+      }
+
       if (activeSessions) {
         for (const s of activeSessions) {
-          if (s.table_id && s.status !== "closed") {
+          if (s.table_id && s.status !== "closed" && !activeSessionMap.has(s.table_id)) {
             activeSessionMap.set(s.table_id, s.id);
           }
         }
@@ -1096,11 +1110,11 @@ const CounterLayout = () => {
 
         // Strict Session Enforcement:
         // Table orders MUST belong to the active dining session of that table.
-        // If table has no active session, or if order's session ID doesn't match activeSessionId, skip it!
         if (tId !== "express") {
           const activeSessionId = activeSessionMap.get(tId);
-          if (!activeSessionId) continue;
-          if (ord.dining_session_id && ord.dining_session_id !== activeSessionId) continue;
+          if (activeSessionId && ord.dining_session_id && ord.dining_session_id !== activeSessionId) {
+            continue;
+          }
         }
 
         const mappedItems: CartLineItem[] = (ord.order_items || []).map((it: any) => ({
@@ -1122,8 +1136,8 @@ const CounterLayout = () => {
         };
 
         if (!sessionsMap[tId]) {
-          const sId = ord.dining_session_id || activeSessionMap.get(tId) || `session-${tId}`;
-          const codeSuffix = sId.substring(0, 4).toUpperCase();
+          const sId = ord.dining_session_id || activeSessionMap.get(tId) || "";
+          const codeSuffix = sId ? sId.substring(0, 4).toUpperCase() : "0000";
           sessionsMap[tId] = {
             sessionId: sId,
             sessionCode: `#S-${codeSuffix}`,
@@ -1138,7 +1152,16 @@ const CounterLayout = () => {
       }
 
       setTableSessions((prev) => {
-        const merged: Record<string, TableSessionData> = {};
+        const merged: Record<string, TableSessionData> = { ...prev };
+        for (const tId of Object.keys(merged)) {
+          if (!sessionsMap[tId]) {
+            merged[tId] = {
+              ...merged[tId],
+              sessionId: activeSessionMap.get(tId) || "",
+              orders: [],
+            };
+          }
+        }
         for (const [tId, sess] of Object.entries(sessionsMap)) {
           merged[tId] = {
             ...sess,
@@ -1192,10 +1215,10 @@ const CounterLayout = () => {
 
   // Ensure current table session is initialized with a stable session code per table
   const activeSessionData: TableSessionData = tableSessions[activeTableId] || {
-    sessionId: `session-${activeTableId}`,
-    sessionCode: `#S-${activeTableId.replace(/[^0-9]/g, '') || '01'}`,
+    sessionId: selectedTable?.currentSessionId || "",
+    sessionCode: `#S-${selectedTable?.label.replace(/[^0-9]/g, '') || '01'}`,
     startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-    guestCount: 2,
+    guestCount: selectedTable?.seats || 2,
     orders: [],
     draftCart: []
   };
@@ -1222,7 +1245,7 @@ const CounterLayout = () => {
   const handleOpenSession = useCallback(async () => {
     if (!selectedTable || !cafeId) return;
     
-    let newSessionId = `session-${selectedTable.id}`;
+    let newSessionId = selectedTable.currentSessionId || "";
     try {
       newSessionId = await createDiningSessionInDb(selectedTable.id, cafeId);
     } catch (e) {
@@ -1277,7 +1300,7 @@ const CounterLayout = () => {
 
     setTableSessions((prev) => {
       const cur = prev[activeTableId] || {
-        sessionId: `session-${activeTableId}`,
+        sessionId: selectedTable?.currentSessionId || "",
         sessionCode: `#S-${activeTableId.replace(/[^0-9]/g, '') || '01'}`,
         startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
         guestCount: 2,
@@ -1355,7 +1378,9 @@ const CounterLayout = () => {
     const newOrderNumber = 100 + cur.orders.length + 1;
 
     // Guarantee a valid dining_session_id in Supabase DB before inserting order using getOrCreateDiningSession helper
-    let targetSessionId: string | null = (cur.sessionId && !cur.sessionId.startsWith("session-")) ? cur.sessionId : null;
+    let targetSessionId: string | null = (cur.sessionId && cur.sessionId.length > 10 && !cur.sessionId.startsWith("session-"))
+      ? cur.sessionId
+      : (selectedTable?.currentSessionId || null);
     
     if (selectedTable && !targetSessionId) {
       try {
