@@ -8,6 +8,13 @@ export function getSessionId(): string {
   if (!id) {
     id = generateUUID();
     localStorage.setItem(KEY, id);
+    if (import.meta.env.DEV) {
+      console.log("[SESSION] Generated new browser session ID:", id);
+    }
+  } else {
+    if (import.meta.env.DEV) {
+      console.log("[SESSION] Reusing existing browser session ID:", id);
+    }
   }
   return id;
 }

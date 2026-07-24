@@ -9,6 +9,7 @@ import { BottomNav } from "@/components/customer/BottomNav";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
 import { useCustomerBackNavigation, useCustomerOverlay, useCustomerNavigate } from "@/hooks/useCustomerBack";
 import { useImageUrl } from "@/lib/useImageUrl";
+import { clearOrderHistory } from "@/lib/orderHistory";
 import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
 
 export default function TableLayout() {
@@ -56,11 +57,12 @@ export default function TableLayout() {
       // Delegate session lookup, creation, and resumption to tableRepository boundary
       const activeSessionId = await getOrCreateDiningSession(table as TableRow);
 
-      // Clear localStorage cart if the session ID has changed (e.g. table reset)
+      // Clear localStorage cart & order history if the session ID has changed (e.g. table reset)
       const sessionKey = `orderrail.last_session_id.${tableId}`;
       const lastSession = localStorage.getItem(sessionKey);
       if (lastSession && lastSession !== activeSessionId) {
         localStorage.removeItem(`orderrail.cart.${tableId}`);
+        clearOrderHistory();
       }
       localStorage.setItem(sessionKey, activeSessionId);
 
@@ -70,7 +72,7 @@ export default function TableLayout() {
         .eq("id", table.cafe_id)
         .maybeSingle();
       if (cErr) throw cErr;
-      return { cafe: cafe as Cafe, table: table as TableRow };
+      return { cafe: cafe as Cafe, table: { ...table, active_session_id: activeSessionId } as TableRow };
     },
     enabled: !!tableId,
   });

@@ -7,7 +7,7 @@ import { supabase, formatMoney, formatOrderLabel, type Cafe, type TableRow, type
 import { getSessionId } from "@/lib/session";
 import { generateUUID } from "@/lib/uuid";
 import { cancelOrder } from "@/lib/orders";
-import { editOrderInDb } from "@/lib/orders/repository";
+import { editOrderInDb, fetchCustomerOrders } from "@/lib/orders/repository";
 import { createServiceRequestInDb } from "@/lib/serviceRequests";
 import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
@@ -40,22 +40,29 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     const localIds = getOrderHistory();
     const browserSessionId = getSessionId();
 
-    console.log("[MyOrders Instrumentation Step 1] Inputs:", {
-      "table.id": table?.id,
-      "table.active_session_id": table?.active_session_id,
-      "browser_session_id": browserSessionId,
-      "localOrderIds": localIds,
-    });
-
     try {
-      const ords = await fetchCustomerOrders(table?.id, table?.active_session_id, localIds);
-      console.log("[MyOrders Instrumentation Step 5] Returned rows from fetchCustomerOrders:", {
-        count: ords.length,
-        orders: ords,
+      // 1. Raw Supabase response for table orders
+      const rawRes = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("table_id", table.id);
+
+      console.log("[INSTRUMENTATION 1] Raw Supabase response:", {
+        data: rawRes.data,
+        error: rawRes.error,
+        rowCount: rawRes.data?.length ?? 0,
       });
+
+      // 2. Value returned from fetchCustomerOrders()
+      const ords = await fetchCustomerOrders(table?.id, table?.active_session_id, localIds);
+      console.log("[INSTRUMENTATION 2] Value returned from fetchCustomerOrders():", {
+        returnedValue: ords,
+        count: ords.length,
+      });
+
       setHistoryOrders(ords as any);
     } catch (err) {
-      console.error("[MyOrders Instrumentation Error] loadHistory error:", err);
+      console.error("[INSTRUMENTATION ERROR] loadHistory failed:", err);
     } finally {
       setLoadingHistory(false);
     }
@@ -227,38 +234,47 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     }
   };
 
-  // Sort historyOrders by created_at descending (latest first)
+  // 3. Transformations/filter/map applied before rendering
   const sortedHistory = [...historyOrders].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  // Active orders contains all active orders (not served and not cancelled)
   const activeOrders = sortedHistory.filter((o) => {
     const s = (o.status || "").toLowerCase();
     return s !== "served" && s !== "cancelled";
   });
 
-  // Previous orders contains all served and cancelled orders
   const previousOrders = sortedHistory.filter((o) => {
     const s = (o.status || "").toLowerCase();
     return s === "served" || s === "cancelled";
   });
 
-  console.log("[TRACE Render]", {
-    currentRoute: typeof window !== "undefined" ? window.location.pathname : "",
-    componentMounted: "CartView",
-    "historyOrders.length": historyOrders.length,
-    "activeOrders.length": activeOrders.length,
-    "previousOrders.length": previousOrders.length,
-    "draftCart.length": lines.length,
+  // 4. Final state variable passed to the component
+  console.log("[INSTRUMENTATION 3 & 4] Transformations, Filters & Final State:", {
+    historyOrdersState: historyOrders,
+    historyOrdersCount: historyOrders.length,
+    sortedHistoryCount: sortedHistory.length,
+    activeOrdersCount: activeOrders.length,
+    previousOrdersCount: previousOrders.length,
+    draftCartLinesCount: lines.length,
     loadingHistory,
   });
 
-  if (activeOrders.length === 0 && previousOrders.length === 0) {
-    console.log("EMPTY STATE RENDERED");
-  } else {
-    console.log("ORDER LIST RENDERED");
-  }
+  // 5. The exact condition that causes the empty / "no orders" UI to render
+  const isCartEmpty = !lines.length;
+  const isHistoryEmpty = activeOrders.length === 0 && previousOrders.length === 0;
+  const rendersEmptyBasketUI = isCartEmpty && isHistoryEmpty;
+
+  console.log("[INSTRUMENTATION 5] Exact Render Condition:", {
+    file: "CartView.tsx",
+    function: "CartView",
+    conditionLineNumber: 394,
+    conditionExpression: "!lines.length && activeOrders.length === 0 && previousOrders.length === 0",
+    isCartEmpty,
+    isHistoryEmpty,
+    rendersEmptyBasketUI,
+    renderedBranch: rendersEmptyBasketUI ? "EMPTY BASKET VIEW ('Your basket is empty')" : "MY ORDER LIST VIEW",
+  });
 
   // Renders a single history order card
   const renderOrderCard = (o: Order & { order_items: OrderItem[] }) => {

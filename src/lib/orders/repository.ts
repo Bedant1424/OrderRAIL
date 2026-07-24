@@ -201,6 +201,15 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     }
   }
 
+  if (import.meta.env.DEV) {
+    console.log("[ORDER CREATION] Creating order in DB:", {
+      orderId,
+      tableId: payload.table_id,
+      sessionId: payload.session_id,
+      diningSessionId,
+    });
+  }
+
   const { data: existingOrder } = await supabase
     .from("orders")
     .select("id")
@@ -365,14 +374,16 @@ export async function fetchCustomerOrders(
     }
   }
 
-  console.log("[Instrumentation Output - fetchCustomerOrders]:", {
-    "1. dining_session query count": sessCount,
-    "2. local order ID query count": localCount,
-    "3. table_id query count": tableCount,
-    "4. session_id query count": sessionCount,
-    "Merged total count": combinedMap.size,
-    "Order IDs": Array.from(combinedMap.keys()),
-  });
+  if (import.meta.env.DEV) {
+    console.log("[Instrumentation Output - fetchCustomerOrders]:", {
+      "1. dining_session query count": sessCount,
+      "2. local order ID query count": localCount,
+      "3. table_id query count": tableCount,
+      "4. session_id query count": sessionCount,
+      "Merged total count": combinedMap.size,
+      "Order IDs": Array.from(combinedMap.keys()),
+    });
+  }
 
   return Array.from(combinedMap.values()).sort(
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
