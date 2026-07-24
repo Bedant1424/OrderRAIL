@@ -1061,6 +1061,7 @@ const CounterLayout = () => {
   
   // Database-driven active table sessions map & real DB tables state
   const [tableSessions, setTableSessions] = useState<Record<string, TableSessionData>>({});
+  const [dbTablesList, setDbTablesList] = useState<any[]>([]);
   const [dbTablesMap, setDbTablesMap] = useState<Record<string, { status: string; active_session_id: string | null }>>({});
   const [discountPct, setDiscountPct] = useState<number>(0);
   const [isPaymentOpen, setIsPaymentOpen] = useState<boolean>(false);
@@ -1069,8 +1070,6 @@ const CounterLayout = () => {
 
   // Consume shared production menu hook
   const menu = useMenu(cafeId);
-
-  const activeTableId = tableEngine.selectedTableId || 'express';
 
   // Load ACTIVE dining session orders ONLY from repository (Ignore closed/paid/cancelled historical records)
   const loadSessionsFromDb = useCallback(async () => {
@@ -1082,12 +1081,14 @@ const CounterLayout = () => {
       // Query database tables directly for official status & active_session_id
       const { data: dbTablesData } = await supabase
         .from("tables")
-        .select("id, status, active_session_id")
-        .eq("cafe_id", cafeId);
+        .select("*")
+        .eq("cafe_id", cafeId)
+        .order("label", { numeric: true, sensitivity: "base" });
 
       const tableMap: Record<string, { status: string; active_session_id: string | null }> = {};
       const activeSessionMap = new Map<string, string>(); // table_id -> active_session_id
       if (dbTablesData) {
+        setDbTablesList(dbTablesData);
         for (const t of dbTablesData) {
           tableMap[t.id] = { status: t.status, active_session_id: t.active_session_id };
           if (t.active_session_id) {
@@ -1217,35 +1218,75 @@ const CounterLayout = () => {
     };
   }, [cafeId, loadSessionsFromDb]);
 
-  // Build database-synced tables list for TableRail & ActiveOrderPanel
-  const syncedTables: TableEntity[] = tableEngine.tables.map((t) => {
-    const dbT = dbTablesMap[t.id];
-    const sess = tableSessions[t.id];
+  // Build database-synced tables list using real PostgreSQL table UUIDs
+  const syncedTables: TableEntity[] = (dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
+    const protoT = tableEngine.tables[idx] || tableEngine.tables.find((t) => t.id === dbT.id);
+    const tableId = dbT.id || protoT?.id || `table-${idx}`;
+    const sess = tableSessions[tableId];
+
     const hasActiveSession = Boolean(
       (dbT?.active_session_id) || 
       (sess?.sessionId && sess.sessionId.length > 10) ||
       (sess?.orders && sess.orders.length > 0)
     );
 
-    let effectiveStatus: TableEntity['status'] = t.status;
+    let effectiveStatus: TableEntity['status'] = 'AVAILABLE';
     if (hasActiveSession || dbT?.status === 'occupied') {
       effectiveStatus = 'OCCUPIED';
     } else if (dbT?.status === 'cleaning') {
       effectiveStatus = 'CLEANING';
     } else if (dbT?.status === 'out_of_service') {
       effectiveStatus = 'OUT_OF_SERVICE';
-    } else if (dbT?.status === 'free' || dbT?.status === 'available') {
-      effectiveStatus = 'AVAILABLE';
     }
 
+    const rawLabel = dbT?.label || protoT?.label || `${idx + 1}`;
+    const formattedLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel : `Table ${rawLabel}`;
+
     return {
-      ...t,
+      id: tableId,
+      label: formattedLabel,
+      seats: dbT?.seats || protoT?.seats || 4,
       status: effectiveStatus,
-      currentSessionId: dbT?.active_session_id || sess?.sessionId || t.currentSessionId,
+      currentSessionId: dbT?.active_session_id || sess?.sessionId || null,
+      notes: protoT?.notes
     };
   });
 
-  const selectedTable = syncedTables.find((t) => t.id === tableEngine.selectedTableId) || null;
+  const isExpress = tableEngine.selectedTableId === 'express';
+
+  const selectedTable = isExpress
+    ? null
+    : (syncedTables.find((t) => t.id === tableEngine.selectedTableId) || (syncedTables.length > 0 ? syncedTables[0] : null));
+
+  const activeTableId = isExpress
+    ? 'express'
+    : (selectedTable?.id || tableEngine.selectedTableId || 'express');
+
+  // Ensure tableEngine.selectedTableId is synced to a real PostgreSQL table UUID from syncedTables
+  useEffect(() => {
+    if (syncedTables.length === 0 || tableEngine.selectedTableId === 'express') return;
+
+    const currentId = tableEngine.selectedTableId;
+    const exists = syncedTables.some((t) => t.id === currentId);
+
+    if (!exists) {
+      let match: TableEntity | undefined;
+      if (currentId && currentId.startsWith('t-')) {
+        const protoNum = currentId.replace('t-', '');
+        match = syncedTables.find(
+          (t) => t.label.endsWith(` ${protoNum}`) || t.label.endsWith(protoNum)
+        );
+        if (!match) {
+          const idx = parseInt(protoNum, 10) - 1;
+          if (idx >= 0 && idx < syncedTables.length) {
+            match = syncedTables[idx];
+          }
+        }
+      }
+      const targetId = match ? match.id : syncedTables[0].id;
+      tableEngine.selectTable(targetId);
+    }
+  }, [syncedTables, tableEngine]);
 
   // Ensure current table session is initialized with a stable session code per table
   const activeSessionData: TableSessionData = tableSessions[activeTableId] || {

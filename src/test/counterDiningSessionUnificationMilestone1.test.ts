@@ -29,6 +29,12 @@ describe("Milestone 1: Unify Counter POS with the Dining Engine", () => {
     }
 
     // Close lingering sessions and ensure table is reset to free via RPC
+    await supabase
+      .from("dining_sessions")
+      .update({ status: "closed", closed_at: new Date().toISOString() })
+      .eq("table_id", tableId)
+      .neq("status", "closed");
+
     if (table.active_session_id) {
       await markTableFreeInDb(tableId, table.active_session_id);
     }
