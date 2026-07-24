@@ -16,6 +16,7 @@ import {
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
 import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders } from '@/lib/orders/repository';
+import { getSessionId } from '@/lib/session';
 
 import './counter.css';
 
@@ -1476,6 +1477,7 @@ const CounterLayout = () => {
       await createOrderInDb({
         cafe_id: cafeId || '',
         table_id: selectedTable?.id || '',
+        session_id: getSessionId(),
         dining_session_id: targetSessionId,
         total_cents: Math.round(subtotal * 100),
         status: "preparing", // Rule 1: Counter orders have initial status = preparing
@@ -1504,7 +1506,7 @@ const CounterLayout = () => {
       }
     }));
 
-    await loadSessionsFromDb();
+    await loadSessionsFromDb("Send KOT Post-Write");
     toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${newOrderNumber} for ${selectedTable?.label ?? 'Express'})`);
   }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
