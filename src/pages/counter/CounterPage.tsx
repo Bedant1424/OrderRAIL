@@ -1237,6 +1237,17 @@ const CounterLayout = () => {
       effectiveStatus = 'OCCUPIED';
     }
 
+    if (dbT?.id === selectedTableId || protoT?.id === selectedTableId) {
+      console.log("[INSTRUMENT_STEP_4_RENDER]", {
+        tableId,
+        dbTStatus: dbT?.status,
+        dbTActiveSessionId: dbT?.active_session_id,
+        protoTStatus: protoT?.status,
+        effectiveStatus,
+        tableEngineStatus: protoT?.status
+      });
+    }
+
     const rawLabel = dbT?.label || protoT?.label || `${idx + 1}`;
     const formattedLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel : `Table ${rawLabel}`;
 
@@ -1541,6 +1552,13 @@ const CounterLayout = () => {
       tenders
     };
 
+    // STEP 1 INSTRUMENTATION LOGGING: Before updating orders
+    console.log("[INSTRUMENT_STEP_1]", {
+      sessionId: cur.sessionId,
+      selectedTableId: selectedTable?.id,
+      selectedTableStatus: selectedTable?.status
+    });
+
     // 1. Mark all active orders as served in database
     try {
       const orderIds = cur.orders.map((o) => o.id);
@@ -1551,14 +1569,32 @@ const CounterLayout = () => {
       console.warn("[handlePaymentComplete] Error updating order status to served:", e);
     }
 
-    // 2. Transition table to "cleaning" in Supabase DB immediately
+    // STEP 2 INSTRUMENTATION LOGGING: Immediately after updateTableStatusInDb
     if (selectedTable) {
+      let updateRes: any = null;
+      let updateErr: any = null;
       try {
-        await updateTableStatusInDb(selectedTable.id, "cleaning", null);
-      } catch (e) {
-        console.warn("[handlePaymentComplete] Error updating table status to cleaning:", e);
+        updateRes = await updateTableStatusInDb(selectedTable.id, "cleaning", null);
+        console.log("[INSTRUMENT_STEP_2_UPDATE_SUCCESS]", { updateRes });
+      } catch (e: any) {
+        updateErr = e?.message || e;
+        console.log("[INSTRUMENT_STEP_2_UPDATE_EXCEPTION]", { updateErr });
       }
       tableEngine.markCleaning(selectedTable.id);
+
+      // Fresh DB read immediately after updateTableStatusInDb
+      const { data: freshDbTable, error: readErr } = await supabase
+        .from("tables")
+        .select("*")
+        .eq("id", selectedTable.id)
+        .single();
+
+      console.log("[INSTRUMENT_STEP_2_FRESH_DB_READ]", {
+        id: freshDbTable?.id,
+        status: freshDbTable?.status,
+        active_session_id: freshDbTable?.active_session_id,
+        readErr: readErr?.message || readErr
+      });
     }
 
     // 3. Attempt to close active dining session independently in database
@@ -1571,8 +1607,23 @@ const CounterLayout = () => {
       }
     }
 
-    // 4. Refresh local state from DB ground truth
+    // STEP 3 INSTRUMENTATION LOGGING: Immediately after loadSessionsFromDb
     await loadSessionsFromDb();
+
+    if (selectedTable) {
+      const { data: postLoadTable } = await supabase
+        .from("tables")
+        .select("*")
+        .eq("id", selectedTable.id)
+        .single();
+
+      console.log("[INSTRUMENT_STEP_3_POST_LOAD]", {
+        selectedTableId: selectedTable.id,
+        dbStatusPostLoad: postLoadTable?.status,
+        dbActiveSessionIdPostLoad: postLoadTable?.active_session_id,
+        tableSessionsForSelectedTable: tableSessions[selectedTable.id]
+      });
+    }
 
     // Immediately remove closed session from Counter active view
     setTableSessions((prev) => {
