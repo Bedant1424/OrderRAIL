@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { 
   Search, Plus, Minus, Trash2, Send, CreditCard, DollarSign, 
   QrCode, Printer, CheckCircle, X, ChevronDown, User, Store, 
-  Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag
+  Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
@@ -20,6 +20,13 @@ import { getSessionId } from '@/lib/session';
 import { sortTablesNatural } from '@/lib/tables/naturalTableSort';
 import { sortCounterOrders } from '@/lib/orders/sortCounterOrders';
 import { formatSessionElapsed } from '@/lib/tables/liveSessionTimer';
+import {
+  loadCounterNotifications,
+  saveCounterNotifications,
+  sortNotificationsNewestFirst,
+  formatRelativeTime,
+  type CounterNotification
+} from '@/lib/counter/counterNotifications';
 
 import './counter.css';
 
@@ -112,7 +119,13 @@ const FALLBACK_CATALOG: CatalogItem[] = [
 ];
 
 // --- 1. AUTHENTIC ORDERRAIL HEADER (56px) ---
-const Header = memo(() => {
+const Header = memo(({ 
+  unreadCount,
+  onOpenNotifications,
+}: { 
+  unreadCount: number;
+  onOpenNotifications: () => void;
+}) => {
   const { cafe } = useCafe();
   const { user } = useAuth();
   const [time, setTime] = useState(new Date());
@@ -138,6 +151,21 @@ const Header = memo(() => {
       </div>
 
       <div className="v8-header-right">
+        <button
+          type="button"
+          className="relative p-2 rounded-xl bg-secondary/50 hover:bg-secondary text-foreground transition cursor-pointer flex items-center justify-center"
+          onClick={onOpenNotifications}
+          title="Notifications"
+          aria-label="Notifications"
+        >
+          <Bell className="w-4 h-4 text-foreground" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground animate-pulse">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+
         <div className="v8-cashier-pill">
           <User className="w-3.5 h-3.5" />
           <span className="capitalize">{cashierName}</span>
@@ -1074,6 +1102,150 @@ const SummaryPanel = ({
   );
 };
 
+// --- NOTIFICATION CENTER DRAWER ---
+const CounterNotificationDrawer = ({
+  isOpen,
+  notifications,
+  nowMs,
+  onClose,
+  onMarkAllAsRead,
+  onDismiss,
+  onMarkAsRead,
+}: {
+  isOpen: boolean;
+  notifications: CounterNotification[];
+  nowMs: number;
+  onClose: () => void;
+  onMarkAllAsRead: () => void;
+  onDismiss: (id: string) => void;
+  onMarkAsRead: (id: string) => void;
+}) => {
+  if (!isOpen) return null;
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 250 }}
+          className="w-full max-w-sm h-full bg-card border-l border-border shadow-2xl flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-primary" />
+              <h3 className="font-bold text-sm text-foreground">Notifications</h3>
+              {unreadCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-primary/10 text-primary">
+                  {unreadCount} new
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={onMarkAllAsRead}
+                  className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" /> Mark all read
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Notification List */}
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+            {notifications.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                <Bell className="w-8 h-8 text-muted-foreground/40" />
+                <span>No notifications yet.</span>
+              </div>
+            ) : (
+              notifications.map((n) => {
+                const relativeTime = formatRelativeTime(n.timestamp, nowMs);
+                const isServed = n.type === "order_served";
+
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => onMarkAsRead(n.id)}
+                    className={cn(
+                      "p-3 rounded-xl border flex items-start gap-3 transition cursor-pointer relative",
+                      n.read
+                        ? "bg-card/40 border-border/40 opacity-70"
+                        : "bg-card border-border shadow-xs"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "p-2 rounded-xl shrink-0 mt-0.5",
+                        isServed
+                          ? "bg-emerald-500/10 text-emerald-600"
+                          : "bg-amber-500/10 text-amber-600"
+                      )}
+                    >
+                      {isServed ? (
+                        <CheckCircle className="w-4 h-4" />
+                      ) : (
+                        <ShoppingBag className="w-4 h-4" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-xs text-foreground">
+                          {n.title}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {relativeTime}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {n.description}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDismiss(n.id);
+                      }}
+                      className="text-muted-foreground/60 hover:text-foreground p-1"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+
+                    {!n.read && (
+                      <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 // --- AUTHENTIC STATUS BAR (32px) ---
 const StatusBar = memo(() => {
   return (
@@ -1119,6 +1291,40 @@ const CounterLayout = () => {
   // Consume shared production menu hook
   const menu = useMenu(cafeId);
 
+  // Notification State & Event Trackers
+  const [notifications, setNotifications] = useState<CounterNotification[]>(() => loadCounterNotifications(cafeId));
+  const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+  const knownServedOrderIdsRef = useRef<Set<string>>(new Set());
+
+  // Load persisted notifications on cafeId change
+  useEffect(() => {
+    if (cafeId) {
+      setNotifications(loadCounterNotifications(cafeId));
+    }
+  }, [cafeId]);
+
+  // Save notifications to localStorage whenever updated
+  useEffect(() => {
+    if (cafeId) {
+      saveCounterNotifications(cafeId, notifications);
+    }
+  }, [cafeId, notifications]);
+
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+
+  const handleMarkAllAsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
+  const handleMarkAsRead = useCallback((id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  }, []);
+
+  const handleDismissNotif = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
   // Load ACTIVE dining session orders ONLY from repository (Ignore closed/paid/cancelled historical records)
   const loadSessionsFromDb = useCallback(async () => {
     if (!cafeId) return;
@@ -1163,6 +1369,56 @@ const CounterLayout = () => {
       }
 
       if (!dbOrders) return;
+
+      const incomingNotifs: CounterNotification[] = [];
+      const isFirstLoad = knownOrderIdsRef.current.size === 0;
+
+      for (const ord of dbOrders) {
+        const ordId = ord.id;
+        const tableObj = dbTablesData?.find((t: any) => t.id === ord.table_id);
+        const tableLabel = tableObj ? tableObj.label : (ord.table_id ? 'Table' : 'Takeaway');
+        const cleanTableLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel.substring(5).trim() : tableLabel;
+        const orderNum = ord.order_number || Math.floor(100 + Math.random() * 900);
+        const isServed = ord.status === 'served' || ord.status === 'SERVED' || ord.status === 'paid' || ord.status === 'PAID';
+
+        // Event 1: New Customer Order
+        if (!knownOrderIdsRef.current.has(ordId)) {
+          knownOrderIdsRef.current.add(ordId);
+          if (!isFirstLoad) {
+            incomingNotifs.push({
+              id: `notif-new-${ordId}`,
+              type: 'new_order',
+              title: 'New Order',
+              description: cleanTableLabel !== 'Takeaway' ? `Table ${cleanTableLabel} placed Order #${orderNum}` : `Takeaway placed Order #${orderNum}`,
+              timestamp: ord.created_at || new Date().toISOString(),
+              read: false,
+              tableLabel: cleanTableLabel,
+              orderNumber: orderNum,
+            });
+          }
+        }
+
+        // Event 2: Order Served
+        if (isServed && !knownServedOrderIdsRef.current.has(ordId)) {
+          knownServedOrderIdsRef.current.add(ordId);
+          if (!isFirstLoad) {
+            incomingNotifs.push({
+              id: `notif-served-${ordId}`,
+              type: 'order_served',
+              title: 'Order Served',
+              description: cleanTableLabel !== 'Takeaway' ? `Order #${orderNum} served for Table ${cleanTableLabel}` : `Order #${orderNum} served`,
+              timestamp: new Date().toISOString(),
+              read: false,
+              tableLabel: cleanTableLabel,
+              orderNumber: orderNum,
+            });
+          }
+        }
+      }
+
+      if (incomingNotifs.length > 0) {
+        setNotifications((prev) => sortNotificationsNewestFirst([...incomingNotifs, ...prev]));
+      }
 
       const sessionsMap: Record<string, TableSessionData> = {};
 
@@ -1741,7 +1997,10 @@ const CounterLayout = () => {
 
   return (
     <div className="v8-counter-root">
-      <Header />
+      <Header 
+        unreadCount={unreadCount}
+        onOpenNotifications={() => setIsNotifOpen(true)}
+      />
       <TableRail 
         tables={syncedTables}
         tableSessions={tableSessions}
@@ -1778,6 +2037,16 @@ const CounterLayout = () => {
         />
       </div>
       <StatusBar />
+
+      <CounterNotificationDrawer
+        isOpen={isNotifOpen}
+        notifications={notifications}
+        nowMs={nowMs}
+        onClose={() => setIsNotifOpen(false)}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onDismiss={handleDismissNotif}
+        onMarkAsRead={handleMarkAsRead}
+      />
 
       <AnimatePresence>
         {isPaymentOpen && (
