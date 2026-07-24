@@ -20,8 +20,8 @@ describe("Counter Notifications & Settings Utility", () => {
   it("sorts notifications in chronological order (newest first)", () => {
     const list: CounterNotification[] = [
       { id: "1", type: "new_order", title: "Old", description: "d1", timestamp: "2026-07-24T10:00:00.000Z", read: false },
-      { id: "3", type: "new_order", title: "Newest", description: "d3", timestamp: "2026-07-24T12:00:00.000Z", read: false },
-      { id: "2", type: "new_order", title: "Middle", description: "d2", timestamp: "2026-07-24T11:00:00.000Z", read: false },
+      { id: "3", type: "need_water", title: "Newest", description: "d3", timestamp: "2026-07-24T12:00:00.000Z", read: false },
+      { id: "2", type: "need_bill", title: "Middle", description: "d2", timestamp: "2026-07-24T11:00:00.000Z", read: false },
     ];
 
     const sorted = sortNotificationsNewestFirst(list);
@@ -31,7 +31,7 @@ describe("Counter Notifications & Settings Utility", () => {
   it("persists and loads notifications from localStorage by cafeId", () => {
     const cafeId = "cafe-123";
     const list: CounterNotification[] = [
-      { id: "notif-1", type: "new_order", title: "New Order", description: "Table 5 placed Order #101", timestamp: "2026-07-24T12:00:00.000Z", read: false }
+      { id: "notif-1", type: "need_water", title: "Need Water", description: "Table 5 requested water", timestamp: "2026-07-24T12:00:00.000Z", read: false }
     ];
 
     saveCounterNotifications(cafeId, list);
@@ -39,7 +39,7 @@ describe("Counter Notifications & Settings Utility", () => {
 
     expect(loaded).toHaveLength(1);
     expect(loaded[0].id).toBe("notif-1");
-    expect(loaded[0].title).toBe("New Order");
+    expect(loaded[0].title).toBe("Need Water");
   });
 
   it("formats relative timestamps correctly", () => {
@@ -98,5 +98,17 @@ describe("Counter Notifications & Settings Utility", () => {
       general: { ...settings.general, enableNotifications: false }
     };
     expect(isEventNotificationEnabled("new_order", disabledMaster)).toBe(false);
+  });
+
+  it("filters service request event types according to settings", () => {
+    const settings: CounterNotificationSettings = {
+      general: { enableNotifications: true, enableSound: true, enableBrowserNotifications: false },
+      eventTypes: { newOrder: true, orderServed: true, needWater: true, needBill: false, callWaiter: true, needHelp: false }
+    };
+
+    expect(isEventNotificationEnabled("need_water", settings)).toBe(true);
+    expect(isEventNotificationEnabled("need_bill", settings)).toBe(false);
+    expect(isEventNotificationEnabled("call_waiter", settings)).toBe(true);
+    expect(isEventNotificationEnabled("need_help", settings)).toBe(false);
   });
 });

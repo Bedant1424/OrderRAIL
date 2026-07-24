@@ -17,6 +17,7 @@ import {
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
 import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders } from '@/lib/orders/repository';
+import { fetchActiveServiceRequests } from '@/lib/serviceRequests/repository';
 import { getSessionId } from '@/lib/session';
 import { sortTablesNatural } from '@/lib/tables/naturalTableSort';
 import { sortCounterOrders } from '@/lib/orders/sortCounterOrders';
@@ -1406,7 +1407,48 @@ const CounterNotificationDrawer = ({
               ) : (
                 notifications.map((n) => {
                   const relativeTime = formatRelativeTime(n.timestamp, nowMs);
-                  const isServed = n.type === "order_served";
+
+                  const renderNotifIcon = () => {
+                    switch (n.type) {
+                      case 'order_served':
+                        return (
+                          <div className="p-2 rounded-xl shrink-0 mt-0.5 bg-emerald-500/10 text-emerald-600">
+                            <CheckCircle className="w-4 h-4" />
+                          </div>
+                        );
+                      case 'need_water':
+                        return (
+                          <div className="p-2 rounded-xl shrink-0 mt-0.5 bg-blue-500/10 text-blue-600">
+                            <Droplet className="w-4 h-4" />
+                          </div>
+                        );
+                      case 'need_bill':
+                        return (
+                          <div className="p-2 rounded-xl shrink-0 mt-0.5 bg-yellow-500/10 text-yellow-600">
+                            <Receipt className="w-4 h-4" />
+                          </div>
+                        );
+                      case 'call_waiter':
+                        return (
+                          <div className="p-2 rounded-xl shrink-0 mt-0.5 bg-purple-500/10 text-purple-600">
+                            <HandPlatter className="w-4 h-4" />
+                          </div>
+                        );
+                      case 'need_help':
+                        return (
+                          <div className="p-2 rounded-xl shrink-0 mt-0.5 bg-indigo-500/10 text-indigo-600">
+                            <HelpCircle className="w-4 h-4" />
+                          </div>
+                        );
+                      case 'new_order':
+                      default:
+                        return (
+                          <div className="p-2 rounded-xl shrink-0 mt-0.5 bg-amber-500/10 text-amber-600">
+                            <ShoppingBag className="w-4 h-4" />
+                          </div>
+                        );
+                    }
+                  };
 
                   return (
                     <div
@@ -1419,20 +1461,7 @@ const CounterNotificationDrawer = ({
                           : "bg-card border-border shadow-xs"
                       )}
                     >
-                      <div
-                        className={cn(
-                          "p-2 rounded-xl shrink-0 mt-0.5",
-                          isServed
-                            ? "bg-emerald-500/10 text-emerald-600"
-                            : "bg-amber-500/10 text-amber-600"
-                        )}
-                      >
-                        {isServed ? (
-                          <CheckCircle className="w-4 h-4" />
-                        ) : (
-                          <ShoppingBag className="w-4 h-4" />
-                        )}
-                      </div>
+                      {renderNotifIcon()}
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
@@ -1524,6 +1553,7 @@ const CounterLayout = () => {
   const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const knownServedOrderIdsRef = useRef<Set<string>>(new Set());
+  const knownServiceRequestIdsRef = useRef<Set<string>>(new Set());
   const notifSettingsRef = useRef<CounterNotificationSettings>(notifSettings);
 
   useEffect(() => {
@@ -1665,6 +1695,56 @@ const CounterLayout = () => {
         }
       }
 
+      // Event 3: Customer Service Requests (Water, Bill, Waiter, Help)
+      try {
+        const activeSRs = await fetchActiveServiceRequests(cafeId);
+        if (activeSRs && activeSRs.length > 0) {
+          for (const sr of activeSRs) {
+            const srId = sr.id;
+            const tObj = dbTablesData?.find((t: any) => t.id === sr.table_id);
+            const tLabel = (sr.tables as any)?.label || tObj?.label || (sr.table_id ? 'Table' : 'Takeaway');
+            const cleanTableLabel = tLabel.toLowerCase().startsWith('table') ? tLabel.substring(5).trim() : tLabel;
+
+            if (!knownServiceRequestIdsRef.current.has(srId)) {
+              knownServiceRequestIdsRef.current.add(srId);
+              
+              let notifType: CounterNotification['type'] = 'need_help';
+              let notifTitle = 'Need Help';
+              let notifDesc = cleanTableLabel !== 'Takeaway' ? `Table ${cleanTableLabel} requested assistance` : `Takeaway requested assistance`;
+
+              const normalizedType = (sr.type || '').toLowerCase();
+              if (normalizedType === 'water' || normalizedType === 'need_water') {
+                notifType = 'need_water';
+                notifTitle = 'Need Water';
+                notifDesc = cleanTableLabel !== 'Takeaway' ? `Table ${cleanTableLabel} requested water` : `Takeaway requested water`;
+              } else if (normalizedType === 'bill' || normalizedType === 'need_bill') {
+                notifType = 'need_bill';
+                notifTitle = 'Need Bill';
+                notifDesc = cleanTableLabel !== 'Takeaway' ? `Table ${cleanTableLabel} requested the bill` : `Takeaway requested the bill`;
+              } else if (normalizedType === 'waiter' || normalizedType === 'call_waiter') {
+                notifType = 'call_waiter';
+                notifTitle = 'Call Waiter';
+                notifDesc = cleanTableLabel !== 'Takeaway' ? `Table ${cleanTableLabel} called a waiter` : `Takeaway called a waiter`;
+              }
+
+              if (!isFirstLoad) {
+                incomingNotifs.push({
+                  id: `notif-sr-${srId}`,
+                  type: notifType,
+                  title: notifTitle,
+                  description: notifDesc,
+                  timestamp: sr.created_at || new Date().toISOString(),
+                  read: false,
+                  tableLabel: cleanTableLabel,
+                });
+              }
+            }
+          }
+        }
+      } catch (srErr) {
+        console.warn("[CounterPage] Error fetching active service requests:", srErr);
+      }
+
       if (incomingNotifs.length > 0) {
         const filteredNotifs = incomingNotifs.filter((n) => isEventNotificationEnabled(n.type, notifSettingsRef.current));
         if (filteredNotifs.length > 0) {
@@ -1789,6 +1869,13 @@ const CounterLayout = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tables", filter: `cafe_id=eq.${cafeId}` },
+        () => {
+          void loadSessionsFromDb();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "service_requests", filter: `cafe_id=eq.${cafeId}` },
         () => {
           void loadSessionsFromDb();
         }
