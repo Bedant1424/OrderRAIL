@@ -19,6 +19,7 @@ import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders 
 import { getSessionId } from '@/lib/session';
 import { sortTablesNatural } from '@/lib/tables/naturalTableSort';
 import { sortCounterOrders } from '@/lib/orders/sortCounterOrders';
+import { formatSessionElapsed } from '@/lib/tables/liveSessionTimer';
 
 import './counter.css';
 
@@ -57,6 +58,7 @@ export interface TableSessionData {
   sessionId: string;
   sessionCode: string;
   startedAt: string;
+  startedAtTimestamp?: string;
   guestCount: number;
   orders: SessionOrder[];
   draftCart: CartLineItem[];
@@ -154,10 +156,23 @@ const Header = memo(() => {
 Header.displayName = 'Header';
 
 // --- 2. TABLE RAIL COMPONENT (44px) ---
-const TableChip = memo(({ table, isSelected, onClick }: { table: TableEntity; isSelected: boolean; onClick: () => void }) => {
+const TableChip = memo(({ 
+  table, 
+  session, 
+  nowMs, 
+  isSelected, 
+  onClick 
+}: { 
+  table: TableEntity; 
+  session?: TableSessionData; 
+  nowMs: number; 
+  isSelected: boolean; 
+  onClick: () => void 
+}) => {
   const labelNum = table.label.replace(/[^0-9]/g, '') || table.label.substring(0, 2);
   const dotClass = `v8-dot-${table.status.toLowerCase()}`;
   const isOccupiedOrBill = table.status === 'OCCUPIED' || table.status === 'BILL_REQUESTED';
+  const elapsedStr = isOccupiedOrBill ? formatSessionElapsed(session?.startedAtTimestamp, nowMs) : null;
 
   return (
     <button 
@@ -166,13 +181,25 @@ const TableChip = memo(({ table, isSelected, onClick }: { table: TableEntity; is
     >
       <span className={cn('v8-table-dot', dotClass)} />
       <span>{table.label.length > 4 ? `T${labelNum}` : table.label}</span>
-      {isOccupiedOrBill && <span className="v8-chip-timer">34m</span>}
+      {elapsedStr && <span className="v8-chip-timer">{elapsedStr}</span>}
     </button>
   );
 });
 TableChip.displayName = 'TableChip';
 
-const TableRail = memo(({ tables, selectedId, onSelect }: { tables: TableEntity[]; selectedId: string | null; onSelect: (id: string) => void }) => {
+const TableRail = memo(({ 
+  tables, 
+  tableSessions, 
+  nowMs, 
+  selectedId, 
+  onSelect 
+}: { 
+  tables: TableEntity[]; 
+  tableSessions: Record<string, TableSessionData>; 
+  nowMs: number; 
+  selectedId: string | null; 
+  onSelect: (id: string) => void;
+}) => {
   return (
     <div className="v8-table-rail">
       <button className="v8-hall-dropdown">
@@ -193,6 +220,8 @@ const TableRail = memo(({ tables, selectedId, onSelect }: { tables: TableEntity[
           <TableChip 
             key={t.id} 
             table={t} 
+            session={tableSessions[t.id]}
+            nowMs={nowMs}
             isSelected={t.id === selectedId}
             onClick={() => onSelect(t.id)}
           />
@@ -392,6 +421,7 @@ OrderItemRow.displayName = 'OrderItemRow';
 const ActiveOrderPanel = ({
   table,
   session,
+  nowMs = Date.now(),
   draftCart,
   onOpenSession,
   onReleaseTable,
@@ -401,6 +431,7 @@ const ActiveOrderPanel = ({
 }: {
   table: TableEntity | null;
   session: TableSessionData | null;
+  nowMs?: number;
   draftCart: CartLineItem[];
   onOpenSession: () => void;
   onReleaseTable: () => void;
@@ -415,6 +446,10 @@ const ActiveOrderPanel = ({
   const rawOrders = session?.orders ?? [];
   const orders = useMemo(() => sortCounterOrders(rawOrders), [rawOrders]);
 
+  const sessionElapsed = (table?.status === 'OCCUPIED' || table?.status === 'BILL_REQUESTED') && session?.startedAtTimestamp
+    ? formatSessionElapsed(session.startedAtTimestamp, nowMs)
+    : null;
+
   return (
     <div className="v8-panel-order">
       <div className="v8-order-header">
@@ -427,7 +462,7 @@ const ActiveOrderPanel = ({
         <div className="v8-order-meta">
           <span>{table ? `${table.seats} Guests` : 'Counter Sale'}</span>
           <span>·</span>
-          <span>Session {session ? session.sessionCode : '#S-NEW'} ({session ? session.startedAt : 'Active'})</span>
+          <span>Session {session ? session.sessionCode : '#S-NEW'} ({sessionElapsed ? `${sessionElapsed} active` : (session ? session.startedAt : 'Active')})</span>
         </div>
       </div>
 
@@ -1065,6 +1100,13 @@ const CounterLayout = () => {
   const { cafeId } = useCafe();
   const { user } = useAuth();
   
+  // Single shared 1-second interval timer tick for the entire Counter page
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  
   // Database-driven active table sessions map & real DB tables state
   const [tableSessions, setTableSessions] = useState<Record<string, TableSessionData>>({});
   const [dbTablesList, setDbTablesList] = useState<any[]>([]);
@@ -1093,6 +1135,8 @@ const CounterLayout = () => {
 
       const tableMap: Record<string, { status: string; active_session_id: string | null }> = {};
       const activeSessionMap = new Map<string, string>(); // table_id -> active_session_id
+      const activeSessionCreatedAtMap = new Map<string, string>(); // table_id -> created_at ISO
+
       if (dbTablesData) {
         const sortedDbTables = sortTablesNatural(dbTablesData);
         setDbTablesList(sortedDbTables);
@@ -1107,8 +1151,13 @@ const CounterLayout = () => {
 
       if (activeSessions) {
         for (const s of activeSessions) {
-          if (s.table_id && s.status !== "closed" && !activeSessionMap.has(s.table_id)) {
-            activeSessionMap.set(s.table_id, s.id);
+          if (s.table_id && s.status !== "closed") {
+            if (!activeSessionMap.has(s.table_id)) {
+              activeSessionMap.set(s.table_id, s.id);
+            }
+            if (s.created_at) {
+              activeSessionCreatedAtMap.set(s.table_id, s.created_at);
+            }
           }
         }
       }
@@ -1151,10 +1200,12 @@ const CounterLayout = () => {
         if (!sessionsMap[tId]) {
           const sId = ord.dining_session_id || activeSessionMap.get(tId) || "";
           const codeSuffix = sId ? sId.substring(0, 4).toUpperCase() : "0000";
+          const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || ord.created_at || new Date().toISOString();
           sessionsMap[tId] = {
             sessionId: sId,
             sessionCode: `#S-${codeSuffix}`,
-            startedAt: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            startedAt: new Date(sessCreatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            startedAtTimestamp: sessCreatedAt,
             guestCount: 2,
             orders: [],
             draftCart: []
@@ -1167,17 +1218,21 @@ const CounterLayout = () => {
       setTableSessions((prev) => {
         const merged: Record<string, TableSessionData> = { ...prev };
         for (const tId of Object.keys(merged)) {
+          const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || merged[tId]?.startedAtTimestamp;
           if (!sessionsMap[tId]) {
             merged[tId] = {
               ...merged[tId],
               sessionId: activeSessionMap.get(tId) || "",
+              startedAtTimestamp: sessCreatedAt,
               orders: [],
             };
           }
         }
         for (const [tId, sess] of Object.entries(sessionsMap)) {
+          const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || sess.startedAtTimestamp;
           merged[tId] = {
             ...sess,
+            startedAtTimestamp: sessCreatedAt,
             draftCart: prev[tId]?.draftCart || []
           };
         }
@@ -1297,6 +1352,7 @@ const CounterLayout = () => {
     sessionId: selectedTable?.currentSessionId || "",
     sessionCode: `#S-${selectedTable?.label.replace(/[^0-9]/g, '') || '01'}`,
     startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+    startedAtTimestamp: new Date().toISOString(),
     guestCount: selectedTable?.seats || 2,
     orders: [],
     draftCart: []
@@ -1337,6 +1393,7 @@ const CounterLayout = () => {
           sessionId: newSessionId,
           sessionCode: `#S-${selectedTable.label.replace(/[^0-9]/g, '') || '01'}`,
           startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          startedAtTimestamp: new Date().toISOString(),
           guestCount: selectedTable.seats || 2,
           orders: [],
           draftCart: []
@@ -1382,6 +1439,7 @@ const CounterLayout = () => {
         sessionId: selectedTable?.currentSessionId || "",
         sessionCode: `#S-${activeTableId.replace(/[^0-9]/g, '') || '01'}`,
         startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        startedAtTimestamp: new Date().toISOString(),
         guestCount: 2,
         orders: [],
         draftCart: []
@@ -1686,6 +1744,8 @@ const CounterLayout = () => {
       <Header />
       <TableRail 
         tables={syncedTables}
+        tableSessions={tableSessions}
+        nowMs={nowMs}
         selectedId={tableEngine.selectedTableId}
         onSelect={tableEngine.selectTable}
       />
@@ -1699,6 +1759,7 @@ const CounterLayout = () => {
         <ActiveOrderPanel 
           table={selectedTable}
           session={activeSessionData}
+          nowMs={nowMs}
           draftCart={activeSessionData.draftCart}
           onOpenSession={handleOpenSession}
           onReleaseTable={handleReleaseTable}
