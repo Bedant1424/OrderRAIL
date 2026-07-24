@@ -130,9 +130,11 @@ const FALLBACK_CATALOG: CatalogItem[] = [
 const Header = memo(({ 
   unreadCount,
   onOpenNotifications,
+  onOpenSettings,
 }: { 
   unreadCount: number;
   onOpenNotifications: () => void;
+  onOpenSettings: () => void;
 }) => {
   const { cafe } = useCafe();
   const { user } = useAuth();
@@ -159,20 +161,44 @@ const Header = memo(({
       </div>
 
       <div className="v8-header-right">
-        <button
-          type="button"
-          className="relative p-2 rounded-xl bg-secondary/50 hover:bg-secondary text-foreground transition cursor-pointer flex items-center justify-center"
-          onClick={onOpenNotifications}
-          title="Notifications"
-          aria-label="Notifications"
-        >
-          <Bell className="w-4 h-4 text-foreground" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground animate-pulse">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="relative grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0 cursor-pointer"
+            onClick={onOpenNotifications}
+            title="Notifications"
+            aria-label="Notification center"
+          >
+            <Bell className="h-4.5 w-4.5 text-foreground" />
+            {unreadCount > 0 && (
+              <span
+                className="absolute -top-1 -right-1 flex items-center justify-center bg-destructive text-destructive-foreground"
+                style={{
+                  minWidth: "16px",
+                  height: "16px",
+                  borderRadius: "9999px",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  paddingLeft: unreadCount >= 10 ? "4px" : "0px",
+                  paddingRight: unreadCount >= 10 ? "4px" : "0px",
+                }}
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0 cursor-pointer"
+            onClick={onOpenSettings}
+            title="Notification Settings"
+            aria-label="Notification Settings"
+          >
+            <Settings className="h-4.5 w-4.5 text-foreground" />
+          </button>
+        </div>
 
         <div className="v8-cashier-pill">
           <User className="w-3.5 h-3.5" />
@@ -1113,6 +1139,7 @@ const SummaryPanel = ({
 // --- NOTIFICATION CENTER DRAWER ---
 const CounterNotificationDrawer = ({
   isOpen,
+  initialTab = 'notifications',
   notifications,
   settings,
   nowMs,
@@ -1124,6 +1151,7 @@ const CounterNotificationDrawer = ({
   onUpdateSettings,
 }: {
   isOpen: boolean;
+  initialTab?: 'notifications' | 'settings';
   notifications: CounterNotification[];
   settings: CounterNotificationSettings;
   nowMs: number;
@@ -1134,7 +1162,13 @@ const CounterNotificationDrawer = ({
   onMarkAsRead: (id: string) => void;
   onUpdateSettings: (updated: CounterNotificationSettings) => void;
 }) => {
-  const [activeTab, setActiveTab] = useState<'notifications' | 'settings'>('notifications');
+  const [activeTab, setActiveTab] = useState<'notifications' | 'settings'>(initialTab);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
@@ -1551,10 +1585,21 @@ const CounterLayout = () => {
   const [notifications, setNotifications] = useState<CounterNotification[]>(() => loadCounterNotifications(cafeId));
   const [notifSettings, setNotifSettings] = useState<CounterNotificationSettings>(() => loadNotificationSettings(cafeId));
   const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
+  const [drawerTab, setDrawerTab] = useState<'notifications' | 'settings'>('notifications');
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const knownServedOrderIdsRef = useRef<Set<string>>(new Set());
   const knownServiceRequestIdsRef = useRef<Set<string>>(new Set());
   const notifSettingsRef = useRef<CounterNotificationSettings>(notifSettings);
+
+  const handleOpenNotifications = useCallback(() => {
+    setDrawerTab('notifications');
+    setIsNotifOpen(true);
+  }, []);
+
+  const handleOpenSettings = useCallback(() => {
+    setDrawerTab('settings');
+    setIsNotifOpen(true);
+  }, []);
 
   useEffect(() => {
     notifSettingsRef.current = notifSettings;
@@ -2393,7 +2438,8 @@ const CounterLayout = () => {
     <div className="v8-counter-root">
       <Header 
         unreadCount={unreadCount}
-        onOpenNotifications={() => setIsNotifOpen(true)}
+        onOpenNotifications={handleOpenNotifications}
+        onOpenSettings={handleOpenSettings}
       />
       <TableRail 
         tables={syncedTables}
@@ -2434,6 +2480,7 @@ const CounterLayout = () => {
 
       <CounterNotificationDrawer
         isOpen={isNotifOpen}
+        initialTab={drawerTab}
         notifications={notifications}
         settings={notifSettings}
         nowMs={nowMs}
