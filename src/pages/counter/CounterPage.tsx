@@ -210,24 +210,6 @@ const Header = memo(({
           >
             <Settings className="h-4.5 w-4.5 text-foreground" />
           </button>
-
-          <Link
-            to="/counter/bills"
-            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0 cursor-pointer"
-            title="Bill History"
-            aria-label="Bill History"
-          >
-            <ReceiptIcon className="h-4.5 w-4.5 text-foreground" />
-          </Link>
-
-          <Link
-            to="/kitchen"
-            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0 cursor-pointer"
-            title="Kitchen Display System (KDS)"
-            aria-label="Kitchen Display System"
-          >
-            <ChefHat className="h-4.5 w-4.5 text-primary" />
-          </Link>
         </div>
 
         <div className="v8-cashier-pill">
@@ -1310,14 +1292,14 @@ const ReceiptModal = ({
                     <span className="font-mono">{formatCurrency(receipt?.tax || 0)}</span>
                   </div>
                   {receipt && receipt.discountAmt > 0 && (
-                    <div className="flex justify-between text-emerald-600 font-bold">
+                    <div className="flex justify-between text-black font-semibold">
                       <span>Discount ({receipt.discountPct}%)</span>
-                      <span className="font-mono">-{formatCurrency(receipt.discountAmt)}</span>
+                      <span className="font-mono font-bold">-{formatCurrency(receipt.discountAmt)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between font-extrabold text-sm pt-2 border-t border-gray-800 mt-1 text-gray-900">
+                  <div className="flex justify-between font-black text-base pt-2 border-t-2 border-black mt-1 text-black">
                     <span>GRAND TOTAL</span>
-                    <span className="font-mono">{formatCurrency(receipt?.netTotal || 0)}</span>
+                    <span className="font-mono font-bold">{formatCurrency(receipt?.netTotal || 0)}</span>
                   </div>
                 </div>
 
