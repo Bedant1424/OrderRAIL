@@ -2,23 +2,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   PrintService,
   MockProvider,
-  PrintQueue,
+  ProviderFactory,
+  providerFactory,
   type KotPrintPayloadData,
   type ReceiptPrintPayloadData,
   type TestPrintPayloadData,
   type IPrintProvider,
-  type PrintJob,
 } from '../lib/printing';
 
-describe('Printing Foundation Architecture Tests', () => {
+describe('Printing Foundation & ProviderFactory Architecture Tests', () => {
   let mockProvider: MockProvider;
 
   beforeEach(() => {
     mockProvider = new MockProvider({ simulatedDelayMs: 0 });
     PrintService.resetInstanceForTesting(mockProvider);
+    ProviderFactory.resetInstanceForTesting();
   });
 
-  it('1. Should initialize with MockProvider and report CONNECTED state', async () => {
+  it('1. Should initialize with MockProvider via ProviderFactory and report CONNECTED state', async () => {
     const service = PrintService.getInstance();
     expect(service.getConnectionState()).toBe('CONNECTED');
 
@@ -27,7 +28,54 @@ describe('Printing Foundation Architecture Tests', () => {
     expect(meta.state).toBe('CONNECTED');
   });
 
-  it('2. Should enqueue and process KOT print job using device-agnostic structured payload', async () => {
+  it('2. ProviderFactory Registry: Should contain mock, qz-tray, and orderrail-agent defaults', () => {
+    const factory = ProviderFactory.getInstance();
+    const registered = factory.getRegisteredTypes();
+
+    expect(registered).toContain('mock');
+    expect(registered).toContain('qz-tray');
+    expect(registered).toContain('orderrail-agent');
+  });
+
+  it('3. ProviderFactory Instantiation: Should instantiate MockProvider cleanly', () => {
+    const factory = ProviderFactory.getInstance();
+    const provider = factory.createProvider('mock');
+
+    expect(provider.id).toBe('mock-provider');
+    expect(provider.name).toContain('Development Mock Provider');
+  });
+
+  it('4. ProviderFactory Registration & Overrides: Prevent duplicate registration unless override=true', () => {
+    const factory = ProviderFactory.getInstance();
+    const customFactoryFn = () => new MockProvider();
+
+    // Duplicate registration should throw
+    expect(() => factory.registerProvider('mock', customFactoryFn)).toThrow(
+      'Provider type "mock" is already registered'
+    );
+
+    // Override registration should succeed
+    expect(() => factory.registerProvider('mock', customFactoryFn, true)).not.toThrow();
+  });
+
+  it('5. ProviderFactory Fallback: Unknown provider type falls back gracefully to mock', () => {
+    const factory = ProviderFactory.getInstance();
+    const provider = factory.createProvider('non_existent_provider');
+
+    expect(provider.id).toBe('mock-provider');
+  });
+
+  it('6. PrintService Provider Switching: setProviderType updates active provider via factory', async () => {
+    const service = PrintService.getInstance();
+    expect(service.getActiveProvider().id).toBe('mock-provider');
+
+    // Switch to mock explicitly via setProviderType
+    await service.setProviderType('mock');
+    expect(providerFactory.getActiveProviderType()).toBe('mock');
+    expect(service.getActiveProvider().id).toBe('mock-provider');
+  });
+
+  it('7. Should enqueue and process KOT print job using device-agnostic structured payload', async () => {
     const service = PrintService.getInstance();
 
     const kotPayload: KotPrintPayloadData = {
@@ -50,7 +98,7 @@ describe('Printing Foundation Architecture Tests', () => {
     expect(job.payload).toEqual(kotPayload);
   });
 
-  it('3. Should enqueue and process RECEIPT print job for BILL_PRINTER destination', async () => {
+  it('8. Should enqueue and process RECEIPT print job for BILL_PRINTER destination', async () => {
     const service = PrintService.getInstance();
 
     const receiptPayload: ReceiptPrintPayloadData = {
@@ -61,9 +109,7 @@ describe('Printing Foundation Architecture Tests', () => {
       tableLabel: 'Table 2',
       cashierName: 'John',
       timestamp: '12:35 PM',
-      items: [
-        { id: 'i2', name: 'Espresso', price: 120, qty: 1 },
-      ],
+      items: [{ id: 'i2', name: 'Espresso', price: 120, qty: 1 }],
       subtotal: 120,
       tax: 9.6,
       discountPct: 0,
@@ -79,7 +125,7 @@ describe('Printing Foundation Architecture Tests', () => {
     expect(job.destination).toBe('BILL_PRINTER');
   });
 
-  it('4. Transactional Guarantee: Should return success: false when provider fails, preserving order state', async () => {
+  it('9. Transactional Guarantee: Should return success: false when provider fails, preserving order state', async () => {
     mockProvider.setShouldFailNextJob(true, 'Paper Out Error');
     const service = PrintService.getInstance();
 
@@ -98,7 +144,7 @@ describe('Printing Foundation Architecture Tests', () => {
     expect(job.errorMessage).toBe('Paper Out Error');
   });
 
-  it('5. Retry Strategy: Should allow retrying a FAILED job up to maxRetries', async () => {
+  it('10. Retry Strategy: Should allow retrying a FAILED job up to maxRetries', async () => {
     mockProvider.setShouldFailNextJob(true, 'Temporary Spool Error');
     const service = PrintService.getInstance();
 
@@ -120,7 +166,7 @@ describe('Printing Foundation Architecture Tests', () => {
     expect(job.retryCount).toBe(1);
   });
 
-  it('6. Should support discovering printers through active provider', async () => {
+  it('11. Should support discovering printers through active provider', async () => {
     const service = PrintService.getInstance();
     const printers = await service.getActiveProvider().discoverPrinters();
 
@@ -128,7 +174,7 @@ describe('Printing Foundation Architecture Tests', () => {
     expect(printers[0].name).toContain('Mock KOT Thermal Printer');
   });
 
-  it('7. Should notify status listeners when connection state or provider changes', async () => {
+  it('12. Should notify status listeners when connection state or provider changes', async () => {
     const service = PrintService.getInstance();
     const listener = vi.fn();
 
