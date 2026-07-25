@@ -25,6 +25,7 @@ const TableOrderPage = lazy(() => import("./pages/table/TableOrderPage"));
 
 // Production OrderRail Counter Page (Protected Workstation)
 const CounterPage = lazy(() => import("./pages/counter/CounterPage"));
+const BillHistoryPage = lazy(() => import("./pages/counter/BillHistoryPage"));
 
 // Living Design System Showcase
 const DesignSystemShowcasePage = lazy(() => import("./pages/design-system/DesignSystemShowcasePage"));
@@ -86,6 +87,14 @@ const App = () => {
                       </ProtectedCounterRoute>
                     } 
                   />
+                  <Route 
+                    path="/counter/bills" 
+                    element={
+                      <ProtectedCounterRoute>
+                        <BillHistoryPage />
+                      </ProtectedCounterRoute>
+                    } 
+                  />
 
                   {/* Obsolete experimental redirects */}
                   <Route path="/counter/v2" element={<Navigate to="/counter" replace />} />
@@ -116,6 +125,7 @@ const App = () => {
                     <Route path="tables" element={<OwnerTablesPage />} />
                     <Route path="staff" element={<OwnerStaffPage />} />
                     <Route path="reviews" element={<OwnerReviewsPage />} />
+                    <Route path="bills" element={<BillHistoryPage />} />
                     <Route path="settings" element={<OwnerSettingsPage />} />
                   </Route>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TableEngineProvider, useTableEngine } from '@/lib/counter/tableEngine/tableStore';
 import { TableEntity } from '@/lib/counter/tableEngine/tableTypes';
@@ -12,7 +13,7 @@ import {
   Search, Plus, Minus, Trash2, Send, CreditCard, DollarSign, 
   QrCode, Printer, CheckCircle, X, ChevronDown, ChevronUp, User, Store, 
   Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck,
-  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt, Smartphone
+  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt as ReceiptIcon, Smartphone
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
@@ -36,6 +37,8 @@ import {
   type CounterNotificationSettings
 } from '@/lib/counter/counterNotifications';
 import { printService, type KotPrintPayloadData, type ReceiptPrintPayloadData } from '@/lib/printing';
+import { BillService, type BillWithItems } from '@/lib/billing';
+import { Receipt } from '@/components/billing/Receipt';
 
 import './counter.css';
 
@@ -206,6 +209,15 @@ const Header = memo(({
           >
             <Settings className="h-4.5 w-4.5 text-foreground" />
           </button>
+
+          <Link
+            to="/counter/bills"
+            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0 cursor-pointer"
+            title="Bill History"
+            aria-label="Bill History"
+          >
+            <ReceiptIcon className="h-4.5 w-4.5 text-foreground" />
+          </Link>
         </div>
 
         <div className="v8-cashier-pill">
@@ -1161,41 +1173,68 @@ function aggregateReceiptItems(receipt: CompletedOrderReceipt) {
 // --- 6. DINING SESSION RECEIPT PRINT MODAL ---
 const ReceiptModal = ({
   receipt,
+  bill,
   onClose
 }: {
-  receipt: CompletedOrderReceipt;
+  receipt?: CompletedOrderReceipt;
+  bill?: BillWithItems | null;
   onClose: () => void;
 }) => {
   const handlePrint = async () => {
-    const aggregated = aggregateReceiptItems(receipt);
-    const payload: ReceiptPrintPayloadData = {
-      type: 'RECEIPT',
-      orderId: receipt.orderId,
-      billNumber: `BILL-${receipt.orderId.replace(/[^0-9]/g, '') || '101'}`,
-      sessionId: receipt.sessionId,
-      tableLabel: receipt.tableLabel,
-      cashierName: receipt.cashierName,
-      timestamp: receipt.timestamp,
-      items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
-      subtotal: receipt.subtotal,
-      tax: receipt.tax,
-      discountPct: receipt.discountPct,
-      discountAmt: receipt.discountAmt,
-      netTotal: receipt.netTotal,
-      tenders: receipt.tenders.map((t) => ({ method: t.method, amount: t.amount })),
-    };
+    if (bill) {
+      const payload: ReceiptPrintPayloadData = {
+        type: 'RECEIPT',
+        orderId: bill.id,
+        billNumber: `Bill #${bill.bill_number}`,
+        sessionId: bill.session_id,
+        tableLabel: bill.table_id || bill.order_type,
+        cashierName: bill.cashier_id || 'Counter Staff',
+        timestamp: new Date(bill.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        items: bill.items.map((i) => ({ id: i.id || i.item_name, name: i.item_name, price: i.unit_price, qty: i.quantity })),
+        subtotal: bill.subtotal,
+        tax: bill.cgst + bill.sgst,
+        discountPct: 0,
+        discountAmt: bill.discount,
+        netTotal: bill.grand_total,
+        tenders: [{ method: bill.payment_method.toLowerCase() as any, amount: bill.grand_total }],
+      };
 
-    const { success } = await printService.enqueue('RECEIPT', 'BILL_PRINTER', payload, { orderId: receipt.orderId });
-    if (success) {
-      toast.success('🖨️ Receipt sent to printer.');
-    } else {
-      toast.error('❌ Failed to print receipt.');
+      const { success } = await printService.enqueue('RECEIPT', 'BILL_PRINTER', payload, { orderId: bill.id });
+      if (success) {
+        toast.success(`🖨️ Receipt for Bill #${bill.bill_number} sent to printer.`);
+      } else {
+        toast.error('❌ Failed to print receipt.');
+      }
+      return;
+    }
+
+    if (receipt) {
+      const aggregated = aggregateReceiptItems(receipt);
+      const payload: ReceiptPrintPayloadData = {
+        type: 'RECEIPT',
+        orderId: receipt.orderId,
+        billNumber: `BILL-${receipt.orderId.replace(/[^0-9]/g, '') || '101'}`,
+        sessionId: receipt.sessionId,
+        tableLabel: receipt.tableLabel,
+        cashierName: receipt.cashierName,
+        timestamp: receipt.timestamp,
+        items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
+        subtotal: receipt.subtotal,
+        tax: receipt.tax,
+        discountPct: receipt.discountPct,
+        discountAmt: receipt.discountAmt,
+        netTotal: receipt.netTotal,
+        tenders: receipt.tenders.map((t) => ({ method: t.method, amount: t.amount })),
+      };
+
+      const { success } = await printService.enqueue('RECEIPT', 'BILL_PRINTER', payload, { orderId: receipt.orderId });
+      if (success) {
+        toast.success('🖨️ Receipt sent to printer.');
+      } else {
+        toast.error('❌ Failed to print receipt.');
+      }
     }
   };
-
-  const aggregatedItems = aggregateReceiptItems(receipt);
-  const rawBillId = receipt.orderId ? receipt.orderId.replace(/^OR-?/i, '') : '';
-  const billLabel = rawBillId ? `Bill #${rawBillId}` : 'Bill #101';
 
   return (
     <div className="v8-modal-overlay">
@@ -1210,82 +1249,74 @@ const ReceiptModal = ({
             <h3 className="font-extrabold text-sm flex items-center gap-2">
               <Printer className="w-4 h-4 text-primary" /> Receipt Preview
             </h3>
-            <span className="text-xs text-muted-foreground">{receipt.tableLabel}{receipt.timestamp ? ` · ${receipt.timestamp}` : ''}</span>
+            <span className="text-xs text-muted-foreground">
+              {bill ? `${bill.table_id || bill.order_type} · Bill #${bill.bill_number}` : (receipt ? `${receipt.tableLabel}${receipt.timestamp ? ` · ${receipt.timestamp}` : ''}` : '')}
+            </span>
           </div>
           <button className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition" onClick={onClose} aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="v8-receipt-preview-container">
-          <div className="v8-receipt-paper v8-receipt-printable">
-            {/* Simplified Restaurant Customer Bill Header */}
-            <div className="text-center pb-2 border-b border-dashed border-gray-300">
-              <div className="font-extrabold text-base tracking-wider text-gray-900">ORDERRAIL CAFE</div>
-              <div className="font-extrabold text-xs text-gray-800 mt-0.5">{billLabel}</div>
-              <div className="text-[10px] text-gray-500 mt-1 flex justify-center items-center gap-1.5 flex-wrap">
-                <span className="font-semibold text-gray-700">{receipt.tableLabel}</span>
-                <span>·</span>
-                <span>{receipt.timestamp}</span>
-              </div>
-              {receipt.cashierName && (
-                <div className="text-[10px] text-gray-400 mt-0.5">Cashier: {receipt.cashierName}</div>
-              )}
-            </div>
-
-            {/* Consolidated Aggregated Items List */}
-            <div className="flex flex-col gap-1.5 py-2 border-b border-dashed border-gray-300 text-xs">
-              <div className="flex justify-between items-center text-[9px] font-extrabold text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100">
-                <span>Items</span>
-                <span>Amount</span>
-              </div>
-              {aggregatedItems.map((item) => (
-                <div key={item.id} className="flex justify-between items-start text-gray-800 pl-0.5">
-                  <span className="font-medium pr-2">
-                    <span className="font-bold text-gray-900">{item.qty}×</span> {item.name}
-                  </span>
-                  <span className="font-mono text-gray-900 shrink-0">{formatCurrency(item.totalPrice)}</span>
+        <div className="p-4 overflow-y-auto max-h-[75vh]">
+          {bill ? (
+            <Receipt bill={bill} showFooterButtons={true} onPrint={handlePrint} />
+          ) : (
+            <div className="v8-receipt-preview-container">
+              <div className="v8-receipt-paper v8-receipt-printable">
+                {/* Simplified Restaurant Customer Bill Header */}
+                <div className="text-center pb-2 border-b border-dashed border-gray-300">
+                  <div className="font-extrabold text-base tracking-wider text-gray-900">ORDERRAIL CAFE</div>
+                  <div className="font-extrabold text-xs text-gray-800 mt-0.5">Bill #{receipt?.orderId}</div>
+                  <div className="text-[10px] text-gray-500 mt-1 flex justify-center items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-gray-700">{receipt?.tableLabel}</span>
+                    <span>·</span>
+                    <span>{receipt?.timestamp}</span>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Totals Section */}
-            <div className="flex flex-col gap-1 text-xs pt-1">
-              <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
-                <span className="font-mono">{formatCurrency(receipt.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Tax (8%)</span>
-                <span className="font-mono">{formatCurrency(receipt.tax)}</span>
-              </div>
-              {receipt.discountAmt > 0 && (
-                <div className="flex justify-between text-emerald-600 font-bold">
-                  <span>Discount ({receipt.discountPct}%)</span>
-                  <span className="font-mono">-{formatCurrency(receipt.discountAmt)}</span>
+                <div className="flex flex-col gap-1.5 py-2 border-b border-dashed border-gray-300 text-xs">
+                  <div className="flex justify-between items-center text-[9px] font-extrabold text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100">
+                    <span>Items</span>
+                    <span>Amount</span>
+                  </div>
+                  {receipt && aggregateReceiptItems(receipt).map((item) => (
+                    <div key={item.id} className="flex justify-between items-start text-gray-800 pl-0.5">
+                      <span className="font-medium pr-2">
+                        <span className="font-bold text-gray-900">{item.qty}×</span> {item.name}
+                      </span>
+                      <span className="font-mono text-gray-900 shrink-0">{formatCurrency(item.totalPrice)}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
-              <div className="flex justify-between font-extrabold text-sm pt-2 border-t border-gray-800 mt-1 text-gray-900">
-                <span>GRAND TOTAL</span>
-                <span className="font-mono">{formatCurrency(receipt.netTotal)}</span>
+
+                <div className="flex flex-col gap-1 text-xs pt-1">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="font-mono">{formatCurrency(receipt?.subtotal || 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Tax (8%)</span>
+                    <span className="font-mono">{formatCurrency(receipt?.tax || 0)}</span>
+                  </div>
+                  {receipt && receipt.discountAmt > 0 && (
+                    <div className="flex justify-between text-emerald-600 font-bold">
+                      <span>Discount ({receipt.discountPct}%)</span>
+                      <span className="font-mono">-{formatCurrency(receipt.discountAmt)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-extrabold text-sm pt-2 border-t border-gray-800 mt-1 text-gray-900">
+                    <span>GRAND TOTAL</span>
+                    <span className="font-mono">{formatCurrency(receipt?.netTotal || 0)}</span>
+                  </div>
+                </div>
+
+                <div className="text-center text-[10px] text-gray-400 pt-3 border-t border-dashed border-gray-300">
+                  Thank you for dining with OrderRail!
+                </div>
               </div>
             </div>
-
-            {/* Payment Tenders */}
-            <div className="flex flex-col gap-1 text-[11px] pt-2 border-t border-dashed border-gray-300">
-              <div className="font-bold text-gray-500 text-[10px] uppercase">Payment Tenders</div>
-              {receipt.tenders.map((t) => (
-                <div key={t.id} className="flex justify-between">
-                  <span className="uppercase">{t.method} {t.transactionRef ? `(${t.transactionRef})` : ''}</span>
-                  <span className="font-mono">{formatCurrency(t.amount)}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-center text-[10px] text-gray-400 pt-3 border-t border-dashed border-gray-300">
-              Thank you for dining with OrderRail!
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="v8-dialog-footer">
