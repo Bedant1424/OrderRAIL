@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import qz from 'qz-tray';
 import {
   PrintService,
   MockProvider,
+  QZTrayProvider,
   ProviderFactory,
   providerFactory,
   type KotPrintPayloadData,
@@ -10,13 +12,14 @@ import {
   type IPrintProvider,
 } from '../lib/printing';
 
-describe('Printing Foundation & ProviderFactory Architecture Tests', () => {
+describe('Printing Foundation & QZTrayProvider Architecture Tests', () => {
   let mockProvider: MockProvider;
 
   beforeEach(() => {
     mockProvider = new MockProvider({ simulatedDelayMs: 0 });
     PrintService.resetInstanceForTesting(mockProvider);
     ProviderFactory.resetInstanceForTesting();
+    vi.restoreAllMocks();
   });
 
   it('1. Should initialize with MockProvider via ProviderFactory and report CONNECTED state', async () => {
@@ -28,48 +31,60 @@ describe('Printing Foundation & ProviderFactory Architecture Tests', () => {
     expect(meta.state).toBe('CONNECTED');
   });
 
-  it('2. ProviderFactory Registry: Should contain mock, qz-tray, and orderrail-agent defaults', () => {
+  it('2. ProviderFactory Registry: Should instantiate real QZTrayProvider for "qz-tray"', () => {
     const factory = ProviderFactory.getInstance();
-    const registered = factory.getRegisteredTypes();
+    const provider = factory.createProvider('qz-tray');
 
-    expect(registered).toContain('mock');
-    expect(registered).toContain('qz-tray');
-    expect(registered).toContain('orderrail-agent');
+    expect(provider).toBeInstanceOf(QZTrayProvider);
+    expect(provider.id).toBe('qz-tray');
+    expect(provider.name).toContain('QZ Tray Silent Print Provider');
   });
 
-  it('3. ProviderFactory Instantiation: Should instantiate MockProvider cleanly', () => {
-    const factory = ProviderFactory.getInstance();
-    const provider = factory.createProvider('mock');
+  it('3. QZTrayProvider Lifecycle: Should report CONNECTED state when websocket connects', async () => {
+    vi.spyOn(qz.websocket, 'isActive').mockReturnValue(true);
 
-    expect(provider.id).toBe('mock-provider');
-    expect(provider.name).toContain('Development Mock Provider');
+    const qzProvider = new QZTrayProvider();
+    expect(qzProvider.isConnected()).toBe(true);
+    expect(qzProvider.getConnectionState()).toBe('CONNECTED');
   });
 
-  it('4. ProviderFactory Registration & Overrides: Prevent duplicate registration unless override=true', () => {
-    const factory = ProviderFactory.getInstance();
-    const customFactoryFn = () => new MockProvider();
+  it('4. QZTrayProvider Printer Discovery: Should query qz.printers.find() and getDefault()', async () => {
+    vi.spyOn(qz.websocket, 'isActive').mockReturnValue(true);
+    vi.spyOn(qz.printers, 'getDefault').mockResolvedValue('EPSON TM-T82III Receipt');
+    vi.spyOn(qz.printers, 'find').mockResolvedValue(['EPSON TM-T82III Receipt', 'STAR TSP100 Kitchen']);
 
-    // Duplicate registration should throw
-    expect(() => factory.registerProvider('mock', customFactoryFn)).toThrow(
-      'Provider type "mock" is already registered'
-    );
+    const qzProvider = new QZTrayProvider();
+    const printers = await qzProvider.discoverPrinters();
 
-    // Override registration should succeed
-    expect(() => factory.registerProvider('mock', customFactoryFn, true)).not.toThrow();
+    expect(printers).toHaveLength(2);
+    expect(printers[0].name).toBe('EPSON TM-T82III Receipt');
+    expect(printers[0].isDefault).toBe(true);
+    expect(printers[1].name).toBe('STAR TSP100 Kitchen');
+    expect(printers[1].isDefault).toBe(false);
   });
 
-  it('5. ProviderFactory Fallback: Unknown provider type falls back gracefully to mock', () => {
-    const factory = ProviderFactory.getInstance();
-    const provider = factory.createProvider('non_existent_provider');
+  it('5. QZTrayProvider Graceful Offline Error: Should throw descriptive error when daemon is offline', async () => {
+    vi.spyOn(qz.websocket, 'isActive').mockReturnValue(false);
+    vi.spyOn(qz.websocket, 'connect').mockRejectedValue(new Error('Daemon unreachable'));
 
-    expect(provider.id).toBe('mock-provider');
+    const qzProvider = new QZTrayProvider({ retries: 0, delayMs: 0 });
+    await expect(qzProvider.connect()).rejects.toThrow('QZ Tray Connection Error');
+    expect(qzProvider.getConnectionState()).toBe('ERROR');
   });
 
-  it('6. PrintService Provider Switching: setProviderType updates active provider via factory', async () => {
+  it('6. Provider Switching: Should seamlessly switch active provider between mock and qz-tray via configuration', async () => {
+    vi.spyOn(qz.websocket, 'isActive').mockReturnValue(true);
+    vi.spyOn(qz.websocket, 'connect').mockResolvedValue(undefined as any);
+
     const service = PrintService.getInstance();
     expect(service.getActiveProvider().id).toBe('mock-provider');
 
-    // Switch to mock explicitly via setProviderType
+    // Switch to qz-tray via setProviderType
+    await service.setProviderType('qz-tray');
+    expect(providerFactory.getActiveProviderType()).toBe('qz-tray');
+    expect(service.getActiveProvider().id).toBe('qz-tray');
+
+    // Switch back to mock
     await service.setProviderType('mock');
     expect(providerFactory.getActiveProviderType()).toBe('mock');
     expect(service.getActiveProvider().id).toBe('mock-provider');
