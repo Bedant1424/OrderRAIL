@@ -13,7 +13,7 @@ import {
   Search, Plus, Minus, Trash2, Send, CreditCard, DollarSign, 
   QrCode, Printer, CheckCircle, X, ChevronDown, ChevronUp, User, Store, 
   Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck,
-  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt as ReceiptIcon, Smartphone
+  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt as ReceiptIcon, Smartphone, ChefHat
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
@@ -217,6 +217,15 @@ const Header = memo(({
             aria-label="Bill History"
           >
             <ReceiptIcon className="h-4.5 w-4.5 text-foreground" />
+          </Link>
+
+          <Link
+            to="/kitchen"
+            className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary transition shadow-soft active:scale-95 shrink-0 cursor-pointer"
+            title="Kitchen Display System (KDS)"
+            aria-label="Kitchen Display System"
+          >
+            <ChefHat className="h-4.5 w-4.5 text-primary" />
           </Link>
         </div>
 
