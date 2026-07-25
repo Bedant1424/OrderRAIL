@@ -1057,6 +1057,36 @@ const IndianRupeeIcon = ({ className }: { className?: string }) => (
 );
 
 // --- 6. DINING SESSION RECEIPT PRINT MODAL ---
+// Helper to aggregate item quantities and total prices across all orders + draft items
+function aggregateReceiptItems(receipt: CompletedOrderReceipt) {
+  const itemMap = new Map<string, { id: string; name: string; qty: number; unitPrice: number; totalPrice: number }>();
+
+  const allItems = [
+    ...receipt.orders.flatMap((o) => o.items),
+    ...receipt.draftItems
+  ];
+
+  for (const item of allItems) {
+    const key = `${item.name.trim().toLowerCase()}_${item.price}`;
+    const existing = itemMap.get(key);
+    if (existing) {
+      existing.qty += item.qty;
+      existing.totalPrice += item.price * item.qty;
+    } else {
+      itemMap.set(key, {
+        id: item.id || key,
+        name: item.name,
+        qty: item.qty,
+        unitPrice: item.price,
+        totalPrice: item.price * item.qty
+      });
+    }
+  }
+
+  return Array.from(itemMap.values());
+}
+
+// --- 6. DINING SESSION RECEIPT PRINT MODAL ---
 const ReceiptModal = ({
   receipt,
   onClose
@@ -1067,6 +1097,10 @@ const ReceiptModal = ({
   const handlePrint = () => {
     window.print();
   };
+
+  const aggregatedItems = aggregateReceiptItems(receipt);
+  const rawBillId = receipt.orderId ? receipt.orderId.replace(/^OR-?/i, '') : '';
+  const billLabel = rawBillId ? `Bill #${rawBillId}` : 'Bill #101';
 
   return (
     <div className="v8-modal-overlay">
@@ -1090,70 +1124,65 @@ const ReceiptModal = ({
 
         <div className="v8-receipt-preview-container">
           <div className="v8-receipt-paper v8-receipt-printable">
+            {/* Simplified Restaurant Customer Bill Header */}
             <div className="text-center pb-2 border-b border-dashed border-gray-300">
-              <div className="font-extrabold text-sm tracking-wider">ORDERRAIL CAFE</div>
-              <div className="text-[10px] text-gray-500 font-mono">Workstation #01 · Receipt #{receipt.orderId}</div>
-              <div className="text-[10px] text-gray-500">{receipt.timestamp} · Cashier: {receipt.cashierName}</div>
-            </div>
-
-            <div className="flex justify-between text-xs font-bold pt-1">
-              <span>{receipt.tableLabel}</span>
-              <span>Dining Session {receipt.sessionId}</span>
-            </div>
-
-            <div className="flex flex-col gap-2 py-2 border-y border-dashed border-gray-300 text-xs">
-              {sortCounterOrders(receipt.orders).map((ord) => (
-                <div key={ord.id} className="flex flex-col gap-0.5">
-                  <div className="font-extrabold text-[10px] text-gray-600 uppercase">Order #{ord.orderNumber} ({ord.timestamp})</div>
-                  {ord.items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-start pl-1">
-                      <span>{item.qty}× {item.name}</span>
-                      <span>{formatCurrency(item.price * item.qty)}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-
-              {receipt.draftItems.length > 0 && (
-                <div className="flex flex-col gap-0.5 pt-1 border-t border-dotted border-gray-300">
-                  <div className="font-extrabold text-[10px] text-gray-600 uppercase">Counter Items</div>
-                  {receipt.draftItems.map((item) => (
-                    <div key={item.id} className="flex justify-between items-start pl-1">
-                      <span>{item.qty}× {item.name}</span>
-                      <span>{formatCurrency(item.price * item.qty)}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="font-extrabold text-base tracking-wider text-gray-900">ORDERRAIL CAFE</div>
+              <div className="font-extrabold text-xs text-gray-800 mt-0.5">{billLabel}</div>
+              <div className="text-[10px] text-gray-500 mt-1 flex justify-center items-center gap-1.5 flex-wrap">
+                <span className="font-semibold text-gray-700">{receipt.tableLabel}</span>
+                <span>·</span>
+                <span>{receipt.timestamp}</span>
+              </div>
+              {receipt.cashierName && (
+                <div className="text-[10px] text-gray-400 mt-0.5">Cashier: {receipt.cashierName}</div>
               )}
             </div>
 
+            {/* Consolidated Aggregated Items List */}
+            <div className="flex flex-col gap-1.5 py-2 border-b border-dashed border-gray-300 text-xs">
+              <div className="flex justify-between items-center text-[9px] font-extrabold text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100">
+                <span>Items</span>
+                <span>Amount</span>
+              </div>
+              {aggregatedItems.map((item) => (
+                <div key={item.id} className="flex justify-between items-start text-gray-800 pl-0.5">
+                  <span className="font-medium pr-2">
+                    <span className="font-bold text-gray-900">{item.qty}×</span> {item.name}
+                  </span>
+                  <span className="font-mono text-gray-900 shrink-0">{formatCurrency(item.totalPrice)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Totals Section */}
             <div className="flex flex-col gap-1 text-xs pt-1">
               <div className="flex justify-between text-gray-600">
-                <span>Session Subtotal</span>
-                <span>{formatCurrency(receipt.subtotal)}</span>
+                <span>Subtotal</span>
+                <span className="font-mono">{formatCurrency(receipt.subtotal)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Tax (8%)</span>
-                <span>{formatCurrency(receipt.tax)}</span>
+                <span className="font-mono">{formatCurrency(receipt.tax)}</span>
               </div>
               {receipt.discountAmt > 0 && (
                 <div className="flex justify-between text-emerald-600 font-bold">
                   <span>Discount ({receipt.discountPct}%)</span>
-                  <span>-{formatCurrency(receipt.discountAmt)}</span>
+                  <span className="font-mono">-{formatCurrency(receipt.discountAmt)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-extrabold text-sm pt-2 border-t border-gray-800 mt-1">
-                <span>SESSION GRAND TOTAL</span>
-                <span>{formatCurrency(receipt.netTotal)}</span>
+              <div className="flex justify-between font-extrabold text-sm pt-2 border-t border-gray-800 mt-1 text-gray-900">
+                <span>GRAND TOTAL</span>
+                <span className="font-mono">{formatCurrency(receipt.netTotal)}</span>
               </div>
             </div>
 
+            {/* Payment Tenders */}
             <div className="flex flex-col gap-1 text-[11px] pt-2 border-t border-dashed border-gray-300">
               <div className="font-bold text-gray-500 text-[10px] uppercase">Payment Tenders</div>
               {receipt.tenders.map((t) => (
                 <div key={t.id} className="flex justify-between">
                   <span className="uppercase">{t.method} {t.transactionRef ? `(${t.transactionRef})` : ''}</span>
-                  <span>{formatCurrency(t.amount)}</span>
+                  <span className="font-mono">{formatCurrency(t.amount)}</span>
                 </div>
               ))}
             </div>

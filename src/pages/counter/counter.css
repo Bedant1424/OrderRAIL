@@ -755,7 +755,8 @@
   background-color: #fff;
   color: #111;
   font-family: 'JetBrains Mono', monospace;
-  width: 320px;
+  width: 380px;
+  max-width: 100%;
   padding: 24px 20px;
   border-radius: 8px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
