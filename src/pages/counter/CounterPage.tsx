@@ -38,6 +38,7 @@ import {
 } from '@/lib/counter/counterNotifications';
 import { printService, type KotPrintPayloadData, type ReceiptPrintPayloadData } from '@/lib/printing';
 import { BillService, BillSummaryCalculator, type BillWithItems } from '@/lib/billing';
+import { SortingPolicy, RestaurantOperationsService } from '@/lib/operations';
 import { CompactDiscountControl, type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { Receipt } from '@/components/billing/Receipt';
 
@@ -2009,7 +2010,7 @@ const CounterLayout = () => {
         const tableObj = dbTablesData?.find((t: any) => t.id === ord.table_id);
         const tableLabel = tableObj ? tableObj.label : (ord.table_id ? 'Table' : 'Takeaway');
         const cleanTableLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel.substring(5).trim() : tableLabel;
-        const orderNum = ord.order_number || Math.floor(100 + Math.random() * 900);
+        const orderNum = ord.order_number || 101;
         const isServed = ord.status === 'served' || ord.status === 'SERVED' || ord.status === 'paid' || ord.status === 'PAID';
 
         // Event 1: New Customer Order
@@ -2137,7 +2138,7 @@ const CounterLayout = () => {
 
         const sessOrder: SessionOrder = {
           id: ord.id,
-          orderNumber: ord.order_number || Math.floor(100 + Math.random() * 900),
+          orderNumber: ord.order_number || 101,
           timestamp: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
           createdAt: ord.created_at || new Date().toISOString(),
           status: mappedStatus,
@@ -2239,6 +2240,13 @@ const CounterLayout = () => {
           void loadSessionsFromDb();
         }
       )
+      .on(
+        "broadcast",
+        { event: "TABLE_RESET" },
+        () => {
+          void loadSessionsFromDb();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -2247,7 +2255,7 @@ const CounterLayout = () => {
   }, [cafeId, loadSessionsFromDb]);
 
   // Build database-synced tables list using real PostgreSQL table UUIDs
-  const syncedTables: TableEntity[] = sortTablesNatural((dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
+  const syncedTables: TableEntity[] = SortingPolicy.sortCounterTables((dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
     const protoT = tableEngine.tables.find((t) => t.id === dbT.id);
     const tableId = dbT.id || protoT?.id || `table-${idx}`;
     const sess = tableSessions[tableId];
@@ -2266,12 +2274,17 @@ const CounterLayout = () => {
     const rawLabel = dbT?.label || protoT?.label || `${idx + 1}`;
     const formattedLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel : `Table ${rawLabel}`;
 
+    const sessionStartTimeMs = sess?.orders?.[0]?.createdAt
+      ? new Date(sess.orders[0].createdAt).getTime()
+      : undefined;
+
     return {
       id: tableId,
       label: formattedLabel,
       seats: dbT?.seats || protoT?.seats || 4,
       status: effectiveStatus,
       currentSessionId: dbT ? dbT.active_session_id : (sess?.sessionId || null),
+      sessionStartTimeMs,
       notes: protoT?.notes
     };
   }));
@@ -2371,15 +2384,14 @@ const CounterLayout = () => {
   const handleReleaseTable = useCallback(async () => {
     if (!selectedTable) return;
     try {
-      await updateTableStatusInDb(selectedTable.id, "free", null);
-      await markTableFreeInDb(selectedTable.id, selectedTable.currentSessionId);
+      await RestaurantOperationsService.resetTable(selectedTable.id, cafeId || undefined, selectedTable.currentSessionId);
     } catch (e) {
-      console.warn("[handleReleaseTable] Error:", e);
+      console.warn("[handleReleaseTable] Operations reset notice:", e);
     }
     const res = await tableEngine.releaseTable(selectedTable.id);
     await loadSessionsFromDb();
     if (res.success) toast.success(`${selectedTable.label} marked available`);
-  }, [selectedTable, tableEngine, loadSessionsFromDb]);
+  }, [selectedTable, tableEngine, cafeId, loadSessionsFromDb]);
 
   const handleRestoreTable = useCallback(async () => {
     if (!selectedTable) return;
@@ -2585,7 +2597,7 @@ const CounterLayout = () => {
 
     const newSessionOrder: SessionOrder = {
       id: createdOrderId || `ord-kot-${Date.now()}`,
-      orderNumber: Math.floor(100 + Math.random() * 900),
+      orderNumber: cur.orders.length + 1,
       timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
       status: 'KOT_SENT',
       items: cur.draftCart,
@@ -2677,7 +2689,7 @@ const CounterLayout = () => {
     });
 
     const receipt: CompletedOrderReceipt = {
-      orderId: `OR-${Math.floor(1000 + Math.random() * 9000)}`,
+      orderId: cur.orders[0]?.orderNumber ? `OR-${cur.orders[0].orderNumber}` : `OR-${Date.now().toString().slice(-4)}`,
       sessionId: cur.sessionId,
       tableLabel: selectedTable ? selectedTable.label : 'Express Takeaway',
       cashierName: user?.email ? user.email.split('@')[0] : 'Sarah M.',

@@ -57,3 +57,19 @@ export async function resolveServiceRequestInDb(requestId: string): Promise<void
 export async function dismissServiceRequestInDb(requestId: string): Promise<void> {
   return updateServiceRequestStatusInDb(requestId, "dismissed");
 }
+
+export async function dismissAllServiceRequestsByTableInDb(tableId: string): Promise<void> {
+  const { error } = await supabase
+    .from("service_requests")
+    .update({
+      status: "dismissed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("table_id", tableId)
+    .in("status", ["open", "acknowledged"]);
+
+  if (error) {
+    console.warn("[serviceRequests] Warning dismissing requests for table:", error.message);
+  }
+}
+
