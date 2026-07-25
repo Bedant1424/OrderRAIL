@@ -1,643 +1,426 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Area,
   AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
+  Area,
   XAxis,
-  YAxis
-} from "recharts";
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from 'recharts';
 import {
   CircleDollarSign,
   ShoppingBag,
   Timer,
   TrendingUp,
-  Users,
+  CreditCard,
+  Download,
+  Calendar,
   Utensils,
-  AlertTriangle,
-  Star,
-  Clock,
-  ArrowUpRight,
-  ChevronRight,
-  Sparkles,
-  CheckCircle2
-} from "lucide-react";
-import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type TableRow, type Review } from "@/lib/db";
-import { useCafe } from "@/lib/cafe";
-import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
-import { cn } from "@/lib/utils";
-import { calculateRevenueMetrics, calculateAveragePrepTime } from "@/lib/analytics/metrics";
-import { calculateOccupiedTables } from "@/lib/tables/occupancy";
-import { isOrderActive } from "@/lib/orders/orderUtils";
-
-type Range = 7 | 30 | 90;
+  RefreshCw,
+  ChefHat,
+  Filter,
+  Users,
+  CheckCircle2,
+  FileSpreadsheet,
+} from 'lucide-react';
+import { useCafe } from '@/lib/cafe';
+import {
+  AnalyticsService,
+  ExportEngine,
+  type FullDashboardAnalytics,
+  type DatePreset,
+  type DateRange,
+} from '@/lib/analytics';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function OwnerAnalyticsPage() {
-  const [range, setRange] = useState<Range>(7);
   const { cafe } = useCafe();
-  const currency = cafe?.currency ?? "INR";
+  const cafeId = cafe?.id || '';
 
-  const since = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - range + 1);
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString();
-  }, [range]);
+  const [datePreset, setDatePreset] = useState<DatePreset>('LAST_7_DAYS');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [data, setData] = useState<FullDashboardAnalytics | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'payments' | 'menu' | 'kitchen' | 'exports'>('overview');
 
-  const todayStart = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString();
-  }, []);
+  // Compute ISO date range based on preset or custom picker
+  const computedDateRange = useMemo<DateRange>(() => {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
 
-  // Fetch orders with items
-  const ordersQ = useQuery({
-    queryKey: ["owner-analytics-orders", cafe?.id, range],
-    enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("*, order_items(*)")
-        .eq("cafe_id", cafe!.id)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false });
-      return (orders ?? []) as unknown as (Order & { order_items: OrderItem[] })[];
-    },
-  });
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
 
-  // Fetch tables for occupancy
-  const tablesQ = useQuery({
-    queryKey: ["owner-analytics-tables", cafe?.id],
-    enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data } = await supabase.from("tables").select("*").eq("cafe_id", cafe!.id);
-      return sortTablesNatural((data ?? []) as TableRow[]);
-    },
-  });
-
-  // Fetch reviews
-  const reviewsQ = useQuery({
-    queryKey: ["owner-analytics-reviews", cafe?.id],
-    enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("cafe_id", cafe!.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      return (data ?? []) as Review[];
-    },
-  });
-
-  // Fetch staff count
-  const staffQ = useQuery({
-    queryKey: ["owner-analytics-staff", cafe?.id],
-    enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("user_id, role")
-        .eq("cafe_id", cafe!.id);
-      return data ?? [];
-    },
-  });
-
-  const orders = ordersQ.data ?? [];
-  const tables = tablesQ.data ?? [];
-  const reviews = reviewsQ.data ?? [];
-  const staffList = staffQ.data ?? [];
-
-  const paidOrders = useMemo(() => orders.filter((o) => o.status !== "cancelled"), [orders]);
-
-  // Task 1: Refactored Revenue Model Calculations via Shared Analytics Utility
-  const rangeRevenueMetrics = useMemo(() => calculateRevenueMetrics(orders), [orders]);
-
-  const todayOrders = useMemo(() => orders.filter((o) => o.created_at >= todayStart), [orders, todayStart]);
-  const todayRevenueMetrics = useMemo(() => calculateRevenueMetrics(todayOrders), [todayOrders]);
-
-  // Task 2: Preparation Time Calculation via Shared Analytics Utility
-  const prepTimeStats = useMemo(() => calculateAveragePrepTime(orders), [orders]);
-
-  // Active / Pending orders metrics via canonical order lifecycle
-  const pendingOrders = useMemo(
-    () => orders.filter((o) => isOrderActive(o.status)),
-    [orders]
-  );
-  const readyOrders = useMemo(() => orders.filter((o) => o.status === "ready"), [orders]);
-
-  // Active Tables metrics via canonical occupancy engine
-  const activeTableCount = useMemo(() => calculateOccupiedTables(tables, orders).length, [tables, orders]);
-  const totalTables = tables.length || 1;
-  const occupancyPercentage = Math.round((activeTableCount / totalTables) * 100);
-
-  // Revenue By Day
-  const byDay = useMemo(() => {
-    const days: Record<string, { day: string; revenue: number; orders: number }> = {};
-    for (let i = range - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const k = d.toISOString().slice(0, 10);
-      days[k] = { day: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), revenue: 0, orders: 0 };
+    if (datePreset === 'TODAY') {
+      // start is today 00:00:00
+    } else if (datePreset === 'YESTERDAY') {
+      start.setDate(start.getDate() - 1);
+      end.setDate(end.getDate() - 1);
+      end.setHours(23, 59, 59, 999);
+    } else if (datePreset === 'LAST_7_DAYS') {
+      start.setDate(start.getDate() - 6);
+    } else if (datePreset === 'LAST_30_DAYS') {
+      start.setDate(start.getDate() - 29);
+    } else if (datePreset === 'CUSTOM' && startDate && endDate) {
+      return {
+        startDate: new Date(startDate).toISOString(),
+        endDate: new Date(endDate).toISOString(),
+        preset: 'CUSTOM',
+      };
     }
-    for (const o of paidOrders) {
-      const k = o.created_at.slice(0, 10);
-      if (days[k]) {
-        days[k].revenue += o.total_cents / 100;
-        days[k].orders += 1;
-      }
+
+    return {
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      preset: datePreset,
+    };
+  }, [datePreset, startDate, endDate]);
+
+  const loadAnalytics = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await AnalyticsService.getDashboard(cafeId, computedDateRange);
+      setData(res);
+    } catch (e: any) {
+      toast.error(`Failed to load analytics: ${e?.message || e}`);
+    } finally {
+      setLoading(false);
     }
-    return Object.values(days);
-  }, [paidOrders, range]);
+  }, [cafeId, computedDateRange]);
 
-  // Orders by Hour (Peak Hours)
-  const byHour = useMemo(() => {
-    const arr = Array.from({ length: 24 }, (_, h) => ({
-      hour: `${h.toString().padStart(2, "0")}:00`,
-      orders: 0
-    }));
-    for (const o of paidOrders) {
-      const hr = new Date(o.created_at).getHours();
-      if (arr[hr]) arr[hr].orders += 1;
-    }
-    return arr;
-  }, [paidOrders]);
+  useEffect(() => {
+    void loadAnalytics();
+  }, [loadAnalytics]);
 
-  // Top Peak Hour identification
-  const peakHour = useMemo(() => {
-    let max = 0;
-    let peak = "12:00";
-    for (const h of byHour) {
-      if (h.orders > max) {
-        max = h.orders;
-        peak = h.hour;
-      }
-    }
-    return { hour: peak, count: max };
-  }, [byHour]);
+  // Export Trigger Handlers
+  const handleExportBills = () => {
+    if (!data) return;
+    AnalyticsService.getExecutiveSummary(cafeId, computedDateRange).then(() => {
+      // Export revenue summary
+      const csv = ExportEngine.exportRevenueToCsv(data.summary);
+      ExportEngine.downloadCsv(csv, `OrderRail_Revenue_Summary_${datePreset}.csv`);
+      toast.success('Downloaded Revenue Summary CSV');
+    });
+  };
 
-  // Top Selling Items
-  const topItems = useMemo(() => {
-    const m = new Map<string, { name: string; qty: number; revenue: number }>();
-    for (const o of paidOrders) {
-      for (const it of o.order_items ?? []) {
-        const cur = m.get(it.name) ?? { name: it.name, qty: 0, revenue: 0 };
-        cur.qty += it.qty;
-        cur.revenue += it.qty * it.price_cents;
-        m.set(it.name, cur);
-      }
-    }
-    const sorted = [...m.values()].sort((a, b) => b.qty - a.qty).slice(0, 6);
-    const maxQty = sorted[0]?.qty || 1;
-    return sorted.map((item) => ({ ...item, percentage: Math.round((item.qty / maxQty) * 100) }));
-  }, [paidOrders]);
+  const handleExportPayments = () => {
+    if (!data) return;
+    const csv = ExportEngine.exportPaymentsToCsv(data.payments);
+    ExportEngine.downloadCsv(csv, `OrderRail_Payment_Breakdown_${datePreset}.csv`);
+    toast.success('Downloaded Payment Breakdown CSV');
+  };
 
-  // Ratings calculation
-  const avgRating = useMemo(() => {
-    if (!reviews.length) return 4.9;
-    const sum = reviews.reduce((acc, r) => acc + (r.rating || 5), 0);
-    return Number((sum / reviews.length).toFixed(1));
-  }, [reviews]);
-
-  const isLoading = ordersQ.isLoading || tablesQ.isLoading;
+  const handleExportMenuItems = () => {
+    if (!data) return;
+    const csv = ExportEngine.exportMenuAnalyticsToCsv(data.topMenuItems);
+    ExportEngine.downloadCsv(csv, `OrderRail_Menu_Performance_${datePreset}.csv`);
+    toast.success('Downloaded Menu Performance CSV');
+  };
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header Bar */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 max-w-7xl mx-auto flex flex-col gap-6 font-sans">
+      {/* 1. PAGE HEADER & DATE PRESET TOOLBAR */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-5 rounded-2xl border border-border/60 shadow-sm">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-3xl font-semibold tracking-tight">Owner Analytics</h1>
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-semibold text-accent">
-              <Sparkles className="h-3 w-3" /> Live Insights
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? "OrderRail"} · Performance summary for the last {range} days
+          <h1 className="text-xl font-black tracking-tight flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-primary" /> Sales Reports & Business Intelligence
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Financial analytics powered exclusively by OrderRail Billing Domain (<span className="font-mono text-primary font-bold">bills</span> &amp; <span className="font-mono text-primary font-bold">bill_items</span>).
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <GlobalNotificationControls />
-          <div className="inline-flex rounded-full bg-secondary p-1 text-xs font-medium shadow-inner">
-            {([7, 30, 90] as Range[]).map((r) => (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Preset Buttons */}
+          <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border/40">
+            {(['TODAY', 'YESTERDAY', 'LAST_7_DAYS', 'LAST_30_DAYS'] as DatePreset[]).map((preset) => (
               <button
-                key={r}
-                onClick={() => setRange(r)}
+                key={preset}
+                onClick={() => setDatePreset(preset)}
                 className={cn(
-                  "rounded-full px-3.5 py-1.5 transition duration-150",
-                  range === r
-                    ? "bg-background text-foreground shadow-soft font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
+                  'px-3 py-1 rounded-lg text-xs font-bold transition',
+                  datePreset === preset
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 )}
               >
-                {r} Days
+                {preset.replace(/_/g, ' ')}
               </button>
             ))}
           </div>
-        </div>
-      </header>
 
-      {/* Operational Alert Banner */}
-      {pendingOrders.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-amber-950 dark:text-amber-200">
-          <div className="flex items-center gap-3 text-sm font-medium">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
-            <span>
-              <strong>{pendingOrders.length} Pending Orders</strong> currently requiring kitchen or staff attention.
-            </span>
-          </div>
-          <Link
-            to="/owner/orders?tab=live&status=pending"
-            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-500/25 dark:text-amber-300 transition"
+          <button
+            onClick={() => void loadAnalytics()}
+            className="h-9 px-3 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold flex items-center gap-1.5 transition"
+            title="Refresh Data"
           >
-            Manage Orders <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* Primary KPI Cards */}
-      <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard
-          isLoading={isLoading}
-          icon={CircleDollarSign}
-          label="Today's Net Sales"
-          value={formatMoney(todayRevenueMetrics.netSalesCents, currency)}
-          subtext={`Gross: ${formatMoney(todayRevenueMetrics.grossSalesCents, currency)}`}
-          accentColor="text-emerald-500 bg-emerald-500/10"
-        />
-        <KpiCard
-          isLoading={isLoading}
-          icon={ShoppingBag}
-          label="Orders Today"
-          value={todayRevenueMetrics.orderCount.toString()}
-          subtext={`Range Total: ${rangeRevenueMetrics.orderCount}`}
-          accentColor="text-blue-500 bg-blue-500/10"
-        />
-        <KpiCard
-          isLoading={isLoading}
-          icon={TrendingUp}
-          label="Avg Order Value"
-          value={formatMoney(todayRevenueMetrics.averageOrderValueCents, currency)}
-          subtext="Net AOV per ticket"
-          accentColor="text-purple-500 bg-purple-500/10"
-        />
-        <KpiCard
-          isLoading={isLoading}
-          icon={Utensils}
-          label="Active Tables"
-          value={`${activeTableCount} / ${totalTables}`}
-          subtext={`${occupancyPercentage}% Occupancy`}
-          accentColor="text-amber-500 bg-amber-500/10"
-        />
-        <KpiCard
-          isLoading={isLoading}
-          icon={Clock}
-          label="Pending Orders"
-          value={pendingOrders.length.toString()}
-          subtext={readyOrders.length > 0 ? `${readyOrders.length} ready to serve` : "In preparation"}
-          accentColor="text-orange-500 bg-orange-500/10"
-        />
-        <KpiCard
-          isLoading={isLoading}
-          icon={Timer}
-          label="Avg Prep Time"
-          value={prepTimeStats.value}
-          subtext={prepTimeStats.subtext}
-          accentColor="text-teal-500 bg-teal-500/10"
-        />
-      </section>
-
-      {/* Revenue Chart & Peak Hours */}
-      <section className="grid gap-6 lg:grid-cols-3">
-        {/* Revenue Trend Area Chart */}
-        <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="font-display text-base font-semibold">Revenue Trend</h2>
-              <p className="text-xs text-muted-foreground">Daily net sales performance over {range} days</p>
+      {/* 2. EXECUTIVE OVERVIEW KPI CARDS */}
+      {loading || !data ? (
+        <div className="p-12 text-center text-muted-foreground text-xs font-medium">
+          Calculating financial metrics from billing domain...
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="bg-card border border-border/60 p-4 rounded-2xl flex flex-col gap-1 shadow-sm">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Gross Sales</span>
+              <span className="text-xl font-black font-mono text-foreground">₹{data.summary.grossSales.toLocaleString('en-IN')}</span>
             </div>
-            <div className="text-right">
-              <div className="font-display text-lg font-bold tabular-nums text-foreground">
-                {formatMoney(rangeRevenueMetrics.netSalesCents, currency)}
-              </div>
-              <div className="text-[11px] font-medium text-emerald-600 flex items-center justify-end gap-0.5">
-                <ArrowUpRight className="h-3 w-3" /> Net Sales ({range}d)
-              </div>
+
+            <div className="bg-card border border-border/60 p-4 rounded-2xl flex flex-col gap-1 shadow-sm">
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Net Sales</span>
+              <span className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400">₹{data.summary.netSales.toLocaleString('en-IN')}</span>
+            </div>
+
+            <div className="bg-card border border-border/60 p-4 rounded-2xl flex flex-col gap-1 shadow-sm">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Paid Bills</span>
+              <span className="text-xl font-black font-mono text-foreground">{data.summary.paidBills} / {data.summary.totalBills}</span>
+            </div>
+
+            <div className="bg-card border border-border/60 p-4 rounded-2xl flex flex-col gap-1 shadow-sm">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Avg Bill Value</span>
+              <span className="text-xl font-black font-mono text-foreground">₹{data.summary.avgBillValue}</span>
+            </div>
+
+            <div className="bg-card border border-border/60 p-4 rounded-2xl flex flex-col gap-1 shadow-sm">
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Discounts</span>
+              <span className="text-xl font-black font-mono text-amber-600 dark:text-amber-400">₹{data.summary.totalDiscounts}</span>
+            </div>
+
+            <div className="bg-card border border-border/60 p-4 rounded-2xl flex flex-col gap-1 shadow-sm col-span-2 md:col-span-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">GST Collected</span>
+              <span className="text-xl font-black font-mono text-foreground">₹{(data.summary.totalCgst + data.summary.totalSgst).toFixed(2)}</span>
             </div>
           </div>
 
-          <div className="h-64 w-full">
-            {isLoading ? (
-              <ChartSkeleton />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={byDay} margin={{ top: 10, right: 12, left: -12, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.4} />
-                      <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickLine={false} />
-                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 12,
-                      fontSize: 12,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-                    }}
-                    formatter={(val: number) => [`$${val.toFixed(2)}`, "Net Sales"]}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="hsl(var(--accent))" fill="url(#revGrad)" strokeWidth={2.5} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Top Selling Items */}
-        <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-base font-semibold">Top Selling Items</h2>
-            <span className="text-xs text-muted-foreground">by quantity</span>
+          {/* 3. NAVIGATION TABS */}
+          <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+            {[
+              { id: 'overview', label: 'Overview & Revenue' },
+              { id: 'payments', label: 'Payment Analytics' },
+              { id: 'menu', label: 'Menu Performance' },
+              { id: 'kitchen', label: 'Kitchen Metrics' },
+              { id: 'exports', label: 'CSV Exports' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={cn(
+                  'px-4 py-2 rounded-xl text-xs font-bold transition',
+                  activeTab === tab.id
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {isLoading ? (
-            <ListSkeleton />
-          ) : topItems.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">No order data available for this range.</p>
-          ) : (
-            <div className="space-y-4">
-              {topItems.map((item, idx) => (
-                <div key={item.name} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="truncate max-w-[170px] text-foreground font-semibold">
-                      {idx + 1}. {item.name}
-                    </span>
-                    <span className="tabular-nums text-muted-foreground">
-                      <strong>{item.qty}</strong> sold ({formatMoney(item.revenue, currency)})
-                    </span>
+          {/* 4. TAB CONTENTS */}
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Daily Revenue Chart */}
+              <div className="lg:col-span-2 bg-card border border-border/60 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-extrabold flex items-center gap-2">
+                    <CircleDollarSign className="w-4 h-4 text-primary" /> Net Sales Trend
+                  </h2>
+                  <span className="text-xs font-mono text-muted-foreground">₹ Net Revenue / Day</span>
+                </div>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data.revenueTrend}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Area type="monotone" dataKey="netSales" stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.15} strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Financial Breakdown Sidebar */}
+              <div className="bg-card border border-border/60 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
+                <h2 className="text-sm font-extrabold">Revenue Breakdown</h2>
+                <div className="flex flex-col gap-3 text-xs">
+                  <div className="flex items-center justify-between py-2 border-b border-border/30">
+                    <span className="text-muted-foreground">Gross Sales</span>
+                    <span className="font-bold font-mono">₹{data.summary.grossSales.toFixed(2)}</span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="h-full rounded-full bg-brand transition-all duration-500"
-                      style={{ width: `${item.percentage}%` }}
-                    />
+                  <div className="flex items-center justify-between py-2 border-b border-border/30">
+                    <span className="text-muted-foreground">Total Discounts</span>
+                    <span className="font-bold font-mono text-amber-600 dark:text-amber-400">- ₹{data.summary.totalDiscounts.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-border/30">
+                    <span className="text-muted-foreground">Service Charge</span>
+                    <span className="font-bold font-mono">+ ₹{data.summary.totalServiceCharges.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-border/30">
+                    <span className="text-muted-foreground">CGST (2.5%)</span>
+                    <span className="font-bold font-mono">+ ₹{data.summary.totalCgst.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-border/30">
+                    <span className="text-muted-foreground">SGST (2.5%)</span>
+                    <span className="font-bold font-mono">+ ₹{data.summary.totalSgst.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 pt-3 font-extrabold text-sm border-t border-border">
+                    <span>Net Sales Total</span>
+                    <span className="font-mono text-emerald-600 dark:text-emerald-400">₹{data.summary.netSales.toFixed(2)}</span>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           )}
-        </div>
-      </section>
 
-      {/* Peak Hours & Live Orders Panel */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        {/* Orders by Peak Hour */}
-        <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="font-display text-base font-semibold">Peak Hours Distribution</h2>
-              <p className="text-xs text-muted-foreground">Order volume by hour of day</p>
-            </div>
-            <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">
-              Peak: {peakHour.hour} ({peakHour.count} orders)
-            </span>
-          </div>
-
-          <div className="h-56 w-full">
-            {isLoading ? (
-              <ChartSkeleton />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byHour} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="orderBarGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={1} />
-                      <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.35} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="hour" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" interval={2} />
-                  <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 12,
-                      fontSize: 12,
-                    }}
-                  />
-                  <Bar dataKey="orders" fill="url(#orderBarGrad)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Live Orders Feed */}
-        <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
-          <div>
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="font-display text-base font-semibold">Recent Live Orders</h2>
-                <p className="text-xs text-muted-foreground">Real-time customer order stream</p>
-              </div>
-              <Link to="/owner/orders?tab=live" className="text-xs font-semibold text-accent hover:underline flex items-center gap-1">
-                View all <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-
-            {isLoading ? (
-              <ListSkeleton />
-            ) : orders.length === 0 ? (
-              <p className="py-12 text-center text-sm text-muted-foreground">No recent orders.</p>
-            ) : (
-              <div className="space-y-2.5">
-                {orders.slice(0, 5).map((o) => (
-                  <Link
-                    key={o.id}
-                    to={`/owner/orders?tab=live&orderId=${o.id}`}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/40 p-3 text-xs transition hover:bg-secondary/70 block"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="grid h-8 w-8 place-items-center rounded-xl bg-background font-display font-bold shadow-soft">
-                        {formatOrderLabel(o.order_number)}
-                      </span>
-                      <div>
-                        <div className="font-semibold text-foreground">
-                          Table {tables.find((t) => t.id === o.table_id)?.label ?? "?"}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {new Date(o.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
+          {activeTab === 'payments' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Payment Methods Cards */}
+              <div className="bg-card border border-border/60 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
+                <h2 className="text-sm font-extrabold flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-primary" /> Payment Method Breakdown
+                </h2>
+                <div className="flex flex-col gap-4">
+                  {data.payments.map((p) => (
+                    <div key={p.method} className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/40 bg-muted/20">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-extrabold text-foreground">{p.method}</span>
+                        <span className="font-mono font-bold text-primary">₹{p.amount.toLocaleString('en-IN')} ({p.percentage}%)</span>
                       </div>
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                        <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${Math.min(100, p.percentage)}%` }} />
+                      </div>
+                      <div className="text-[10px] text-muted-foreground text-right">{p.count} transactions</div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <OrderStatusBadge status={o.status} />
-                      <span className="font-semibold tabular-nums text-foreground">
-                        {formatMoney(o.total_cents, currency)}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      </section>
+            </div>
+          )}
 
-      {/* Staff & Customer Ratings Summary */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        {/* Customer Satisfaction Summary */}
-        <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-display text-base font-semibold">Customer Ratings</h2>
-              <p className="text-xs text-muted-foreground">Overall diner feedback score</p>
-            </div>
-            <div className="flex items-center gap-1 bg-amber-500/10 px-3 py-1 rounded-full text-amber-600 font-semibold text-xs">
-              <Star className="h-4 w-4 fill-amber-500 text-amber-500" /> {avgRating} / 5.0
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 text-center py-2">
-            <div className="rounded-2xl bg-secondary/30 p-3">
-              <div className="font-display text-xl font-bold">{reviews.length}</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Reviews Received</div>
-            </div>
-            <div className="rounded-2xl bg-secondary/30 p-3">
-              <div className="font-display text-xl font-bold text-emerald-600">96%</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Positive Experience</div>
-            </div>
-            <div className="rounded-2xl bg-secondary/30 p-3">
-              <div className="font-display text-xl font-bold text-accent">&lt; 3m</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Avg Call Response</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Staff Team Performance */}
-        <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-display text-base font-semibold">Team & Roster Summary</h2>
-              <p className="text-xs text-muted-foreground">Staff availability and active personnel</p>
-            </div>
-            <Link to="/owner/staff" className="text-xs font-semibold text-accent hover:underline flex items-center gap-1">
-              Manage Staff <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <div className="flex items-center gap-3 rounded-2xl bg-secondary/30 p-3.5">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
-                <Users className="h-5 w-5" />
+          {activeTab === 'menu' && (
+            <div className="bg-card border border-border/60 p-5 rounded-2xl shadow-sm flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-extrabold flex items-center gap-2">
+                  <Utensils className="w-4 h-4 text-primary" /> Top Menu Item Performance
+                </h2>
+                <button
+                  onClick={handleExportMenuItems}
+                  className="h-8 px-3 rounded-xl border border-border bg-muted/30 hover:bg-muted text-xs font-bold flex items-center gap-1.5 transition"
+                >
+                  <Download className="w-3.5 h-3.5" /> Export Menu CSV
+                </button>
               </div>
+
+              {data.topMenuItems.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-xs font-medium">
+                  No menu item sales recorded in this date range.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-sans">
+                    <thead className="bg-muted/40 text-muted-foreground uppercase text-[10px] tracking-wider border-b border-border/60">
+                      <tr>
+                        <th className="py-2.5 px-3">Item Name</th>
+                        <th className="py-2.5 px-3 text-right">Qty Sold</th>
+                        <th className="py-2.5 px-3 text-right">Avg Unit Price</th>
+                        <th className="py-2.5 px-3 text-right">Total Revenue</th>
+                        <th className="py-2.5 px-3 text-right">Revenue Share</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {data.topMenuItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-muted/20">
+                          <td className="py-2.5 px-3 font-bold text-foreground">{item.itemName}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold">{item.quantitySold}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-muted-foreground">₹{item.avgUnitPrice.toFixed(2)}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-primary">₹{item.totalRevenue.toLocaleString('en-IN')}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-medium">{item.revenuePercentage}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'kitchen' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-card border border-border/60 p-5 rounded-2xl shadow-sm flex flex-col gap-3">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Avg Preparation Time</span>
+                <span className="text-3xl font-black font-mono text-foreground">{data.kitchen.avgPrepMins} mins</span>
+              </div>
+
+              <div className="bg-card border border-border/60 p-5 rounded-2xl shadow-sm flex flex-col gap-3">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Completed Orders</span>
+                <span className="text-3xl font-black font-mono text-foreground">{data.kitchen.totalCompletedOrders}</span>
+              </div>
+
+              <div className="bg-card border border-border/60 p-5 rounded-2xl shadow-sm flex flex-col gap-3">
+                <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Overdue Orders (&gt;15m)</span>
+                <span className="text-3xl font-black font-mono text-rose-600 dark:text-rose-400">{data.kitchen.overdueOrdersCount}</span>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'exports' && (
+            <div className="bg-card border border-border/60 p-6 rounded-2xl shadow-sm flex flex-col gap-5">
               <div>
-                <div className="font-display text-lg font-bold">{staffList.length || 1}</div>
-                <div className="text-xs text-muted-foreground">Active Members</div>
+                <h2 className="text-base font-extrabold flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-primary" /> Financial &amp; Operational CSV Exports
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Export financial reporting data directly to CSV for spreadsheet analysis or accounting.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <button
+                  onClick={handleExportBills}
+                  className="p-4 rounded-2xl border border-border/60 bg-muted/20 hover:bg-muted/50 transition flex flex-col gap-2 text-left"
+                >
+                  <span className="font-extrabold text-sm text-foreground flex items-center justify-between">
+                    Revenue Summary <Download className="w-4 h-4 text-primary" />
+                  </span>
+                  <span className="text-xs text-muted-foreground">Gross, Net, Taxes, Discounts KPI CSV</span>
+                </button>
+
+                <button
+                  onClick={handleExportPayments}
+                  className="p-4 rounded-2xl border border-border/60 bg-muted/20 hover:bg-muted/50 transition flex flex-col gap-2 text-left"
+                >
+                  <span className="font-extrabold text-sm text-foreground flex items-center justify-between">
+                    Payment Methods <Download className="w-4 h-4 text-primary" />
+                  </span>
+                  <span className="text-xs text-muted-foreground">CASH, UPI, CARD distribution CSV</span>
+                </button>
+
+                <button
+                  onClick={handleExportMenuItems}
+                  className="p-4 rounded-2xl border border-border/60 bg-muted/20 hover:bg-muted/50 transition flex flex-col gap-2 text-left"
+                >
+                  <span className="font-extrabold text-sm text-foreground flex items-center justify-between">
+                    Menu Item Sales <Download className="w-4 h-4 text-primary" />
+                  </span>
+                  <span className="text-xs text-muted-foreground">Top selling items &amp; revenue breakdown CSV</span>
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center gap-3 rounded-2xl bg-secondary/30 p-3.5">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-500">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="font-display text-lg font-bold">100%</div>
-                <div className="text-xs text-muted-foreground">Shift Coverage</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-// KPI Card Component
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  subtext,
-  accentColor,
-  isLoading
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  subtext: string;
-  accentColor: string;
-  isLoading: boolean;
-}) {
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 animate-pulse space-y-3">
-        <div className="h-4 w-20 bg-muted/60 rounded" />
-        <div className="h-7 w-24 bg-muted/80 rounded" />
-        <div className="h-3 w-16 bg-muted/50 rounded" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition hover:shadow-float">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className={cn("grid h-7 w-7 place-items-center rounded-lg", accentColor)}>
-          <Icon className="h-3.5 w-3.5" />
-        </span>
-      </div>
-      <div className="mt-2 font-display text-2xl font-semibold tabular-nums text-foreground">{value}</div>
-      <div className="mt-1 text-[11px] text-muted-foreground truncate">{subtext}</div>
-    </div>
-  );
-}
-
-// Order Status Badge Component
-function OrderStatusBadge({ status }: { status: Order["status"] }) {
-  const meta: Record<Order["status"], { label: string; style: string }> = {
-    placed: { label: "Placed", style: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-    in_kitchen: { label: "Cooking", style: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-    ready: { label: "Ready", style: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-    served: { label: "Served", style: "bg-secondary text-muted-foreground border-border" },
-    cancelled: { label: "Cancelled", style: "bg-destructive/10 text-destructive border-destructive/20" }
-  };
-  const current = meta[status] ?? { label: status, style: "bg-muted text-muted-foreground" };
-  return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border", current.style)}>
-      {current.label}
-    </span>
-  );
-}
-
-// Chart Skeleton Loader
-function ChartSkeleton() {
-  return (
-    <div className="h-full w-full animate-pulse rounded-2xl bg-muted/30 flex items-center justify-center text-xs text-muted-foreground">
-      Loading chart visualization...
-    </div>
-  );
-}
-
-// List Skeleton Loader
-function ListSkeleton() {
-  return (
-    <div className="space-y-3 animate-pulse py-2">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="h-10 w-full bg-muted/40 rounded-xl" />
-      ))}
+          )}
+        </>
+      )}
     </div>
   );
 }
