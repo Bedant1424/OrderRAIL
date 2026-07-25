@@ -22,8 +22,8 @@ export class QZTrayProvider implements IPrintProvider {
 
   constructor(options: QZTrayProviderOptions = {}) {
     this.options = {
-      retries: 3,
-      delayMs: 1000,
+      retries: options.retries ?? 1,
+      delayMs: options.delayMs ?? 100,
       ...options,
     };
   }
