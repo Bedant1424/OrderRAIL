@@ -37,7 +37,7 @@ import {
   type CounterNotificationSettings
 } from '@/lib/counter/counterNotifications';
 import { printService, type KotPrintPayloadData, type ReceiptPrintPayloadData } from '@/lib/printing';
-import { BillService, type BillWithItems } from '@/lib/billing';
+import { BillService, BillSummaryCalculator, type BillWithItems } from '@/lib/billing';
 import { CompactDiscountControl, type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { Receipt } from '@/components/billing/Receipt';
 
@@ -1364,23 +1364,15 @@ const SummaryPanel = ({
   onPrintBill: () => void;
   onOpenPayment: () => void;
 }) => {
-  const submittedOrders = session?.orders ?? [];
-  const submittedSubtotal = submittedOrders.reduce((sAcc, ord) => sAcc + ord.subtotal, 0);
-  const draftSubtotal = draftCart.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const totalSubtotal = submittedSubtotal + draftSubtotal;
+  const summary = useMemo(() => {
+    return BillSummaryCalculator.buildBillSummary({
+      orders: session?.orders,
+      draftCart,
+      discount: customDiscount,
+    });
+  }, [session?.orders, draftCart, customDiscount]);
 
-  const discountAmt = useMemo(() => {
-    if (!customDiscount || customDiscount.value <= 0) return 0;
-    if (customDiscount.type === 'PERCENTAGE') {
-      return totalSubtotal * (customDiscount.value / 100);
-    }
-    return Math.min(totalSubtotal, customDiscount.value);
-  }, [customDiscount, totalSubtotal]);
-
-  const tax = (totalSubtotal - discountAmt) * 0.08;
-  const netTotal = totalSubtotal - discountAmt + tax;
-
-  const hasAnyItems = submittedOrders.length > 0 || draftCart.length > 0;
+  const hasAnyItems = summary.totalItems > 0;
 
   return (
     <div className="v8-panel-summary">
@@ -1392,42 +1384,42 @@ const SummaryPanel = ({
         {/* Compact Discount Control */}
         <CompactDiscountControl
           discount={customDiscount}
-          subtotal={totalSubtotal}
+          subtotal={summary.subtotal}
           onChangeDiscount={onChangeDiscount}
           className="mb-3"
         />
 
         <div className="v8-receipt-breakdown transition-all duration-200">
           <div className="v8-receipt-row transition-all duration-200">
-            <span>Orders Subtotal ({submittedOrders.length} Orders)</span>
-            <span className="v8-font-mono">{formatCurrency(submittedSubtotal)}</span>
+            <span>Orders Subtotal ({session?.orders?.length || 0} Orders)</span>
+            <span className="v8-font-mono">{formatCurrency(summary.submittedSubtotal)}</span>
           </div>
 
-          {draftSubtotal > 0 && (
+          {summary.draftSubtotal > 0 && (
             <div className="v8-receipt-row text-primary transition-all duration-200">
               <span>New KOT Draft</span>
-              <span className="v8-font-mono">+{formatCurrency(draftSubtotal)}</span>
+              <span className="v8-font-mono">+{formatCurrency(summary.draftSubtotal)}</span>
             </div>
           )}
 
           <div className="v8-receipt-row transition-all duration-200">
             <span>Tax (GST 8%)</span>
-            <span className="v8-font-mono">{formatCurrency(tax)}</span>
+            <span className="v8-font-mono">{formatCurrency(summary.tax)}</span>
           </div>
 
-          {discountAmt > 0 && (
+          {summary.discountAmount > 0 && (
             <div className="v8-receipt-row text-success font-semibold transition-all duration-200">
               <span>
                 Discount ({customDiscount.type === 'PERCENTAGE' ? `${customDiscount.value}%` : `₹${customDiscount.value}`})
                 {customDiscount.reason && <span className="text-[10px] text-muted-foreground ml-1">({customDiscount.reason})</span>}
               </span>
-              <span className="v8-font-mono">-{formatCurrency(discountAmt)}</span>
+              <span className="v8-font-mono">-{formatCurrency(summary.discountAmount)}</span>
             </div>
           )}
 
           <div className="v8-receipt-total-box transition-all duration-200">
             <span className="v8-total-label font-extrabold">SESSION RUNNING BILL</span>
-            <span className="v8-total-value transition-all duration-200">{formatCurrency(netTotal)}</span>
+            <span className="v8-total-value transition-all duration-200">{formatCurrency(summary.grandTotal)}</span>
           </div>
         </div>
       </div>
@@ -2696,21 +2688,11 @@ const CounterLayout = () => {
   // Complete Payment & CLOSE Active Session (Archives active session from Counter view)
   const handlePaymentComplete = useCallback(async (tenders: PaymentTenderRecord[]) => {
     const cur = activeSessionData;
-    const submittedSubtotal = cur.orders.reduce((acc, o) => acc + o.subtotal, 0);
-    const draftSubtotal = cur.draftCart.reduce((acc, i) => acc + i.price * i.qty, 0);
-    const subtotal = submittedSubtotal + draftSubtotal;
-
-    let discountAmt = 0;
-    if (customDiscount && customDiscount.value > 0) {
-      if (customDiscount.type === 'PERCENTAGE') {
-        discountAmt = subtotal * (customDiscount.value / 100);
-      } else {
-        discountAmt = Math.min(subtotal, customDiscount.value);
-      }
-    }
-    const discountPct = customDiscount.type === 'PERCENTAGE' ? customDiscount.value : 0;
-    const tax = (subtotal - discountAmt) * 0.08;
-    const netTotal = subtotal - discountAmt + tax;
+    const summary = BillSummaryCalculator.buildBillSummary({
+      orders: cur.orders,
+      draftCart: cur.draftCart,
+      discount: customDiscount,
+    });
 
     const receipt: CompletedOrderReceipt = {
       orderId: `OR-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -2720,11 +2702,11 @@ const CounterLayout = () => {
       timestamp: new Date().toLocaleTimeString('en-IN'),
       orders: cur.orders,
       draftItems: cur.draftCart,
-      subtotal,
-      tax,
-      discountPct,
-      discountAmt,
-      netTotal,
+      subtotal: summary.subtotal,
+      tax: summary.tax,
+      discountPct: summary.discountPercent,
+      discountAmt: summary.discountAmount,
+      netTotal: summary.grandTotal,
       tenders
     };
 
@@ -2835,20 +2817,14 @@ const CounterLayout = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKot, handlePrintBill, isPaymentOpen]);
 
-  // Calculate Cumulative Totals for Active Session
-  const submittedSubtotal = activeSessionData.orders.reduce((a, o) => a + o.subtotal, 0);
-  const draftSubtotal = activeSessionData.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
-  const subtotal = submittedSubtotal + draftSubtotal;
-  let discountAmt = 0;
-  if (customDiscount && customDiscount.value > 0) {
-    if (customDiscount.type === 'PERCENTAGE') {
-      discountAmt = subtotal * (customDiscount.value / 100);
-    } else {
-      discountAmt = Math.min(subtotal, customDiscount.value);
-    }
-  }
-  const tax = (subtotal - discountAmt) * 0.08;
-  const netTotal = subtotal - discountAmt + tax;
+  // Derived shared bill summary for active dining session
+  const activeBillSummary = useMemo(() => {
+    return BillSummaryCalculator.buildBillSummary({
+      orders: activeSessionData.orders,
+      draftCart: activeSessionData.draftCart,
+      discount: customDiscount,
+    });
+  }, [activeSessionData.orders, activeSessionData.draftCart, customDiscount]);
 
   return (
     <div className="v8-counter-root">
@@ -2957,11 +2933,11 @@ const CounterLayout = () => {
         {isPaymentOpen && (
           <PaymentDialogModal 
             tableLabel={selectedTable ? selectedTable.label : 'Express Takeaway'}
-            netTotal={netTotal}
-            subtotal={subtotal}
-            tax={tax}
-            discountPct={discountPct}
-            discountAmt={discountAmt}
+            netTotal={activeBillSummary.grandTotal}
+            subtotal={activeBillSummary.subtotal}
+            tax={activeBillSummary.tax}
+            discountPct={activeBillSummary.discountPercent}
+            discountAmt={activeBillSummary.discountAmount}
             session={activeSessionData}
             onComplete={(tenders) => void handlePaymentComplete(tenders)}
             onClose={() => setIsPaymentOpen(false)}
