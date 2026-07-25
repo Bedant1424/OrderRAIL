@@ -35,6 +35,7 @@ import {
   type CounterNotification,
   type CounterNotificationSettings
 } from '@/lib/counter/counterNotifications';
+import { printService, type KotPrintPayloadData, type ReceiptPrintPayloadData } from '@/lib/printing';
 
 import './counter.css';
 
@@ -1165,8 +1166,31 @@ const ReceiptModal = ({
   receipt: CompletedOrderReceipt;
   onClose: () => void;
 }) => {
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    const aggregated = aggregateReceiptItems(receipt);
+    const payload: ReceiptPrintPayloadData = {
+      type: 'RECEIPT',
+      orderId: receipt.orderId,
+      billNumber: `BILL-${receipt.orderId.replace(/[^0-9]/g, '') || '101'}`,
+      sessionId: receipt.sessionId,
+      tableLabel: receipt.tableLabel,
+      cashierName: receipt.cashierName,
+      timestamp: receipt.timestamp,
+      items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
+      subtotal: receipt.subtotal,
+      tax: receipt.tax,
+      discountPct: receipt.discountPct,
+      discountAmt: receipt.discountAmt,
+      netTotal: receipt.netTotal,
+      tenders: receipt.tenders.map((t) => ({ method: t.method, amount: t.amount })),
+    };
+
+    const { success } = await printService.enqueue('RECEIPT', 'BILL_PRINTER', payload, { orderId: receipt.orderId });
+    if (success) {
+      toast.success('🖨️ Receipt sent to printer.');
+    } else {
+      toast.error('❌ Failed to print receipt.');
+    }
   };
 
   const aggregatedItems = aggregateReceiptItems(receipt);
@@ -2452,40 +2476,48 @@ const CounterLayout = () => {
   // Send KOT (Prints KOT slip & updates status to KOT Sent)
   const handleSendKotOrder = useCallback(async (order: SessionOrder, tableLabel: string) => {
     const cleanLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
-    const payload: KotPrintPayload = {
+    const payload: KotPrintPayloadData = {
+      type: 'KOT',
+      orderId: order.id,
       orderNumber: order.orderNumber,
       tableLabel: cleanLabel,
       timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      items: order.items
+      items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
     };
 
-    setActiveKot(payload);
-    await new Promise((r) => setTimeout(r, 100));
-    window.print();
+    const { success } = await printService.enqueue('KOT', 'KOT_PRINTER', payload, { orderId: order.id });
 
-    try {
-      await updateOrderStatusInDb(order.id, "kot_sent" as any, "staff");
-      toast.success(`🍳 KOT #${order.orderNumber} Printed & Sent to Kitchen!`);
-      await loadSessionsFromDb();
-    } catch (e) {
-      console.warn("[handleSendKotOrder] Error updating status:", e);
+    if (success) {
+      try {
+        await updateOrderStatusInDb(order.id, "kot_sent" as any, "staff");
+        toast.success(`🍳 KOT #${order.orderNumber} Printed & Sent to Kitchen!`);
+        await loadSessionsFromDb();
+      } catch (e) {
+        console.warn("[handleSendKotOrder] Error updating status:", e);
+      }
+    } else {
+      toast.error(`❌ Print Failed for KOT #${order.orderNumber}. Order status remains ACCEPTED.`);
     }
   }, [loadSessionsFromDb]);
 
   // Reprint KOT (Prints the same KOT again without modifying order status)
   const handleReprintKotOrder = useCallback(async (order: SessionOrder, tableLabel: string) => {
     const cleanLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
-    const payload: KotPrintPayload = {
+    const payload: KotPrintPayloadData = {
+      type: 'KOT',
+      orderId: order.id,
       orderNumber: order.orderNumber,
       tableLabel: cleanLabel,
       timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      items: order.items
+      items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
     };
 
-    setActiveKot(payload);
-    await new Promise((r) => setTimeout(r, 100));
-    window.print();
-    toast.info(`🖨️ KOT #${order.orderNumber} Reprinted.`);
+    const { success } = await printService.enqueue('KOT', 'KOT_PRINTER', payload, { orderId: order.id });
+    if (success) {
+      toast.info(`🖨️ KOT #${order.orderNumber} Reprinted.`);
+    } else {
+      toast.error(`❌ Reprint Failed for KOT #${order.orderNumber}.`);
+    }
   }, []);
 
   // Send KOT — Creates kitchen order via single createOrderInDb pipeline with initial status "kot_sent"
@@ -2574,16 +2606,22 @@ const CounterLayout = () => {
 
     const orderTimestamp = createdDbOrder?.created_at || new Date().toISOString();
 
-    // Spool & print KOT for draft order
-    const kotPayload: KotPrintPayload = {
+    // Spool & print KOT for draft order via PrintService
+    const kotPayload: KotPrintPayloadData = {
+      type: 'KOT',
+      orderId: createdOrderId || undefined,
       orderNumber: orderNum,
       tableLabel: cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel}` : 'Express Takeaway',
       timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      items: cur.draftCart
+      items: cur.draftCart.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
     };
-    setActiveKot(kotPayload);
-    await new Promise((r) => setTimeout(r, 100));
-    window.print();
+
+    const { success: printSuccess } = await printService.enqueue('KOT', 'KOT_PRINTER', kotPayload, { orderId: createdOrderId || undefined });
+    if (printSuccess) {
+      toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${orderNum})`);
+    } else {
+      toast.warn(`⚠️ Order created, but KOT printing failed for Order #${orderNum}.`);
+    }
 
     const eventPayload: CounterNotification = {
       id: `notif-new-${createdOrderId || Date.now()}`,
