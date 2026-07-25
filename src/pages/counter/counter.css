@@ -835,3 +835,48 @@
   background: hsl(var(--border) / 0.4);
   border-radius: 2px;
 }
+
+/* KOT Thermal Print Styles */
+.v8-kot-printable-container {
+  display: none;
+}
+
+.v8-kot-paper {
+  background-color: #ffffff;
+  color: #000000;
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+  width: 320px;
+  max-width: 100%;
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .v8-receipt-printable, .v8-receipt-printable *,
+  .v8-kot-printable, .v8-kot-printable * {
+    visibility: visible !important;
+  }
+  .v8-receipt-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+  }
+  .v8-kot-printable-container {
+    display: block !important;
+  }
+  .v8-kot-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    background: #ffffff;
+    color: #000000;
+  }
+}

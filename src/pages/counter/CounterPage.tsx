@@ -64,9 +64,16 @@ export interface SessionOrder {
   orderNumber: number;
   timestamp: string;
   createdAt?: string;
-  status: 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'PAID';
+  status: 'PENDING' | 'ACCEPTED' | 'KOT_SENT' | 'PREPARING' | 'READY' | 'SERVED' | 'PAID' | string;
   items: CartLineItem[];
   subtotal: number;
+}
+
+export interface KotPrintPayload {
+  orderNumber: number;
+  tableLabel: string;
+  timestamp: string;
+  items: CartLineItem[];
 }
 
 export interface TableSessionData {
@@ -394,19 +401,47 @@ const MenuPanel = ({
 };
 
 // --- 4. MULTI-ORDER DINING SESSION HERO PANEL ---
-const OrderCard = memo(({ order, onAcceptOrder }: { order: SessionOrder; onAcceptOrder?: (id: string, num: number) => void }) => {
-  const getStatusBadgeClass = (status: SessionOrder['status']) => {
-    switch (status) {
-      case 'PENDING': return 'bg-amber-500/20 text-amber-600 border-amber-500/30 animate-pulse';
-      case 'PREPARING': return 'bg-blue-500/15 text-blue-600 border-blue-500/20';
-      case 'READY': return 'bg-purple-500/15 text-purple-600 border-purple-500/20';
-      case 'SERVED': return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20';
-      case 'PAID': return 'bg-muted text-muted-foreground border-border';
-      default: return 'bg-muted text-muted-foreground';
+const OrderCard = memo(({ 
+  order, 
+  tableLabel, 
+  onAcceptOrder, 
+  onSendKot, 
+  onReprintKot 
+}: { 
+  order: SessionOrder; 
+  tableLabel: string; 
+  onAcceptOrder?: (id: string, num: number) => void;
+  onSendKot?: (order: SessionOrder, label: string) => void;
+  onReprintKot?: (order: SessionOrder, label: string) => void;
+}) => {
+  const getStatusBadgeClass = (status: string) => {
+    const s = (status || 'PENDING').toUpperCase();
+    switch (s) {
+      case 'PENDING':
+      case 'NEW':
+        return 'bg-amber-500/20 text-amber-600 border-amber-500/30 animate-pulse';
+      case 'ACCEPTED':
+        return 'bg-blue-500/15 text-blue-600 border-blue-500/20';
+      case 'KOT_SENT':
+      case 'KOT SENT':
+        return 'bg-indigo-500/15 text-indigo-600 border-indigo-500/20';
+      case 'PREPARING':
+        return 'bg-orange-500/15 text-orange-600 border-orange-500/20';
+      case 'READY':
+        return 'bg-purple-500/15 text-purple-600 border-purple-500/20';
+      case 'SERVED':
+        return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20';
+      case 'PAID':
+        return 'bg-muted text-muted-foreground border-border';
+      default:
+        return 'bg-muted text-muted-foreground';
     }
   };
 
-  const isPending = order.status === 'PENDING';
+  const statusUpper = (order.status || 'PENDING').toUpperCase();
+  const isPending = statusUpper === 'PENDING' || statusUpper === 'NEW';
+  const isAccepted = statusUpper === 'ACCEPTED';
+  const isKotSentOrBeyond = ['KOT_SENT', 'KOT SENT', 'PREPARING', 'READY', 'SERVED', 'PAID'].includes(statusUpper);
 
   return (
     <div className={cn("p-3.5 rounded-xl border flex flex-col gap-2 shadow-xs transition", isPending ? "border-amber-500/40 bg-amber-500/5" : "border-border/40 bg-card/80")}>
@@ -418,15 +453,20 @@ const OrderCard = memo(({ order, onAcceptOrder }: { order: SessionOrder; onAccep
           </span>
         </div>
         <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-extrabold border uppercase tracking-wider', getStatusBadgeClass(order.status))}>
-          {isPending ? 'NEW ORDER' : order.status.replace('_', ' ')}
+          {isPending ? 'NEW' : statusUpper === 'KOT_SENT' ? 'KOT SENT' : order.status.replace('_', ' ')}
         </span>
       </div>
 
       <div className="flex flex-col gap-1 py-1 border-y border-border/20 text-xs">
         {order.items.map((it) => (
-          <div key={it.id} className="flex justify-between items-center text-xs">
-            <span>{it.qty}× {it.name}</span>
-            <span className="v8-font-mono text-muted-foreground">{formatCurrency(it.price * it.qty)}</span>
+          <div key={it.id} className="flex flex-col gap-0.5">
+            <div className="flex justify-between items-center text-xs">
+              <span><strong className="text-primary">{it.qty}×</strong> {it.name}</span>
+              <span className="v8-font-mono text-muted-foreground">{formatCurrency(it.price * it.qty)}</span>
+            </div>
+            {it.notes && (
+              <span className="text-[10px] italic text-muted-foreground pl-3">"{it.notes}"</span>
+            )}
           </div>
         ))}
       </div>
@@ -436,17 +476,34 @@ const OrderCard = memo(({ order, onAcceptOrder }: { order: SessionOrder; onAccep
         <span className="v8-font-mono">{formatCurrency(order.subtotal)}</span>
       </div>
 
-      {isPending && onAcceptOrder && (
-        <div className="flex justify-between items-center pt-2 border-t border-amber-500/20">
-          <span className="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">Awaiting Acceptance</span>
+      <div className="pt-2 border-t border-border/30 flex justify-end items-center">
+        {isPending && onAcceptOrder && (
           <button 
-            className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold"
+            className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1"
             onClick={() => onAcceptOrder(order.id, order.orderNumber)}
           >
-            <Check className="w-3.5 h-3.5 inline mr-1" /> Accept & Send KOT
+            <Check className="w-3.5 h-3.5" /> Accept Order
           </button>
-        </div>
-      )}
+        )}
+
+        {isAccepted && onSendKot && (
+          <button 
+            className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center gap-1 shadow-sm"
+            onClick={() => onSendKot(order, tableLabel)}
+          >
+            <Printer className="w-3.5 h-3.5" /> Send KOT
+          </button>
+        )}
+
+        {isKotSentOrBeyond && onReprintKot && (
+          <button 
+            className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto text-muted-foreground hover:text-foreground font-bold flex items-center gap-1 border border-border/50"
+            onClick={() => onReprintKot(order, tableLabel)}
+          >
+            <Printer className="w-3.5 h-3.5" /> Reprint KOT
+          </button>
+        )}
+      </div>
     </div>
   );
 });
@@ -489,7 +546,9 @@ const ActiveOrderPanel = ({
   onReleaseTable,
   onRestoreTable,
   onUpdateQty,
-  onAcceptOrder
+  onAcceptOrder,
+  onSendKot,
+  onReprintKot
 }: {
   table: TableEntity | null;
   session: TableSessionData | null;
@@ -500,6 +559,8 @@ const ActiveOrderPanel = ({
   onRestoreTable: () => void;
   onUpdateQty: (id: string, delta: number) => void;
   onAcceptOrder?: (id: string, num: number) => void;
+  onSendKot?: (order: SessionOrder, label: string) => void;
+  onReprintKot?: (order: SessionOrder, label: string) => void;
 }) => {
   const isAvailable = table?.status === 'AVAILABLE';
   const isCleaning = table?.status === 'CLEANING';
@@ -507,6 +568,7 @@ const ActiveOrderPanel = ({
 
   const rawOrders = session?.orders ?? [];
   const orders = useMemo(() => sortCounterOrders(rawOrders), [rawOrders]);
+  const tableLabel = table ? table.label : 'Express Takeaway';
 
   const sessionElapsed = (table?.status === 'OCCUPIED' || table?.status === 'BILL_REQUESTED') && session?.startedAtTimestamp
     ? formatSessionElapsed(session.startedAtTimestamp, nowMs)
@@ -516,7 +578,7 @@ const ActiveOrderPanel = ({
     <div className="v8-panel-order">
       <div className="v8-order-header">
         <div className="v8-order-top-row">
-          <h2 className="v8-order-title">{table ? table.label : 'Express Takeaway'}</h2>
+          <h2 className="v8-order-title">{tableLabel}</h2>
           <span className="v8-order-status-badge">
             {table ? table.status : 'WALK-IN'}
           </span>
@@ -567,7 +629,14 @@ const ActiveOrderPanel = ({
               <ShoppingBag className="w-3.5 h-3.5 text-primary" /> Active Session Orders ({orders.length})
             </span>
             {orders.map((ord) => (
-              <OrderCard key={ord.id} order={ord} onAcceptOrder={onAcceptOrder} />
+              <OrderCard 
+                key={ord.id} 
+                order={ord} 
+                tableLabel={tableLabel}
+                onAcceptOrder={onAcceptOrder} 
+                onSendKot={onSendKot}
+                onReprintKot={onReprintKot}
+              />
             ))}
           </div>
         )}
@@ -2070,15 +2139,22 @@ const CounterLayout = () => {
               ...merged[tId],
               sessionId: activeSessionMap.get(tId) || "",
               startedAtTimestamp: sessCreatedAt,
-              orders: [],
+              orders: merged[tId]?.orders || [],
             };
           }
         }
         for (const [tId, sess] of Object.entries(sessionsMap)) {
           const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || sess.startedAtTimestamp;
+          const prevOrders = prev[tId]?.orders || [];
+          const combinedOrdersMap = new Map<string, SessionOrder>();
+          for (const o of sess.orders) combinedOrdersMap.set(o.id, o);
+          for (const o of prevOrders) {
+            if (!combinedOrdersMap.has(o.id)) combinedOrdersMap.set(o.id, o);
+          }
           merged[tId] = {
             ...sess,
             startedAtTimestamp: sessCreatedAt,
+            orders: Array.from(combinedOrdersMap.values()),
             draftCart: prev[tId]?.draftCart || []
           };
         }
@@ -2359,7 +2435,60 @@ const CounterLayout = () => {
     toast('Draft order cleared');
   }, [activeTableId]);
 
-  // Send KOT — Creates kitchen order via single createOrderInDb pipeline with initial status "preparing"
+  const [activeKot, setActiveKot] = useState<KotPrintPayload | null>(null);
+
+  // Accept QR / New Order (Transitions status from New -> Accepted)
+  const handleAcceptOrder = useCallback(async (orderId: string, orderNumber: number) => {
+    try {
+      await updateOrderStatusInDb(orderId, "accepted" as any, "staff");
+      toast.success(`✅ Order #${orderNumber} Accepted!`);
+      await loadSessionsFromDb();
+    } catch (e) {
+      console.warn("[handleAcceptOrder] Error:", e);
+      toast.error("Failed to accept order");
+    }
+  }, [loadSessionsFromDb]);
+
+  // Send KOT (Prints KOT slip & updates status to KOT Sent)
+  const handleSendKotOrder = useCallback(async (order: SessionOrder, tableLabel: string) => {
+    const cleanLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
+    const payload: KotPrintPayload = {
+      orderNumber: order.orderNumber,
+      tableLabel: cleanLabel,
+      timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      items: order.items
+    };
+
+    setActiveKot(payload);
+    await new Promise((r) => setTimeout(r, 100));
+    window.print();
+
+    try {
+      await updateOrderStatusInDb(order.id, "kot_sent" as any, "staff");
+      toast.success(`🍳 KOT #${order.orderNumber} Printed & Sent to Kitchen!`);
+      await loadSessionsFromDb();
+    } catch (e) {
+      console.warn("[handleSendKotOrder] Error updating status:", e);
+    }
+  }, [loadSessionsFromDb]);
+
+  // Reprint KOT (Prints the same KOT again without modifying order status)
+  const handleReprintKotOrder = useCallback(async (order: SessionOrder, tableLabel: string) => {
+    const cleanLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
+    const payload: KotPrintPayload = {
+      orderNumber: order.orderNumber,
+      tableLabel: cleanLabel,
+      timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      items: order.items
+    };
+
+    setActiveKot(payload);
+    await new Promise((r) => setTimeout(r, 100));
+    window.print();
+    toast.info(`🖨️ KOT #${order.orderNumber} Reprinted.`);
+  }, []);
+
+  // Send KOT — Creates kitchen order via single createOrderInDb pipeline with initial status "kot_sent"
   const handleKot = useCallback(async () => {
     const cur = activeSessionData;
     if (cur.draftCart.length === 0) {
@@ -2369,7 +2498,6 @@ const CounterLayout = () => {
 
     const subtotal = cur.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
 
-    // Guarantee a valid dining_session_id in Supabase DB before inserting order using getOrCreateDiningSession helper
     let targetSessionId: string | null = (cur.sessionId && cur.sessionId.length > 10 && !cur.sessionId.startsWith("session-"))
       ? cur.sessionId
       : (selectedTable?.currentSessionId || null);
@@ -2392,14 +2520,13 @@ const CounterLayout = () => {
 
     let createdOrderId: string | null = null;
     try {
-      // Create order using unified createOrderInDb pipeline with status "preparing"
       createdOrderId = await createOrderInDb({
         cafe_id: cafeId || '',
         table_id: selectedTable?.id || '',
         session_id: getSessionId(),
         dining_session_id: targetSessionId,
         total_cents: Math.round(subtotal * 100),
-        status: "preparing", // Rule 1: Counter orders have initial status = preparing
+        status: "kot_sent" as any,
         items: cur.draftCart.map((i) => ({
           menu_item_id: i.menuItemId || (i.id.startsWith("c-") ? undefined : i.id),
           name: i.name,
@@ -2415,12 +2542,21 @@ const CounterLayout = () => {
       console.warn("[handleKot] Database write warning:", e);
     }
 
-    // Clear local draft cart and reload database-driven active sessions
+    const newSessionOrder: SessionOrder = {
+      id: createdOrderId || `ord-kot-${Date.now()}`,
+      orderNumber: Math.floor(100 + Math.random() * 900),
+      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      status: 'KOT_SENT',
+      items: cur.draftCart,
+      subtotal
+    };
+
     setTableSessions((prev) => ({
       ...prev,
       [activeTableId]: {
         ...(prev[activeTableId] || cur),
         sessionId: targetSessionId || cur.sessionId,
+        orders: [...(prev[activeTableId]?.orders || cur.orders), newSessionOrder],
         draftCart: []
       }
     }));
@@ -2428,19 +2564,27 @@ const CounterLayout = () => {
     const res = await loadSessionsFromDb("Send KOT Post-Write");
     const dbOrders = res?.dbOrders;
 
-    // Retrieve exact order created in database
     const createdDbOrder = dbOrders?.find((o: any) => o.id === createdOrderId);
-
     const rawLabel = selectedTable ? selectedTable.label : 'Express';
     const cleanTableLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel.substring(5).trim() : rawLabel;
 
     const orderNum = createdDbOrder?.order_number 
       ? createdDbOrder.order_number 
-      : (createdOrderId ? Math.floor(100 + Math.random() * 900) : cur.orders.length + 101);
+      : newSessionOrder.orderNumber;
 
     const orderTimestamp = createdDbOrder?.created_at || new Date().toISOString();
 
-    // Single canonical event payload consumed by BOTH Toast and Notification Center
+    // Spool & print KOT for draft order
+    const kotPayload: KotPrintPayload = {
+      orderNumber: orderNum,
+      tableLabel: cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel}` : 'Express Takeaway',
+      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      items: cur.draftCart
+    };
+    setActiveKot(kotPayload);
+    await new Promise((r) => setTimeout(r, 100));
+    window.print();
+
     const eventPayload: CounterNotification = {
       id: `notif-new-${createdOrderId || Date.now()}`,
       type: 'new_order',
@@ -2456,7 +2600,6 @@ const CounterLayout = () => {
       knownOrderIdsRef.current.add(createdOrderId);
     }
 
-    // 1. Dispatch payload to Notification Center state if enabled in settings
     if (isEventNotificationEnabled('new_order', notifSettingsRef.current)) {
       setNotifications((prev) => sortNotificationsNewestFirst([eventPayload, ...prev.filter((n) => n.id !== eventPayload.id)]));
       
@@ -2469,7 +2612,6 @@ const CounterLayout = () => {
       }
     }
 
-    // 2. Display Toast consuming the exact same event payload
     toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${eventPayload.orderNumber} for ${cleanTableLabel !== 'Express' ? 'Table ' + cleanTableLabel : 'Express'})`);
   }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
@@ -2505,14 +2647,12 @@ const CounterLayout = () => {
       tenders
     };
 
-    // STEP 1 INSTRUMENTATION LOGGING: Before updating orders
     console.log("[INSTRUMENT_STEP_1]", {
       sessionId: cur.sessionId,
       selectedTableId: selectedTable?.id,
       selectedTableStatus: selectedTable?.status
     });
 
-    // 1. Mark all active orders as served in database
     try {
       const orderIds = cur.orders.map((o) => o.id);
       for (const orderId of orderIds) {
@@ -2522,7 +2662,6 @@ const CounterLayout = () => {
       console.warn("[handlePaymentComplete] Error updating order status to served:", e);
     }
 
-    // STEP 2 INSTRUMENTATION LOGGING: Immediately after updateTableStatusInDb
     if (selectedTable) {
       let updateRes: any = null;
       let updateErr: any = null;
@@ -2535,7 +2674,6 @@ const CounterLayout = () => {
       }
       await tableEngine.markCleaning(selectedTable.id);
 
-      // Fresh DB read immediately after updateTableStatusInDb
       const { data: freshDbTable, error: readErr } = await supabase
         .from("tables")
         .select("*")
@@ -2550,7 +2688,6 @@ const CounterLayout = () => {
       });
     }
 
-    // 3. Attempt to close active dining session independently in database
     if (cur.sessionId && !cur.sessionId.startsWith("session-")) {
       try {
         await closeDiningSessionInDb(cur.sessionId);
@@ -2560,7 +2697,6 @@ const CounterLayout = () => {
       }
     }
 
-    // STEP 3 INSTRUMENTATION LOGGING: Immediately after loadSessionsFromDb
     await loadSessionsFromDb();
 
     if (selectedTable) {
@@ -2578,7 +2714,6 @@ const CounterLayout = () => {
       });
     }
 
-    // Immediately remove closed session from Counter active view
     setTableSessions((prev) => {
       const copy = { ...prev };
       delete copy[activeTableId];
@@ -2619,18 +2754,6 @@ const CounterLayout = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKot, handlePrintBill, isPaymentOpen]);
 
-  // Workflow A: Accept Customer QR Order and send KOT
-  const handleAcceptQrOrder = useCallback(async (orderId: string, orderNumber: number) => {
-    try {
-      await updateOrderStatusInDb(orderId, "preparing", "staff");
-      toast.success(`✅ QR Order #${orderNumber} Accepted & Sent to Kitchen!`);
-      await loadSessionsFromDb();
-    } catch (e) {
-      console.warn("[handleAcceptQrOrder] Error:", e);
-      toast.error("Failed to accept QR order");
-    }
-  }, [loadSessionsFromDb]);
-
   // Calculate Cumulative Totals for Active Session
   const submittedSubtotal = activeSessionData.orders.reduce((a, o) => a + o.subtotal, 0);
   const draftSubtotal = activeSessionData.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
@@ -2669,7 +2792,9 @@ const CounterLayout = () => {
           onReleaseTable={handleReleaseTable}
           onRestoreTable={handleRestoreTable}
           onUpdateQty={handleUpdateQty}
-          onAcceptOrder={handleAcceptQrOrder}
+          onAcceptOrder={handleAcceptOrder}
+          onSendKot={handleSendKotOrder}
+          onReprintKot={handleReprintKotOrder}
         />
         <SummaryPanel 
           session={activeSessionData}
@@ -2696,6 +2821,47 @@ const CounterLayout = () => {
         onMarkAsRead={handleMarkAsRead}
         onUpdateSettings={handleUpdateSettings}
       />
+
+      {/* PRINTABLE KOT SLIP */}
+      {activeKot && (
+        <div className="v8-kot-printable-container">
+          <div className="v8-kot-paper v8-kot-printable">
+            <div className="text-center pb-2 border-b border-dashed border-gray-400">
+              <div className="font-black text-base tracking-widest uppercase">ORDERRAIL CAFE</div>
+              <div className="font-extrabold text-sm text-black mt-0.5">KOT #{activeKot.orderNumber}</div>
+              <div className="text-xs font-bold text-gray-800 mt-1 flex justify-center items-center gap-1.5 flex-wrap">
+                <span>{activeKot.tableLabel}</span>
+                <span>·</span>
+                <span>{activeKot.timestamp}</span>
+              </div>
+            </div>
+
+            <div className="py-2 border-b border-dashed border-gray-400 text-xs">
+              <div className="flex justify-between items-center text-[10px] font-extrabold text-gray-500 uppercase tracking-wider pb-1 border-b border-gray-200">
+                <span>ITEM DESCRIPTION</span>
+                <span>QTY</span>
+              </div>
+              {activeKot.items.map((item, idx) => (
+                <div key={item.id || idx} className="py-1 border-b border-gray-100 last:border-0 text-black">
+                  <div className="flex justify-between items-start font-bold text-sm">
+                    <span className="pr-2">{item.name}</span>
+                    <span className="font-extrabold font-mono text-base shrink-0">×{item.qty}</span>
+                  </div>
+                  {item.notes && (
+                    <div className="text-xs italic text-gray-700 mt-0.5 pl-2 border-l-2 border-amber-500">
+                      Note: {item.notes}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center text-[10px] font-extrabold text-gray-500 pt-2 tracking-widest uppercase">
+              *** KITCHEN ORDER TICKET ***
+            </div>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {isPaymentOpen && (
