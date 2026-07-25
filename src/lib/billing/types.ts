@@ -88,3 +88,21 @@ export interface BillCalculationResult {
   total_items: number;
   itemSnapshots: BillItemSnapshot[];
 }
+
+export type BillingErrorCode =
+  | 'BILL_ALREADY_EXISTS'
+  | 'BILL_ALREADY_PAID'
+  | 'BILL_NOT_FOUND'
+  | 'SESSION_NOT_FOUND'
+  | 'INVALID_PAYMENT_METHOD'
+  | 'INVALID_BILL_STATE';
+
+export class BillingError extends Error {
+  public code: BillingErrorCode;
+
+  constructor(message: string, code: BillingErrorCode) {
+    super(message);
+    this.name = 'BillingError';
+    this.code = code;
+  }
+}
