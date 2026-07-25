@@ -1388,26 +1388,26 @@ const SummaryPanel = ({
           className="mb-3"
         />
 
-        <div className="v8-receipt-breakdown">
-          <div className="v8-receipt-row">
+        <div className="v8-receipt-breakdown transition-all duration-200">
+          <div className="v8-receipt-row transition-all duration-200">
             <span>Orders Subtotal ({submittedOrders.length} Orders)</span>
             <span className="v8-font-mono">{formatCurrency(submittedSubtotal)}</span>
           </div>
 
           {draftSubtotal > 0 && (
-            <div className="v8-receipt-row text-primary">
+            <div className="v8-receipt-row text-primary transition-all duration-200">
               <span>New KOT Draft</span>
               <span className="v8-font-mono">+{formatCurrency(draftSubtotal)}</span>
             </div>
           )}
 
-          <div className="v8-receipt-row">
+          <div className="v8-receipt-row transition-all duration-200">
             <span>Tax (GST 8%)</span>
             <span className="v8-font-mono">{formatCurrency(tax)}</span>
           </div>
 
           {discountAmt > 0 && (
-            <div className="v8-receipt-row text-success font-semibold">
+            <div className="v8-receipt-row text-success font-semibold transition-all duration-200">
               <span>
                 Discount ({customDiscount.type === 'PERCENTAGE' ? `${customDiscount.value}%` : `₹${customDiscount.value}`})
                 {customDiscount.reason && <span className="text-[10px] text-muted-foreground ml-1">({customDiscount.reason})</span>}
@@ -1416,9 +1416,9 @@ const SummaryPanel = ({
             </div>
           )}
 
-          <div className="v8-receipt-total-box">
+          <div className="v8-receipt-total-box transition-all duration-200">
             <span className="v8-total-label font-extrabold">SESSION RUNNING BILL</span>
-            <span className="v8-total-value">{formatCurrency(netTotal)}</span>
+            <span className="v8-total-value transition-all duration-200">{formatCurrency(netTotal)}</span>
           </div>
         </div>
       </div>
