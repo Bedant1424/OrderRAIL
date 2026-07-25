@@ -2,8 +2,8 @@ import { ConnectionState, PrinterStatusMeta } from './models/ConnectionState';
 import { PrintPayloadData } from './models/Payload';
 import { PrintJob, PrintJobType } from './models/PrintJob';
 import { DEFAULT_PRINTER_CONFIG, LogicalPrinterDestination, PrinterMappingConfig } from './models/PrinterConfig';
-import { MockProvider } from './providers/MockProvider';
 import { IPrintProvider } from './providers/PrintProvider';
+import { ProviderFactory, providerFactory, ProviderType } from './providers/ProviderFactory';
 import { PrintQueue } from './queue/PrintQueue';
 
 export type StatusListener = (status: PrinterStatusMeta) => void;
@@ -18,7 +18,7 @@ export class PrintService {
 
   private constructor(provider?: IPrintProvider, config?: PrinterMappingConfig) {
     this.config = config || DEFAULT_PRINTER_CONFIG;
-    this.provider = provider || new MockProvider();
+    this.provider = provider || providerFactory.createProvider(undefined, this.config);
     this.queue = new PrintQueue();
 
     void this.provider.initialize(this.config).catch((err) => {
@@ -37,6 +37,7 @@ export class PrintService {
     if (PrintService.instance) {
       void PrintService.instance.provider.dispose().catch(() => {});
     }
+    ProviderFactory.resetInstanceForTesting();
     PrintService.instance = new PrintService(provider);
     return PrintService.instance;
   }
@@ -48,6 +49,12 @@ export class PrintService {
     this.provider = provider;
     await this.provider.initialize(this.config);
     this.notifyStatusChange();
+  }
+
+  public async setProviderType(type: ProviderType): Promise<void> {
+    providerFactory.setActiveProviderType(type);
+    const newProvider = providerFactory.createProvider(type, this.config);
+    await this.setProvider(newProvider);
   }
 
   public getActiveProvider(): IPrintProvider {
