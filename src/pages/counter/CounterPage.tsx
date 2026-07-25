@@ -1071,7 +1071,7 @@ const ReceiptModal = ({
   return (
     <div className="v8-modal-overlay">
       <motion.div 
-        className="v8-payment-dialog max-w-md"
+        className="v8-payment-dialog v8-receipt-modal-dialog max-w-md"
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
@@ -1079,16 +1079,16 @@ const ReceiptModal = ({
         <div className="v8-dialog-header">
           <div>
             <h3 className="font-extrabold text-sm flex items-center gap-2">
-              <Printer className="w-4 h-4 text-primary" /> Session Final Bill Receipt
+              <Printer className="w-4 h-4 text-primary" /> Receipt Preview
             </h3>
-            <span className="text-xs text-muted-foreground">{receipt.tableLabel} · Session {receipt.sessionId}</span>
+            <span className="text-xs text-muted-foreground">{receipt.tableLabel}{receipt.timestamp ? ` · ${receipt.timestamp}` : ''}</span>
           </div>
-          <button className="text-muted-foreground hover:text-foreground" onClick={onClose}>
+          <button className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition" onClick={onClose} aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="v8-dialog-body">
+        <div className="v8-receipt-preview-container">
           <div className="v8-receipt-paper v8-receipt-printable">
             <div className="text-center pb-2 border-b border-dashed border-gray-300">
               <div className="font-extrabold text-sm tracking-wider">ORDERRAIL CAFE</div>
@@ -1162,15 +1162,15 @@ const ReceiptModal = ({
               Thank you for dining with OrderRail!
             </div>
           </div>
+        </div>
 
-          <div className="flex gap-2 pt-2">
-            <button className="v8-btn-secondary flex-1" onClick={handlePrint}>
-              <Printer className="w-4 h-4" /> Print Receipt
-            </button>
-            <button className="v8-btn-primary flex-1" onClick={onClose}>
-              <Check className="w-4 h-4" /> Session Closed / Done
-            </button>
-          </div>
+        <div className="v8-dialog-footer">
+          <button className="v8-btn-secondary flex-1" onClick={handlePrint}>
+            <Printer className="w-4 h-4" /> Print Receipt
+          </button>
+          <button className="v8-btn-primary flex-1" onClick={onClose}>
+            <Check className="w-4 h-4" /> Session Closed / Done
+          </button>
         </div>
       </motion.div>
     </div>
