@@ -38,6 +38,7 @@ import {
 } from '@/lib/counter/counterNotifications';
 import { printService, type KotPrintPayloadData, type ReceiptPrintPayloadData } from '@/lib/printing';
 import { BillService, type BillWithItems } from '@/lib/billing';
+import { CompactDiscountControl, type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { Receipt } from '@/components/billing/Receipt';
 
 import './counter.css';
@@ -1346,6 +1347,8 @@ const SummaryPanel = ({
   session,
   draftCart,
   tableLabel,
+  customDiscount,
+  onChangeDiscount,
   onClear,
   onKot,
   onPrintBill,
@@ -1354,20 +1357,26 @@ const SummaryPanel = ({
   session: TableSessionData | null;
   draftCart: CartLineItem[];
   tableLabel: string;
+  customDiscount: CustomDiscount;
+  onChangeDiscount: (newDiscount: CustomDiscount) => void;
   onClear: () => void;
   onKot: () => void;
   onPrintBill: () => void;
   onOpenPayment: () => void;
 }) => {
-  const [discountPct, setDiscountPct] = useState<number>(0);
-  const [showDiscount, setShowDiscount] = useState<boolean>(false);
-
   const submittedOrders = session?.orders ?? [];
   const submittedSubtotal = submittedOrders.reduce((sAcc, ord) => sAcc + ord.subtotal, 0);
   const draftSubtotal = draftCart.reduce((acc, item) => acc + item.price * item.qty, 0);
   const totalSubtotal = submittedSubtotal + draftSubtotal;
 
-  const discountAmt = totalSubtotal * (discountPct / 100);
+  const discountAmt = useMemo(() => {
+    if (!customDiscount || customDiscount.value <= 0) return 0;
+    if (customDiscount.type === 'PERCENTAGE') {
+      return totalSubtotal * (customDiscount.value / 100);
+    }
+    return Math.min(totalSubtotal, customDiscount.value);
+  }, [customDiscount, totalSubtotal]);
+
   const tax = (totalSubtotal - discountAmt) * 0.08;
   const netTotal = totalSubtotal - discountAmt + tax;
 
@@ -1376,63 +1385,49 @@ const SummaryPanel = ({
   return (
     <div className="v8-panel-summary">
       <div>
-        <div className="flex items-center justify-between">
-          <span className="v8-summary-title">Running Bill & Checkout</span>
-          <button 
-            className="text-[11px] font-bold text-primary hover:underline"
-            onClick={() => setShowDiscount(!showDiscount)}
-          >
-            {showDiscount ? 'Hide Discount' : '+ Discount'}
-          </button>
+        <div className="flex items-center justify-between border-b border-border/40 pb-2 mb-2">
+          <span className="v8-summary-title">Running Bill &amp; Checkout</span>
         </div>
 
-        {showDiscount && (
-          <div className="grid grid-cols-4 gap-1 mt-2">
-            {[0, 5, 10, 15].map((pct) => (
-              <button
-                key={pct}
-                onClick={() => setDiscountPct(pct)}
-                className={cn(
-                  'py-1 rounded text-[10px] font-bold border transition',
-                  discountPct === pct 
-                    ? 'bg-primary text-primary-foreground border-primary' 
-                    : 'bg-muted/30 border-border/40 text-muted-foreground'
-                )}
-              >
-                {pct === 0 ? '0%' : `${pct}%`}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Compact Discount Control */}
+        <CompactDiscountControl
+          discount={customDiscount}
+          subtotal={totalSubtotal}
+          onChangeDiscount={onChangeDiscount}
+          className="mb-3"
+        />
 
-        <div className="v8-receipt-breakdown">
-          <div className="v8-receipt-row">
+        <div className="v8-receipt-breakdown transition-all duration-200">
+          <div className="v8-receipt-row transition-all duration-200">
             <span>Orders Subtotal ({submittedOrders.length} Orders)</span>
             <span className="v8-font-mono">{formatCurrency(submittedSubtotal)}</span>
           </div>
 
           {draftSubtotal > 0 && (
-            <div className="v8-receipt-row text-primary">
+            <div className="v8-receipt-row text-primary transition-all duration-200">
               <span>New KOT Draft</span>
               <span className="v8-font-mono">+{formatCurrency(draftSubtotal)}</span>
             </div>
           )}
 
-          <div className="v8-receipt-row">
+          <div className="v8-receipt-row transition-all duration-200">
             <span>Tax (GST 8%)</span>
             <span className="v8-font-mono">{formatCurrency(tax)}</span>
           </div>
 
           {discountAmt > 0 && (
-            <div className="v8-receipt-row text-success font-semibold">
-              <span>Discount ({discountPct}%)</span>
+            <div className="v8-receipt-row text-success font-semibold transition-all duration-200">
+              <span>
+                Discount ({customDiscount.type === 'PERCENTAGE' ? `${customDiscount.value}%` : `₹${customDiscount.value}`})
+                {customDiscount.reason && <span className="text-[10px] text-muted-foreground ml-1">({customDiscount.reason})</span>}
+              </span>
               <span className="v8-font-mono">-{formatCurrency(discountAmt)}</span>
             </div>
           )}
 
-          <div className="v8-receipt-total-box">
+          <div className="v8-receipt-total-box transition-all duration-200">
             <span className="v8-total-label font-extrabold">SESSION RUNNING BILL</span>
-            <span className="v8-total-value">{formatCurrency(netTotal)}</span>
+            <span className="v8-total-value transition-all duration-200">{formatCurrency(netTotal)}</span>
           </div>
         </div>
       </div>
@@ -1911,7 +1906,7 @@ const CounterLayout = () => {
   const [tableSessions, setTableSessions] = useState<Record<string, TableSessionData>>({});
   const [dbTablesList, setDbTablesList] = useState<any[]>([]);
   const [dbTablesMap, setDbTablesMap] = useState<Record<string, { status: string; active_session_id: string | null }>>({});
-  const [discountPct, setDiscountPct] = useState<number>(0);
+  const [customDiscount, setCustomDiscount] = useState<CustomDiscount>({ type: 'PERCENTAGE', value: 0 });
   const [isPaymentOpen, setIsPaymentOpen] = useState<boolean>(false);
   const [activeReceipt, setActiveReceipt] = useState<CompletedOrderReceipt | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -2705,7 +2700,15 @@ const CounterLayout = () => {
     const draftSubtotal = cur.draftCart.reduce((acc, i) => acc + i.price * i.qty, 0);
     const subtotal = submittedSubtotal + draftSubtotal;
 
-    const discountAmt = subtotal * (discountPct / 100);
+    let discountAmt = 0;
+    if (customDiscount && customDiscount.value > 0) {
+      if (customDiscount.type === 'PERCENTAGE') {
+        discountAmt = subtotal * (customDiscount.value / 100);
+      } else {
+        discountAmt = Math.min(subtotal, customDiscount.value);
+      }
+    }
+    const discountPct = customDiscount.type === 'PERCENTAGE' ? customDiscount.value : 0;
     const tax = (subtotal - discountAmt) * 0.08;
     const netTotal = subtotal - discountAmt + tax;
 
@@ -2801,7 +2804,7 @@ const CounterLayout = () => {
     toast.success(`💰 Session Paid & Closed! ${selectedTable ? selectedTable.label + ' needs cleaning.' : ''}`);
     setIsPaymentOpen(false);
     setActiveReceipt(receipt);
-  }, [activeSessionData, activeTableId, discountPct, loadSessionsFromDb, selectedTable, tableEngine, user]);
+  }, [activeSessionData, activeTableId, customDiscount, loadSessionsFromDb, selectedTable, tableEngine, user]);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -2836,7 +2839,14 @@ const CounterLayout = () => {
   const submittedSubtotal = activeSessionData.orders.reduce((a, o) => a + o.subtotal, 0);
   const draftSubtotal = activeSessionData.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
   const subtotal = submittedSubtotal + draftSubtotal;
-  const discountAmt = subtotal * (discountPct / 100);
+  let discountAmt = 0;
+  if (customDiscount && customDiscount.value > 0) {
+    if (customDiscount.type === 'PERCENTAGE') {
+      discountAmt = subtotal * (customDiscount.value / 100);
+    } else {
+      discountAmt = Math.min(subtotal, customDiscount.value);
+    }
+  }
   const tax = (subtotal - discountAmt) * 0.08;
   const netTotal = subtotal - discountAmt + tax;
 
@@ -2878,6 +2888,8 @@ const CounterLayout = () => {
           session={activeSessionData}
           draftCart={activeSessionData.draftCart}
           tableLabel={selectedTable?.label ?? 'Express'}
+          customDiscount={customDiscount}
+          onChangeDiscount={setCustomDiscount}
           onClear={handleClearDraft}
           onKot={() => void handleKot()}
           onPrintBill={handlePrintBill}
