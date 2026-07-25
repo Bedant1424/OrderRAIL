@@ -741,7 +741,8 @@ const PaymentDialogModal = ({
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ duration: 0.15 }}
       >
-        <div className="v8-dialog-header border-b border-border/40 pb-3">
+        {/* 1. FIXED HEADER */}
+        <div className="v8-dialog-header">
           <div>
             <h3 className="font-extrabold text-lg text-foreground flex items-center gap-2">
               Collect Payment
@@ -755,15 +756,16 @@ const PaymentDialogModal = ({
           </button>
         </div>
 
-        <div className="v8-dialog-body flex flex-col gap-3">
-          {/* Amount Due Visual Focus Section */}
-          <div className="p-3.5 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/20 text-center flex flex-col items-center justify-center">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Amount Due</span>
-            <span className="text-3xl font-black text-primary v8-font-mono tracking-tight mt-0.5">
-              {formatCurrency(netTotal)}
-            </span>
-          </div>
+        {/* 2. FIXED AMOUNT DUE Visual Focus Card */}
+        <div className="p-3.5 bg-primary/5 dark:bg-primary/10 border-b border-border/30 text-center flex flex-col items-center justify-center flex-shrink-0">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Amount Due</span>
+          <span className="text-3xl font-black text-primary v8-font-mono tracking-tight mt-0.5">
+            {formatCurrency(netTotal)}
+          </span>
+        </div>
 
+        {/* 3. SCROLLABLE CENTER CONTENT BODY */}
+        <div className="v8-dialog-body">
           {/* Collapsible Bill Summary Card */}
           <div className="rounded-xl border border-border/50 bg-card overflow-hidden transition-all text-left">
             <button
@@ -776,16 +778,12 @@ const PaymentDialogModal = ({
                 Bill Summary
               </span>
               <span className="text-[11px] font-mono text-muted-foreground font-normal">
-                {totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'}
+                Items: {totalItemsCount}
               </span>
             </button>
 
             {!isSummaryExpanded ? (
               <div className="p-3 flex flex-col gap-1.5 text-xs">
-                <div className="flex justify-between items-center text-muted-foreground">
-                  <span>Orders</span>
-                  <span className="font-mono font-medium">{totalOrdersCount}</span>
-                </div>
                 <div className="flex justify-between items-center text-muted-foreground">
                   <span>Items</span>
                   <span className="font-mono font-medium">{totalItemsCount}</span>
@@ -850,6 +848,7 @@ const PaymentDialogModal = ({
               </div>
             )}
           </div>
+
           <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border/40 text-xs">
             <span className="font-semibold text-muted-foreground">Payment Mode:</span>
             <div className="flex items-center gap-1.5">
@@ -1033,9 +1032,12 @@ const PaymentDialogModal = ({
               </div>
             </div>
           )}
+        </div>
 
+        {/* 4. FIXED STICKY FOOTER ACTION BUTTON */}
+        <div className="v8-dialog-footer">
           <button 
-            className="v8-btn-primary h-11 text-sm mt-2"
+            className="v8-btn-primary w-full h-11 text-sm font-bold flex items-center justify-center gap-2"
             disabled={isSubmitting}
             onClick={handleAddTender}
           >
