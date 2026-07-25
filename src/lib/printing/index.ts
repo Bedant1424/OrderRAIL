@@ -4,6 +4,7 @@ export * from './models/Payload';
 export * from './models/PrintJob';
 export * from './providers/PrintProvider';
 export * from './providers/MockProvider';
+export * from './providers/QZTrayProvider';
 export * from './providers/ProviderFactory';
 export * from './queue/PrintQueue';
 export * from './PrintService';
