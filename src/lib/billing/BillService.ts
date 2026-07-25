@@ -4,6 +4,7 @@ import {
   Bill,
   BillCalculationOptions,
   BillWithItems,
+  BillingError,
   OrderType,
   PaymentMethod,
   PaymentStatus,
@@ -28,11 +29,22 @@ export interface GenerateBillInput {
 export class BillService {
   /**
    * Generates a permanent, immutable Bill from a dining session's orders.
+   * IDEMPOTENT: If a bill already exists for the dining session, returns the existing bill.
    */
   public static async generateBill(input: GenerateBillInput): Promise<BillWithItems> {
+    if (!input.sessionId || input.sessionId.trim() === '') {
+      throw new BillingError('Session ID is required to generate a bill.', 'SESSION_NOT_FOUND');
+    }
+
+    // 1. Idempotency Check: One Bill Per Dining Session
+    const existingBills = await BillRepository.getBillsBySession(input.sessionId);
+    if (existingBills.length > 0) {
+      return existingBills[0];
+    }
+
     const allItems: RawInputItem[] = input.orders.flatMap((o) => o.items);
     if (allItems.length === 0) {
-      throw new Error('Cannot generate bill for empty dining session.');
+      throw new BillingError('Cannot generate bill for empty dining session.', 'INVALID_BILL_STATE');
     }
 
     const calcResult = BillCalculator.calculate(allItems, input.calculationOptions);
@@ -70,28 +82,66 @@ export class BillService {
 
   /**
    * Transition bill payment status to PAID.
+   * IDEMPOTENT: Ignores repeated requests if already PAID, preserving original timestamps & method.
    */
   public static async markBillPaid(
     billId: string,
     method: PaymentMethod = 'CASH',
     paidAt?: string
-  ): Promise<BillWithItems | null> {
+  ): Promise<BillWithItems> {
+    const existingBill = await BillRepository.getBillById(billId);
+    if (!existingBill) {
+      throw new BillingError(`Bill not found with ID: ${billId}`, 'BILL_NOT_FOUND');
+    }
+
+    // Idempotency Check: Return existing paid bill without overwriting paid_at or payment_method
+    if (existingBill.payment_status === 'PAID') {
+      return existingBill;
+    }
+
+    if (existingBill.payment_status === 'CANCELLED' || existingBill.payment_status === 'REFUNDED') {
+      throw new BillingError(
+        `Cannot mark bill as PAID because it is already ${existingBill.payment_status}.`,
+        'INVALID_BILL_STATE'
+      );
+    }
+
     const now = paidAt || new Date().toISOString();
-    return BillRepository.updatePaymentStatus(billId, 'PAID', method, now);
+    const updated = await BillRepository.updatePaymentStatus(billId, 'PAID', method, now);
+    if (!updated) {
+      throw new BillingError(`Failed to update bill payment status for ID: ${billId}`, 'BILL_NOT_FOUND');
+    }
+    return updated;
   }
 
   /**
    * Transition bill payment status to CANCELLED.
    */
-  public static async cancelBill(billId: string): Promise<BillWithItems | null> {
-    return BillRepository.updatePaymentStatus(billId, 'CANCELLED');
+  public static async cancelBill(billId: string): Promise<BillWithItems> {
+    const existing = await BillRepository.getBillById(billId);
+    if (!existing) {
+      throw new BillingError(`Bill not found with ID: ${billId}`, 'BILL_NOT_FOUND');
+    }
+    const updated = await BillRepository.updatePaymentStatus(billId, 'CANCELLED');
+    if (!updated) {
+      throw new BillingError(`Failed to cancel bill for ID: ${billId}`, 'BILL_NOT_FOUND');
+    }
+    return updated;
   }
 
   /**
    * Transition bill payment status to REFUNDED.
    */
-  public static async refundBill(billId: string): Promise<BillWithItems | null> {
-    return BillRepository.updatePaymentStatus(billId, 'REFUNDED');
+  public static async refundBill(billId: string): Promise<BillWithItems> {
+    const existing = await BillRepository.getBillById(billId);
+    if (!existing) {
+      throw new BillingError(`Bill not found with ID: ${billId}`, 'BILL_NOT_FOUND');
+    }
+    const updated = await BillRepository.updatePaymentStatus(billId, 'REFUNDED');
+    if (!updated) {
+      throw new BillingError(`Failed to refund bill for ID: ${billId}`, 'BILL_NOT_FOUND');
+    }
+    return updated;
   }
 
   // Repository Delegation Queries

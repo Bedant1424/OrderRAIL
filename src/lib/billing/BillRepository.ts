@@ -4,6 +4,7 @@ import { BillNumberGenerator } from './BillNumberGenerator';
 
 export class BillRepository {
   private static inMemoryStore: Map<string, BillWithItems> = new Map();
+  private static sessionToBillIdMap: Map<string, string> = new Map();
 
   /**
    * Fetch next sequential bill number for cafe from DB or memory fallback.
@@ -31,60 +32,81 @@ export class BillRepository {
   }
 
   /**
-   * Save a generated bill and its immutable item snapshots.
+   * Save a generated bill and its immutable item snapshots atomically.
    */
   public static async saveBill(bill: Bill, items: BillItemSnapshot[]): Promise<BillWithItems> {
+    // Check in-memory session index for idempotency
+    const existingBillId = this.sessionToBillIdMap.get(bill.session_id);
+    if (existingBillId && this.inMemoryStore.has(existingBillId)) {
+      return this.inMemoryStore.get(existingBillId)!;
+    }
+
     const fullBill: BillWithItems = { ...bill, items };
     this.inMemoryStore.set(bill.id, fullBill);
+    this.sessionToBillIdMap.set(bill.session_id, bill.id);
 
     try {
-      const { error: billErr } = await supabase.from('bills').insert({
-        id: bill.id,
-        bill_number: bill.bill_number,
-        cafe_id: bill.cafe_id,
-        session_id: bill.session_id,
-        table_id: bill.table_id || null,
-        cashier_id: bill.cashier_id || null,
-        customer_name: bill.customer_name || null,
-        customer_phone: bill.customer_phone || null,
-        order_type: bill.order_type,
-        payment_status: bill.payment_status,
-        payment_method: bill.payment_method,
-        subtotal: bill.subtotal,
-        discount: bill.discount,
-        service_charge: bill.service_charge,
-        cgst: bill.cgst,
-        sgst: bill.sgst,
-        round_off: bill.round_off,
-        grand_total: bill.grand_total,
-        total_items: bill.total_items,
-        notes: bill.notes || null,
-        created_at: bill.created_at,
-        paid_at: bill.paid_at || null,
-        closed_at: bill.closed_at || null,
+      // Try atomic RPC function first if available in database
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('generate_bill_atomic', {
+        p_bill: bill,
+        p_items: items,
       });
 
-      if (billErr) {
-        console.warn('[BillRepository] DB insert bill notice:', billErr.message);
+      if (!rpcErr && rpcRes?.status === 'EXISTS' && rpcRes.bill_id) {
+        const existingFromDb = await this.getBillById(rpcRes.bill_id);
+        if (existingFromDb) return existingFromDb;
       }
 
-      if (items.length > 0) {
-        const itemRows = items.map((item) => ({
-          bill_id: bill.id,
-          menu_item_id: item.menu_item_id || null,
-          item_name: item.item_name,
-          category_name: item.category_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount: item.discount,
-          tax: item.tax,
-          line_total: item.line_total,
-          special_instructions: item.special_instructions || null,
-        }));
+      if (rpcErr) {
+        // Fallback to standard insert
+        const { error: billErr } = await supabase.from('bills').insert({
+          id: bill.id,
+          bill_number: bill.bill_number,
+          cafe_id: bill.cafe_id,
+          session_id: bill.session_id,
+          table_id: bill.table_id || null,
+          cashier_id: bill.cashier_id || null,
+          customer_name: bill.customer_name || null,
+          customer_phone: bill.customer_phone || null,
+          order_type: bill.order_type,
+          payment_status: bill.payment_status,
+          payment_method: bill.payment_method,
+          subtotal: bill.subtotal,
+          discount: bill.discount,
+          service_charge: bill.service_charge,
+          cgst: bill.cgst,
+          sgst: bill.sgst,
+          round_off: bill.round_off,
+          grand_total: bill.grand_total,
+          total_items: bill.total_items,
+          notes: bill.notes || null,
+          created_at: bill.created_at,
+          paid_at: bill.paid_at || null,
+          closed_at: bill.closed_at || null,
+        });
 
-        const { error: itemErr } = await supabase.from('bill_items').insert(itemRows);
-        if (itemErr) {
-          console.warn('[BillRepository] DB insert bill_items notice:', itemErr.message);
+        if (billErr) {
+          console.warn('[BillRepository] DB insert bill notice:', billErr.message);
+        }
+
+        if (items.length > 0) {
+          const itemRows = items.map((item) => ({
+            bill_id: bill.id,
+            menu_item_id: item.menu_item_id || null,
+            item_name: item.item_name,
+            category_name: item.category_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            discount: item.discount,
+            tax: item.tax,
+            line_total: item.line_total,
+            special_instructions: item.special_instructions || null,
+          }));
+
+          const { error: itemErr } = await supabase.from('bill_items').insert(itemRows);
+          if (itemErr) {
+            console.warn('[BillRepository] DB insert bill_items notice:', itemErr.message);
+          }
         }
       }
     } catch (e: any) {
@@ -122,6 +144,7 @@ export class BillRepository {
       };
 
       this.inMemoryStore.set(id, billWithItems);
+      this.sessionToBillIdMap.set(billWithItems.session_id, id);
       return billWithItems;
     } catch {
       return null;
@@ -196,6 +219,10 @@ export class BillRepository {
       (b) => b.session_id === sessionId
     );
 
+    if (memoryResults.length > 0) {
+      return memoryResults;
+    }
+
     try {
       const { data: billRows } = await supabase
         .from('bills')
@@ -255,10 +282,15 @@ export class BillRepository {
   ): Promise<BillWithItems | null> {
     const cached = this.inMemoryStore.get(billId);
     if (cached) {
+      // Idempotency: Ignore repeated mark PAID if already paid
+      if (cached.payment_status === 'PAID' && status === 'PAID') {
+        return cached;
+      }
+
       cached.payment_status = status;
       if (method) cached.payment_method = method;
-      if (paidAt) cached.paid_at = paidAt;
-      if (status === 'PAID' || status === 'CANCELLED' || status === 'REFUNDED') {
+      if (paidAt && !cached.paid_at) cached.paid_at = paidAt;
+      if ((status === 'PAID' || status === 'CANCELLED' || status === 'REFUNDED') && !cached.closed_at) {
         cached.closed_at = new Date().toISOString();
       }
     }
@@ -281,5 +313,6 @@ export class BillRepository {
 
   public static clearMemoryStoreForTesting(): void {
     this.inMemoryStore.clear();
+    this.sessionToBillIdMap.clear();
   }
 }
