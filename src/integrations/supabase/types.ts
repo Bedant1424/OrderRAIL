@@ -1027,7 +1027,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "owner" | "staff"
+      app_role: "owner" | "counter" | "staff"
       order_item_status: "pending" | "preparing" | "ready" | "served" | "cancelled"
       order_status: "pending" | "preparing" | "ready" | "served" | "cancelled"
       prep_station: "coffee" | "kitchen" | "other"
@@ -1164,7 +1164,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      app_role: ["owner", "staff"],
+      app_role: ["owner", "counter", "staff"],
       order_item_status: ["pending", "preparing", "ready", "served", "cancelled"],
       order_status: ["pending", "preparing", "ready", "served", "cancelled"],
       prep_station: ["coffee", "kitchen", "other"],
