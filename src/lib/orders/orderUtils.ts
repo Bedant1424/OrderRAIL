@@ -136,19 +136,28 @@ export function getNextOrderStatus(status: Order["status"]): Order["status"] | n
  * and assigned sequential numbers starting from 1 for each date.
  * Returns a Map mapping order.id to its daily sequence number.
  */
-export function computeDailyOrderNumbers<T extends { id: string; created_at: string; order_number?: number }>(
-  orders: T[]
+export function computeDailyOrderNumbers<T extends { id?: string; created_at?: string; order_number?: number }>(
+  orders?: T[] | null
 ): Map<string, number> {
   const resultMap = new Map<string, number>();
-  if (!orders || orders.length === 0) return resultMap;
+  if (!orders || !Array.isArray(orders) || orders.length === 0) return resultMap;
 
   // Group by date string YYYY-MM-DD
   const groupsByDate = new Map<string, T[]>();
 
   for (const order of orders) {
+    if (!order || typeof order !== "object") continue;
+    const ordId = order.id || "";
+    if (!ordId) continue;
+
+    if (!order.created_at) {
+      resultMap.set(ordId, order.order_number ?? 1);
+      continue;
+    }
+
     const d = new Date(order.created_at);
     if (isNaN(d.getTime())) {
-      resultMap.set(order.id, order.order_number ?? 1);
+      resultMap.set(ordId, order.order_number ?? 1);
       continue;
     }
     const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -160,13 +169,18 @@ export function computeDailyOrderNumbers<T extends { id: string; created_at: str
   // Sort each date group chronologically (oldest first) and assign daily 1-indexed counter
   for (const list of groupsByDate.values()) {
     list.sort((a, b) => {
-      const timeDiff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      if (timeDiff !== 0) return timeDiff;
-      return a.id.localeCompare(b.id);
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeA !== timeB) return timeA - timeB;
+      const idA = a.id ? String(a.id) : "";
+      const idB = b.id ? String(b.id) : "";
+      return idA.localeCompare(idB);
     });
 
     list.forEach((order, index) => {
-      resultMap.set(order.id, index + 1);
+      if (order.id) {
+        resultMap.set(order.id, index + 1);
+      }
     });
   }
 
@@ -176,18 +190,21 @@ export function computeDailyOrderNumbers<T extends { id: string; created_at: str
 /**
  * Formats a display order number as a standard label string (e.g. "#1", "#2").
  */
-export function formatOrderDisplayNumber(num: number): string {
+export function formatOrderDisplayNumber(num?: number | null): string {
+  if (num == null || isNaN(num)) return "#1";
   return `#${num}`;
 }
 
 /**
- * Resolves the unified daily display number label for an order.
+ * Resolves the unified daily display number label for an order safely.
  */
-export function formatOrderLabelUnified<T extends { id: string; order_number?: number }>(
-  order: T,
-  dailyMap: Map<string, number>
+export function formatOrderLabelUnified<T extends { id?: string; order_number?: number }>(
+  order?: T | null,
+  dailyMap?: Map<string, number> | null
 ): string {
-  const dailyNum = dailyMap.get(order.id) ?? order.order_number ?? 1;
+  if (!order) return "#1";
+  const ordId = order.id || "";
+  const dailyNum = (dailyMap ? dailyMap.get(ordId) : undefined) ?? order.order_number ?? 1;
   return `#${dailyNum}`;
 }
 
@@ -199,25 +216,30 @@ export type OrderLane = "incoming" | "preparing" | "ready" | "completed" | "canc
  * - Completed, Cancelled, History: Newest first (Sales ledger & historical view).
  * - Tie-breaker: creation timestamp comparison, then deterministic UUID string comparison.
  */
-export function sortOrdersByLane<T extends { id: string; created_at?: string; order_number?: number }>(
-  orders: T[],
-  lane: OrderLane
+export function sortOrdersByLane<T extends { id?: string; created_at?: string; order_number?: number }>(
+  orders?: T[] | null,
+  lane: OrderLane = "incoming"
 ): T[] {
-  const list = [...orders];
+  if (!orders || !Array.isArray(orders) || orders.length === 0) return [];
+  const list = orders.filter((o): o is T => o != null && typeof o === "object");
 
   if (lane === "incoming" || lane === "preparing" || lane === "ready") {
     return list.sort((a, b) => {
       const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
       if (timeA !== timeB) return timeA - timeB;
-      return a.id.localeCompare(b.id);
+      const idA = a.id ? String(a.id) : "";
+      const idB = b.id ? String(b.id) : "";
+      return idA.localeCompare(idB);
     });
   } else {
     return list.sort((a, b) => {
       const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
       if (timeA !== timeB) return timeB - timeA;
-      return b.id.localeCompare(a.id);
+      const idA = a.id ? String(a.id) : "";
+      const idB = b.id ? String(b.id) : "";
+      return idB.localeCompare(idA);
     });
   }
 }

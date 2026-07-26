@@ -773,9 +773,9 @@ export default function StaffDashboardPage() {
     const filteredOrders = query
       ? orders.filter(
           (o) =>
-            o.tables?.label?.toLowerCase().includes(query) ||
-            o.order_number.toString().includes(query) ||
-            (dailyOrderNumMap.get(o.id) ?? "").toString().includes(query)
+            Boolean(o?.tables?.label?.toLowerCase().includes(query)) ||
+            (o?.order_number != null && o.order_number.toString().includes(query)) ||
+            (dailyOrderNumMap?.get(o?.id || "") ?? "").toString().includes(query)
         )
       : orders;
 
@@ -785,21 +785,21 @@ export default function StaffDashboardPage() {
       lastActivity: getOrderLastActivity(o, serviceRequests),
     }));
 
-    let doneOrders = ordersWithActivity.filter((o) => o.status === "served" || o.status === "cancelled");
+    let doneOrders = ordersWithActivity.filter((o) => o?.status === "served" || o?.status === "cancelled");
     if (recentlyDoneFilter === "completed") {
-      doneOrders = doneOrders.filter((o) => o.status === "served");
+      doneOrders = doneOrders.filter((o) => o?.status === "served");
     } else if (recentlyDoneFilter === "cancelled_customer") {
-      doneOrders = doneOrders.filter((o) => o.status === "cancelled" && o.last_updated_by === "customer");
+      doneOrders = doneOrders.filter((o) => o?.status === "cancelled" && o?.last_updated_by === "customer");
     } else if (recentlyDoneFilter === "cancelled_staff") {
-      doneOrders = doneOrders.filter((o) => o.status === "cancelled" && o.last_updated_by === "staff");
+      doneOrders = doneOrders.filter((o) => o?.status === "cancelled" && o?.last_updated_by === "staff");
     }
 
     return {
-      incoming: sortOrdersByLane(ordersWithActivity.filter((o) => o.status === "pending"), "incoming"),
-      active: sortOrdersByLane(ordersWithActivity.filter((o) => o.status === "preparing" || o.status === "ready"), "preparing"),
+      incoming: sortOrdersByLane(ordersWithActivity.filter((o) => o?.status === "pending"), "incoming"),
+      active: sortOrdersByLane(ordersWithActivity.filter((o) => o?.status === "preparing" || o?.status === "ready"), "preparing"),
       done: sortOrdersByLane(doneOrders, "history").slice(0, 20),
     };
-  }, [ordersQ.data, srQ.data, searchQuery, recentlyDoneFilter]);
+  }, [ordersQ.data, srQ.data, searchQuery, recentlyDoneFilter, dailyOrderNumMap]);
 
   const advance = async (o: OrderWithItems) => {
     const next = NEXT_STATUS[o.status];
