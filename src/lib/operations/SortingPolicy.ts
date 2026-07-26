@@ -1,4 +1,4 @@
-import { compareTableLabels } from '@/lib/tables/naturalTableSort';
+import { compareTableLabels, sortTablesNatural } from '@/lib/tables/naturalTableSort';
 
 export interface SortableTable {
   id: string;
@@ -16,40 +16,8 @@ export interface SortableOrder {
 }
 
 export class SortingPolicy {
-  /**
-   * Counter Table Sorting Policy:
-   * 1. Status Priority: OCCUPIED (1) -> RESERVED (2) -> CLEANING_REQUIRED (3) -> AVAILABLE (4)
-   * 2. Within OCCUPIED: Oldest active session first (longest waiting guests)
-   * 3. Otherwise: Alphanumeric natural table label sorting (e.g. 1, 2, 10, T-01)
-   */
   public static sortCounterTables<T extends SortableTable>(tables: T[]): T[] {
-    const statusPriority: Record<string, number> = {
-      OCCUPIED: 1,
-      RESERVED: 2,
-      CLEANING_REQUIRED: 3,
-      AVAILABLE: 4,
-    };
-
-    return [...tables].sort((a, b) => {
-      const pA = statusPriority[a.status] ?? 5;
-      const pB = statusPriority[b.status] ?? 5;
-
-      if (pA !== pB) {
-        return pA - pB;
-      }
-
-      // Within OCCUPIED: Oldest active session first
-      if (a.status === 'OCCUPIED' && b.status === 'OCCUPIED') {
-        const timeA = a.sessionStartTimeMs ?? Number.MAX_SAFE_INTEGER;
-        const timeB = b.sessionStartTimeMs ?? Number.MAX_SAFE_INTEGER;
-        if (timeA !== timeB) {
-          return timeA - timeB;
-        }
-      }
-
-      // Natural label fallback
-      return compareTableLabels(a.label, b.label);
-    });
+    return sortTablesNatural(tables);
   }
 
   /**
