@@ -3,7 +3,7 @@ import { SortingPolicy, RestaurantOperationsService } from '../lib/operations';
 import { BillSummaryCalculator } from '../lib/billing';
 
 describe('Sprint 7.1 — Operational Consistency & Lifecycle Restoration Tests', () => {
-  it('1. SortingPolicy: Counter tables sort OCCUPIED (oldest session first) -> RESERVED -> CLEANING_REQUIRED -> AVAILABLE', () => {
+  it('1. SortingPolicy: Counter tables maintain stable permanent natural ordering regardless of status', () => {
     const tables = [
       { id: 't1', label: 'Table 1', status: 'AVAILABLE' },
       { id: 't2', label: 'Table 2', status: 'OCCUPIED', sessionStartTimeMs: 1000 },
@@ -14,11 +14,8 @@ describe('Sprint 7.1 — Operational Consistency & Lifecycle Restoration Tests',
 
     const sorted = SortingPolicy.sortCounterTables(tables);
 
-    expect(sorted[0].id).toBe('t4'); // OCCUPIED, sessionStartTimeMs: 500 (oldest session)
-    expect(sorted[1].id).toBe('t2'); // OCCUPIED, sessionStartTimeMs: 1000
-    expect(sorted[2].id).toBe('t5'); // RESERVED
-    expect(sorted[3].id).toBe('t3'); // CLEANING_REQUIRED
-    expect(sorted[4].id).toBe('t1'); // AVAILABLE
+    // Sprint 9.2.2.1: Table cards MUST maintain permanent stable ordering (Table 1 .. Table 5)
+    expect(sorted.map((t) => t.id)).toEqual(['t1', 't2', 't3', 't4', 't5']);
   });
 
   it('2. SortingPolicy: Staff console orders sort Incoming/Active FIFO (oldest first) and Done LIFO (newest first)', () => {
