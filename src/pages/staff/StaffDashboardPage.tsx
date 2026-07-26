@@ -792,9 +792,12 @@ export default function StaffDashboardPage() {
       doneOrders = doneOrders.filter((o) => o.status === "cancelled" && o.last_updated_by === "staff");
     }
 
+    const sortOldestFirst = (a: any, b: any) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+
     return {
-      incoming: ordersWithActivity.filter((o) => o.status === "pending").sort(sortByActivity),
-      active: ordersWithActivity.filter((o) => o.status === "preparing" || o.status === "ready").sort(sortByActivity),
+      incoming: ordersWithActivity.filter((o) => o.status === "pending").sort(sortOldestFirst),
+      active: ordersWithActivity.filter((o) => o.status === "preparing" || o.status === "ready").sort(sortOldestFirst),
       done: doneOrders.sort(sortByCompletionTime).slice(0, 20),
     };
   }, [ordersQ.data, srQ.data, searchQuery, recentlyDoneFilter]);
