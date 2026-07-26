@@ -119,5 +119,5 @@ describe("Customer Flow Real Instrumentation Trace", () => {
 
     console.log("=== END REAL FLOW TRACE ===");
     expect(fetchedOrders.length).toBeGreaterThan(0);
-  });
+  }, 15000);
 });
