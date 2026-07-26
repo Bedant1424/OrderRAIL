@@ -303,6 +303,8 @@ export default function OwnerOrdersPage() {
             orders={selectedTableIdFilter ? orders.filter((o) => o.table_id === selectedTableIdFilter) : orders}
             tableLabelMap={tableLabelMap}
             currency={currency}
+            cafeId={cafe?.id}
+            role="owner"
             onSelectOrder={(order) => setSelectedOrder(order)}
             onUpdateStatus={handleUpdateStatus}
             isUpdatingStatus={isUpdating}
