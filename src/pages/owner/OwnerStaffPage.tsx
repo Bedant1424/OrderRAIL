@@ -334,7 +334,12 @@ export default function OwnerStaffPage() {
     });
     setBusy(false);
 
-    if (error) return toast.error(`Invitation failed: ${error.message}`);
+    if (error) {
+      if (error.message?.includes("invalid input value") || error.code === "22P02") {
+        return toast.error("Database Schema Sync Required: Please run 'ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS ''counter'';' in Supabase SQL Editor.");
+      }
+      return toast.error(`Invitation failed: ${error.message}`);
+    }
 
     void logAuditEvent({
       cafeId,
@@ -407,12 +412,21 @@ export default function OwnerStaffPage() {
     const selectedRole = approvalRoles[profile.id] ?? "staff";
 
     setBusy(true);
-    const { error } = await supabase.from("user_roles").insert({
+    let { error } = await supabase.from("user_roles").insert({
       user_id: profile.id,
       cafe_id: cafeId,
       role: selectedRole,
       is_suspended: false,
     });
+
+    if (error && (error.message?.includes("invalid input value") || error.code === "22P02")) {
+      const { error: rpcErr } = await supabase.rpc("assign_role_by_email", {
+        _cafe_id: cafeId,
+        _email: profile.email,
+        _role: selectedRole,
+      });
+      if (!rpcErr) error = null;
+    }
 
     if (error) {
       setBusy(false);
@@ -615,11 +629,27 @@ export default function OwnerStaffPage() {
     }
 
     setBusy(true);
-    const { error } = await supabase.from("user_roles").update({ role: targetRole }).eq("id", r.id);
+    let { error } = await supabase.from("user_roles").update({ role: targetRole }).eq("id", r.id);
+
+    if (error && (error.message?.includes("invalid input value") || error.code === "22P02")) {
+      const targetEmail = byUser.get(r.user_id)?.email;
+      if (targetEmail && cafeId) {
+        const { error: rpcErr } = await supabase.rpc("assign_role_by_email", {
+          _cafe_id: cafeId,
+          _email: targetEmail,
+          _role: targetRole,
+        });
+        if (!rpcErr) error = null;
+      }
+    }
 
     if (error) {
       setBusy(false);
-      toast.error(`Role update failed: ${error.message}`);
+      if (error.message?.includes("invalid input value") || error.code === "22P02") {
+        toast.error("Database Schema Sync Required: Please run 'ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS ''counter'';' in Supabase SQL Editor.");
+      } else {
+        toast.error(`Role update failed: ${error.message}`);
+      }
     } else {
       const p = byUser.get(r.user_id);
       void logAuditEvent({
