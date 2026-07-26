@@ -2125,7 +2125,7 @@ const CounterLayout = () => {
         const tableObj = dbTablesData?.find((t: any) => t.id === ord.table_id);
         const tableLabel = tableObj ? tableObj.label : (ord.table_id ? 'Table' : 'Takeaway');
         const cleanTableLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel.substring(5).trim() : tableLabel;
-        const orderNum = dailyOrderNumMap.get(ordId) ?? ord.order_number ?? 101;
+        const orderNum = (ord as any).daily_order_number ?? dailyOrderNumMap.get(ordId) ?? ord.order_number ?? 101;
         const isServed = ord.status === 'served' || ord.status === 'SERVED' || ord.status === 'paid' || ord.status === 'PAID';
 
         // Event 1: New Customer Order
@@ -2256,7 +2256,7 @@ const CounterLayout = () => {
 
         const sessOrder: SessionOrder = {
           id: ord.id,
-          orderNumber: dailyOrderNumMap.get(ord.id) ?? ord.order_number ?? 101,
+          orderNumber: (ord as any).daily_order_number ?? dailyOrderNumMap.get(ord.id) ?? ord.order_number ?? 101,
           timestamp: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
           createdAt: ord.created_at || new Date().toISOString(),
           status: mappedStatus,

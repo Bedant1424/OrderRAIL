@@ -196,16 +196,24 @@ export function formatOrderDisplayNumber(num?: number | null): string {
 }
 
 /**
- * Resolves the unified daily display number label for an order safely.
+ * Resolves the unified backend-assigned daily display number label for an order.
+ * Display-only frontend helper.
  */
-export function formatOrderLabelUnified<T extends { id?: string; order_number?: number }>(
+export function formatOrderLabelUnified<T extends { daily_order_number?: number | null; order_number?: number | null }>(
   order?: T | null,
   dailyMap?: Map<string, number> | null
 ): string {
   if (!order) return "#1";
-  const ordId = order.id || "";
-  const dailyNum = (dailyMap ? dailyMap.get(ordId) : undefined) ?? order.order_number ?? 1;
-  return `#${dailyNum}`;
+  const num = order.daily_order_number ?? (dailyMap && (order as any).id ? dailyMap.get((order as any).id) : undefined) ?? order.order_number ?? 1;
+  return `#${num}`;
+}
+
+/**
+ * Formats an invoice number string (e.g. "INV-000001").
+ */
+export function formatInvoiceNumber(invNum?: string | null): string {
+  if (!invNum) return "N/A";
+  return invNum;
 }
 
 export type OrderLane = "incoming" | "preparing" | "ready" | "completed" | "cancelled" | "history";

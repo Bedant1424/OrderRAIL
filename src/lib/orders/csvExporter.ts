@@ -78,7 +78,7 @@ export function generateOrdersCSV(
     const servedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
     const completedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
 
-    const displayNum = dailyOrderNumMap?.get(o.id) ?? o.order_number;
+    const displayNum = (o as any).daily_order_number ?? dailyOrderNumMap?.get(o.id) ?? o.order_number;
 
     return [
       escapeCSVCell(formatOrderLabel(displayNum)),

@@ -537,6 +537,9 @@ export type Database = {
           last_updated_by: string
           note: string | null
           order_number: number
+          daily_order_number?: number
+          business_date?: string
+          invoice_number?: string | null
           previous_items: Json | null
           session_id: string
           status: Database["public"]["Enums"]["order_status"]
@@ -556,7 +559,10 @@ export type Database = {
           last_reviewed_version?: number
           last_updated_by?: string
           note?: string | null
-          order_number: number
+          order_number?: number
+          daily_order_number?: number
+          business_date?: string
+          invoice_number?: string | null
           previous_items?: Json | null
           session_id: string
           status?: Database["public"]["Enums"]["order_status"]
@@ -577,6 +583,9 @@ export type Database = {
           last_updated_by?: string
           note?: string | null
           order_number?: number
+          daily_order_number?: number
+          business_date?: string
+          invoice_number?: string | null
           previous_items?: Json | null
           session_id?: string
           status?: Database["public"]["Enums"]["order_status"]

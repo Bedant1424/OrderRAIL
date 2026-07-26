@@ -125,7 +125,7 @@ export default function SharedOrderKanban({
                     const aging = getOrderAging(order.created_at);
                     const priority = getOrderPriority(order);
                     const tableLabel = tableLabelMap.get(order.table_id) ?? "?";
-                    const dailyDisplayNum = dailyOrderNumMap.get(order.id) ?? order.order_number;
+                    const dailyDisplayNum = (order as any).daily_order_number ?? dailyOrderNumMap?.get(order.id) ?? order.order_number;
 
                     return (
                       <div

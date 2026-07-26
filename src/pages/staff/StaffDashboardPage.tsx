@@ -785,7 +785,13 @@ export default function StaffDashboardPage() {
       lastActivity: getOrderLastActivity(o, serviceRequests),
     }));
 
-    let doneOrders = ordersWithActivity.filter((o) => o?.status === "served" || o?.status === "cancelled");
+    const todayBizDate = new Date().toISOString().split("T")[0];
+    let doneOrders = ordersWithActivity.filter(
+      (o) =>
+        (o?.status === "served" || o?.status === "cancelled") &&
+        (!o?.business_date || o.business_date === todayBizDate)
+    );
+
     if (recentlyDoneFilter === "completed") {
       doneOrders = doneOrders.filter((o) => o?.status === "served");
     } else if (recentlyDoneFilter === "cancelled_customer") {
@@ -797,7 +803,7 @@ export default function StaffDashboardPage() {
     return {
       incoming: sortOrdersByLane(ordersWithActivity.filter((o) => o?.status === "pending"), "incoming"),
       active: sortOrdersByLane(ordersWithActivity.filter((o) => o?.status === "preparing" || o?.status === "ready"), "preparing"),
-      done: sortOrdersByLane(doneOrders, "history").slice(0, 20),
+      done: sortOrdersByLane(doneOrders, "history"),
     };
   }, [ordersQ.data, srQ.data, searchQuery, recentlyDoneFilter, dailyOrderNumMap]);
 
