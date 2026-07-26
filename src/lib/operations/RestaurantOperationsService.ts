@@ -2,6 +2,7 @@ import { supabase } from '@/lib/db';
 import { updateTableStatusInDb, closeDiningSessionInDb, getOrCreateDiningSession } from '@/lib/tables/tableRepository';
 import { dismissAllServiceRequestsByTableInDb } from '@/lib/serviceRequests/repository';
 import { updateOrderStatusInDb } from '@/lib/orders/repository';
+import { expireGuestSessionsForDiningSession } from '@/lib/guestSession';
 import { REALTIME_EVENTS } from './realtimeEvents';
 
 export interface ResetTableResult {
@@ -120,6 +121,7 @@ export class RestaurantOperationsService {
     if (sessionIdToClose && !sessionIdToClose.startsWith('session-')) {
       try {
         await closeDiningSessionInDb(sessionIdToClose);
+        await expireGuestSessionsForDiningSession(sessionIdToClose);
       } catch (e: any) {
         console.warn('[RestaurantOperationsService] DB session closure notice:', e?.message || e);
       }

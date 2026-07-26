@@ -9,6 +9,7 @@ export interface QueuedOrder {
   table_id: string;
   session_id: string;
   dining_session_id?: string | null;
+  guest_session_id?: string | null;
   note?: string | null;
   total_cents: number;
   items: {

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, useOutletContext } from "react-router-dom";
 import { Check, ChefHat, Clock, Coffee, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type OrderStatus, type Cafe } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
+import { getStoredGuestSessionId } from "@/lib/guestSession";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 import { cancelOrder } from "@/lib/orders";
@@ -22,6 +23,9 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
   const { orderId, tableId } = useParams();
   const navigate = useNavigate();
   const customerNavigate = useCustomerNavigate();
+  const outletContext = useOutletContext<{ guestSessionId?: string | null }>() || {};
+  const guestSessionId = outletContext.guestSessionId || (tableId ? getStoredGuestSessionId(tableId) : null);
+
   const [searchParams] = useSearchParams();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<(OrderItem & { menu_items?: { image_url: string | null } | null })[]>([]);
@@ -77,10 +81,11 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
     );
   }
 
+  const isOwner = !order.guest_session_id || (guestSessionId && order.guest_session_id === guestSessionId) || order.session_id === getSessionId();
   const currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === order.status));
 
   const handleStartEdit = () => {
-    if (!order) return;
+    if (!order || !isOwner) return;
     const cartLines = items.map((i) => ({
       item: {
         id: i.menu_item_id || "",
@@ -96,15 +101,15 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
   };
 
   const handleCancel = async () => {
-    if (!order) return;
+    if (!order || !isOwner) return;
     setCancelling(true);
     try {
-      await cancelOrder(order.id);
+      await cancelOrder(order.id, guestSessionId);
       setOrder({ ...order, status: "cancelled" });
       toast.success("Order cancelled");
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error(e instanceof Error ? e.message : "Could not cancel order. Please try again.");
+      toast.error(e?.message || "Could not cancel order. Please try again.");
     } finally {
       setCancelling(false);
     }
@@ -186,7 +191,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         )}
       </section>
 
-      {order.status === "pending" && (
+      {order.status === "pending" && isOwner && (
         <div className="mx-4 mt-4 space-y-2">
           <button
             onClick={handleStartEdit}

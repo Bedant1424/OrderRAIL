@@ -97,6 +97,45 @@ export async function markTableFreeInDb(tableId: string, activeSessionId?: strin
 }
 
 /**
+ * Retrieves the currently active dining session for a table if one exists.
+ * Returns null if the table is inactive (no active non-closed dining session).
+ */
+export async function getActiveDiningSession(table: TableRow): Promise<{ id: string; status: string } | null> {
+  if (table.status === "free") {
+    return null;
+  }
+
+  let activeSessionId = table.active_session_id;
+
+  if (activeSessionId && !activeSessionId.startsWith("session-")) {
+    const { data: sData } = await supabase
+      .from("dining_sessions")
+      .select("id, status")
+      .eq("id", activeSessionId)
+      .maybeSingle();
+
+    if (sData && sData.status !== "closed") {
+      return sData;
+    }
+  }
+
+  const { data: existingSession } = await supabase
+    .from("dining_sessions")
+    .select("id, status")
+    .eq("table_id", table.id)
+    .neq("status", "closed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingSession) {
+    return existingSession;
+  }
+
+  return null;
+}
+
+/**
  * Ensures an active dining session exists for the given table.
  * Reuses existing non-closed session if present; creates a new 'browsing' session otherwise.
  */

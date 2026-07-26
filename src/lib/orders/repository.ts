@@ -1,5 +1,6 @@
 import { supabase, type Order, type OrderItem } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
+import { validateGuestSession, touchGuestSession } from "@/lib/guestSession";
 
 /**
  * Shared Order Repository
@@ -10,6 +11,11 @@ import { getSessionId } from "@/lib/session";
 export type OrderWithItems = Order & {
   order_items: OrderItem[];
   tables?: { label: string } | null;
+  isOwner?: boolean;
+};
+
+export type OrderWithOwnership = OrderWithItems & {
+  isOwner: boolean;
 };
 
 export interface EditOrderItemPayload {
@@ -71,8 +77,34 @@ export async function editOrderInDb(params: {
   items: EditOrderItemPayload[];
   notes?: string | null;
   updatedBy?: "customer" | "staff" | "owner";
+  guestSessionId?: string | null;
 }): Promise<void> {
-  const { orderId, items, notes, updatedBy = "staff" } = params;
+  const { orderId, items, notes, updatedBy = "staff", guestSessionId } = params;
+
+  if (updatedBy === "customer") {
+    const { data: currentOrder } = await supabase
+      .from("orders")
+      .select("guest_session_id, dining_session_id, session_id")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (currentOrder) {
+      if (currentOrder.guest_session_id && guestSessionId && currentOrder.guest_session_id !== guestSessionId) {
+        const err = new Error("403 Forbidden: Guests may only edit their own orders");
+        (err as any).status = 403;
+        throw err;
+      }
+      if (guestSessionId && currentOrder.dining_session_id) {
+        const val = await validateGuestSession(guestSessionId, currentOrder.dining_session_id);
+        if (!val.valid) {
+          const err = new Error(`403 Forbidden: ${val.reason || "Invalid Guest Session"}`);
+          (err as any).status = 403;
+          throw err;
+        }
+        void touchGuestSession(guestSessionId);
+      }
+    }
+  }
 
   // 1. Fetch current order items
   const { data: existingItems, error: fetchErr } = await supabase
@@ -151,8 +183,34 @@ export async function editOrderInDb(params: {
 
 export async function cancelOrderInDb(
   orderId: string,
-  updatedBy: "customer" | "staff" | "owner" = "staff"
+  updatedBy: "customer" | "staff" | "owner" = "staff",
+  guestSessionId?: string | null
 ): Promise<void> {
+  if (updatedBy === "customer") {
+    const { data: currentOrder } = await supabase
+      .from("orders")
+      .select("guest_session_id, dining_session_id, session_id")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (currentOrder) {
+      if (currentOrder.guest_session_id && guestSessionId && currentOrder.guest_session_id !== guestSessionId) {
+        const err = new Error("403 Forbidden: Guests may only cancel their own orders");
+        (err as any).status = 403;
+        throw err;
+      }
+      if (guestSessionId && currentOrder.dining_session_id) {
+        const val = await validateGuestSession(guestSessionId, currentOrder.dining_session_id);
+        if (!val.valid) {
+          const err = new Error(`403 Forbidden: ${val.reason || "Invalid Guest Session"}`);
+          (err as any).status = 403;
+          throw err;
+        }
+        void touchGuestSession(guestSessionId);
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("orders")
     .update({
@@ -171,6 +229,7 @@ export interface CreateOrderPayload {
   table_id: string;
   session_id?: string | null;
   dining_session_id?: string | null;
+  guest_session_id?: string | null;
   note?: string | null;
   total_cents: number;
   status?: Order["status"];
@@ -213,12 +272,24 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     }
   }
 
+  // Validate guest session if provided
+  if (payload.guest_session_id && diningSessionId) {
+    const val = await validateGuestSession(payload.guest_session_id, diningSessionId);
+    if (!val.valid) {
+      const err = new Error(`403 Forbidden: ${val.reason || "Invalid Guest Session"}`);
+      (err as any).status = 403;
+      throw err;
+    }
+    void touchGuestSession(payload.guest_session_id);
+  }
+
   if (import.meta.env.DEV) {
     console.log("[ORDER CREATION] Creating order in DB:", {
       orderId,
       tableId: payload.table_id,
       sessionId: payload.session_id,
       diningSessionId,
+      guestSessionId: payload.guest_session_id,
     });
   }
 
@@ -235,10 +306,30 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
       table_id: payload.table_id,
       session_id: payload.session_id || null,
       dining_session_id: diningSessionId,
+      guest_session_id: payload.guest_session_id || null,
       total_cents: payload.total_cents,
       note: payload.note ?? null,
       status: initialStatus,
     });
+    if (orderErr && orderErr.code !== "23505") {
+      console.error("[createOrderInDb ERROR DETAILS]", {
+        message: orderErr.message,
+        code: orderErr.code,
+        details: orderErr.details,
+        hint: orderErr.hint,
+        payload: {
+          id: orderId,
+          cafe_id: payload.cafe_id,
+          table_id: payload.table_id,
+          session_id: payload.session_id || null,
+          dining_session_id: diningSessionId,
+          guest_session_id: payload.guest_session_id || null,
+          status: initialStatus,
+        },
+      });
+      throw orderErr;
+    }
+  }
     if (orderErr && orderErr.code !== "23505") {
       console.error("[createOrderInDb ERROR DETAILS]", {
         message: orderErr.message,
@@ -324,8 +415,9 @@ export async function fetchOrdersByDiningSession(diningSessionId: string): Promi
 export async function fetchCustomerOrders(
   tableId: string,
   diningSessionId: string | null = null,
-  localOrderIds: string[] = []
-): Promise<OrderWithItems[]> {
+  localOrderIds: string[] = [],
+  currentGuestSessionId?: string | null
+): Promise<OrderWithOwnership[]> {
   const combinedMap = new Map<string, OrderWithItems>();
 
   // Resolve active non-closed session ID for the table
@@ -467,9 +559,20 @@ export async function fetchCustomerOrders(
     });
   }
 
-  return result.sort(
-    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-  );
+  return result
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .map((o) => {
+      let isOwner = true;
+      if (currentGuestSessionId && o.guest_session_id) {
+        isOwner = o.guest_session_id === currentGuestSessionId;
+      } else if (currentGuestSessionId && !o.guest_session_id) {
+        isOwner = o.session_id === getSessionId();
+      }
+      return {
+        ...o,
+        isOwner,
+      };
+    });
 }
 
 export async function fetchActiveDiningSessionOrders(cafeId: string): Promise<{

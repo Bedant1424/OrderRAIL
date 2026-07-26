@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useOutletContext } from "react-router-dom";
 import { Minus, Plus, Trash2, ShoppingBag, History, ChevronRight, Star, PhoneCall, Receipt, Sparkles, Clock, CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
@@ -8,6 +8,7 @@ import { getSessionId } from "@/lib/session";
 import { generateUUID } from "@/lib/uuid";
 import { cancelOrder } from "@/lib/orders";
 import { editOrderInDb, fetchCustomerOrders } from "@/lib/orders/repository";
+import { getStoredGuestSessionId } from "@/lib/guestSession";
 import { createServiceRequestInDb } from "@/lib/serviceRequests";
 import { submitOrder } from "@/lib/orderQueue";
 import { addOrderToHistory, getOrderHistory } from "@/lib/orderHistory";
@@ -24,6 +25,10 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { tableId } = useParams();
   const navigate = useNavigate();
   const customerNavigate = useCustomerNavigate();
+  const outletContext = useOutletContext<{ guestSessionId?: string | null; isSessionActive?: boolean }>() || {};
+  const { isSessionActive = true } = outletContext;
+  const currentGuestSessionId = outletContext.guestSessionId || getStoredGuestSessionId(table.id);
+
   const [placing, setPlacing] = useState(false);
   const [callingType, setCallingType] = useState<ServiceRequestType | null>(null);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -54,7 +59,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       });
 
       // 2. Value returned from fetchCustomerOrders()
-      const ords = await fetchCustomerOrders(table?.id, table?.active_session_id, localIds);
+      const ords = await fetchCustomerOrders(table?.id, table?.active_session_id, localIds, currentGuestSessionId);
       console.log("[INSTRUMENTATION 2] Value returned from fetchCustomerOrders():", {
         returnedValue: ords,
         count: ords.length,
@@ -76,7 +81,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   useEffect(() => {
     void loadHistory();
-  }, [table.id, table.active_session_id]);
+  }, [table.id, table.active_session_id, currentGuestSessionId]);
 
   // Realtime subscription: sync orders (INSERT, UPDATE, DELETE) for table without refresh
   useEffect(() => {
@@ -98,7 +103,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   }, [table.id]);
 
   const placeOrder = async () => {
-    if (!lines.length) return;
+    if (!lines.length || !isSessionActive) return;
     setPlacing(true);
     try {
       // Revalidate every item before placing an order
@@ -141,6 +146,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         table_id: table.id,
         session_id: getSessionId(),
         dining_session_id: table.active_session_id,
+        guest_session_id: currentGuestSessionId,
         note: note.trim() || null,
         total_cents: subtotalCents,
         items: lines.map((l) => ({
@@ -160,16 +166,16 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         toast.success("Order sent to the kitchen ☕");
       }
       customerNavigate(`/t/${tableId}/order/${orderId}`);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error("Could not place order. Please try again.");
+      toast.error(e?.message || "Could not place order. Please try again.");
     } finally {
       setPlacing(false);
     }
   };
 
   const updateExistingOrder = async () => {
-    if (!lines.length || !editingOrderId) return;
+    if (!lines.length || !editingOrderId || !isSessionActive) return;
     setPlacing(true);
     try {
       await editOrderInDb({
@@ -182,6 +188,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         })),
         notes: note.trim() || null,
         updatedBy: "customer",
+        guestSessionId: currentGuestSessionId,
       });
 
       toast.success("Order updated successfully! ☕");
@@ -197,7 +204,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   };
 
   const handleCallStaff = async (type: ServiceRequestType, label: string) => {
-    if (!cooldown.canSend(type)) return;
+    if (!cooldown.canSend(type) || !isSessionActive) return;
     setCallingType(type);
     try {
       await createServiceRequestInDb({
@@ -221,7 +228,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const handleCancelOrder = async (orderId: string) => {
     setCancelingId(orderId);
     try {
-      await cancelOrder(orderId);
+      await cancelOrder(orderId, currentGuestSessionId);
       setHistoryOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: "cancelled" } : o)),
       );
@@ -277,8 +284,9 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   });
 
   // Renders a single history order card
-  const renderOrderCard = (o: Order & { order_items: OrderItem[] }) => {
+  const renderOrderCard = (o: Order & { order_items: OrderItem[]; isOwner?: boolean }) => {
     const isServed = o.status === "served";
+    const isOwner = o.isOwner !== false;
     
     const getStatusDetails = (status: string) => {
       const s = status.toLowerCase();
@@ -327,7 +335,12 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         className="group flex flex-col gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition hover:ring-accent/40 cursor-pointer"
       >
         <div className="flex items-center justify-between border-b border-border/60 pb-2 text-xs font-semibold text-muted-foreground">
-          <span>{formatOrderLabel(o.order_number)}</span>
+          <span className="flex items-center gap-1.5">
+            <span>{formatOrderLabel(o.order_number)}</span>
+            {!isOwner && (
+              <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground font-normal">Table Guest</span>
+            )}
+          </span>
           <span className="flex items-center gap-1.5">
             <span className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium", details.colorClass)}>
               <StatusIcon className="h-3 w-3 shrink-0" />
@@ -357,7 +370,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             </span>
           )}
         </div>
-        {o.status === "pending" && (
+        {o.status === "pending" && isOwner && (
           <button
             onClick={(e) => {
               e.stopPropagation();

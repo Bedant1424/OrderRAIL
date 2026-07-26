@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Outlet, useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { WifiOff, Info, Globe, Instagram, Phone, MapPin, Clock, Star, MessageSquare } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { WifiOff, Info, Globe, Instagram, Phone, MapPin, Clock, Star, MessageSquare, AlertCircle } from "lucide-react";
 import { supabase, type Cafe, type TableRow } from "@/lib/db";
-import { getOrCreateDiningSession } from "@/lib/tables/tableRepository";
+import { getOrCreateDiningSession, getActiveDiningSession } from "@/lib/tables/tableRepository";
+import { getOrCreateGuestSession as establishGuestSession, clearGuestSession } from "@/lib/guestSession";
 import { CartProvider } from "@/lib/cart";
 import { BottomNav } from "@/components/customer/BottomNav";
 import { useOrderNotifications } from "@/hooks/useOrderNotifications";
@@ -14,6 +15,7 @@ import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
 
 export default function TableLayout() {
   const { tableId } = useParams();
+  const queryClient = useQueryClient();
   useCustomerBackNavigation();
   const customerNavigate = useCustomerNavigate();
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -54,17 +56,37 @@ export default function TableLayout() {
       if (tErr) throw tErr;
       if (!table) return null;
 
-      // Delegate session lookup, creation, and resumption to tableRepository boundary
-      const activeSessionId = await getOrCreateDiningSession(table as TableRow);
+      // 1. Resolve or check active dining session
+      const activeSess = await getActiveDiningSession(table as TableRow);
+      let activeSessionId: string | null = null;
+      let isSessionActive = false;
+      let guestSessionId: string | null = null;
 
-      // Clear localStorage cart & order history if the session ID has changed (e.g. table reset)
-      const sessionKey = `orderrail.last_session_id.${tableId}`;
-      const lastSession = localStorage.getItem(sessionKey);
-      if (lastSession && lastSession !== activeSessionId) {
-        localStorage.removeItem(`orderrail.cart.${tableId}`);
-        clearOrderHistory(tableId, lastSession);
+      if (activeSess) {
+        activeSessionId = activeSess.id;
+        isSessionActive = true;
+      } else if (table.status !== "free") {
+        // Fallback for session creation if table is occupied/browsing
+        activeSessionId = await getOrCreateDiningSession(table as TableRow);
+        isSessionActive = !!activeSessionId;
       }
-      localStorage.setItem(sessionKey, activeSessionId);
+
+      if (isSessionActive && activeSessionId) {
+        // Clear localStorage cart & order history if the session ID has changed (e.g. table reset)
+        const sessionKey = `orderrail.last_session_id.${tableId}`;
+        const lastSession = localStorage.getItem(sessionKey);
+        if (lastSession && lastSession !== activeSessionId) {
+          localStorage.removeItem(`orderrail.cart.${tableId}`);
+          clearOrderHistory(tableId!, lastSession);
+          clearGuestSession(tableId!);
+        }
+        localStorage.setItem(sessionKey, activeSessionId);
+
+        // 2. Establish/restore Guest Session for active Dining Session
+        guestSessionId = await establishGuestSession(table.id, activeSessionId);
+      } else {
+        clearGuestSession(tableId!);
+      }
 
       const { data: cafe, error: cErr } = await supabase
         .from("cafes")
@@ -72,10 +94,43 @@ export default function TableLayout() {
         .eq("id", table.cafe_id)
         .maybeSingle();
       if (cErr) throw cErr;
-      return { cafe: cafe as Cafe, table: { ...table, active_session_id: activeSessionId } as TableRow };
+
+      return {
+        cafe: cafe as Cafe,
+        table: { ...table, active_session_id: activeSessionId } as TableRow,
+        guestSessionId,
+        isSessionActive,
+      };
     },
     enabled: !!tableId,
   });
+
+  // Listen for realtime table resets and session status changes
+  useEffect(() => {
+    if (!data?.cafe?.id || !tableId) return;
+
+    const channel = supabase
+      .channel(`cafe-workstation-${data.cafe.id}`)
+      .on("broadcast", { event: "*" }, (payload) => {
+        const evt = payload.event;
+        const payloadTableId = payload.payload?.tableId;
+
+        if (evt === "TABLE_RESET" || evt === "SESSION_CLOSED" || evt === "SESSION_OPENED") {
+          if (!payloadTableId || payloadTableId === data.table.id || payloadTableId === tableId) {
+            if (evt === "TABLE_RESET" || evt === "SESSION_CLOSED") {
+              clearGuestSession(tableId);
+              localStorage.removeItem(`orderrail.cart.${tableId}`);
+            }
+            queryClient.invalidateQueries({ queryKey: ["table", tableId] });
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [data?.cafe?.id, tableId, queryClient, data?.table?.id]);
 
   useOrderNotifications({ tableId: tableId!, sessionId: data?.table.active_session_id ?? null });
 
@@ -101,7 +156,7 @@ export default function TableLayout() {
     );
   }
 
-  const { cafe, table } = data;
+  const { cafe, table, guestSessionId, isSessionActive } = data;
 
   return (
     <CartProvider key={table.active_session_id || "no-session"} tableId={tableId!}>
@@ -148,7 +203,18 @@ export default function TableLayout() {
         </header>
 
         <main className="mx-auto max-w-md">
-          <Outlet context={{ cafe, table }} />
+          {!isSessionActive && (
+            <div className="m-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-center shadow-sm">
+              <div className="mx-auto mb-2.5 grid h-10 w-10 place-items-center rounded-full bg-amber-500/20 text-amber-600">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <h3 className="font-display text-base font-bold text-foreground">Table Currently Inactive</h3>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                This table is currently inactive. Please ask the staff to activate your table.
+              </p>
+            </div>
+          )}
+          <Outlet context={{ cafe, table, guestSessionId, isSessionActive }} />
         </main>
 
         <BottomNav />
