@@ -27,8 +27,8 @@ export default function StaffLoginPage() {
       isOwner: hasRole(roles, "owner"),
       isStaff: hasRole(roles, "staff")
     });
-    if (!loading && session && !isSuspended && hasRole(roles, "staff", "owner")) {
-      const target = hasRole(roles, "owner") ? "/owner" : "/staff";
+    if (!loading && session && !isSuspended && hasRole(roles, "counter", "staff", "owner")) {
+      const target = hasRole(roles, "owner") ? "/owner" : hasRole(roles, "counter") ? "/counter" : "/staff";
       console.log("StaffLoginPage: Redirecting to:", target);
       nav(target, { replace: true });
     }

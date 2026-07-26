@@ -603,11 +603,11 @@ export default function OwnerStaffPage() {
 
   // Edit staff role
   const saveRole = async (r: RoleRow, targetRole: AppRole) => {
-    if (targetRole !== "staff" && targetRole !== "owner") {
+    if (targetRole !== "staff" && targetRole !== "counter" && targetRole !== "owner") {
       return toast.error("Invalid role value.");
     }
 
-    if (r.role === "owner" && targetRole === "staff") {
+    if (r.role === "owner" && targetRole !== "owner") {
       const ownerCount = (rolesQ.data ?? []).filter((x) => x.role === "owner" && !x.is_suspended).length;
       if (ownerCount <= 1) {
         return toast.error("Cannot demote the last owner. There must be at least one active owner.");
@@ -728,6 +728,7 @@ export default function OwnerStaffPage() {
                       className="rounded-2xl border border-border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring/60"
                     >
                       <option value="staff">Staff</option>
+                      <option value="counter">Counter</option>
                       <option value="owner">Owner</option>
                     </select>
 
@@ -786,6 +787,7 @@ export default function OwnerStaffPage() {
               className="rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
             >
               <option value="staff">Staff</option>
+              <option value="counter">Counter</option>
               <option value="owner">Owner</option>
             </select>
             <button
@@ -899,6 +901,7 @@ export default function OwnerStaffPage() {
             >
               <option value="all">All Roles</option>
               <option value="staff">Staff</option>
+              <option value="counter">Counter</option>
               <option value="owner">Owner</option>
             </select>
           </div>
@@ -1281,6 +1284,7 @@ export default function OwnerStaffPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="staff" className="cursor-pointer">Staff</SelectItem>
+                <SelectItem value="counter" className="cursor-pointer">Counter</SelectItem>
                 <SelectItem value="owner" className="cursor-pointer">Owner</SelectItem>
               </SelectContent>
             </Select>
