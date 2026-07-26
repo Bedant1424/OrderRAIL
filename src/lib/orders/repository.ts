@@ -45,11 +45,17 @@ export async function fetchCafeOrders(cafeId: string, sinceDate?: string | null)
   return (data ?? []) as unknown as OrderWithItems[];
 }
 
+import { assertCapability } from "@/lib/permissions";
+
 export async function updateOrderStatusInDb(
   orderId: string,
   nextStatus: Order["status"],
-  updatedBy: "customer" | "staff" | "owner" = "staff"
+  updatedBy: "customer" | "staff" | "owner" | "counter" = "staff",
+  actorRole?: any
 ): Promise<void> {
+  if (updatedBy !== "customer" && actorRole) {
+    assertCapability(actorRole, "UPDATE_ORDER_STATUS", "Update Order Status");
+  }
   const { error } = await supabase
     .from("orders")
     .update({

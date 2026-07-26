@@ -1,3 +1,4 @@
+import { assertCapability } from '@/lib/permissions';
 import { BillCalculator } from './BillCalculator';
 import { BillRepository } from './BillRepository';
 import {
@@ -24,6 +25,7 @@ export interface GenerateBillInput {
   }>;
   calculationOptions?: BillCalculationOptions;
   notes?: string | null;
+  actorRole?: any;
 }
 
 export class BillService {
@@ -32,6 +34,10 @@ export class BillService {
    * IDEMPOTENT: If a bill already exists for the dining session, returns the existing bill.
    */
   public static async generateBill(input: GenerateBillInput): Promise<BillWithItems> {
+    if (input.actorRole) {
+      assertCapability(input.actorRole, 'MANAGE_BILLS', 'Generate Bill');
+    }
+
     if (!input.sessionId || input.sessionId.trim() === '') {
       throw new BillingError('Session ID is required to generate a bill.', 'SESSION_NOT_FOUND');
     }
@@ -87,8 +93,13 @@ export class BillService {
   public static async markBillPaid(
     billId: string,
     method: PaymentMethod = 'CASH',
-    paidAt?: string
+    paidAt?: string,
+    actorRole?: any
   ): Promise<BillWithItems> {
+    if (actorRole) {
+      assertCapability(actorRole, 'ACCEPT_PAYMENT', 'Accept Payment');
+    }
+
     const existingBill = await BillRepository.getBillById(billId);
     if (!existingBill) {
       throw new BillingError(`Bill not found with ID: ${billId}`, 'BILL_NOT_FOUND');

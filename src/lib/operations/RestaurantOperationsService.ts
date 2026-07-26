@@ -3,6 +3,7 @@ import { updateTableStatusInDb, closeDiningSessionInDb, getOrCreateDiningSession
 import { dismissAllServiceRequestsByTableInDb } from '@/lib/serviceRequests/repository';
 import { updateOrderStatusInDb } from '@/lib/orders/repository';
 import { expireGuestSessionsForDiningSession } from '@/lib/guestSession';
+import { assertCapability } from '@/lib/permissions';
 import { REALTIME_EVENTS } from './realtimeEvents';
 
 export interface ResetTableResult {
@@ -30,7 +31,16 @@ export class RestaurantOperationsService {
   /**
    * Opens or retrieves an active dining session for a table.
    */
-  public static async openSession(tableId: string, cafeId: string, tableLabel: string = '1'): Promise<OpenSessionResult> {
+  public static async openSession(
+    tableId: string, 
+    cafeId: string, 
+    tableLabel: string = '1',
+    actorRole?: any
+  ): Promise<OpenSessionResult> {
+    if (actorRole) {
+      assertCapability(actorRole, 'OPEN_DINING_SESSION', 'Open Session');
+    }
+
     const timestamp = new Date().toISOString();
     const tableRow = {
       id: tableId,
@@ -99,8 +109,13 @@ export class RestaurantOperationsService {
   public static async resetTable(
     tableId: string,
     cafeId?: string,
-    activeSessionId?: string | null
+    activeSessionId?: string | null,
+    actorRole?: any
   ): Promise<ResetTableResult> {
+    if (actorRole) {
+      assertCapability(actorRole, 'RESET_TABLE', 'Reset Table');
+    }
+
     const timestamp = new Date().toISOString();
 
     // 1. Close Active Dining Session if provided or fetch table active_session_id
