@@ -2270,8 +2270,8 @@ const CounterLayout = () => {
     };
   }, [cafeId, loadSessionsFromDb]);
 
-  // Build database-synced tables list using real PostgreSQL table UUIDs
-  const syncedTables: TableEntity[] = SortingPolicy.sortCounterTables((dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
+  // Build database-synced tables list using real PostgreSQL table UUIDs with permanent natural sorting
+  const syncedTables: TableEntity[] = sortTablesNatural((dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
     const protoT = tableEngine.tables.find((t) => t.id === dbT.id);
     const tableId = dbT.id || protoT?.id || `table-${idx}`;
     const sess = tableSessions[tableId];
