@@ -38,7 +38,7 @@ import {
 } from '@/lib/counter/counterNotifications';
 import { printService, type KotPrintPayloadData, type ReceiptPrintPayloadData } from '@/lib/printing';
 import { BillService, BillSummaryCalculator, type BillWithItems } from '@/lib/billing';
-import { SortingPolicy, RestaurantOperationsService } from '@/lib/operations';
+import { SortingPolicy, RestaurantOperationsService, REALTIME_EVENTS } from '@/lib/operations';
 import { CompactDiscountControl, type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { Receipt } from '@/components/billing/Receipt';
 
@@ -2242,7 +2242,7 @@ const CounterLayout = () => {
       )
       .on(
         "broadcast",
-        { event: "TABLE_RESET" },
+        { event: REALTIME_EVENTS.TABLE_RESET },
         () => {
           void loadSessionsFromDb();
         }
