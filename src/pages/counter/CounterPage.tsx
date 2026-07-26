@@ -588,6 +588,22 @@ const ActiveOrderPanel = ({
           <span className="v8-order-status-badge">
             {table ? table.status : 'WALK-IN'}
           </span>
+          <div className="flex items-center gap-1.5 ml-auto text-xs">
+            <button
+              disabled
+              title="Merge Tables (Future Placeholder)"
+              className="px-2 py-1 rounded bg-secondary/40 text-muted-foreground cursor-not-allowed opacity-60 text-[11px] font-medium border border-border/40 flex items-center gap-1"
+            >
+              <Split className="h-3 w-3" /> Merge
+            </button>
+            <button
+              disabled
+              title="Transfer Table (Future Placeholder)"
+              className="px-2 py-1 rounded bg-secondary/40 text-muted-foreground cursor-not-allowed opacity-60 text-[11px] font-medium border border-border/40 flex items-center gap-1"
+            >
+              <RefreshCw className="h-3 w-3" /> Transfer
+            </button>
+          </div>
         </div>
         <div className="v8-order-meta">
           <span>{table ? `${table.seats} Guests` : 'Counter Sale'}</span>
