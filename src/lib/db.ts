@@ -7,6 +7,7 @@ export type MenuCategory = Database["public"]["Tables"]["menu_categories"]["Row"
 export type MenuItem = Database["public"]["Tables"]["menu_items"]["Row"];
 export type Order = Database["public"]["Tables"]["orders"]["Row"];
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
+export type GuestSession = Database["public"]["Tables"]["guest_sessions"]["Row"];
 export type ServiceRequest = Database["public"]["Tables"]["service_requests"]["Row"];
 export type OrderStatus = Database["public"]["Enums"]["order_status"];
 export type OrderItemStatus = Database["public"]["Enums"]["order_item_status"];

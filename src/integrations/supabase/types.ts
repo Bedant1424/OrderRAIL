@@ -152,6 +152,63 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_sessions: {
+        Row: {
+          id: string
+          dining_session_id: string
+          table_id: string
+          status: "ACTIVE" | "EXPIRED"
+          joined_at: string
+          last_seen_at: string
+          expires_at: string | null
+          user_agent_hash: string | null
+          created_ip: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          dining_session_id: string
+          table_id: string
+          status?: "ACTIVE" | "EXPIRED"
+          joined_at?: string
+          last_seen_at?: string
+          expires_at?: string | null
+          user_agent_hash?: string | null
+          created_ip?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          dining_session_id?: string
+          table_id?: string
+          status?: "ACTIVE" | "EXPIRED"
+          joined_at?: string
+          last_seen_at?: string
+          expires_at?: string | null
+          user_agent_hash?: string | null
+          created_ip?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_sessions_dining_session_id_fkey"
+            columns: ["dining_session_id"]
+            isOneToOne: false
+            referencedRelation: "dining_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sessions_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dining_sessions: {
         Row: {
           closed_at: string | null
@@ -474,6 +531,7 @@ export type Database = {
           cafe_id: string
           created_at: string
           dining_session_id: string | null
+          guest_session_id: string | null
           id: string
           last_reviewed_version: number
           last_updated_by: string
@@ -493,6 +551,7 @@ export type Database = {
           cafe_id: string
           created_at?: string
           dining_session_id?: string | null
+          guest_session_id?: string | null
           id?: string
           last_reviewed_version?: number
           last_updated_by?: string
@@ -512,6 +571,7 @@ export type Database = {
           cafe_id?: string
           created_at?: string
           dining_session_id?: string | null
+          guest_session_id?: string | null
           id?: string
           last_reviewed_version?: number
           last_updated_by?: string
@@ -540,6 +600,13 @@ export type Database = {
             columns: ["dining_session_id"]
             isOneToOne: false
             referencedRelation: "dining_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_guest_session_id_fkey"
+            columns: ["guest_session_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sessions"
             referencedColumns: ["id"]
           },
           {
