@@ -101,10 +101,6 @@ export async function markTableFreeInDb(tableId: string, activeSessionId?: strin
  * Returns null if the table is inactive (no active non-closed dining session).
  */
 export async function getActiveDiningSession(table: TableRow): Promise<{ id: string; status: string } | null> {
-  if (table.status === "free") {
-    return null;
-  }
-
   let activeSessionId = table.active_session_id;
 
   if (activeSessionId && !activeSessionId.startsWith("session-")) {
@@ -115,6 +111,12 @@ export async function getActiveDiningSession(table: TableRow): Promise<{ id: str
       .maybeSingle();
 
     if (sData && sData.status !== "closed") {
+      if (table.status === "free") {
+        await supabase
+          .from("tables")
+          .update({ status: "occupied", active_session_id: sData.id })
+          .eq("id", table.id);
+      }
       return sData;
     }
   }
@@ -129,6 +131,12 @@ export async function getActiveDiningSession(table: TableRow): Promise<{ id: str
     .maybeSingle();
 
   if (existingSession) {
+    if (table.status === "free" || table.active_session_id !== existingSession.id) {
+      await supabase
+        .from("tables")
+        .update({ status: "occupied", active_session_id: existingSession.id })
+        .eq("id", table.id);
+    }
     return existingSession;
   }
 

@@ -2232,11 +2232,14 @@ const CounterLayout = () => {
         const tId = ord.table_id || "express";
 
         // Strict Session Enforcement:
-        // Table orders MUST belong to the active dining session of that table.
+        // Table orders MUST belong to an active non-closed dining session for that table.
         if (tId !== "express") {
           const activeSessionId = activeSessionMap.get(tId);
           if (activeSessionId && ord.dining_session_id && ord.dining_session_id !== activeSessionId) {
-            continue;
+            const isNonClosedSession = activeSessions?.some((s) => s.id === ord.dining_session_id && s.status !== "closed");
+            if (!isNonClosedSession) {
+              continue;
+            }
           }
         }
 
@@ -2595,10 +2598,10 @@ const CounterLayout = () => {
 
   const [activeKot, setActiveKot] = useState<KotPrintPayload | null>(null);
 
-  // Accept QR / New Order (Transitions status from New -> Accepted)
+  // Accept QR / New Order (Transitions status from Pending -> Preparing)
   const handleAcceptOrder = useCallback(async (orderId: string, orderNumber: number) => {
     try {
-      await updateOrderStatusInDb(orderId, "accepted" as any, "staff");
+      await updateOrderStatusInDb(orderId, "preparing", "staff");
       toast.success(`✅ Order #${orderNumber} Accepted!`);
       await loadSessionsFromDb();
     } catch (e) {
@@ -2607,7 +2610,7 @@ const CounterLayout = () => {
     }
   }, [loadSessionsFromDb]);
 
-  // Send KOT (Prints KOT slip & updates status to KOT Sent)
+  // Send KOT (Prints KOT slip & updates status to Preparing)
   const handleSendKotOrder = useCallback(async (order: SessionOrder, tableLabel: string) => {
     const cleanLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
     const payload: KotPrintPayloadData = {
@@ -2623,7 +2626,7 @@ const CounterLayout = () => {
 
     if (success) {
       try {
-        await updateOrderStatusInDb(order.id, "kot_sent" as any, "staff");
+        await updateOrderStatusInDb(order.id, "preparing", "staff");
         toast.success(`🍳 KOT #${order.orderNumber} Printed & Sent to Kitchen!`);
         await loadSessionsFromDb();
       } catch (e) {
