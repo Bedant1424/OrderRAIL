@@ -36,6 +36,7 @@ describe("Task 1: Table Lifecycle Transition Test", () => {
 
     console.log("LINE 38: Closing session and clearing active orders...");
     await supabase.from("orders").update({ status: "cancelled" }).eq("table_id", tableId);
+    await supabase.from("orders").update({ status: "cancelled" }).eq("dining_session_id", sessionId);
     await supabase.from("dining_sessions").update({ status: "closed", closed_at: new Date().toISOString() }).eq("id", sessionId);
 
     console.log("LINE 38: Updating status to cleaning...");
@@ -49,6 +50,7 @@ describe("Task 1: Table Lifecycle Transition Test", () => {
 
     console.log("LINE 45: Marking table free...");
     try {
+      await supabase.from("orders").update({ status: "cancelled" }).eq("table_id", tableId);
       await markTableFreeInDb(tableId, sessionId);
       console.log("LINE 45 SUCCESS!");
     } catch (e: any) {

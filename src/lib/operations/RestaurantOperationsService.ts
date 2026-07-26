@@ -118,7 +118,7 @@ export class RestaurantOperationsService {
       }
     }
 
-    if (sessionIdToClose && !sessionIdToClose.startsWith('session-')) {
+    if (sessionIdToClose) {
       try {
         await closeDiningSessionInDb(sessionIdToClose);
         await expireGuestSessionsForDiningSession(sessionIdToClose);

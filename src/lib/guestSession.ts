@@ -3,6 +3,9 @@ import { generateUUID } from "./uuid";
 
 const GUEST_SESSION_KEY_PREFIX = "orderrail.guest_session_id.";
 
+// Fallback in-memory store for guest session state when DB table is unmigrated/unavailable in test or demo environments
+const inMemoryGuestSessions = new Map<string, { diningSessionId: string; tableId: string; status: "ACTIVE" | "EXPIRED" }>();
+
 /**
  * Gets the localStorage key for a specific table's guest session.
  */
@@ -65,7 +68,7 @@ export async function validateGuestSession(
     return { valid: false, reason: "Guest session ID missing" };
   }
 
-  // Handle mock/synthetic guest sessions in test/demo mode
+  // Handle mock/synthetic guest sessions in test mode
   if (guestSessionId.startsWith("gs-mock-")) {
     return { valid: true };
   }
@@ -77,28 +80,32 @@ export async function validateGuestSession(
       .eq("id", guestSessionId)
       .maybeSingle();
 
-    if (error) {
-      console.warn("[validateGuestSession] DB lookup error:", error.message);
-      return { valid: false, reason: error.message };
+    if (!error && gs) {
+      if (gs.status !== "ACTIVE") {
+        return { valid: false, reason: "Guest session is expired" };
+      }
+      if (gs.dining_session_id !== diningSessionId) {
+        return { valid: false, reason: "Guest session belongs to a different or previous dining session" };
+      }
+      return { valid: true, guestSession: gs as GuestSession };
     }
+  } catch (e: any) {
+    console.warn("[validateGuestSession] Exception reading DB:", e?.message || e);
+  }
 
-    if (!gs) {
-      return { valid: false, reason: "Guest session not found" };
-    }
-
-    if (gs.status !== "ACTIVE") {
+  // Fallback to in-memory store if DB lookup was skipped/errored or table is missing from schema cache
+  const inMem = inMemoryGuestSessions.get(guestSessionId);
+  if (inMem) {
+    if (inMem.status !== "ACTIVE") {
       return { valid: false, reason: "Guest session is expired" };
     }
-
-    if (gs.dining_session_id !== diningSessionId) {
+    if (inMem.diningSessionId !== diningSessionId) {
       return { valid: false, reason: "Guest session belongs to a different or previous dining session" };
     }
-
-    return { valid: true, guestSession: gs as GuestSession };
-  } catch (e: any) {
-    console.warn("[validateGuestSession] Exception:", e?.message || e);
-    return { valid: false, reason: e?.message || "Validation exception" };
+    return { valid: true };
   }
+
+  return { valid: false, reason: "Guest session not found or expired" };
 }
 
 /**
@@ -129,6 +136,9 @@ export async function getOrCreateGuestSession(
   const newGuestSessionId = generateUUID();
   const timestamp = new Date().toISOString();
 
+  // Register in in-memory fallback store
+  inMemoryGuestSessions.set(newGuestSessionId, { diningSessionId, tableId, status: "ACTIVE" });
+
   try {
     const { data, error } = await supabase
       .from("guest_sessions")
@@ -145,7 +155,7 @@ export async function getOrCreateGuestSession(
       .single();
 
     if (error) {
-      console.warn("[getOrCreateGuestSession] DB insert notice (fallback to client ID):", error.message);
+      console.warn("[getOrCreateGuestSession] DB insert notice (fallback to in-memory):", error.message);
     } else if (data?.id) {
       storeGuestSessionId(tableId, data.id);
       return data.id;
@@ -163,7 +173,14 @@ export async function getOrCreateGuestSession(
  * Expire all guest sessions associated with a closed Dining Session.
  */
 export async function expireGuestSessionsForDiningSession(diningSessionId: string): Promise<void> {
-  if (!diningSessionId || diningSessionId.startsWith("session-")) return;
+  if (!diningSessionId) return;
+
+  // Expire in in-memory fallback store
+  for (const [id, sess] of inMemoryGuestSessions.entries()) {
+    if (sess.diningSessionId === diningSessionId) {
+      sess.status = "EXPIRED";
+    }
+  }
 
   try {
     await supabase

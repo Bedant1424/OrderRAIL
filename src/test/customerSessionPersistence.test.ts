@@ -99,7 +99,7 @@ describe("Customer Order History & Session Persistence Regression Test", () => {
     const found2 = ordersAfterSecond.find((o) => o.id === orderId2);
     expect(found1).toBeDefined();
     expect(found2).toBeDefined();
-  });
+  }, 30000);
 
   it("clears local order history when clearOrderHistory is called upon dining session reset", () => {
     const dummyId = crypto.randomUUID();

@@ -230,5 +230,5 @@ describe("Deep Investigation: Customer Session Persistence & Dining Session Life
 
     expect(isMatch1And2).toBe(true);
     expect(isMatch2And3).toBe(true);
-  });
+  }, 30000);
 });

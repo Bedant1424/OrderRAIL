@@ -23,6 +23,7 @@ describe("Milestone 1 Acceptance Criteria: Real Database Table UUID Binding", ()
     await supabase.from("dining_sessions").update({ status: "closed", closed_at: new Date().toISOString() }).eq("table_id", tableUuid);
 
     // 2. Resolve/Create active dining session
+    testTable.active_session_id = null;
     const targetSessionId = await getOrCreateDiningSession(testTable as any);
     expect(targetSessionId).toBeDefined();
 
