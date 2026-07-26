@@ -46,6 +46,7 @@ import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
 import { useDemoMode, maskEmail } from "@/lib/permissions";
+import ForbiddenPage from "@/pages/ForbiddenPage";
 
 export interface OwnerLayoutContextType {
   notifications: NotificationItem[];
@@ -438,8 +439,8 @@ export default function OwnerLayout() {
     return <Navigate to="/staff/login" replace />;
   }
   if (!hasRole(roles, "owner")) {
-    console.log("OwnerLayout: Redirecting to /staff/login - not owner");
-    return <Navigate to="/staff/login" replace />;
+    console.log("OwnerLayout: Rendering ForbiddenPage - not owner");
+    return <ForbiddenPage />;
   }
 
   return (

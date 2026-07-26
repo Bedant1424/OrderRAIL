@@ -1,6 +1,8 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, hasRole } from "@/lib/auth";
+import { canOpenDiningSession } from "@/lib/permissions";
+import ForbiddenPage from "@/pages/ForbiddenPage";
 
 export function ProtectedCounterRoute({ children }: { children: React.ReactNode }) {
   const { session, roles, loading } = useAuth();
@@ -18,9 +20,9 @@ export function ProtectedCounterRoute({ children }: { children: React.ReactNode 
     return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
   }
 
-  const isStaffOrOwner = hasRole(roles, "staff", "owner");
-  if (!isStaffOrOwner) {
-    return <Navigate to="/staff/login" replace />;
+  const isAllowed = hasRole(roles, "counter", "owner") || canOpenDiningSession(roles);
+  if (!isAllowed) {
+    return <ForbiddenPage />;
   }
 
   return <>{children}</>;

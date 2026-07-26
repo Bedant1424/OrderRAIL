@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
 import { useDemoMode, maskEmail } from "@/lib/permissions";
+import ForbiddenPage from "@/pages/ForbiddenPage";
 
 export interface StaffLayoutContextType {
   notifications: NotificationItem[];
@@ -400,10 +401,10 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
     console.log("StaffLayout: Redirecting to /staff/login - no session");
     return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
   }
-  const allowed = require === "owner" ? hasRole(roles, "owner") : hasRole(roles, "staff", "owner");
+  const allowed = require === "owner" ? hasRole(roles, "owner") : hasRole(roles, "staff", "counter", "owner");
   if (!allowed) {
-    console.log("StaffLayout: Redirecting to /staff/login - not allowed");
-    return <Navigate to="/staff/login" replace />;
+    console.log("StaffLayout: Rendering ForbiddenPage - not allowed");
+    return <ForbiddenPage />;
   }
 
   return (
