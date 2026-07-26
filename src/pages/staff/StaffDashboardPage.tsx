@@ -38,7 +38,7 @@ import { calculateOccupiedTables, getTableStatus } from "@/lib/tables/occupancy"
 import { markTableFreeInDb, fetchCafeTables } from "@/lib/tables/tableRepository";
 import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 import { updateOrderStatusInDb, cancelOrderInDb, fetchCafeOrders } from "@/lib/orders/repository";
-import { computeDailyOrderNumbers } from "@/lib/orders/orderUtils";
+import { computeDailyOrderNumbers, sortOrdersByLane } from "@/lib/orders/orderUtils";
 import {
   fetchActiveServiceRequests,
   acknowledgeServiceRequestInDb,
@@ -785,10 +785,6 @@ export default function StaffDashboardPage() {
       lastActivity: getOrderLastActivity(o, serviceRequests),
     }));
 
-    const sortByActivity = (a: any, b: any) => b.lastActivity - a.lastActivity;
-    const sortByCompletionTime = (a: any, b: any) =>
-      new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
-
     let doneOrders = ordersWithActivity.filter((o) => o.status === "served" || o.status === "cancelled");
     if (recentlyDoneFilter === "completed") {
       doneOrders = doneOrders.filter((o) => o.status === "served");
@@ -798,13 +794,10 @@ export default function StaffDashboardPage() {
       doneOrders = doneOrders.filter((o) => o.status === "cancelled" && o.last_updated_by === "staff");
     }
 
-    const sortOldestFirst = (a: any, b: any) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-
     return {
-      incoming: ordersWithActivity.filter((o) => o.status === "pending").sort(sortOldestFirst),
-      active: ordersWithActivity.filter((o) => o.status === "preparing" || o.status === "ready").sort(sortOldestFirst),
-      done: doneOrders.sort(sortByCompletionTime).slice(0, 20),
+      incoming: sortOrdersByLane(ordersWithActivity.filter((o) => o.status === "pending"), "incoming"),
+      active: sortOrdersByLane(ordersWithActivity.filter((o) => o.status === "preparing" || o.status === "ready"), "preparing"),
+      done: sortOrdersByLane(doneOrders, "history").slice(0, 20),
     };
   }, [ordersQ.data, srQ.data, searchQuery, recentlyDoneFilter]);
 
@@ -1684,7 +1677,7 @@ export default function StaffDashboardPage() {
                   Review Changes
                 </DialogTitle>
                 <DialogDescription>
-                  Table {reviewingOrder.tables?.label ?? "?"} · {formatOrderLabel(reviewingOrder.order_number)} has been updated.
+                  Table {reviewingOrder.tables?.label ?? "?"} · {formatOrderLabel(dailyOrderNumMap.get(reviewingOrder.id) ?? reviewingOrder.order_number)} has been updated.
                 </DialogDescription>
               </DialogHeader>
 
@@ -2228,7 +2221,7 @@ function OrderColumn({
                    */}
                   <div className="min-w-0 flex-1">
                     <div className="break-anywhere font-display text-sm font-semibold flex items-center flex-wrap gap-1">
-                      <span>Table {o.tables?.label ?? "?"} · {formatOrderLabel(o.order_number)}</span>
+                      <span>Table {o.tables?.label ?? "?"} · {formatOrderLabel(dailyOrderNumMap.get(o.id) ?? o.order_number)}</span>
                       {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && o.status !== 'served' && o.status !== 'cancelled' && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
                           UPDATED
