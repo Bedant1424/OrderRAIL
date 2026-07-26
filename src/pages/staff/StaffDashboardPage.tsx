@@ -1514,6 +1514,7 @@ export default function StaffDashboardPage() {
             emptyLabel="No new orders."
             onSelectOrder={setSelectedDrawerOrder}
             focusedSummary={focusedSummary}
+            dailyOrderNumMap={dailyOrderNumMap}
           />
         </div>
         <div
@@ -1535,6 +1536,7 @@ export default function StaffDashboardPage() {
             emptyLabel="Nothing in the kitchen right now."
             onSelectOrder={setSelectedDrawerOrder}
             focusedSummary={focusedSummary}
+            dailyOrderNumMap={dailyOrderNumMap}
           />
         </div>
         <div
@@ -1555,6 +1557,7 @@ export default function StaffDashboardPage() {
             emptyLabel="No completed orders yet."
             onSelectOrder={setSelectedDrawerOrder}
             focusedSummary={focusedSummary}
+            dailyOrderNumMap={dailyOrderNumMap}
             headerAction={
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1677,7 +1680,7 @@ export default function StaffDashboardPage() {
                   Review Changes
                 </DialogTitle>
                 <DialogDescription>
-                  Table {reviewingOrder.tables?.label ?? "?"} · {formatOrderLabel(dailyOrderNumMap.get(reviewingOrder.id) ?? reviewingOrder.order_number)} has been updated.
+                  Table {reviewingOrder.tables?.label ?? "?"} · {formatOrderLabel(dailyOrderNumMap?.get(reviewingOrder.id) ?? reviewingOrder.order_number)} has been updated.
                 </DialogDescription>
               </DialogHeader>
 
@@ -1803,7 +1806,7 @@ export default function StaffDashboardPage() {
                       <StatusBadge status={selectedDrawerOrder.status} />
                     </div>
                     <SheetDescription className="text-xs text-muted-foreground">
-                      {formatOrderLabel(dailyOrderNumMap.get(selectedDrawerOrder.id) ?? selectedDrawerOrder.order_number)} · Received {new Date(selectedDrawerOrder.created_at).toLocaleTimeString()}
+                      {formatOrderLabel(dailyOrderNumMap?.get(selectedDrawerOrder.id) ?? selectedDrawerOrder.order_number)} · Received {new Date(selectedDrawerOrder.created_at).toLocaleTimeString()}
                     </SheetDescription>
                   </SheetHeader>
 
@@ -2087,6 +2090,7 @@ function OrderColumn({
   onSelectOrder,
   headerAction,
   focusedSummary,
+  dailyOrderNumMap,
 }: {
   title: string;
   accent: "warning" | "accent" | "success";
@@ -2100,6 +2104,7 @@ function OrderColumn({
   onSelectOrder: (o: OrderWithItems) => void;
   headerAction?: React.ReactNode;
   focusedSummary?: "incoming" | "preparing" | "ready" | "service_requests" | "overdue" | null;
+  dailyOrderNumMap: Map<string, number>;
 }) {
   const dot = { warning: "bg-warning", accent: "bg-accent", success: "bg-success" }[accent];
   return (
@@ -2221,7 +2226,7 @@ function OrderColumn({
                    */}
                   <div className="min-w-0 flex-1">
                     <div className="break-anywhere font-display text-sm font-semibold flex items-center flex-wrap gap-1">
-                      <span>Table {o.tables?.label ?? "?"} · {formatOrderLabel(dailyOrderNumMap.get(o.id) ?? o.order_number)}</span>
+                      <span>Table {o.tables?.label ?? "?"} · {formatOrderLabel(dailyOrderNumMap?.get(o.id) ?? o.order_number)}</span>
                       {o.version > o.last_reviewed_version && o.last_updated_by === 'customer' && o.status !== 'served' && o.status !== 'cancelled' && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
                           UPDATED
