@@ -80,12 +80,49 @@ export function loadNotificationSettings(cafeId?: string): CounterNotificationSe
     const raw = localStorage.getItem(`${SETTINGS_STORAGE_KEY}.${cafeId}`);
     if (!raw) return DEFAULT_NOTIFICATION_SETTINGS;
     const parsed = JSON.parse(raw);
+    
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return DEFAULT_NOTIFICATION_SETTINGS;
+    }
+
+    const generalObj = typeof parsed.general === "object" && parsed.general !== null ? parsed.general : {};
+    const eventTypesObj = typeof parsed.eventTypes === "object" && parsed.eventTypes !== null ? parsed.eventTypes : {};
+
     return {
-      general: { ...DEFAULT_NOTIFICATION_SETTINGS.general, ...(parsed?.general ?? {}) },
-      eventTypes: { ...DEFAULT_NOTIFICATION_SETTINGS.eventTypes, ...(parsed?.eventTypes ?? {}) },
+      general: {
+        enableNotifications: typeof generalObj.enableNotifications === "boolean" 
+          ? generalObj.enableNotifications 
+          : DEFAULT_NOTIFICATION_SETTINGS.general.enableNotifications,
+        enableSound: typeof generalObj.enableSound === "boolean" 
+          ? generalObj.enableSound 
+          : (typeof parsed.sound === "boolean" ? parsed.sound : DEFAULT_NOTIFICATION_SETTINGS.general.enableSound),
+        enableBrowserNotifications: typeof generalObj.enableBrowserNotifications === "boolean" 
+          ? generalObj.enableBrowserNotifications 
+          : DEFAULT_NOTIFICATION_SETTINGS.general.enableBrowserNotifications,
+      },
+      eventTypes: {
+        newOrder: typeof eventTypesObj.newOrder === "boolean" 
+          ? eventTypesObj.newOrder 
+          : (typeof parsed.orderNotifications === "boolean" ? parsed.orderNotifications : DEFAULT_NOTIFICATION_SETTINGS.eventTypes.newOrder),
+        orderServed: typeof eventTypesObj.orderServed === "boolean" 
+          ? eventTypesObj.orderServed 
+          : DEFAULT_NOTIFICATION_SETTINGS.eventTypes.orderServed,
+        needWater: typeof eventTypesObj.needWater === "boolean" 
+          ? eventTypesObj.needWater 
+          : DEFAULT_NOTIFICATION_SETTINGS.eventTypes.needWater,
+        needBill: typeof eventTypesObj.needBill === "boolean" 
+          ? eventTypesObj.needBill 
+          : DEFAULT_NOTIFICATION_SETTINGS.eventTypes.needBill,
+        callWaiter: typeof eventTypesObj.callWaiter === "boolean" 
+          ? eventTypesObj.callWaiter 
+          : DEFAULT_NOTIFICATION_SETTINGS.eventTypes.callWaiter,
+        needHelp: typeof eventTypesObj.needHelp === "boolean" 
+          ? eventTypesObj.needHelp 
+          : DEFAULT_NOTIFICATION_SETTINGS.eventTypes.needHelp,
+      },
     };
   } catch (e) {
-    console.warn("[loadNotificationSettings] Error:", e);
+    console.warn("[loadNotificationSettings] Error loading settings:", e);
     return DEFAULT_NOTIFICATION_SETTINGS;
   }
 }
@@ -96,7 +133,7 @@ export function saveNotificationSettings(cafeId: string | undefined, settings?: 
     const safeSettings = settings ?? DEFAULT_NOTIFICATION_SETTINGS;
     localStorage.setItem(`${SETTINGS_STORAGE_KEY}.${cafeId}`, JSON.stringify(safeSettings));
   } catch (e) {
-    console.warn("[saveNotificationSettings] Error:", e);
+    console.warn("[saveNotificationSettings] Error saving settings:", e);
   }
 }
 

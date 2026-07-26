@@ -1505,6 +1505,44 @@ class CounterNotificationErrorBoundary extends React.Component<
   }
 }
 
+class CounterSettingsErrorBoundary extends React.Component<
+  { children: React.ReactNode; onResetDefaults: () => void },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; onResetDefaults: () => void }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error("[CounterSettingsErrorBoundary] Caught error:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3 h-full">
+          <AlertCircle className="w-8 h-8 text-amber-500" />
+          <span className="font-bold text-foreground text-sm">Unable to load notification settings.</span>
+          <p className="text-[11px] text-muted-foreground">Preferences could not be rendered safely.</p>
+          <button
+            type="button"
+            onClick={() => {
+              this.props.onResetDefaults();
+              this.setState({ hasError: false });
+            }}
+            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-soft transition active:scale-95 cursor-pointer"
+          >
+            Reset to Defaults & Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const CounterNotificationDrawer = ({
   isOpen,
   initialTab = 'notifications',
@@ -1657,159 +1695,161 @@ const CounterNotificationDrawer = ({
 
           {activeTab === 'settings' ? (
             /* Settings Panel */
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 text-xs">
-              {/* 1. General Settings */}
-              <div className="flex flex-col gap-3">
-                <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
-                  General
-                </h4>
+            <CounterSettingsErrorBoundary onResetDefaults={() => onUpdateSettings(DEFAULT_NOTIFICATION_SETTINGS)}>
+              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6 text-xs">
+                {/* 1. General Settings */}
+                <div className="flex flex-col gap-3">
+                  <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
+                    General
+                  </h4>
 
-                <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-foreground">Enable notifications</span>
-                    <span className="text-[11px] text-muted-foreground">Master alert notifications</span>
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-foreground">Enable notifications</span>
+                      <span className="text-[11px] text-muted-foreground">Master alert notifications</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.general.enableNotifications}
+                      onChange={() => toggleGeneralSetting('enableNotifications')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.general.enableNotifications}
-                    onChange={() => toggleGeneralSetting('enableNotifications')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
+
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-foreground flex items-center gap-1.5">
+                        <Volume2 className="w-3.5 h-3.5 text-primary" /> Notification sound
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">Play chime on new alert</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.general.enableSound}
+                      onChange={() => toggleGeneralSetting('enableSound')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-foreground">Browser notifications</span>
+                      <span className="text-[11px] text-muted-foreground">Desktop popups when unfocused</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.general.enableBrowserNotifications}
+                      onChange={() => toggleGeneralSetting('enableBrowserNotifications')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-foreground flex items-center gap-1.5">
-                      <Volume2 className="w-3.5 h-3.5 text-primary" /> Notification sound
+                {/* 2. Event Types */}
+                <div className="flex flex-col gap-3">
+                  <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
+                    Event Types
+                  </h4>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                    <span className="font-medium text-foreground flex items-center gap-2">
+                      <ShoppingBag className="w-3.5 h-3.5 text-amber-500" /> New customer orders
                     </span>
-                    <span className="text-[11px] text-muted-foreground">Play chime on new alert</span>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.eventTypes.newOrder}
+                      onChange={() => toggleEventTypeSetting('newOrder')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.general.enableSound}
-                    onChange={() => toggleGeneralSetting('enableSound')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
-                </div>
 
-                <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/50">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-foreground">Browser notifications</span>
-                    <span className="text-[11px] text-muted-foreground">Desktop popups when unfocused</span>
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                    <span className="font-medium text-foreground flex items-center gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Order served
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.eventTypes.orderServed}
+                      onChange={() => toggleEventTypeSetting('orderServed')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.general.enableBrowserNotifications}
-                    onChange={() => toggleGeneralSetting('enableBrowserNotifications')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
+
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                    <span className="font-medium text-foreground flex items-center gap-2">
+                      <Droplet className="w-3.5 h-3.5 text-blue-500" /> Need Water
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.eventTypes.needWater}
+                      onChange={() => toggleEventTypeSetting('needWater')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                    <span className="font-medium text-foreground flex items-center gap-2">
+                      <Receipt className="w-3.5 h-3.5 text-warning" /> Need Bill
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.eventTypes.needBill}
+                      onChange={() => toggleEventTypeSetting('needBill')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                    <span className="font-medium text-foreground flex items-center gap-2">
+                      <HandPlatter className="w-3.5 h-3.5 text-purple-500" /> Call Waiter
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.eventTypes.callWaiter}
+                      onChange={() => toggleEventTypeSetting('callWaiter')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
+                    <span className="font-medium text-foreground flex items-center gap-2">
+                      <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" /> Need Help
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={safeSettings.eventTypes.needHelp}
+                      onChange={() => toggleEventTypeSetting('needHelp')}
+                      className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. History Actions */}
+                <div className="flex flex-col gap-3 pt-2 border-t border-border">
+                  <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
+                    History
+                  </h4>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={onMarkAllAsRead}
+                      disabled={unreadCount === 0}
+                      className="flex-1 py-2 px-3 rounded-xl border border-border bg-secondary/50 hover:bg-secondary disabled:opacity-50 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <CheckCheck className="w-3.5 h-3.5 text-primary" /> Mark all as read
+                    </button>
+
+                    <button
+                      onClick={onClearHistory}
+                      disabled={safeNotifs.length === 0}
+                      className="flex-1 py-2 px-3 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Clear history
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {/* 2. Event Types */}
-              <div className="flex flex-col gap-3">
-                <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
-                  Event Types
-                </h4>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <ShoppingBag className="w-3.5 h-3.5 text-amber-500" /> New customer orders
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.eventTypes.newOrder}
-                    onChange={() => toggleEventTypeSetting('newOrder')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Order served
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.eventTypes.orderServed}
-                    onChange={() => toggleEventTypeSetting('orderServed')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <Droplet className="w-3.5 h-3.5 text-blue-500" /> Need Water
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.eventTypes.needWater}
-                    onChange={() => toggleEventTypeSetting('needWater')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <Receipt className="w-3.5 h-3.5 text-warning" /> Need Bill
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.eventTypes.needBill}
-                    onChange={() => toggleEventTypeSetting('needBill')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <HandPlatter className="w-3.5 h-3.5 text-purple-500" /> Call Waiter
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.eventTypes.callWaiter}
-                    onChange={() => toggleEventTypeSetting('callWaiter')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" /> Need Help
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={safeSettings.eventTypes.needHelp}
-                    onChange={() => toggleEventTypeSetting('needHelp')}
-                    className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              {/* 3. History Actions */}
-              <div className="flex flex-col gap-3 pt-2 border-t border-border">
-                <h4 className="font-extrabold text-foreground uppercase tracking-wider text-[10px] text-muted-foreground">
-                  History
-                </h4>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={onMarkAllAsRead}
-                    disabled={unreadCount === 0}
-                    className="flex-1 py-2 px-3 rounded-xl border border-border bg-secondary/50 hover:bg-secondary disabled:opacity-50 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
-                  >
-                    <CheckCheck className="w-3.5 h-3.5 text-primary" /> Mark all as read
-                  </button>
-
-                  <button
-                    onClick={onClearHistory}
-                    disabled={safeNotifs.length === 0}
-                    className="flex-1 py-2 px-3 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Clear history
-                  </button>
-                </div>
-              </div>
-            </div>
+            </CounterSettingsErrorBoundary>
           ) : (
             /* Notification List */
             <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
