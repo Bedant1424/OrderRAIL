@@ -1,14 +1,31 @@
 import { APP_CONFIG } from "@/config/app";
 import { useAuth, hasRole } from "./auth";
+import {
+  hasCapability,
+  type Capability,
+  canViewAnalytics,
+  canManageSettings,
+  canManageRestaurantConfig,
+  canManageStaff,
+  canManageCounter,
+  canManageMenu,
+  canManageQrTables,
+  canExportData,
+  canOpenDiningSession,
+  canCloseDiningSession,
+  canResetTable,
+  canManageBills,
+  canApplyDiscount,
+  canAcceptPayment,
+  canUpdateOrderStatus,
+  canViewKitchenQueue,
+  canResolveServiceRequests,
+} from "./auth/permissions";
+
+export * from "./auth/permissions";
 
 /**
  * Single source of truth: is this the public demo deployment?
- *
- * Driven by the build-time environment variable VITE_DEMO_MODE.
- * Set VITE_DEMO_MODE=true in the Demo Vercel project.
- * Leave it unset or set to "false" in the Production Vercel project.
- *
- * This function is the ONLY place in the codebase that reads the env var.
  */
 export function isDemoDeployment(): boolean {
   return import.meta.env.VITE_DEMO_MODE === "true";
@@ -16,7 +33,6 @@ export function isDemoDeployment(): boolean {
 
 /**
  * Returns true if the given user ID matches the demo administrator UUID.
- * Only meaningful on the demo deployment.
  */
 export function isDemoAdmin(userId?: string | null): boolean {
   if (!isDemoDeployment()) return false;
@@ -34,12 +50,6 @@ export function useDemoAdmin(): boolean {
 
 /**
  * React hook: should the current session be subject to demo UI restrictions?
- *
- * Returns true ONLY when:
- *   1. This is the demo deployment (VITE_DEMO_MODE=true), AND
- *   2. The current user is NOT the Demo Administrator.
- *
- * On the production deployment this always returns false.
  */
 export function useDemoMode(): boolean {
   const { user } = useAuth();
@@ -49,44 +59,54 @@ export function useDemoMode(): boolean {
 }
 
 /**
- * Centralized permissions hook managing capability authorization checks.
- *
- * Production deployment: standard role-based access.
- * Demo deployment (non-admin): read-only restrictions.
- * Demo deployment (admin): full bypass.
+ * Centralized capability authorization hook.
  */
 export function usePermissions() {
   const { roles, user } = useAuth();
   const isDemo = useDemoMode();
   const isDemoAdm = isDemoAdmin(user?.id);
+
   const isOwner = hasRole(roles, "owner") || isDemoAdm;
-  const isStaff = hasRole(roles, "staff") || isDemoAdm;
+  const isCounter = hasRole(roles, "counter") || isOwner || isDemoAdm;
+  const isStaff = hasRole(roles, "staff") || isCounter || isOwner || isDemoAdm;
 
   return {
     isDemo,
     isOwner,
+    isCounter,
     isStaff,
 
-    // Core capabilities
-    canManageMenu: () => isOwner,
+    // Capability helpers
+    canViewAnalytics: () => isOwner && canViewAnalytics(roles),
+    canManageSettings: () => isOwner && canManageSettings(roles),
+    canManageRestaurantConfig: () => isOwner && canManageRestaurantConfig(roles),
+    canManageStaff: () => isOwner && canManageStaff(roles),
+    canManageCounter: () => isOwner && canManageCounter(roles),
+    canManageMenu: () => isOwner && canManageMenu(roles),
     canManageCategories: () => isOwner,
     canManageTables: () => isOwner,
-    canManageQrCodes: () => isOwner,
+    canManageQrCodes: () => isOwner && canManageQrTables(roles),
     canUploadImages: () => isOwner,
-    
-    // Cafe Branding & settings: restricted in public demo mode to prevent vandalism
+
+    canOpenDiningSession: () => (isOwner || isCounter) && canOpenDiningSession(roles),
+    canCloseDiningSession: () => (isOwner || isCounter) && canCloseDiningSession(roles),
+    canResetTable: () => (isOwner || isCounter) && canResetTable(roles),
+    canManageBills: () => (isOwner || isCounter) && canManageBills(roles),
+    canApplyDiscount: () => (isOwner || isCounter) && canApplyDiscount(roles),
+    canAcceptPayment: () => (isOwner || isCounter) && canAcceptPayment(roles),
+
+    canUpdateOrderStatus: () => (isOwner || isCounter || isStaff) && canUpdateOrderStatus(roles),
+    canViewKitchenQueue: () => (isOwner || isCounter || isStaff) && canViewKitchenQueue(roles),
+    canResolveServiceRequests: () => (isOwner || isCounter || isStaff) && canResolveServiceRequests(roles),
+
     canManageCafeSettings: () => isOwner && (!isDemo || isDemoAdm),
     canEditBranding: () => isOwner && (!isDemo || isDemoAdm),
-    
-    // Team / Invite controls: claim role directly in demo, invitations are production-only
     canManageUsers: () => isOwner && (!isDemo || isDemoAdm),
     canManageRoles: () => isOwner && (!isDemo || isDemoAdm),
-    
-    // Destruction controls: blocked in demo to prevent erasing the demo catalog
     canDeleteData: () => isOwner && (!isDemo || isDemoAdm),
-    
-    // Data exports: restricted to production owners
     canExportData: () => isOwner && (!isDemo || isDemoAdm),
+
+    hasCapability: (capability: Capability) => isDemoAdm || hasCapability(roles, capability),
   };
 }
 
