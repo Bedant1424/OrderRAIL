@@ -33,6 +33,7 @@ import {
 import { getNotificationSetting, initNotificationSystem } from "@/lib/notificationSystem";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/permissions";
 import { calculateOccupiedTables, getTableStatus } from "@/lib/tables/occupancy";
 import { markTableFreeInDb, fetchCafeTables } from "@/lib/tables/tableRepository";
 import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
@@ -268,6 +269,7 @@ export default function StaffDashboardPage() {
   const qc = useQueryClient();
   const { cafe, cafeId } = useCafe();
   const { session } = useAuth();
+  const permissions = usePermissions();
   const [selectedTable, setSelectedTable] = useState<TableRow | null>(null);
   const [recentlyDoneFilter, setRecentlyDoneFilter] = useState<"all" | "completed" | "cancelled_customer" | "cancelled_staff">(
     () => (sessionStorage.getItem("orderrail.recently_done_filter") as any) || "all"
@@ -836,6 +838,10 @@ export default function StaffDashboardPage() {
   };
 
   const handleMarkTableFree = async (table: TableRow) => {
+    if (!permissions.canResetTable()) {
+      toast.error("403 Forbidden: Staff members cannot reset tables. Please request Counter or Owner assistance.");
+      return;
+    }
     try {
       await markTableFreeInDb(table.id, table.active_session_id);
 
