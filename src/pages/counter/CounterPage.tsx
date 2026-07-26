@@ -33,6 +33,7 @@ import {
   isEventNotificationEnabled,
   playNotificationSound,
   triggerBrowserNotification,
+  DEFAULT_NOTIFICATION_SETTINGS,
   type CounterNotification,
   type CounterNotificationSettings
 } from '@/lib/counter/counterNotifications';
@@ -1789,7 +1790,7 @@ const CounterNotificationDrawer = ({
 
                   <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/30">
                     <span className="font-medium text-foreground flex items-center gap-2">
-                      <Receipt className="w-3.5 h-3.5 text-warning" /> Need Bill
+                      <ReceiptIcon className="w-3.5 h-3.5 text-warning" /> Need Bill
                     </span>
                     <input
                       type="checkbox"
@@ -1879,7 +1880,7 @@ const CounterNotificationDrawer = ({
                       case 'need_bill':
                         return (
                           <div className="p-2 rounded-xl shrink-0 mt-0.5 bg-yellow-500/10 text-yellow-600">
-                            <Receipt className="w-4 h-4" />
+                            <ReceiptIcon className="w-4 h-4" />
                           </div>
                         );
                       case 'call_waiter':
