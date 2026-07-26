@@ -129,3 +129,46 @@ export function getNextOrderStatus(status: Order["status"]): Order["status"] | n
   if (status === "ready") return "served";
   return null;
 }
+
+/**
+ * Computes daily sequence numbers for a list of orders.
+ * Orders are grouped by local calendar date (YYYY-MM-DD), sorted chronologically by created_at,
+ * and assigned sequential numbers starting from 1 for each date.
+ * Returns a Map mapping order.id to its daily sequence number.
+ */
+export function computeDailyOrderNumbers<T extends { id: string; created_at: string; order_number?: number }>(
+  orders: T[]
+): Map<string, number> {
+  const resultMap = new Map<string, number>();
+  if (!orders || orders.length === 0) return resultMap;
+
+  // Group by date string YYYY-MM-DD
+  const groupsByDate = new Map<string, T[]>();
+
+  for (const order of orders) {
+    const d = new Date(order.created_at);
+    if (isNaN(d.getTime())) {
+      resultMap.set(order.id, order.order_number ?? 1);
+      continue;
+    }
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const list = groupsByDate.get(dateKey) || [];
+    list.push(order);
+    groupsByDate.set(dateKey, list);
+  }
+
+  // Sort each date group chronologically (oldest first) and assign daily 1-indexed counter
+  for (const list of groupsByDate.values()) {
+    list.sort((a, b) => {
+      const timeDiff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return a.id.localeCompare(b.id);
+    });
+
+    list.forEach((order, index) => {
+      resultMap.set(order.id, index + 1);
+    });
+  }
+
+  return resultMap;
+}

@@ -26,7 +26,7 @@ import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import SharedOrderKanban from "@/components/orders/SharedOrderKanban";
 import OccupiedTablesWidget from "@/components/orders/OccupiedTablesWidget";
-import { ORDER_STATUS_MAP, getNextOrderStatus } from "@/lib/orders/orderUtils";
+import { ORDER_STATUS_MAP, getNextOrderStatus, computeDailyOrderNumbers } from "@/lib/orders/orderUtils";
 import { calculateOperationalSummary } from "@/lib/orders/metrics";
 import { generateOrdersCSV } from "@/lib/orders/csvExporter";
 import { useOrders } from "@/lib/orders/useOrders";
@@ -37,7 +37,7 @@ import { fetchCafeTables } from "@/lib/tables/tableRepository";
 
 type MainTab = "live" | "history";
 type SortOption = "newest" | "oldest" | "highest" | "lowest";
-type StatusFilter = "all" | "pending" | "placed" | "in_kitchen" | "ready" | "completed" | "served" | "cancelled";
+type StatusFilter = "all" | "completed" | "cancelled";
 type DateRangeFilter = "today" | "7d" | "30d" | "all";
 
 export default function OwnerOrdersPage() {
@@ -71,13 +71,18 @@ export default function OwnerOrdersPage() {
     dateRange
   });
 
+  // Daily Display Order Numbers Mapping (Resets per calendar day)
+  const dailyOrderNumMap = useMemo(() => computeDailyOrderNumbers(orders), [orders]);
+
   // Sync tab & filters from URL params
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     if (tabParam === "live" || tabParam === "history") setActiveTab(tabParam);
 
     const statusParam = searchParams.get("status");
-    if (statusParam) setStatusFilter(statusParam as StatusFilter);
+    if (statusParam && (statusParam === "all" || statusParam === "completed" || statusParam === "cancelled")) {
+      setStatusFilter(statusParam as StatusFilter);
+    }
 
     const rangeParam = searchParams.get("range");
     if (rangeParam) setDateRange(rangeParam as DateRangeFilter);
@@ -91,12 +96,6 @@ export default function OwnerOrdersPage() {
   });
 
   const tables = tablesQ.data ?? [];
-
-  // Active Pending Orders
-  const pendingOrders = useMemo(
-    () => orders.filter((o) => o.status === "placed" || o.status === "in_kitchen" || o.status === "ready"),
-    [orders]
-  );
 
   // Table Label Mapping Helper
   const tableLabelMap = useMemo(() => {
@@ -112,45 +111,71 @@ export default function OwnerOrdersPage() {
   useEffect(() => {
     const orderIdParam = searchParams.get("orderId");
     if (orderIdParam && orders.length > 0) {
-      const match = orders.find((o) => o.id === orderIdParam || formatOrderLabel(o.order_number) === `#${orderIdParam}`);
+      const match = orders.find((o) => {
+        const dailyNum = dailyOrderNumMap.get(o.id) ?? o.order_number;
+        return o.id === orderIdParam || formatOrderLabel(dailyNum) === `#${orderIdParam}` || formatOrderLabel(o.order_number) === `#${orderIdParam}`;
+      });
       if (match) setSelectedOrder(match);
     }
-  }, [searchParams, orders]);
+  }, [searchParams, orders, dailyOrderNumMap]);
 
-  // Filtered & Sorted Orders for History View or Table Filter
+  // Filtered & Sorted Orders for History View (Newest -> Oldest Default)
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       if (selectedTableIdFilter && o.table_id !== selectedTableIdFilter) return false;
 
       const tableLabel = tableLabelMap.get(o.table_id) ?? "";
-      const orderLabel = formatOrderLabel(o.order_number).toLowerCase();
+      const dailyNum = dailyOrderNumMap.get(o.id) ?? o.order_number;
+      const dailyOrderLabel = formatOrderLabel(dailyNum).toLowerCase();
+      const rawNumStr = String(dailyNum);
+      const dbNumStr = String(o.order_number);
       const query = searchQuery.toLowerCase().trim();
 
-      if (
-        query &&
-        !orderLabel.includes(query) &&
-        !tableLabel.toLowerCase().includes(query) &&
-        !o.notes?.toLowerCase().includes(query)
-      ) {
-        return false;
+      const d = new Date(o.created_at);
+      const dateFormattedStr = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toLowerCase();
+      const isoDateStr = isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+      const itemsStr = (o.order_items ?? []).map((it) => it.name.toLowerCase()).join(" ");
+
+      if (query) {
+        const matchesQuery =
+          dailyOrderLabel.includes(query) ||
+          rawNumStr.includes(query) ||
+          dbNumStr.includes(query) ||
+          tableLabel.toLowerCase().includes(query) ||
+          itemsStr.includes(query) ||
+          dateFormattedStr.includes(query) ||
+          isoDateStr.includes(query) ||
+          o.notes?.toLowerCase().includes(query);
+
+        if (!matchesQuery) return false;
       }
 
-      if (statusFilter === "pending") {
-        if (o.status !== "placed" && o.status !== "in_kitchen") return false;
-      } else if (statusFilter === "completed") {
+      // History Status Filters (All / Completed / Cancelled)
+      if (statusFilter === "completed") {
         if (o.status !== "served" && o.status !== "ready") return false;
-      } else if (statusFilter !== "all" && o.status !== statusFilter) {
-        return false;
+      } else if (statusFilter === "cancelled") {
+        if (o.status !== "cancelled") return false;
       }
 
       return true;
     }).sort((a, b) => {
-      if (sortBy === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      if (sortBy === "highest") return b.total_cents - a.total_cents;
-      if (sortBy === "lowest") return a.total_cents - b.total_cents;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortBy === "oldest") {
+        const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        return diff !== 0 ? diff : a.id.localeCompare(b.id);
+      }
+      if (sortBy === "highest") {
+        const diff = b.total_cents - a.total_cents;
+        return diff !== 0 ? diff : new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (sortBy === "lowest") {
+        const diff = a.total_cents - b.total_cents;
+        return diff !== 0 ? diff : new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      // Default: Newest First
+      const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return diff !== 0 ? diff : b.id.localeCompare(a.id);
     });
-  }, [orders, searchQuery, statusFilter, tableLabelMap, sortBy, selectedTableIdFilter]);
+  }, [orders, searchQuery, statusFilter, tableLabelMap, sortBy, selectedTableIdFilter, dailyOrderNumMap]);
 
   // Selection helpers
   const isAllSelected = filteredOrders.length > 0 && selectedIds.length === filteredOrders.length;
@@ -178,7 +203,7 @@ export default function OwnerOrdersPage() {
     }
   };
 
-  // Standardized CSV Exporter
+  // Standardized CSV Exporter using Daily Order Numbers
   const handleExportCSV = () => {
     const listToExport = selectedIds.length > 0
       ? filteredOrders.filter((o) => selectedIds.includes(o.id))
@@ -189,7 +214,7 @@ export default function OwnerOrdersPage() {
       return;
     }
 
-    const csvContent = generateOrdersCSV(listToExport, tableLabelMap);
+    const csvContent = generateOrdersCSV(listToExport, tableLabelMap, dailyOrderNumMap);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -214,7 +239,7 @@ export default function OwnerOrdersPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? "OrderRail"} · Shared real-time restaurant orders & historical logs
+            {cafe?.name ?? "OrderRail"} · Shared real-time restaurant orders & historical sales ledger
           </p>
         </div>
 
@@ -226,7 +251,7 @@ export default function OwnerOrdersPage() {
             <button
               onClick={() => setActiveTab("live")}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold",
+                "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold cursor-pointer",
                 activeTab === "live"
                   ? "bg-brand text-brand-foreground shadow-soft"
                   : "text-muted-foreground hover:text-foreground"
@@ -237,19 +262,19 @@ export default function OwnerOrdersPage() {
             <button
               onClick={() => setActiveTab("history")}
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold",
+                "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold cursor-pointer",
                 activeTab === "history"
                   ? "bg-brand text-brand-foreground shadow-soft"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <History className="h-3.5 w-3.5" /> History
+              <History className="h-3.5 w-3.5" /> Sales History
             </button>
           </div>
         </div>
       </header>
 
-      {/* Summary Cards - Bug 5: Longest Wait removed completely */}
+      {/* Summary Cards */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Orders</div>
@@ -312,7 +337,7 @@ export default function OwnerOrdersPage() {
         </section>
       )}
 
-      {/* VIEW 2: ORDER HISTORY TABLE & STANDARDIZED CSV EXPORT */}
+      {/* VIEW 2: HISTORICAL SALES LEDGER TABLE */}
       {activeTab === "history" && (
         <section className="space-y-6">
           {/* Controls Bar */}
@@ -325,13 +350,13 @@ export default function OwnerOrdersPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by Order #, Table, or notes..."
+                  placeholder="Search by Order #, Table, Items, or Date..."
                   className="w-full rounded-2xl border border-border bg-background pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -353,7 +378,7 @@ export default function OwnerOrdersPage() {
                 </select>
               </div>
 
-              {/* Sort By Selector */}
+              {/* Sort By Selector (Default: Newest First) */}
               <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1.5 text-xs font-medium">
                 <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                 <select
@@ -371,32 +396,27 @@ export default function OwnerOrdersPage() {
               {/* Export CSV Button */}
               <button
                 onClick={handleExportCSV}
-                className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80 active:scale-95"
+                className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80 active:scale-95 cursor-pointer"
               >
                 <Download className="h-4 w-4" /> Export CSV ({selectedIds.length || filteredOrders.length})
               </button>
             </div>
 
-            {/* Status Tabs */}
+            {/* History-focused Status Tabs */}
             <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
               {[
                 { id: "all", label: "All Orders" },
-                { id: "pending", label: "Pending", highlight: true },
-                { id: "placed", label: "Placed" },
-                { id: "in_kitchen", label: "Cooking" },
-                { id: "ready", label: "Ready" },
-                { id: "served", label: "Served" },
+                { id: "completed", label: "Completed" },
                 { id: "cancelled", label: "Cancelled" },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setStatusFilter(tab.id as StatusFilter)}
                   className={cn(
-                    "rounded-full px-3.5 py-1.5 text-xs font-semibold transition duration-150",
+                    "rounded-full px-4 py-1.5 text-xs font-semibold transition duration-150 cursor-pointer",
                     statusFilter === tab.id
                       ? "bg-brand text-brand-foreground shadow-soft"
-                      : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground",
-                    tab.highlight && statusFilter !== tab.id && "text-amber-600 bg-amber-500/10 font-bold"
+                      : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
                   )}
                 >
                   {tab.label}
@@ -412,8 +432,8 @@ export default function OwnerOrdersPage() {
             ) : filteredOrders.length === 0 ? (
               <div className="py-16 text-center text-muted-foreground space-y-2">
                 <Utensils className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                <p className="font-display text-base font-semibold">No history orders found</p>
-                <p className="text-xs">Adjust your search parameters or date filters.</p>
+                <p className="font-display text-base font-semibold">No sales history orders found</p>
+                <p className="text-xs">Adjust your search parameters, date filters, or status selection.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -421,7 +441,7 @@ export default function OwnerOrdersPage() {
                   <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold border-b border-border/60">
                     <tr>
                       <th className="p-4 w-10">
-                        <button onClick={toggleSelectAll} className="grid place-items-center">
+                        <button onClick={toggleSelectAll} className="grid place-items-center cursor-pointer">
                           {isAllSelected ? (
                             <CheckSquare className="h-4 w-4 text-accent" />
                           ) : (
@@ -432,8 +452,9 @@ export default function OwnerOrdersPage() {
                       <th className="p-4">Order #</th>
                       <th className="p-4">Table</th>
                       <th className="p-4">Status</th>
-                      <th className="p-4">Items Summary</th>
+                      <th className="p-4">Item Summary</th>
                       <th className="p-4 text-right">Total</th>
+                      <th className="p-4">Date</th>
                       <th className="p-4 text-right">Time</th>
                       <th className="p-4 text-center">Action</th>
                     </tr>
@@ -441,6 +462,19 @@ export default function OwnerOrdersPage() {
                   <tbody className="divide-y divide-border/50">
                     {filteredOrders.map((o) => {
                       const isSelected = selectedIds.includes(o.id);
+                      const dailyNum = dailyOrderNumMap.get(o.id) ?? o.order_number;
+                      const dateObj = new Date(o.created_at);
+                      const dateFormatted = isNaN(dateObj.getTime())
+                        ? "—"
+                        : dateObj.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                      const timeFormatted = isNaN(dateObj.getTime())
+                        ? "—"
+                        : dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+                      
+                      const itemsSummary = (o.order_items ?? []).length > 0
+                        ? (o.order_items ?? []).map((it) => `${it.name} ×${it.qty}`).join(", ")
+                        : "1× Order Items";
+
                       return (
                         <tr
                           key={o.id}
@@ -451,7 +485,7 @@ export default function OwnerOrdersPage() {
                           )}
                         >
                           <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => toggleSelectRow(o.id)} className="grid place-items-center">
+                            <button onClick={() => toggleSelectRow(o.id)} className="grid place-items-center cursor-pointer">
                               {isSelected ? (
                                 <CheckSquare className="h-4 w-4 text-accent" />
                               ) : (
@@ -460,7 +494,7 @@ export default function OwnerOrdersPage() {
                             </button>
                           </td>
                           <td className="p-4 font-display font-bold text-foreground">
-                            {formatOrderLabel(o.order_number)}
+                            {formatOrderLabel(dailyNum)}
                           </td>
                           <td className="p-4 font-medium text-foreground">
                             Table {tableLabelMap.get(o.table_id) ?? "?"}
@@ -468,14 +502,17 @@ export default function OwnerOrdersPage() {
                           <td className="p-4">
                             <OrderStatusBadge status={o.status} />
                           </td>
-                          <td className="p-4 text-xs text-muted-foreground max-w-xs truncate">
-                            {(o.order_items ?? []).map((it) => `${it.qty}x ${it.name}`).join(", ")}
+                          <td className="p-4 text-xs text-muted-foreground max-w-xs truncate font-medium">
+                            {itemsSummary}
                           </td>
                           <td className="p-4 text-right font-semibold tabular-nums text-foreground">
                             {formatMoney(o.total_cents, currency)}
                           </td>
-                          <td className="p-4 text-right text-xs text-muted-foreground tabular-nums">
-                            {new Date(o.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          <td className="p-4 text-xs text-muted-foreground tabular-nums font-medium">
+                            {dateFormatted}
+                          </td>
+                          <td className="p-4 text-right text-xs text-muted-foreground tabular-nums font-mono">
+                            {timeFormatted}
                           </td>
                           <td className="p-4 text-center">
                             <button
@@ -483,7 +520,7 @@ export default function OwnerOrdersPage() {
                                 e.stopPropagation();
                                 setSelectedOrder(o);
                               }}
-                              className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80"
+                              className="inline-flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 cursor-pointer"
                             >
                               Details <ChevronRight className="h-3.5 w-3.5" />
                             </button>
@@ -515,7 +552,7 @@ export default function OwnerOrdersPage() {
                 <div>
                   <div className="text-xs uppercase tracking-widest text-muted-foreground">Order Details</div>
                   <h2 className="font-display text-2xl font-bold">
-                    {formatOrderLabel(selectedOrder.order_number)}
+                    {formatOrderLabel(dailyOrderNumMap.get(selectedOrder.id) ?? selectedOrder.order_number)}
                   </h2>
                 </div>
                 <button

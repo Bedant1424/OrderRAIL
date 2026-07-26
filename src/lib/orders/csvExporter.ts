@@ -42,7 +42,8 @@ export function escapeCSVCell(value: string | number | null | undefined): string
 
 export function generateOrdersCSV(
   orders: (Order & { order_items?: OrderItem[] })[],
-  tableLabelMap: Map<string, string>
+  tableLabelMap: Map<string, string>,
+  dailyOrderNumMap?: Map<string, number>
 ): string {
   const headerLine = STANDARDIZED_CSV_HEADERS.map((h) => escapeCSVCell(h)).join(",");
 
@@ -77,8 +78,10 @@ export function generateOrdersCSV(
     const servedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
     const completedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
 
+    const displayNum = dailyOrderNumMap?.get(o.id) ?? o.order_number;
+
     return [
-      escapeCSVCell(formatOrderLabel(o.order_number)),
+      escapeCSVCell(formatOrderLabel(displayNum)),
       escapeCSVCell(dateStr),
       escapeCSVCell(timeStr),
       escapeCSVCell(tableLabel),
