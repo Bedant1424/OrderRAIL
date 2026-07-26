@@ -1,5 +1,6 @@
 /**
  * Counter Notification Data Types, Helper Utilities & Settings Manager.
+ * Defensively hardened to guarantee zero runtime exceptions.
  */
 
 export interface CounterNotification {
@@ -53,7 +54,8 @@ export function loadCounterNotifications(cafeId?: string): CounterNotification[]
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY}.${cafeId}`);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as CounterNotification[];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
     return sortNotificationsNewestFirst(parsed);
   } catch (e) {
     console.warn("[loadCounterNotifications] Error loading notifications:", e);
@@ -61,10 +63,11 @@ export function loadCounterNotifications(cafeId?: string): CounterNotification[]
   }
 }
 
-export function saveCounterNotifications(cafeId: string | undefined, notifications: CounterNotification[]): void {
+export function saveCounterNotifications(cafeId: string | undefined, notifications?: CounterNotification[]): void {
   if (typeof window === "undefined" || !cafeId) return;
   try {
-    const trimmed = sortNotificationsNewestFirst(notifications).slice(0, 50);
+    const safeNotifs = Array.isArray(notifications) ? notifications : [];
+    const trimmed = sortNotificationsNewestFirst(safeNotifs).slice(0, 50);
     localStorage.setItem(`${STORAGE_KEY}.${cafeId}`, JSON.stringify(trimmed));
   } catch (e) {
     console.warn("[saveCounterNotifications] Error saving notifications:", e);
@@ -78,8 +81,8 @@ export function loadNotificationSettings(cafeId?: string): CounterNotificationSe
     if (!raw) return DEFAULT_NOTIFICATION_SETTINGS;
     const parsed = JSON.parse(raw);
     return {
-      general: { ...DEFAULT_NOTIFICATION_SETTINGS.general, ...parsed?.general },
-      eventTypes: { ...DEFAULT_NOTIFICATION_SETTINGS.eventTypes, ...parsed?.eventTypes },
+      general: { ...DEFAULT_NOTIFICATION_SETTINGS.general, ...(parsed?.general ?? {}) },
+      eventTypes: { ...DEFAULT_NOTIFICATION_SETTINGS.eventTypes, ...(parsed?.eventTypes ?? {}) },
     };
   } catch (e) {
     console.warn("[loadNotificationSettings] Error:", e);
@@ -87,10 +90,11 @@ export function loadNotificationSettings(cafeId?: string): CounterNotificationSe
   }
 }
 
-export function saveNotificationSettings(cafeId: string | undefined, settings: CounterNotificationSettings): void {
+export function saveNotificationSettings(cafeId: string | undefined, settings?: CounterNotificationSettings): void {
   if (typeof window === "undefined" || !cafeId) return;
   try {
-    localStorage.setItem(`${SETTINGS_STORAGE_KEY}.${cafeId}`, JSON.stringify(settings));
+    const safeSettings = settings ?? DEFAULT_NOTIFICATION_SETTINGS;
+    localStorage.setItem(`${SETTINGS_STORAGE_KEY}.${cafeId}`, JSON.stringify(safeSettings));
   } catch (e) {
     console.warn("[saveNotificationSettings] Error:", e);
   }
@@ -98,38 +102,41 @@ export function saveNotificationSettings(cafeId: string | undefined, settings: C
 
 export function isEventNotificationEnabled(
   type: CounterNotification['type'],
-  settings: CounterNotificationSettings
+  settings?: CounterNotificationSettings
 ): boolean {
-  if (!settings.general.enableNotifications) return false;
+  if (!settings || !settings.general || !settings.general.enableNotifications) return false;
+  const eventTypes = settings.eventTypes ?? DEFAULT_NOTIFICATION_SETTINGS.eventTypes;
 
   switch (type) {
     case 'new_order':
-      return settings.eventTypes.newOrder;
+      return eventTypes.newOrder ?? true;
     case 'order_served':
-      return settings.eventTypes.orderServed;
+      return eventTypes.orderServed ?? true;
     case 'need_water':
-      return settings.eventTypes.needWater;
+      return eventTypes.needWater ?? true;
     case 'need_bill':
-      return settings.eventTypes.needBill;
+      return eventTypes.needBill ?? true;
     case 'call_waiter':
-      return settings.eventTypes.callWaiter;
+      return eventTypes.callWaiter ?? true;
     case 'need_help':
-      return settings.eventTypes.needHelp;
+      return eventTypes.needHelp ?? true;
     default:
       return true;
   }
 }
 
-export function sortNotificationsNewestFirst(notifications: CounterNotification[]): CounterNotification[] {
+export function sortNotificationsNewestFirst(notifications?: CounterNotification[]): CounterNotification[] {
+  if (!Array.isArray(notifications)) return [];
   return [...notifications].sort((a, b) => {
-    const timeA = new Date(a.timestamp).getTime();
-    const timeB = new Date(b.timestamp).getTime();
+    const timeA = new Date(a?.timestamp || 0).getTime();
+    const timeB = new Date(b?.timestamp || 0).getTime();
     if (isNaN(timeA) || isNaN(timeB)) return 0;
     return timeB - timeA;
   });
 }
 
 export function formatRelativeTime(dateString: string, nowMs: number = Date.now()): string {
+  if (!dateString) return "Just now";
   const date = new Date(dateString);
   const startMs = date.getTime();
   if (isNaN(startMs)) return "Just now";
@@ -174,12 +181,16 @@ export function playNotificationSound(): void {
 export async function triggerBrowserNotification(title: string, body: string): Promise<void> {
   if (typeof window === "undefined" || !("Notification" in window)) return;
 
-  if (Notification.permission === "granted") {
-    new Notification(title, { body });
-  } else if (Notification.permission !== "denied") {
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
+  try {
+    if (Notification.permission === "granted") {
       new Notification(title, { body });
+    } else if (Notification.permission !== "denied") {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        new Notification(title, { body });
+      }
     }
+  } catch (e) {
+    console.warn("[triggerBrowserNotification] Error:", e);
   }
 }

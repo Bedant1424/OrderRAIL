@@ -1460,13 +1460,57 @@ const SummaryPanel = ({
   );
 };
 
-// --- NOTIFICATION CENTER DRAWER ---
+// --- NOTIFICATION CENTER ERROR BOUNDARY & DRAWER ---
+class CounterNotificationErrorBoundary extends React.Component<
+  { children: React.ReactNode; onClose: () => void },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; onClose: () => void }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error("[CounterNotificationErrorBoundary] Caught error:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end" onClick={this.props.onClose}>
+          <div className="w-full max-w-sm h-full bg-card border-l border-border p-6 flex flex-col justify-center items-center gap-4 text-center" onClick={(e) => e.stopPropagation()}>
+            <AlertCircle className="w-10 h-10 text-amber-500" />
+            <h3 className="font-bold text-sm text-foreground">Unable to load notifications.</h3>
+            <p className="text-xs text-muted-foreground">An unexpected rendering error occurred.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => this.setState({ hasError: false })}
+                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-soft"
+              >
+                Retry
+              </button>
+              <button
+                onClick={this.props.onClose}
+                className="px-4 py-2 rounded-xl bg-secondary text-foreground font-bold text-xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const CounterNotificationDrawer = ({
   isOpen,
   initialTab = 'notifications',
-  notifications,
-  settings,
-  nowMs,
+  notifications = [],
+  settings = DEFAULT_NOTIFICATION_SETTINGS,
+  nowMs = Date.now(),
   onClose,
   onMarkAllAsRead,
   onClearHistory,
@@ -1476,9 +1520,9 @@ const CounterNotificationDrawer = ({
 }: {
   isOpen: boolean;
   initialTab?: 'notifications' | 'settings';
-  notifications: CounterNotification[];
-  settings: CounterNotificationSettings;
-  nowMs: number;
+  notifications?: CounterNotification[];
+  settings?: CounterNotificationSettings;
+  nowMs?: number;
   onClose: () => void;
   onMarkAllAsRead: () => void;
   onClearHistory: () => void;
@@ -1496,14 +1540,26 @@ const CounterNotificationDrawer = ({
 
   if (!isOpen) return null;
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const safeNotifs = Array.isArray(notifications) ? notifications : [];
+  const safeSettings: CounterNotificationSettings = {
+    general: {
+      ...DEFAULT_NOTIFICATION_SETTINGS.general,
+      ...(settings?.general ?? {}),
+    },
+    eventTypes: {
+      ...DEFAULT_NOTIFICATION_SETTINGS.eventTypes,
+      ...(settings?.eventTypes ?? {}),
+    },
+  };
+
+  const unreadCount = safeNotifs.filter((n) => !n?.read).length;
 
   const toggleGeneralSetting = (key: keyof CounterNotificationSettings['general']) => {
     const updated: CounterNotificationSettings = {
-      ...settings,
+      ...safeSettings,
       general: {
-        ...settings.general,
-        [key]: !settings.general[key],
+        ...safeSettings.general,
+        [key]: !safeSettings.general[key],
       },
     };
 
@@ -1522,10 +1578,10 @@ const CounterNotificationDrawer = ({
 
   const toggleEventTypeSetting = (key: keyof CounterNotificationSettings['eventTypes']) => {
     const updated: CounterNotificationSettings = {
-      ...settings,
+      ...safeSettings,
       eventTypes: {
-        ...settings.eventTypes,
-        [key]: !settings.eventTypes[key],
+        ...safeSettings.eventTypes,
+        [key]: !safeSettings.eventTypes[key],
       },
     };
     onUpdateSettings(updated);
@@ -1615,7 +1671,7 @@ const CounterNotificationDrawer = ({
                   </div>
                   <input
                     type="checkbox"
-                    checked={settings.general.enableNotifications}
+                    checked={safeSettings.general.enableNotifications}
                     onChange={() => toggleGeneralSetting('enableNotifications')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1630,7 +1686,7 @@ const CounterNotificationDrawer = ({
                   </div>
                   <input
                     type="checkbox"
-                    checked={settings.general.enableSound}
+                    checked={safeSettings.general.enableSound}
                     onChange={() => toggleGeneralSetting('enableSound')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1643,7 +1699,7 @@ const CounterNotificationDrawer = ({
                   </div>
                   <input
                     type="checkbox"
-                    checked={settings.general.enableBrowserNotifications}
+                    checked={safeSettings.general.enableBrowserNotifications}
                     onChange={() => toggleGeneralSetting('enableBrowserNotifications')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1662,7 +1718,7 @@ const CounterNotificationDrawer = ({
                   </span>
                   <input
                     type="checkbox"
-                    checked={settings.eventTypes.newOrder}
+                    checked={safeSettings.eventTypes.newOrder}
                     onChange={() => toggleEventTypeSetting('newOrder')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1674,7 +1730,7 @@ const CounterNotificationDrawer = ({
                   </span>
                   <input
                     type="checkbox"
-                    checked={settings.eventTypes.orderServed}
+                    checked={safeSettings.eventTypes.orderServed}
                     onChange={() => toggleEventTypeSetting('orderServed')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1686,7 +1742,7 @@ const CounterNotificationDrawer = ({
                   </span>
                   <input
                     type="checkbox"
-                    checked={settings.eventTypes.needWater}
+                    checked={safeSettings.eventTypes.needWater}
                     onChange={() => toggleEventTypeSetting('needWater')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1698,7 +1754,7 @@ const CounterNotificationDrawer = ({
                   </span>
                   <input
                     type="checkbox"
-                    checked={settings.eventTypes.needBill}
+                    checked={safeSettings.eventTypes.needBill}
                     onChange={() => toggleEventTypeSetting('needBill')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1710,7 +1766,7 @@ const CounterNotificationDrawer = ({
                   </span>
                   <input
                     type="checkbox"
-                    checked={settings.eventTypes.callWaiter}
+                    checked={safeSettings.eventTypes.callWaiter}
                     onChange={() => toggleEventTypeSetting('callWaiter')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1722,7 +1778,7 @@ const CounterNotificationDrawer = ({
                   </span>
                   <input
                     type="checkbox"
-                    checked={settings.eventTypes.needHelp}
+                    checked={safeSettings.eventTypes.needHelp}
                     onChange={() => toggleEventTypeSetting('needHelp')}
                     className="w-4 h-4 rounded-md border-border accent-primary cursor-pointer"
                   />
@@ -1746,7 +1802,7 @@ const CounterNotificationDrawer = ({
 
                   <button
                     onClick={onClearHistory}
-                    disabled={notifications.length === 0}
+                    disabled={safeNotifs.length === 0}
                     className="flex-1 py-2 px-3 rounded-xl border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Clear history
@@ -1757,13 +1813,13 @@ const CounterNotificationDrawer = ({
           ) : (
             /* Notification List */
             <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-              {notifications.length === 0 ? (
+              {safeNotifs.length === 0 ? (
                 <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
                   <Bell className="w-8 h-8 text-muted-foreground/40" />
                   <span>No notifications yet.</span>
                 </div>
               ) : (
-                notifications.map((n) => {
+                safeNotifs.map((n) => {
                   const relativeTime = formatRelativeTime(n.timestamp, nowMs);
 
                   const renderNotifIcon = () => {
@@ -2884,19 +2940,23 @@ const CounterLayout = () => {
       </div>
       <StatusBar />
 
-      <CounterNotificationDrawer
-        isOpen={isNotifOpen}
-        initialTab={drawerTab}
-        notifications={notifications}
-        settings={notifSettings}
-        nowMs={nowMs}
-        onClose={() => setIsNotifOpen(false)}
-        onMarkAllAsRead={handleMarkAllAsRead}
-        onClearHistory={handleClearHistory}
-        onDismiss={handleDismissNotif}
-        onMarkAsRead={handleMarkAsRead}
-        onUpdateSettings={handleUpdateSettings}
-      />
+
+
+      <CounterNotificationErrorBoundary onClose={() => setIsNotifOpen(false)}>
+        <CounterNotificationDrawer
+          isOpen={isNotifOpen}
+          initialTab={drawerTab}
+          notifications={notifications}
+          settings={notifSettings}
+          nowMs={nowMs}
+          onClose={() => setIsNotifOpen(false)}
+          onMarkAllAsRead={handleMarkAllAsRead}
+          onClearHistory={handleClearHistory}
+          onDismiss={handleDismissNotif}
+          onMarkAsRead={handleMarkAsRead}
+          onUpdateSettings={handleUpdateSettings}
+        />
+      </CounterNotificationErrorBoundary>
 
       {/* PRINTABLE KOT SLIP */}
       {activeKot && (

@@ -29,7 +29,7 @@ export function GlobalNotificationControls() {
         aria-label="Notification center"
       >
         <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
+        {(unreadCount ?? 0) > 0 && (
           <span
             className="absolute -top-1 -right-1 flex items-center justify-center bg-destructive text-destructive-foreground"
             style={{
@@ -39,11 +39,11 @@ export function GlobalNotificationControls() {
               fontSize: "10px",
               fontWeight: 700,
               lineHeight: 1,
-              paddingLeft: unreadCount >= 10 ? "5px" : "0px",
-              paddingRight: unreadCount >= 10 ? "5px" : "0px",
+              paddingLeft: (unreadCount ?? 0) >= 10 ? "5px" : "0px",
+              paddingRight: (unreadCount ?? 0) >= 10 ? "5px" : "0px",
             }}
           >
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {(unreadCount ?? 0) > 99 ? "99+" : unreadCount}
           </span>
         )}
       </button>
