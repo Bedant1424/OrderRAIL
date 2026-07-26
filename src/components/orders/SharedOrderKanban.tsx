@@ -6,7 +6,10 @@ import {
   formatTimeElapsed,
   getNextOrderStatus,
   getOrderAging,
-  getOrderPriority
+  getOrderPriority,
+  computeDailyOrderNumbers,
+  sortOrdersByLane,
+  type OrderLane
 } from "@/lib/orders/orderUtils";
 import EditOrderDialog from "@/components/orders/EditOrderDialog";
 import { cn } from "@/lib/utils";
@@ -20,7 +23,7 @@ export interface SharedOrderKanbanProps {
   onCancelOrder?: (orderId: string) => void;
   isUpdatingStatus?: boolean;
   cafeId?: string;
-  role?: "owner" | "staff";
+  role?: "owner" | "staff" | "counter";
 }
 
 // Bug 3 Fix: Approved three-column workflow (Incoming, Preparing, Ready). History remains separate.
@@ -46,7 +49,9 @@ export default function SharedOrderKanban({
 
   const [editingOrder, setEditingOrder] = useState<(Order & { order_items: OrderItem[] }) | null>(null);
 
-  // Group active orders into 3 columns
+  const dailyOrderNumMap = useMemo(() => computeDailyOrderNumbers(orders), [orders]);
+
+  // Group active orders into 3 columns and sort each lane chronologically
   const columnsData = useMemo(() => {
     const map: Record<Order["status"], (Order & { order_items: OrderItem[] })[]> = {
       pending: [],
@@ -60,6 +65,18 @@ export default function SharedOrderKanban({
       if (map[o.status]) {
         map[o.status].push(o);
       }
+    }
+
+    const laneMap: Record<Order["status"], OrderLane> = {
+      pending: "incoming",
+      preparing: "preparing",
+      ready: "ready",
+      served: "completed",
+      cancelled: "cancelled"
+    };
+
+    for (const key of Object.keys(map) as Order["status"][]) {
+      map[key] = sortOrdersByLane(map[key], laneMap[key] ?? "incoming");
     }
 
     return map;
@@ -108,6 +125,7 @@ export default function SharedOrderKanban({
                     const aging = getOrderAging(order.created_at);
                     const priority = getOrderPriority(order);
                     const tableLabel = tableLabelMap.get(order.table_id) ?? "?";
+                    const dailyDisplayNum = dailyOrderNumMap.get(order.id) ?? order.order_number;
 
                     return (
                       <div
@@ -124,7 +142,7 @@ export default function SharedOrderKanban({
                           {/* Order Header: Order Number & Timer */}
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-display text-lg font-bold tracking-tight text-foreground truncate">
-                              {formatOrderLabel(order.order_number)}
+                              {formatOrderLabel(dailyDisplayNum)}
                             </span>
 
                             <div className={cn("inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full border shrink-0", aging.badgeStyle)}>

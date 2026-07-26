@@ -38,6 +38,7 @@ import { calculateOccupiedTables, getTableStatus } from "@/lib/tables/occupancy"
 import { markTableFreeInDb, fetchCafeTables } from "@/lib/tables/tableRepository";
 import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 import { updateOrderStatusInDb, cancelOrderInDb, fetchCafeOrders } from "@/lib/orders/repository";
+import { computeDailyOrderNumbers } from "@/lib/orders/orderUtils";
 import {
   fetchActiveServiceRequests,
   acknowledgeServiceRequestInDb,
@@ -762,6 +763,8 @@ export default function StaffDashboardPage() {
     });
   }, [srQ.data]);
 
+  const dailyOrderNumMap = useMemo(() => computeDailyOrderNumbers(ordersQ.data ?? []), [ordersQ.data]);
+
   const grouped = useMemo(() => {
     const orders = ordersQ.data ?? [];
     const serviceRequests = srQ.data ?? [];
@@ -771,7 +774,8 @@ export default function StaffDashboardPage() {
       ? orders.filter(
           (o) =>
             o.tables?.label?.toLowerCase().includes(query) ||
-            o.order_number.toString().includes(query)
+            o.order_number.toString().includes(query) ||
+            (dailyOrderNumMap.get(o.id) ?? "").toString().includes(query)
         )
       : orders;
 
@@ -1806,7 +1810,7 @@ export default function StaffDashboardPage() {
                       <StatusBadge status={selectedDrawerOrder.status} />
                     </div>
                     <SheetDescription className="text-xs text-muted-foreground">
-                      {formatOrderLabel(selectedDrawerOrder.order_number)} · Received {new Date(selectedDrawerOrder.created_at).toLocaleTimeString()}
+                      {formatOrderLabel(dailyOrderNumMap.get(selectedDrawerOrder.id) ?? selectedDrawerOrder.order_number)} · Received {new Date(selectedDrawerOrder.created_at).toLocaleTimeString()}
                     </SheetDescription>
                   </SheetHeader>
 

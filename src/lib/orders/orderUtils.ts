@@ -172,3 +172,52 @@ export function computeDailyOrderNumbers<T extends { id: string; created_at: str
 
   return resultMap;
 }
+
+/**
+ * Formats a display order number as a standard label string (e.g. "#1", "#2").
+ */
+export function formatOrderDisplayNumber(num: number): string {
+  return `#${num}`;
+}
+
+/**
+ * Resolves the unified daily display number label for an order.
+ */
+export function formatOrderLabelUnified<T extends { id: string; order_number?: number }>(
+  order: T,
+  dailyMap: Map<string, number>
+): string {
+  const dailyNum = dailyMap.get(order.id) ?? order.order_number ?? 1;
+  return `#${dailyNum}`;
+}
+
+export type OrderLane = "incoming" | "preparing" | "ready" | "completed" | "cancelled" | "history";
+
+/**
+ * Shared Authoritative Order Sorting Engine.
+ * - Incoming, Preparing, Ready: Oldest first (FIFO queue for kitchen & service).
+ * - Completed, Cancelled, History: Newest first (Sales ledger & historical view).
+ * - Tie-breaker: creation timestamp comparison, then deterministic UUID string comparison.
+ */
+export function sortOrdersByLane<T extends { id: string; created_at?: string; order_number?: number }>(
+  orders: T[],
+  lane: OrderLane
+): T[] {
+  const list = [...orders];
+
+  if (lane === "incoming" || lane === "preparing" || lane === "ready") {
+    return list.sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeA !== timeB) return timeA - timeB;
+      return a.id.localeCompare(b.id);
+    });
+  } else {
+    return list.sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return b.id.localeCompare(a.id);
+    });
+  }
+}
