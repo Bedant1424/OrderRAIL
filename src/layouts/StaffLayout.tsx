@@ -23,6 +23,8 @@ import {
   triggerNotification,
   initNotificationSystem
 } from "@/lib/notificationSystem";
+import { OperationsStatusIndicator } from "@/components/offline/OperationsStatusIndicator";
+import { DemoDevToolsPanel } from "@/components/offline/DemoDevToolsPanel";
 import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
@@ -463,6 +465,7 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
             </Link>
 
             <div className="flex items-center gap-2 text-sm">
+              <OperationsStatusIndicator />
               <Link
                 to="/staff"
                 className="hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:inline-flex"
@@ -711,6 +714,7 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
         <main className="mx-auto max-w-7xl px-4 py-6">
           <Outlet />
         </main>
+        <DemoDevToolsPanel />
       </div>
     </StaffLayoutContext.Provider>
   );

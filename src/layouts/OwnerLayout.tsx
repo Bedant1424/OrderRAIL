@@ -42,6 +42,8 @@ import {
   triggerNotification,
   initNotificationSystem
 } from "@/lib/notificationSystem";
+import { OperationsStatusIndicator } from "@/components/offline/OperationsStatusIndicator";
+import { DemoDevToolsPanel } from "@/components/offline/DemoDevToolsPanel";
 import { Switch } from "@/components/ui/switch";
 import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 
@@ -495,6 +497,7 @@ export default function OwnerLayout() {
             <span className="font-display text-sm font-semibold">{cafe?.name ?? "Owner"}</span>
           </Link>
           <div className="flex items-center gap-3">
+            <OperationsStatusIndicator />
             {/* Notification History Center */}
             <button
               ref={notificationsTriggerRef}
@@ -861,6 +864,7 @@ export default function OwnerLayout() {
         <main className="min-w-0 mx-auto w-full max-w-7xl px-4 py-6 lg:px-8 lg:py-10 print:p-0 print:max-w-none">
           <Outlet />
         </main>
+        <DemoDevToolsPanel />
       </div>
     </div>
     </OwnerLayoutContext.Provider>

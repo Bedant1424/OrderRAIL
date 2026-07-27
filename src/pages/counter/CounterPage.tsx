@@ -23,6 +23,8 @@ import { fetchActiveServiceRequests } from '@/lib/serviceRequests/repository';
 import { getSessionId } from '@/lib/session';
 import { sortTablesNatural } from '@/lib/tables/naturalTableSort';
 import { sortCounterOrders } from '@/lib/orders/sortCounterOrders';
+import { OperationsStatusIndicator } from '@/components/offline/OperationsStatusIndicator';
+import { DemoDevToolsPanel } from '@/components/offline/DemoDevToolsPanel';
 import { formatSessionElapsed } from '@/lib/tables/liveSessionTimer';
 import {
   loadCounterNotifications,
@@ -1969,7 +1971,8 @@ const StatusBar = memo(() => {
         <span className="v8-kbd-shortcut"><kbd>F8</kbd> Print</span>
         <span className="v8-kbd-shortcut"><kbd>F10</kbd> Pay Cash</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        <OperationsStatusIndicator />
         <div className="v8-sync-dot" />
         <span className="font-bold text-foreground">DINING ENGINE REALTIME OK</span>
       </div>
@@ -3067,6 +3070,7 @@ const CounterLayout = () => {
           />
         )}
       </AnimatePresence>
+      <DemoDevToolsPanel />
     </div>
   );
 };
