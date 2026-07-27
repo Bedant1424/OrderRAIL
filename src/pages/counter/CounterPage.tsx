@@ -928,7 +928,7 @@ const PaymentDialogModal = ({
   discountPct: number;
   discountAmt: number;
   session?: TableSessionData;
-  onComplete: (tenders: PaymentTenderRecord[]) => void;
+  onComplete: (tenders: PaymentTenderRecord[]) => Promise<void> | void;
   onClose: () => void;
 }) => {
   const [isSplitMode, setIsSplitMode] = useState<boolean>(false);
@@ -998,7 +998,7 @@ const PaymentDialogModal = ({
   const currentReceivedVal = parseFloat(receivedAmount) || 0;
   const cashChangeDue = Math.max(0, currentReceivedVal - currentTenderVal);
 
-  const handleAddTender = () => {
+  const handleAddTender = async () => {
     if (isSubmitting) return;
 
     if (currentTenderVal <= 0) {
@@ -1035,7 +1035,14 @@ const PaymentDialogModal = ({
 
     if (newRemaining < 0.01 || !isSplitMode) {
       setIsSubmitting(true);
-      onComplete(updatedTenders);
+      try {
+        await onComplete(updatedTenders);
+      } catch (err: any) {
+        console.error("[PaymentDialogModal] handleAddTender error:", err);
+        toast.error(err?.message || "Failed to process payment. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
       toast.success(`Recorded ${formatCurrency(currentTenderVal)} ${method.toUpperCase()} payment. Remaining balance: ${formatCurrency(newRemaining)}`);
     }
@@ -2675,7 +2682,7 @@ const CounterLayout = () => {
     };
   }));
 
-  const isExpress = tableEngine.selectedTableId === 'express';
+  const isExpress = orderSourceMode !== 'DINE_IN' || tableEngine.selectedTableId === 'express';
 
   const selectedTable = isExpress
     ? null
@@ -3085,7 +3092,7 @@ const CounterLayout = () => {
     const receipt: CompletedOrderReceipt = {
       orderId: cur.orders[0]?.orderNumber ? `OR-${cur.orders[0].orderNumber}` : `OR-${Date.now().toString().slice(-4)}`,
       sessionId: cur.sessionId,
-      tableLabel: selectedTable ? selectedTable.label : 'Express Takeaway',
+      tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
       cashierName: user?.email ? user.email.split('@')[0] : 'Sarah M.',
       timestamp: new Date().toLocaleTimeString('en-IN'),
       orders: cur.orders,
@@ -3101,7 +3108,8 @@ const CounterLayout = () => {
     console.log("[INSTRUMENT_STEP_1]", {
       sessionId: cur.sessionId,
       selectedTableId: selectedTable?.id,
-      selectedTableStatus: selectedTable?.status
+      selectedTableStatus: selectedTable?.status,
+      orderSourceMode
     });
 
     try {
@@ -3115,7 +3123,9 @@ const CounterLayout = () => {
         orderNumber: cur.orders[0]?.orderNumber || 101,
         diningSessionId: cur.sessionId,
         tableId: selectedTable?.id,
-        tableLabel: selectedTable ? selectedTable.label : 'Express Takeaway',
+        tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
+        orderSource: orderSourceMode,
+        externalOrderRef: externalOrderRef || null,
         items: summary.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
         discountPct: summary.discountPercent,
       });
@@ -3127,7 +3137,7 @@ const CounterLayout = () => {
         orderId: primaryOrderId,
         diningSessionId: cur.sessionId,
         tableId: selectedTable?.id,
-        tableLabel: selectedTable ? selectedTable.label : 'Express Takeaway',
+        tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
         paymentMethod: primaryMethod,
         amount: summary.grandTotal,
         operatorId: user?.email ? user.email.split('@')[0] : 'Counter Staff',
@@ -3136,74 +3146,58 @@ const CounterLayout = () => {
       // 3. Update order statuses to served
       const orderIds = cur.orders.map((o) => o.id);
       for (const orderId of orderIds) {
-        await OrderService.updateOrderStatus(orderId, "served", "staff");
+        try {
+          await OrderService.updateOrderStatus(orderId, "served", "staff");
+        } catch (errOrd) {
+          console.warn("[handlePaymentComplete] Order status update warning:", errOrd);
+        }
       }
+
+      // 4. Update Dine-In table status if applicable
+      if (selectedTable) {
+        try {
+          await updateTableStatusInDb(selectedTable.id, "cleaning_required", null);
+        } catch (e: any) {
+          console.warn("[handlePaymentComplete] DB table cleaning update notice:", e?.message || e);
+        }
+        try {
+          await tableEngine.markCleaning(selectedTable.id);
+        } catch (e: any) {
+          console.warn("[handlePaymentComplete] TableEngine markCleaning notice:", e?.message || e);
+        }
+      }
+
+      // 5. Close dining session if applicable
+      if (cur.sessionId && !cur.sessionId.startsWith("session-")) {
+        try {
+          await closeDiningSessionInDb(cur.sessionId);
+        } catch (e: any) {
+          console.warn("[handlePaymentComplete] DB session closure notice:", e?.message || e);
+        }
+      }
+
+      // 6. Refresh sessions and clear local session state
+      try {
+        await loadSessionsFromDb();
+      } catch (errLoad) {
+        console.warn("[handlePaymentComplete] loadSessionsFromDb notice:", errLoad);
+      }
+
+      setTableSessions((prev) => {
+        const copy = { ...prev };
+        delete copy[activeTableId];
+        return copy;
+      });
+
+      toast.success(`💰 Payment Completed! ${selectedTable ? selectedTable.label + ' needs cleaning.' : ''}`);
+      setIsPaymentOpen(false);
+      setActiveReceipt(receipt);
     } catch (e: any) {
-      console.warn("[handlePaymentComplete] PaymentService dispatch warning:", e);
+      console.error("[handlePaymentComplete] Payment completion error:", e);
+      toast.error("Payment recorded, but workspace refresh encountered an issue.");
+      setIsPaymentOpen(false);
     }
-
-    if (selectedTable) {
-      let updateRes: any = null;
-      let updateErr: any = null;
-      try {
-        updateRes = await updateTableStatusInDb(selectedTable.id, "cleaning_required", null);
-        console.log("[INSTRUMENT_STEP_2_UPDATE_SUCCESS]", { updateRes });
-      } catch (e: any) {
-        updateErr = e?.message || e;
-        console.log("[INSTRUMENT_STEP_2_UPDATE_EXCEPTION]", { updateErr });
-      }
-      await tableEngine.markCleaning(selectedTable.id);
-
-      const { data: freshDbTable, error: readErr } = await supabase
-        .from("tables")
-        .select("*")
-        .eq("id", selectedTable.id)
-        .single();
-
-      console.log("[INSTRUMENT_STEP_2_FRESH_DB_READ]", {
-        id: freshDbTable?.id,
-        status: freshDbTable?.status,
-        active_session_id: freshDbTable?.active_session_id,
-        readErr: readErr?.message || readErr
-      });
-    }
-
-    if (cur.sessionId && !cur.sessionId.startsWith("session-")) {
-      try {
-        await closeDiningSessionInDb(cur.sessionId);
-      } catch (e: any) {
-        console.warn("[handlePaymentComplete] DB session closure notice:", e?.message || e);
-        toast.info("Session payment recorded. Active kitchen tickets remain for staff review.");
-      }
-    }
-
-    await loadSessionsFromDb();
-
-    if (selectedTable) {
-      const { data: postLoadTable } = await supabase
-        .from("tables")
-        .select("*")
-        .eq("id", selectedTable.id)
-        .single();
-
-      console.log("[INSTRUMENT_STEP_3_POST_LOAD]", {
-        selectedTableId: selectedTable.id,
-        dbStatusPostLoad: postLoadTable?.status,
-        dbActiveSessionIdPostLoad: postLoadTable?.active_session_id,
-        tableSessionsForSelectedTable: tableSessions[selectedTable.id]
-      });
-    }
-
-    setTableSessions((prev) => {
-      const copy = { ...prev };
-      delete copy[activeTableId];
-      return copy;
-    });
-
-    toast.success(`💰 Session Paid & Closed! ${selectedTable ? selectedTable.label + ' needs cleaning.' : ''}`);
-    setIsPaymentOpen(false);
-    setActiveReceipt(receipt);
-  }, [activeSessionData, activeTableId, customDiscount, loadSessionsFromDb, selectedTable, tableEngine, user]);
+  }, [activeSessionData, activeTableId, customDiscount, externalOrderRef, loadSessionsFromDb, orderSourceMode, selectedTable, tableEngine, user]);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -3371,7 +3365,7 @@ const CounterLayout = () => {
             discountPct={activeBillSummary.discountPercent}
             discountAmt={activeBillSummary.discountAmount}
             session={activeSessionData}
-            onComplete={(tenders) => void handlePaymentComplete(tenders)}
+            onComplete={handlePaymentComplete}
             onClose={() => setIsPaymentOpen(false)}
           />
         )}
