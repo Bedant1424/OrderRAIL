@@ -9,7 +9,8 @@ import {
   clearAllOperations,
   type Operation,
 } from "@/lib/offline";
-import { Wrench, Wifi, WifiOff, RefreshCw, Trash2, Code, X } from "lucide-react";
+import { PrinterAdapter, type PrinterAdapterState } from "@/lib/printing/printerAdapter";
+import { Wrench, Wifi, WifiOff, RefreshCw, Trash2, Code, X, Printer, AlertTriangle, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function DemoDevToolsPanel() {
@@ -19,16 +20,29 @@ export function DemoDevToolsPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [ops, setOps] = useState<Operation[]>([]);
   const [selectedOp, setSelectedOp] = useState<Operation | null>(null);
+  const [printerState, setPrinterState] = useState<PrinterAdapterState | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       void refreshOps();
+      setPrinterState(PrinterAdapter.getStatus().simulatedState);
     }
   }, [isOpen, pendingOperationCount]);
+
+  useEffect(() => {
+    return PrinterAdapter.subscribeStatus((status) => {
+      setPrinterState(status.simulatedState);
+    });
+  }, []);
 
   const refreshOps = async () => {
     const list = await getAllOperations();
     setOps(list);
+  };
+
+  const handleSetPrinterSim = (state: PrinterAdapterState | null) => {
+    PrinterAdapter.setSimulatedState(state);
+    setPrinterState(state);
   };
 
   // Production users must NEVER see this developer panel
@@ -51,7 +65,7 @@ export function DemoDevToolsPanel() {
           )}
         </button>
       ) : (
-        <div className="w-80 sm:w-96 rounded-3xl border border-slate-700 bg-slate-900 text-slate-100 p-5 shadow-float space-y-4">
+        <div className="w-80 sm:w-96 max-h-[85vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 text-slate-100 p-5 shadow-float space-y-4">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-amber-400" />
@@ -100,8 +114,76 @@ export function DemoDevToolsPanel() {
             </div>
           </div>
 
+          {/* Printer Hardware Simulation Controls */}
+          <div className="space-y-2 border-t border-slate-800 pt-3">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Printer className="h-3.5 w-3.5 text-indigo-400" /> Printer Hardware State
+              </label>
+              {printerState && (
+                <button
+                  type="button"
+                  onClick={() => handleSetPrinterSim(null)}
+                  className="text-[10px] text-slate-400 hover:underline"
+                >
+                  Reset Real State
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => handleSetPrinterSim("CONNECTED")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-xl border py-1.5 font-semibold transition",
+                  printerState === "CONNECTED"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold"
+                    : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750"
+                )}
+              >
+                <Printer className="h-3.5 w-3.5" /> Ready / Connected
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetPrinterSim("DISCONNECTED")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-xl border py-1.5 font-semibold transition",
+                  printerState === "DISCONNECTED"
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold"
+                    : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750"
+                )}
+              >
+                <WifiOff className="h-3.5 w-3.5" /> Disconnected
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetPrinterSim("OUT_OF_PAPER")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-xl border py-1.5 font-semibold transition",
+                  printerState === "OUT_OF_PAPER"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold"
+                    : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750"
+                )}
+              >
+                <FileText className="h-3.5 w-3.5" /> Out of Paper
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetPrinterSim("ERROR")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-xl border py-1.5 font-semibold transition",
+                  printerState === "ERROR"
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold"
+                    : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750"
+                )}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" /> Hardware Fault
+              </button>
+            </div>
+          </div>
+
           {/* Queue Controls */}
-          <div className="space-y-2">
+          <div className="space-y-2 border-t border-slate-800 pt-3">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 Persistent Operations Queue ({ops.length})

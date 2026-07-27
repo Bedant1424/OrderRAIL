@@ -85,18 +85,21 @@ class OperationExecutorClass {
       console.log(`[OperationExecutor] Online: Executed operation ${op.operationType} (${op.operationId})`);
       return { operationId: op.operationId, status: "Completed", result, queued: false };
     } catch (err: any) {
-      const isNetworkError =
+      const isNetworkOrHardwareError =
         !NetworkManager.isOnline() ||
         err?.message?.toLowerCase().includes("network") ||
         err?.message?.toLowerCase().includes("failed to fetch") ||
-        err?.message?.toLowerCase().includes("offline");
+        err?.message?.toLowerCase().includes("offline") ||
+        err?.message?.toLowerCase().includes("printer") ||
+        err?.message?.toLowerCase().includes("paper") ||
+        err?.message?.toLowerCase().includes("hardware");
 
-      if (isNetworkError) {
+      if (isNetworkOrHardwareError) {
         op.status = "Queued";
-        op.error = err?.message || "Network error during online dispatch";
+        op.error = err?.message || "Hardware/Network error during online dispatch";
         await enqueueOperation(op);
         void SyncManager.refreshPendingCount();
-        console.warn(`[OperationExecutor] Online execution failed due to network error. Queued for sync: ${op.operationId}`);
+        console.warn(`[OperationExecutor] Online execution failed due to hardware/network error. Queued for sync: ${op.operationId}`);
         return { operationId: op.operationId, status: "Queued", queued: true };
       }
 

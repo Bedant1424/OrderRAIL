@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { submitOrder, flushQueue } from "../lib/orderQueue";
 import { supabase } from "../integrations/supabase/client";
+import { clearAllOperations } from "@/lib/offline";
 
 // Mock supabase client
 vi.mock("../integrations/supabase/client", () => {
@@ -15,9 +16,10 @@ describe("Offline Order Queue & Sync", () => {
   let originalOnLine: boolean;
   const KEY = "orderrail.order_queue";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     originalOnLine = navigator.onLine;
     localStorage.clear();
+    await clearAllOperations();
     vi.clearAllMocks();
   });
 

@@ -1,7 +1,7 @@
-// Offline queue for order placement. Attempts to submit; on failure or offline,
-// stores payload and flushes on `online` event.
-import { supabase } from "@/integrations/supabase/client";
+// Offline queue for order placement integrated with Operations Engine & OrderService
+import { OrderService } from "@/lib/orders/orderService";
 import { createOrderInDb } from "@/lib/orders/repository";
+import { SyncManager } from "@/lib/offline";
 
 export interface QueuedOrder {
   id: string;
@@ -36,13 +36,15 @@ function write(q: QueuedOrder[]) {
 
 export async function submitOrder(payload: Omit<QueuedOrder, "queuedAt">): Promise<{ orderId: string; queued: boolean }> {
   const full: QueuedOrder = { ...payload, queuedAt: Date.now() };
-  if (!navigator.onLine) {
-    write([...read(), full]);
-    return { orderId: full.id, queued: true };
-  }
+
   try {
-    await pushOne(full);
-    return { orderId: full.id, queued: false };
+    const res = await OrderService.createOrder(payload);
+    if (res.queued) {
+      write([...read(), full]);
+    } else {
+      write(read().filter((item) => item.id !== payload.id));
+    }
+    return { orderId: res.orderId, queued: res.queued };
   } catch (e) {
     console.warn("Order submit failed, queueing", e);
     write([...read(), full]);
@@ -56,16 +58,18 @@ async function pushOne(o: QueuedOrder) {
 
 export async function flushQueue() {
   const queue = read();
-  if (!queue.length) return;
-  const remaining: QueuedOrder[] = [];
-  for (const o of queue) {
-    try {
-      await pushOne(o);
-    } catch {
-      remaining.push(o);
+  if (queue.length > 0) {
+    const remaining: QueuedOrder[] = [];
+    for (const o of queue) {
+      try {
+        await pushOne(o);
+      } catch {
+        remaining.push(o);
+      }
     }
+    write(remaining);
   }
-  write(remaining);
+  await SyncManager.startSync();
 }
 
 export function initOfflineSync() {
@@ -73,6 +77,5 @@ export function initOfflineSync() {
   window.addEventListener("online", () => {
     void flushQueue();
   });
-  // Try on load too
   if (navigator.onLine) void flushQueue();
 }

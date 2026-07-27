@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
-import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders } from '@/lib/orders/repository';
+import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders, OrderService, BillingService, PaymentService, type PaymentMethod } from '@/lib/orders/repository';
 import { computeDailyOrderNumbers } from '@/lib/orders/orderUtils';
 import { fetchActiveServiceRequests } from '@/lib/serviceRequests/repository';
 import { getSessionId } from '@/lib/session';
@@ -77,6 +77,7 @@ export interface SessionOrder {
   status: 'PENDING' | 'ACCEPTED' | 'KOT_SENT' | 'PREPARING' | 'READY' | 'SERVED' | 'PAID' | string;
   items: CartLineItem[];
   subtotal: number;
+  syncState?: 'Pending Sync' | 'Syncing' | 'Synced' | 'Sync Failed';
 }
 
 export interface KotPrintPayload {
@@ -462,9 +463,25 @@ const OrderCard = memo(({
             <Clock className="w-3 h-3" /> {order.timestamp}
           </span>
         </div>
-        <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-extrabold border uppercase tracking-wider', getStatusBadgeClass(order.status))}>
-          {isPending ? 'NEW' : statusUpper === 'KOT_SENT' ? 'KOT SENT' : order.status.replace('_', ' ')}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {order.syncState && order.syncState !== 'Synced' && (
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-md text-[10px] font-extrabold border uppercase tracking-wider',
+                order.syncState === 'Pending Sync'
+                  ? 'bg-amber-500/20 text-amber-600 border-amber-500/30 animate-pulse'
+                  : order.syncState === 'Syncing'
+                  ? 'bg-blue-500/20 text-blue-600 border-blue-500/30'
+                  : 'bg-destructive/20 text-destructive border-destructive/30'
+              )}
+            >
+              {order.syncState}
+            </span>
+          )}
+          <span className={cn('px-2 py-0.5 rounded-md text-[10px] font-extrabold border uppercase tracking-wider', getStatusBadgeClass(order.status))}>
+            {isPending ? 'NEW' : statusUpper === 'KOT_SENT' ? 'KOT SENT' : order.status.replace('_', ' ')}
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1 py-1 border-y border-border/20 text-xs">
@@ -1195,56 +1212,46 @@ const ReceiptModal = ({
 }) => {
   const handlePrint = async () => {
     if (bill) {
-      const payload: ReceiptPrintPayloadData = {
-        type: 'RECEIPT',
-        orderId: bill.id,
-        billNumber: `Bill #${bill.bill_number}`,
-        sessionId: bill.session_id,
-        tableLabel: bill.table_id || bill.order_type,
-        cashierName: bill.cashier_id || 'Counter Staff',
-        timestamp: new Date(bill.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-        items: bill.items.map((i) => ({ id: i.id || i.item_name, name: i.item_name, price: i.unit_price, qty: i.quantity })),
-        subtotal: bill.subtotal,
-        tax: bill.cgst + bill.sgst,
-        discountPct: 0,
-        discountAmt: bill.discount,
-        netTotal: bill.grand_total,
-        tenders: [{ method: bill.payment_method.toLowerCase() as any, amount: bill.grand_total }],
-      };
-
-      const { success } = await printService.enqueue('RECEIPT', 'BILL_PRINTER', payload, { orderId: bill.id });
-      if (success) {
-        toast.success(`🖨️ Receipt for Bill #${bill.bill_number} sent to printer.`);
-      } else {
-        toast.error('❌ Failed to print receipt.');
+      try {
+        const createdBill = await BillingService.createBill({
+          billId: bill.id,
+          billNumber: bill.bill_number,
+          orderId: bill.id,
+          tableLabel: bill.table_id || bill.order_type,
+          cashierName: bill.cashier_id || 'Counter Staff',
+          items: bill.items.map((i) => ({ id: i.id || i.item_name, name: i.item_name, price: i.unit_price, qty: i.quantity })),
+        });
+        const res = await BillingService.printBill(createdBill.bill.billId);
+        if (!res.queued) {
+          toast.success(`🖨️ Receipt for Bill #${bill.bill_number} sent to printer.`);
+        } else {
+          toast.info(`⏳ Receipt for Bill #${bill.bill_number} queued for printing`);
+        }
+      } catch (e: any) {
+        toast.error(`❌ Failed to print receipt: ${e?.message || 'Error'}`);
       }
       return;
     }
 
     if (receipt) {
-      const aggregated = aggregateReceiptItems(receipt);
-      const payload: ReceiptPrintPayloadData = {
-        type: 'RECEIPT',
-        orderId: receipt.orderId,
-        billNumber: `BILL-${receipt.orderId.replace(/[^0-9]/g, '') || '101'}`,
-        sessionId: receipt.sessionId,
-        tableLabel: receipt.tableLabel,
-        cashierName: receipt.cashierName,
-        timestamp: receipt.timestamp,
-        items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
-        subtotal: receipt.subtotal,
-        tax: receipt.tax,
-        discountPct: receipt.discountPct,
-        discountAmt: receipt.discountAmt,
-        netTotal: receipt.netTotal,
-        tenders: receipt.tenders.map((t) => ({ method: t.method, amount: t.amount })),
-      };
-
-      const { success } = await printService.enqueue('RECEIPT', 'BILL_PRINTER', payload, { orderId: receipt.orderId });
-      if (success) {
-        toast.success('🖨️ Receipt sent to printer.');
-      } else {
-        toast.error('❌ Failed to print receipt.');
+      try {
+        const aggregated = aggregateReceiptItems(receipt);
+        const createdBill = await BillingService.createBill({
+          orderId: receipt.orderId,
+          orderNumber: receipt.orderId,
+          tableLabel: receipt.tableLabel,
+          cashierName: receipt.cashierName,
+          items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
+          discountPct: receipt.discountPct,
+        });
+        const res = await BillingService.printBill(createdBill.bill.billId);
+        if (!res.queued) {
+          toast.success('🖨️ Receipt sent to printer.');
+        } else {
+          toast.info('⏳ Receipt queued for printing');
+        }
+      } catch (e: any) {
+        toast.error(`❌ Failed to print receipt: ${e?.message || 'Error'}`);
       }
     }
   };
@@ -2285,6 +2292,13 @@ const CounterLayout = () => {
         sessionsMap[tId].orders.push(sessOrder);
       }
 
+      let offlineOrders: any[] = [];
+      try {
+        offlineOrders = await OrderService.getQueuedOfflineOrders();
+      } catch (errOff) {
+        console.warn("[loadSessionsFromDb] Offline order fetch warning:", errOff);
+      }
+
       setTableSessions((prev) => {
         const merged: Record<string, TableSessionData> = { ...prev };
         for (const tId of Object.keys(merged)) {
@@ -2313,6 +2327,47 @@ const CounterLayout = () => {
             draftCart: prev[tId]?.draftCart || []
           };
         }
+
+        // Merge queued offline orders
+        for (const off of offlineOrders) {
+          const tId = off.table_id || "express";
+          const sessOrder: SessionOrder = {
+            id: off.id,
+            orderNumber: 990 + (merged[tId]?.orders.length || 0) + 1,
+            timestamp: new Date(off.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            createdAt: off.created_at || new Date().toISOString(),
+            status: (off.status.toUpperCase() as any),
+            items: off.items.map((it: any) => ({
+              id: it.id || it.menu_item_id || `c-${Date.now()}`,
+              name: it.name,
+              price: it.price_cents / 100,
+              qty: it.qty,
+              notes: it.note || undefined,
+            })),
+            subtotal: off.total_cents / 100,
+            syncState: off.syncState,
+          };
+
+          if (!merged[tId]) {
+            merged[tId] = {
+              sessionId: off.dining_session_id || "",
+              sessionCode: "#S-OFFL",
+              startedAt: new Date(off.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+              startedAtTimestamp: off.created_at,
+              guestCount: 2,
+              orders: [],
+              draftCart: []
+            };
+          }
+
+          const existingIdx = merged[tId].orders.findIndex((o) => o.id === sessOrder.id);
+          if (existingIdx >= 0) {
+            merged[tId].orders[existingIdx] = sessOrder;
+          } else {
+            merged[tId].orders.push(sessOrder);
+          }
+        }
+
         return merged;
       });
 
@@ -2606,7 +2661,7 @@ const CounterLayout = () => {
   // Accept QR / New Order (Transitions status from Pending -> Preparing)
   const handleAcceptOrder = useCallback(async (orderId: string, orderNumber: number) => {
     try {
-      await updateOrderStatusInDb(orderId, "preparing", "staff");
+      await OrderService.updateOrderStatus(orderId, "preparing", "staff");
       toast.success(`✅ Order #${orderNumber} Accepted!`);
       await loadSessionsFromDb();
     } catch (e) {
@@ -2618,47 +2673,51 @@ const CounterLayout = () => {
   // Send KOT (Prints KOT slip & updates status to Preparing)
   const handleSendKotOrder = useCallback(async (order: SessionOrder, tableLabel: string) => {
     const cleanLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
-    const payload: KotPrintPayloadData = {
-      type: 'KOT',
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      tableLabel: cleanLabel,
-      timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
-    };
 
-    const { success } = await printService.enqueue('KOT', 'KOT_PRINTER', payload, { orderId: order.id });
+    try {
+      const res = await OrderService.printKot({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        kotNumber: order.orderNumber,
+        tableLabel: cleanLabel,
+        timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
+      });
 
-    if (success) {
-      try {
-        await updateOrderStatusInDb(order.id, "preparing", "staff");
+      if (!res.queued) {
+        await OrderService.updateOrderStatus(order.id, "preparing", "staff");
         toast.success(`🍳 KOT #${order.orderNumber} Printed & Sent to Kitchen!`);
-        await loadSessionsFromDb();
-      } catch (e) {
-        console.warn("[handleSendKotOrder] Error updating status:", e);
+      } else {
+        toast.info(`⏳ KOT #${order.orderNumber} Queued for Printing`);
       }
-    } else {
-      toast.error(`❌ Print Failed for KOT #${order.orderNumber}. Order status remains ACCEPTED.`);
+      await loadSessionsFromDb();
+    } catch (e: any) {
+      console.warn("[handleSendKotOrder] Error:", e);
+      toast.error(`❌ Print Failed for KOT #${order.orderNumber}: ${e?.message || 'Error'}`);
     }
   }, [loadSessionsFromDb]);
 
-  // Reprint KOT (Prints the same KOT again without modifying order status)
+  // Reprint KOT (Prints the same KOT again as a distinct operation)
   const handleReprintKotOrder = useCallback(async (order: SessionOrder, tableLabel: string) => {
     const cleanLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
-    const payload: KotPrintPayloadData = {
-      type: 'KOT',
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      tableLabel: cleanLabel,
-      timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
-    };
 
-    const { success } = await printService.enqueue('KOT', 'KOT_PRINTER', payload, { orderId: order.id });
-    if (success) {
-      toast.info(`🖨️ KOT #${order.orderNumber} Reprinted.`);
-    } else {
-      toast.error(`❌ Reprint Failed for KOT #${order.orderNumber}.`);
+    try {
+      const res = await OrderService.reprintKot(order.id, {
+        orderNumber: order.orderNumber,
+        kotNumber: order.orderNumber,
+        tableLabel: cleanLabel,
+        timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
+      });
+
+      if (!res.queued) {
+        toast.info(`🖨️ KOT #${order.orderNumber} Reprinted.`);
+      } else {
+        toast.info(`⏳ KOT #${order.orderNumber} Reprint Queued`);
+      }
+    } catch (e: any) {
+      console.warn("[handleReprintKotOrder] Error:", e);
+      toast.error(`❌ Reprint Failed for KOT #${order.orderNumber}: ${e?.message || 'Error'}`);
     }
   }, []);
 
@@ -2693,8 +2752,9 @@ const CounterLayout = () => {
     }
 
     let createdOrderId: string | null = null;
+    let isQueuedOffline = false;
     try {
-      createdOrderId = await createOrderInDb({
+      const res = await OrderService.createOrder({
         cafe_id: cafeId || '',
         table_id: selectedTable?.id || '',
         session_id: getSessionId(),
@@ -2708,12 +2768,14 @@ const CounterLayout = () => {
           qty: i.qty,
         })),
       });
+      createdOrderId = res.orderId;
+      isQueuedOffline = res.queued;
 
       if (selectedTable) {
         await tableEngine.openTable(selectedTable.id);
       }
     } catch (e) {
-      console.warn("[handleKot] Database write warning:", e);
+      console.warn("[handleKot] OrderService write warning:", e);
     }
 
     const newSessionOrder: SessionOrder = {
@@ -2722,7 +2784,8 @@ const CounterLayout = () => {
       timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
       status: 'KOT_SENT',
       items: cur.draftCart,
-      subtotal
+      subtotal,
+      syncState: isQueuedOffline ? 'Pending Sync' : 'Synced'
     };
 
     setTableSessions((prev) => ({
@@ -2832,12 +2895,41 @@ const CounterLayout = () => {
     });
 
     try {
+      const primaryOrderId = cur.orders[0]?.id || `ord-${Date.now()}`;
+      const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+      // 1. Generate & finalize bill via BillingService
+      const billRes = await BillingService.createBill({
+        billId: primaryBillId,
+        orderId: primaryOrderId,
+        orderNumber: cur.orders[0]?.orderNumber || 101,
+        diningSessionId: cur.sessionId,
+        tableId: selectedTable?.id,
+        tableLabel: selectedTable ? selectedTable.label : 'Express Takeaway',
+        items: summary.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+        discountPct: summary.discountPercent,
+      });
+
+      // 2. Record payment & settlement via PaymentService
+      const primaryMethod = (tenders[0]?.method || "cash").toLowerCase() as PaymentMethod;
+      await PaymentService.recordPayment({
+        billId: billRes.bill.billId,
+        orderId: primaryOrderId,
+        diningSessionId: cur.sessionId,
+        tableId: selectedTable?.id,
+        tableLabel: selectedTable ? selectedTable.label : 'Express Takeaway',
+        paymentMethod: primaryMethod,
+        amount: summary.grandTotal,
+        operatorId: user?.email ? user.email.split('@')[0] : 'Counter Staff',
+      });
+
+      // 3. Update order statuses to served
       const orderIds = cur.orders.map((o) => o.id);
       for (const orderId of orderIds) {
-        await updateOrderStatusInDb(orderId, "served", "staff");
+        await OrderService.updateOrderStatus(orderId, "served", "staff");
       }
-    } catch (e) {
-      console.warn("[handlePaymentComplete] Error updating order status to served:", e);
+    } catch (e: any) {
+      console.warn("[handlePaymentComplete] PaymentService dispatch warning:", e);
     }
 
     if (selectedTable) {

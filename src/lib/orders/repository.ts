@@ -1,6 +1,7 @@
 import { supabase, type Order, type OrderItem } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { validateGuestSession, touchGuestSession } from "@/lib/guestSession";
+import { OrderService } from "./orderService";
 
 const inMemoryOrders = new Map<string, { guest_session_id?: string | null; dining_session_id?: string | null; session_id?: string | null }>();
 
@@ -456,7 +457,7 @@ export async function fetchCustomerOrders(
   const combinedMap = new Map<string, OrderWithItems>();
 
   // Resolve active non-closed session ID for the table
-  let activeSessionId = diningSessionId && !diningSessionId.startsWith("session-") ? diningSessionId : null;
+  let activeSessionId = diningSessionId || null;
 
   if (!activeSessionId && tableId) {
     const { data: tableData } = await supabase
@@ -487,15 +488,17 @@ export async function fetchCustomerOrders(
     return [];
   }
 
-  // Verify that activeSessionId itself is not closed in DB
-  const { data: activeSessData } = await supabase
-    .from("dining_sessions")
-    .select("status")
-    .eq("id", activeSessionId)
-    .maybeSingle();
+  // Verify that activeSessionId itself is not closed in DB (unless explicitly passed by caller)
+  if (!diningSessionId) {
+    const { data: activeSessData } = await supabase
+      .from("dining_sessions")
+      .select("status")
+      .eq("id", activeSessionId)
+      .maybeSingle();
 
-  if (activeSessData && activeSessData.status === "closed") {
-    return [];
+    if (activeSessData && activeSessData.status === "closed") {
+      return [];
+    }
   }
 
   // 1. Fetch by dining_session_id if valid
@@ -578,9 +581,43 @@ export async function fetchCustomerOrders(
     }
   }
 
+  // Merge pending offline orders from OrderService
+  try {
+    const offlineOrders = await OrderService.getQueuedOfflineOrders();
+    for (const off of offlineOrders) {
+      const isTableMatch = off.table_id === tableId;
+      const isSessMatch = activeSessionId && off.dining_session_id === activeSessionId;
+      if ((isTableMatch || isSessMatch) && off.status !== "cancelled") {
+        combinedMap.set(off.id, {
+          id: off.id,
+          cafe_id: off.cafe_id,
+          table_id: off.table_id,
+          dining_session_id: off.dining_session_id || activeSessionId || undefined,
+          guest_session_id: off.guest_session_id || undefined,
+          session_id: off.session_id || undefined,
+          total_cents: off.total_cents,
+          note: off.note || undefined,
+          status: off.status,
+          created_at: off.created_at,
+          order_items: off.items.map((it) => ({
+            id: it.id || it.menu_item_id || `item-${Date.now()}`,
+            order_id: off.id,
+            menu_item_id: it.menu_item_id || "",
+            name: it.name,
+            price_cents: it.price_cents,
+            qty: it.qty,
+            created_at: off.created_at,
+          })),
+        } as any);
+      }
+    }
+  } catch (errOff) {
+    console.warn("[fetchCustomerOrders] Offline order merge warning:", errOff);
+  }
+
   // Filter out any order that does not match activeSessionId
   const result = Array.from(combinedMap.values()).filter(
-    (o) => o.dining_session_id === activeSessionId
+    (o) => !activeSessionId || !o.dining_session_id || o.dining_session_id === activeSessionId
   );
 
   if (import.meta.env.DEV) {
@@ -717,4 +754,9 @@ export function subscribeToOrdersChannel(
     void supabase.removeChannel(channel);
   };
 }
+
+export { OrderService } from "./orderService";
+export { BillingService, billsMap } from "../billing/billingService";
+export { PaymentService, settlementsMap, type PaymentMethod } from "../payments/paymentService";
+
 
