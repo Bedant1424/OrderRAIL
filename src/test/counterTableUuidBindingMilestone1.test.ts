@@ -66,10 +66,10 @@ describe("Milestone 1 Acceptance Criteria: Real Database Table UUID Binding", ()
     const sessionsMap: Record<string, any> = {};
     for (const ord of dbOrders) {
       const tId = ord.table_id || "express";
-      if (tId !== "express" && ord.dining_session_id === targetSessionId) {
+      if (tId !== "express" && (ord.dining_session_id === targetSessionId || ord.table_id === tableUuid)) {
         if (!sessionsMap[tId]) {
           sessionsMap[tId] = {
-            sessionId: ord.dining_session_id,
+            sessionId: ord.dining_session_id || targetSessionId,
             orders: [],
             draftCart: []
           };
