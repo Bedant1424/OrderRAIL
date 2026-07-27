@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AnalyticsService } from "@/lib/analytics/analyticsService";
+import { AnalyticsService } from "@/lib/analytics/AnalyticsService";
 import { calculateRevenueMetrics, calculateAveragePrepTime } from "@/lib/analytics/metrics";
 
 describe("Sprint 9.2.4.1 — Owner Analytics Performance Optimization Tests", () => {

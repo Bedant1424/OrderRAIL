@@ -31,7 +31,7 @@ import { formatMoney, formatOrderLabel, type Order } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { cn } from "@/lib/utils";
-import { AnalyticsService } from "@/lib/analytics/analyticsService";
+import { AnalyticsService } from "@/lib/analytics/AnalyticsService";
 
 type Range = 7 | 30 | 90;
 
