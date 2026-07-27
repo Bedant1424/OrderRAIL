@@ -2530,7 +2530,8 @@ const CounterLayout = () => {
           const combinedOrdersMap = new Map<string, SessionOrder>();
           for (const o of sess.orders) combinedOrdersMap.set(o.id, o);
           for (const o of prevOrders) {
-            if (!combinedOrdersMap.has(o.id)) combinedOrdersMap.set(o.id, o);
+            const isServed = o.status === 'SERVED' || o.status === 'PAID' || o.status === 'served' || o.status === 'paid';
+            if (!isServed && !combinedOrdersMap.has(o.id)) combinedOrdersMap.set(o.id, o);
           }
           merged[tId] = {
             ...sess,
@@ -3116,6 +3117,11 @@ const CounterLayout = () => {
       const primaryOrderId = cur.orders[0]?.id || `ord-${Date.now()}`;
       const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
+      const allItems = [
+        ...cur.orders.flatMap((o) => o.items || []),
+        ...cur.draftCart
+      ];
+
       // 1. Generate & finalize bill via BillingService
       const billRes = await BillingService.createBill({
         billId: primaryBillId,
@@ -3126,7 +3132,7 @@ const CounterLayout = () => {
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
         orderSource: orderSourceMode,
         externalOrderRef: externalOrderRef || null,
-        items: summary.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+        items: allItems.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
         discountPct: summary.discountPercent,
       });
 
