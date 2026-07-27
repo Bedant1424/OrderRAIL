@@ -2459,7 +2459,11 @@ const CounterLayout = () => {
         // Table orders MUST belong to an active non-closed dining session for that table.
         if (tId !== "express") {
           const activeSessionId = activeSessionMap.get(tId);
-          if (activeSessionId && ord.dining_session_id && ord.dining_session_id !== activeSessionId) {
+          if (!activeSessionId) {
+            // Table has no active dining session (active_session_id is NULL or session is closed)
+            continue;
+          }
+          if (ord.dining_session_id && ord.dining_session_id !== activeSessionId) {
             const isNonClosedSession = activeSessions?.some((s) => s.id === ord.dining_session_id && s.status !== "closed");
             if (!isNonClosedSession) {
               continue;
@@ -2512,33 +2516,44 @@ const CounterLayout = () => {
       }
 
       setTableSessions((prev) => {
-        const merged: Record<string, TableSessionData> = { ...prev };
-        for (const tId of Object.keys(merged)) {
-          const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || merged[tId]?.startedAtTimestamp;
-          if (!sessionsMap[tId]) {
-            merged[tId] = {
-              ...merged[tId],
-              sessionId: activeSessionMap.get(tId) || "",
-              startedAtTimestamp: sessCreatedAt,
-              orders: merged[tId]?.orders || [],
-            };
-          }
-        }
+        const merged: Record<string, TableSessionData> = {};
+
+        // 1. Process active session entries from DB
         for (const [tId, sess] of Object.entries(sessionsMap)) {
+          // If table order mode (not express) and table has no active session in DB, skip
+          if (tId !== "express" && !activeSessionMap.has(tId)) {
+            continue;
+          }
+
           const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || sess.startedAtTimestamp;
           const prevOrders = prev[tId]?.orders || [];
           const combinedOrdersMap = new Map<string, SessionOrder>();
-          for (const o of sess.orders) combinedOrdersMap.set(o.id, o);
-          for (const o of prevOrders) {
-            const isServed = o.status === 'SERVED' || o.status === 'PAID' || o.status === 'served' || o.status === 'paid';
-            if (!isServed && !combinedOrdersMap.has(o.id)) combinedOrdersMap.set(o.id, o);
+          for (const o of sess.orders) {
+            const isServedOrPaid = o.status === 'SERVED' || o.status === 'PAID' || o.status === 'served' || o.status === 'paid';
+            if (!isServedOrPaid) {
+              combinedOrdersMap.set(o.id, o);
+            }
           }
+          for (const o of prevOrders) {
+            const isServedOrPaid = o.status === 'SERVED' || o.status === 'PAID' || o.status === 'served' || o.status === 'paid';
+            if (!isServedOrPaid && !combinedOrdersMap.has(o.id)) {
+              combinedOrdersMap.set(o.id, o);
+            }
+          }
+
           merged[tId] = {
             ...sess,
             startedAtTimestamp: sessCreatedAt,
             orders: Array.from(combinedOrdersMap.values()),
             draftCart: prev[tId]?.draftCart || []
           };
+        }
+
+        // 2. Retain Express draft cart or active express orders if express key not present in sessionsMap
+        if (prev["express"] && !merged["express"]) {
+          if ((prev["express"].draftCart && prev["express"].draftCart.length > 0) || (prev["express"].orders && prev["express"].orders.length > 0)) {
+            merged["express"] = prev["express"];
+          }
         }
 
         // Merge queued offline orders
