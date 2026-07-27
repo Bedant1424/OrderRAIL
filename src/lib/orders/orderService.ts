@@ -322,13 +322,13 @@ export class OrderServiceClass {
 
     // Process operations in creation order
     for (const op of allOps) {
+      if (op.status === "Completed") continue;
+
       const syncState: OfflineOrderView["syncState"] =
         op.status === "Queued"
           ? "Pending Sync"
           : op.status === "Running"
           ? "Syncing"
-          : op.status === "Completed"
-          ? "Synced"
           : "Sync Failed";
 
       if (op.operationType === "CREATE_ORDER") {

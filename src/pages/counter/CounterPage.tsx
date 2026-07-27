@@ -2559,6 +2559,13 @@ const CounterLayout = () => {
         // Merge queued offline orders
         for (const off of offlineOrders) {
           const tId = off.table_id || "express";
+          const isServedOrPaid = off.status === 'served' || off.status === 'paid' || off.status === 'cancelled' || off.status === 'SERVED' || off.status === 'PAID' || off.status === 'CANCELLED';
+
+          // Skip merging offline order if table has no active session or if order is already served/paid/cancelled
+          if (tId !== "express" && (!activeSessionMap.has(tId) || isServedOrPaid)) {
+            continue;
+          }
+
           const sessOrder: SessionOrder = {
             id: off.id,
             orderNumber: 990 + (merged[tId]?.orders.length || 0) + 1,
