@@ -121,6 +121,8 @@ export interface CompletedOrderReceipt {
   discountAmt: number;
   netTotal: number;
   tenders: PaymentTenderRecord[];
+  customerName?: string | null;
+  customerPhone?: string | null;
 }
 
 const FALLBACK_CATALOG: CatalogItem[] = [
@@ -928,7 +930,7 @@ const PaymentDialogModal = ({
   discountPct: number;
   discountAmt: number;
   session?: TableSessionData;
-  onComplete: (tenders: PaymentTenderRecord[]) => Promise<void> | void;
+  onComplete: (tenders: PaymentTenderRecord[], customerDetails?: { customerName?: string; customerPhone?: string }) => Promise<void> | void;
   onClose: () => void;
 }) => {
   const [isSplitMode, setIsSplitMode] = useState<boolean>(false);
@@ -937,6 +939,8 @@ const PaymentDialogModal = ({
   const [tenderAmount, setTenderAmount] = useState<string>('');
   const [receivedAmount, setReceivedAmount] = useState<string>('');
   const [transactionRef, setTransactionRef] = useState<string>('');
+  const [customerName, setCustomerName] = useState<string>('');
+  const [customerPhone, setCustomerPhone] = useState<string>('');
   const [tenders, setTenders] = useState<PaymentTenderRecord[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -1016,6 +1020,14 @@ const PaymentDialogModal = ({
       return;
     }
 
+    const cleanPhone = customerPhone.trim().replace(/\D/g, '');
+    if (customerPhone.trim().length > 0 && (cleanPhone.length < 10 || cleanPhone.length > 15)) {
+      toast.error("Phone number must be between 10 and 15 digits.");
+      return;
+    }
+
+    const trimmedName = customerName.trim().slice(0, 100);
+
     const newTender: PaymentTenderRecord = {
       id: `tender-${Date.now()}`,
       method,
@@ -1036,7 +1048,10 @@ const PaymentDialogModal = ({
     if (newRemaining < 0.01 || !isSplitMode) {
       setIsSubmitting(true);
       try {
-        await onComplete(updatedTenders);
+        await onComplete(updatedTenders, {
+          customerName: trimmedName || undefined,
+          customerPhone: cleanPhone || undefined,
+        });
       } catch (err: any) {
         console.error("[PaymentDialogModal] handleAddTender error:", err);
         toast.error(err?.message || "Failed to process payment. Please try again.");
@@ -1356,6 +1371,38 @@ const PaymentDialogModal = ({
               </div>
             </div>
           )}
+
+          {/* Customer Details (Optional) */}
+          <div className="flex flex-col gap-2.5 p-3.5 bg-muted/20 rounded-xl border border-border/40 text-left mt-3">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+              <User className="w-3.5 h-3.5 text-primary" />
+              <span>Customer Details (Optional)</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Name</label>
+                <input 
+                  type="text"
+                  maxLength={100}
+                  className="h-9 px-2.5 rounded-lg border border-border bg-background text-xs font-medium outline-none focus:border-primary"
+                  placeholder="John Doe (Optional)"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                <input 
+                  type="tel"
+                  maxLength={15}
+                  className="h-9 px-2.5 rounded-lg border border-border bg-background text-xs font-medium outline-none focus:border-primary v8-font-mono"
+                  placeholder="9876543210 (Optional)"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* 4. FIXED STICKY FOOTER ACTION BUTTON */}
@@ -1505,6 +1552,16 @@ const ReceiptModal = ({
                     <span>·</span>
                     <span>{receipt?.timestamp}</span>
                   </div>
+                  {receipt?.customerName && (
+                    <div className="text-[10px] text-gray-800 mt-1 font-medium">
+                      Customer: <span className="font-bold">{receipt.customerName}</span>
+                    </div>
+                  )}
+                  {receipt?.customerPhone && (
+                    <div className="text-[10px] text-gray-800 font-medium">
+                      Phone: <span className="font-bold">{receipt.customerPhone}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5 py-2 border-b border-dashed border-gray-300 text-xs">
@@ -3104,7 +3161,10 @@ const CounterLayout = () => {
   }, [selectedTable, tableEngine]);
 
   // Complete Payment & CLOSE Active Session (Archives active session from Counter view)
-  const handlePaymentComplete = useCallback(async (tenders: PaymentTenderRecord[]) => {
+  const handlePaymentComplete = useCallback(async (
+    tenders: PaymentTenderRecord[],
+    customerDetails?: { customerName?: string; customerPhone?: string }
+  ) => {
     const cur = activeSessionData;
     const summary = BillSummaryCalculator.buildBillSummary({
       orders: cur.orders,
@@ -3125,7 +3185,9 @@ const CounterLayout = () => {
       discountPct: summary.discountPercent,
       discountAmt: summary.discountAmount,
       netTotal: summary.grandTotal,
-      tenders
+      tenders,
+      customerName: customerDetails?.customerName || null,
+      customerPhone: customerDetails?.customerPhone || null,
     };
 
     console.log("[INSTRUMENT_STEP_1]", {
@@ -3156,6 +3218,8 @@ const CounterLayout = () => {
         externalOrderRef: externalOrderRef || null,
         items: allItems.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
         discountPct: summary.discountPercent,
+        customerName: customerDetails?.customerName || null,
+        customerPhone: customerDetails?.customerPhone || null,
       });
 
       // 2. Record payment & settlement via PaymentService

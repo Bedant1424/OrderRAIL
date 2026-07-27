@@ -39,6 +39,8 @@ export interface CreateBillPayload {
   cashierName?: string;
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
   externalOrderRef?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
 }
 
 export interface BillRecord {
@@ -63,6 +65,8 @@ export interface BillRecord {
   syncState: 'Pending Sync' | 'Syncing' | 'Synced' | 'Sync Failed';
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
   externalOrderRef?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
 }
 
 export const billsMap = new Map<string, BillRecord>();
@@ -107,6 +111,8 @@ export class BillingServiceClass {
         netTotal: existing.netTotal,
         paymentStatus: existing.paymentStatus,
         isReprint: false,
+        customerName: existing.customerName,
+        customerPhone: existing.customerPhone,
       });
 
       existing.status = "Printed";
@@ -134,7 +140,11 @@ export class BillingServiceClass {
         netTotal: existing.netTotal,
         paymentStatus: existing.paymentStatus,
         isReprint: true,
+        customerName: existing.customerName,
+        customerPhone: existing.customerPhone,
       });
+      existing.syncState = "Synced";
+      billsMap.set(existing.billId, existing);
       return printRes;
     });
 
@@ -210,6 +220,8 @@ export class BillingServiceClass {
       syncState: "Pending Sync",
       orderSource: payload.orderSource || "DINE_IN",
       externalOrderRef: payload.externalOrderRef || null,
+      customerName: payload.customerName || null,
+      customerPhone: payload.customerPhone || null,
     };
 
     // Store in local memory map immediately for UI reactivity

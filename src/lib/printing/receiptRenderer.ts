@@ -32,6 +32,8 @@ export interface ReceiptRenderPayload {
   isReprint?: boolean;
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
   externalOrderRef?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
 }
 
 export function renderReceiptText(payload: ReceiptRenderPayload, widthmm: 58 | 80 = 80): string {
@@ -90,6 +92,12 @@ export function renderReceiptText(payload: ReceiptRenderPayload, widthmm: 58 | 8
     lines.push(justify(`Order #: ${payload.orderNumber}`, `Staff: ${payload.cashierName || "Counter"}`));
   }
   lines.push(justify(`Date: ${payload.timestamp}`, `Status: ${(payload.paymentStatus || "UNPAID").toUpperCase()}`));
+  if (payload.customerName) {
+    lines.push(`Customer: ${payload.customerName}`);
+  }
+  if (payload.customerPhone) {
+    lines.push(`Phone   : ${payload.customerPhone}`);
+  }
   lines.push(divider);
 
   // Items Header
