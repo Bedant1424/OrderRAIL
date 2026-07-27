@@ -9,6 +9,8 @@ import { generateUUID } from "@/lib/uuid";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
+import { resetDemoEnvironmentInDb } from "@/lib/demoReset";
+import { RefreshCw, RotateCcw } from "lucide-react";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN", "CHF"];
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
@@ -419,6 +421,44 @@ export default function OwnerSettingsPage() {
               This action is disabled in the public demo.
             </p>
           )}
+
+          {/* Demo Reset Utility */}
+          <div className="pt-4 border-t border-border/60">
+            <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <h4 className="font-display text-sm font-semibold text-foreground">One-Click Demo Environment Reset</h4>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Frees all occupied tables, clears active orders, closes dining sessions, and resets service requests for the demo environment.
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const res = await resetDemoEnvironmentInDb(cafe?.id);
+                    if (res.success) {
+                      toast.success(res.message);
+                      void refreshCafe();
+                      void qc.invalidateQueries();
+                    } else {
+                      toast.error(res.message);
+                    }
+                  } catch (e: any) {
+                    toast.error(e?.message || "Demo reset failed.");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                disabled={busy}
+                className="flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 px-4 py-2 text-xs font-bold transition-all disabled:opacity-50"
+              >
+                <RotateCcw className={cn("h-3.5 w-3.5", busy && "animate-spin")} />
+                {busy ? "Resetting Demo Environment..." : "Reset Demo Environment"}
+              </button>
+            </div>
+          </div>
         </section>
       </div>
 

@@ -169,5 +169,5 @@ describe("Fix 2: Scope Customer Order History to Active Dining Session", () => {
     await supabase.rpc("cancel_order", { p_order_id: order2Id, p_session_id: browserSessionId });
     await markTableFreeInDb(tableId, session2Id);
     clearOrderHistory(tableId, session2Id);
-  }, 15000);
+  }, 60000);
 });

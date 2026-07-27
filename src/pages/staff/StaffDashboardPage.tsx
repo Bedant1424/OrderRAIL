@@ -789,7 +789,7 @@ export default function StaffDashboardPage() {
     let doneOrders = ordersWithActivity.filter(
       (o) =>
         (o?.status === "served" || o?.status === "cancelled") &&
-        (!o?.business_date || o.business_date === todayBizDate)
+        (o?.business_date ? o.business_date === todayBizDate : o?.created_at?.slice(0, 10) === todayBizDate)
     );
 
     if (recentlyDoneFilter === "completed") {

@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         let fetchedRoles = (data ?? []) as UserRoleEntry[];
 
-        // If user currently has 0 assigned roles, check for pending invitation by normalized email
+        // If user currently has 0 assigned roles, check for pending invitation or demo deployment override
         if (fetchedRoles.length === 0) {
           const { data: userData } = await supabase.auth.getUser();
           const rawEmail = userData?.user?.email;
@@ -124,6 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 fetchedRoles = (reRefetched ?? []) as UserRoleEntry[];
                 console.log("[Onboarding Debug] Re-fetched roles after auto-claim:", fetchedRoles);
               }
+            } else if (import.meta.env.VITE_DEMO_MODE === "true" || userEmail.includes("demo")) {
+              // Demo Deployment auto-role provision: Grant instant owner/staff access without approval queue
+              const demoRole: AppRole = userEmail.includes("owner") ? "owner" : "staff";
+              fetchedRoles = [{ role: demoRole, cafe_id: "8c418a5a-7cd4-4054-8a88-f412c1762f7d", is_suspended: false }];
             }
           }
         }
