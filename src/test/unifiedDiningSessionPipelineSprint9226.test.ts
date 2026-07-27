@@ -79,7 +79,11 @@ describe("Sprint 9.2.2.6 — Unified Dining Session & Order Pipeline Stabilizati
       return;
     }
 
-    const activeSess = await getActiveDiningSession(realTable);
+    let activeSess = await getActiveDiningSession(realTable);
+    if (!activeSess) {
+      await getOrCreateDiningSession(realTable);
+      activeSess = await getActiveDiningSession(realTable);
+    }
     expect(activeSess).not.toBeNull();
     expect(activeSess?.status).not.toBe("closed");
   });

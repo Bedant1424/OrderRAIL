@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
-import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders, OrderService, BillingService, PaymentService, type PaymentMethod } from '@/lib/orders/repository';
+import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders, OrderService, BillingService, PaymentService, type PaymentMethod, type OrderSource } from '@/lib/orders/repository';
 import { computeDailyOrderNumbers } from '@/lib/orders/orderUtils';
 import { fetchActiveServiceRequests } from '@/lib/serviceRequests/repository';
 import { getSessionId } from '@/lib/session';
@@ -272,41 +272,87 @@ const TableRail = memo(({
   tableSessions, 
   nowMs, 
   selectedId, 
-  onSelect 
+  onSelect,
+  orderMode,
+  onSelectOrderMode,
+  externalOrderRef,
+  onExternalOrderRefChange
 }: { 
   tables: TableEntity[]; 
   tableSessions: Record<string, TableSessionData>; 
   nowMs: number; 
   selectedId: string | null; 
   onSelect: (id: string) => void;
+  orderMode: OrderSource;
+  onSelectOrderMode: (mode: OrderSource) => void;
+  externalOrderRef: string;
+  onExternalOrderRefChange: (val: string) => void;
 }) => {
   return (
-    <div className="v8-table-rail">
-      <button className="v8-hall-dropdown">
-        <LayoutGrid className="w-3.5 h-3.5" />
-        <span>Dining Hall</span>
-        <ChevronDown className="w-3.5 h-3.5" />
-      </button>
-
-      <div className="v8-rail-chips v8-scroll">
+    <div className="v8-table-rail flex items-center justify-between gap-3 px-3 py-1.5 border-b border-border/80 bg-card/60 overflow-x-auto">
+      <div className="flex items-center gap-1.5 shrink-0 pr-2 border-r border-border/60">
         <button 
-          className={cn('v8-table-chip', (!selectedId || selectedId === 'express') && 'v8-table-chip--selected')}
-          onClick={() => onSelect('express')}
+          type="button"
+          className={cn('v8-table-chip', orderMode === 'DINE_IN' && 'v8-table-chip--selected')}
+          onClick={() => {
+            onSelectOrderMode('DINE_IN');
+            if (tables.length > 0) onSelect(tables[0].id);
+          }}
         >
-          <span>EXPRESS SALE</span>
+          <span>🍽️ Dine-In</span>
         </button>
-
-        {tables.map((t) => (
-          <TableChip 
-            key={t.id} 
-            table={t} 
-            session={tableSessions[t.id]}
-            nowMs={nowMs}
-            isSelected={t.id === selectedId}
-            onClick={() => onSelect(t.id)}
-          />
-        ))}
+        <button 
+          type="button"
+          className={cn('v8-table-chip', orderMode === 'TAKEAWAY' && 'v8-table-chip--selected')}
+          onClick={() => onSelectOrderMode('TAKEAWAY')}
+        >
+          <span>🛍️ Takeaway</span>
+        </button>
+        <button 
+          type="button"
+          className={cn('v8-table-chip', orderMode === 'SWIGGY' && 'v8-table-chip--selected')}
+          onClick={() => onSelectOrderMode('SWIGGY')}
+        >
+          <span>🛵 Swiggy</span>
+        </button>
+        <button 
+          type="button"
+          className={cn('v8-table-chip', orderMode === 'ZOMATO' && 'v8-table-chip--selected')}
+          onClick={() => onSelectOrderMode('ZOMATO')}
+        >
+          <span>🛵 Zomato</span>
+        </button>
       </div>
+
+      {(orderMode === 'SWIGGY' || orderMode === 'ZOMATO') && (
+        <div className="flex items-center gap-1.5 shrink-0 px-2 animate-in fade-in duration-200">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            {orderMode} Ref:
+          </span>
+          <input
+            type="text"
+            placeholder="#1492"
+            value={externalOrderRef}
+            onChange={(e) => onExternalOrderRefChange(e.target.value)}
+            className="h-8 w-32 rounded-xl border border-border bg-background px-2.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-accent shadow-soft"
+          />
+        </div>
+      )}
+
+      {orderMode === 'DINE_IN' && (
+        <div className="v8-rail-chips v8-scroll flex-1">
+          {tables.map((t) => (
+            <TableChip 
+              key={t.id} 
+              table={t} 
+              session={tableSessions[t.id]}
+              nowMs={nowMs}
+              isSelected={t.id === selectedId}
+              onClick={() => onSelect(t.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -2430,6 +2476,9 @@ const CounterLayout = () => {
     };
   }, [cafeId, loadSessionsFromDb]);
 
+  const [orderSourceMode, setOrderSourceMode] = useState<OrderSource>("DINE_IN");
+  const [externalOrderRef, setExternalOrderRef] = useState<string>("");
+
   // Build database-synced tables list using real PostgreSQL table UUIDs with permanent natural sorting
   const syncedTables: TableEntity[] = sortTablesNatural((dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
     const protoT = tableEngine.tables.find((t) => t.id === dbT.id);
@@ -3046,6 +3095,10 @@ const CounterLayout = () => {
         nowMs={nowMs}
         selectedId={tableEngine.selectedTableId}
         onSelect={tableEngine.selectTable}
+        orderMode={orderSourceMode}
+        onSelectOrderMode={setOrderSourceMode}
+        externalOrderRef={externalOrderRef}
+        onExternalOrderRefChange={setExternalOrderRef}
       />
       <div className="v8-workspace">
         <MenuPanel 

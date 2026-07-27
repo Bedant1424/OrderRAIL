@@ -37,6 +37,8 @@ export interface CreateBillPayload {
   discountPct?: number;
   taxRatePct?: number; // Defaults to 5 (5% GST)
   cashierName?: string;
+  orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
+  externalOrderRef?: string | null;
 }
 
 export interface BillRecord {
@@ -59,6 +61,8 @@ export interface BillRecord {
   timestamp: string;
   createdAt: string;
   syncState: 'Pending Sync' | 'Syncing' | 'Synced' | 'Sync Failed';
+  orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
+  externalOrderRef?: string | null;
 }
 
 export const billsMap = new Map<string, BillRecord>();
@@ -204,6 +208,8 @@ export class BillingServiceClass {
       timestamp,
       createdAt: new Date().toISOString(),
       syncState: "Pending Sync",
+      orderSource: payload.orderSource || "DINE_IN",
+      externalOrderRef: payload.externalOrderRef || null,
     };
 
     // Store in local memory map immediately for UI reactivity

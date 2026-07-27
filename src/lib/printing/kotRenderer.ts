@@ -20,6 +20,8 @@ export interface KotRenderPayload {
   items: KotRenderItem[];
   notes?: string;
   isReprint?: boolean;
+  orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
+  externalOrderRef?: string | null;
 }
 
 export function renderKotText(payload: KotRenderPayload, widthmm: 58 | 80 = 80): string {
@@ -45,7 +47,19 @@ export function renderKotText(payload: KotRenderPayload, widthmm: 58 | 80 = 80):
 
   // Header
   lines.push(doubleDivider);
-  lines.push(center("*** KITCHEN ORDER TICKET ***"));
+  const source = payload.orderSource || "DINE_IN";
+  const refStr = payload.externalOrderRef ? `#${payload.externalOrderRef}` : "";
+
+  if (source === "TAKEAWAY") {
+    lines.push(center("*** TAKEAWAY KOT ***"));
+  } else if (source === "SWIGGY") {
+    lines.push(center(`*** SWIGGY KOT ${refStr} ***`.trim()));
+  } else if (source === "ZOMATO") {
+    lines.push(center(`*** ZOMATO KOT ${refStr} ***`.trim()));
+  } else {
+    lines.push(center("*** KITCHEN ORDER TICKET ***"));
+  }
+
   if (payload.isReprint) {
     lines.push(center("** REPRINT **"));
   }
@@ -53,7 +67,16 @@ export function renderKotText(payload: KotRenderPayload, widthmm: 58 | 80 = 80):
 
   // Metadata
   const rawLabel = payload.tableLabel || "Express";
-  const cleanLabel = rawLabel.toLowerCase().startsWith("table") ? rawLabel : `Table ${rawLabel}`;
+  let cleanLabel = rawLabel;
+  if (source === "TAKEAWAY") {
+    cleanLabel = "Takeaway";
+  } else if (source === "SWIGGY") {
+    cleanLabel = `Swiggy ${refStr}`.trim();
+  } else if (source === "ZOMATO") {
+    cleanLabel = `Zomato ${refStr}`.trim();
+  } else if (!rawLabel.toLowerCase().startsWith("table")) {
+    cleanLabel = `Table ${rawLabel}`;
+  }
 
   lines.push(justify(`KOT #: ${payload.kotNumber}`, `Order #: ${payload.orderNumber}`));
   lines.push(justify(`${cleanLabel}`, payload.timestamp));

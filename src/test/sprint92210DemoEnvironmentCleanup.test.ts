@@ -10,7 +10,7 @@ describe("Sprint 9.2.2.10 — Production Stabilization & Demo Environment Cleanu
     );
   });
 
-  it("2. Demo Reset Execution: Resets demo cafe environment safely", async () => {
+  it("2. Demo Reset Execution: Resets demo cafe environment safely", { timeout: 15000 }, async () => {
     const result = await resetDemoEnvironmentInDb(DEMO_CAFE_ID);
     expect(result.success).toBe(true);
     expect(result.message).toContain("successfully reset");

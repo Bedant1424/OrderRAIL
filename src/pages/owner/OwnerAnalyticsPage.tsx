@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -27,13 +27,11 @@ import {
   Sparkles,
   CheckCircle2
 } from "lucide-react";
-import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type TableRow, type Review } from "@/lib/db";
+import { formatMoney, formatOrderLabel, type Order } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { cn } from "@/lib/utils";
-import { calculateRevenueMetrics, calculateAveragePrepTime } from "@/lib/analytics/metrics";
-import { calculateOccupiedTables } from "@/lib/tables/occupancy";
-import { isOrderActive } from "@/lib/orders/orderUtils";
+import { AnalyticsService } from "@/lib/analytics/analyticsService";
 
 type Range = 7 | 30 | 90;
 
@@ -42,169 +40,55 @@ export default function OwnerAnalyticsPage() {
   const { cafe } = useCafe();
   const currency = cafe?.currency ?? "INR";
 
-  const since = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - range + 1);
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString();
-  }, [range]);
-
-  const todayStart = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString();
-  }, []);
-
-  // Fetch orders with items
-  const ordersQ = useQuery({
-    queryKey: ["owner-analytics-orders", cafe?.id, range],
+  // Priority 1 & 3: Optimized Single Pre-Aggregated Query with 5min staleTime
+  const analyticsQ = useQuery({
+    queryKey: ["owner-analytics-summary", cafe?.id, range],
     enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("*, order_items(*)")
-        .eq("cafe_id", cafe!.id)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false });
-      return (orders ?? []) as unknown as (Order & { order_items: OrderItem[] })[];
-    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache (Priority 3)
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
+    queryFn: () => AnalyticsService.fetchOwnerAnalytics(cafe!.id, range),
   });
 
-  // Fetch tables for occupancy
-  const tablesQ = useQuery({
-    queryKey: ["owner-analytics-tables", cafe?.id],
-    enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data } = await supabase.from("tables").select("*").eq("cafe_id", cafe!.id);
-      return sortTablesNatural((data ?? []) as TableRow[]);
-    },
-  });
+  const data = analyticsQ.data;
+  const isLoading = analyticsQ.isLoading && !data;
 
-  // Fetch reviews
-  const reviewsQ = useQuery({
-    queryKey: ["owner-analytics-reviews", cafe?.id],
-    enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("cafe_id", cafe!.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
-      return (data ?? []) as Review[];
-    },
-  });
-
-  // Fetch staff count
-  const staffQ = useQuery({
-    queryKey: ["owner-analytics-staff", cafe?.id],
-    enabled: !!cafe?.id,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("user_id, role")
-        .eq("cafe_id", cafe!.id);
-      return data ?? [];
-    },
-  });
-
-  const orders = ordersQ.data ?? [];
-  const tables = tablesQ.data ?? [];
-  const reviews = reviewsQ.data ?? [];
-  const staffList = staffQ.data ?? [];
-
-  const paidOrders = useMemo(() => orders.filter((o) => o.status !== "cancelled"), [orders]);
-
-  // Task 1: Refactored Revenue Model Calculations via Shared Analytics Utility
-  const rangeRevenueMetrics = useMemo(() => calculateRevenueMetrics(orders), [orders]);
-
-  const todayOrders = useMemo(() => orders.filter((o) => o.created_at >= todayStart), [orders, todayStart]);
-  const todayRevenueMetrics = useMemo(() => calculateRevenueMetrics(todayOrders), [todayOrders]);
-
-  // Task 2: Preparation Time Calculation via Shared Analytics Utility
-  const prepTimeStats = useMemo(() => calculateAveragePrepTime(orders), [orders]);
-
-  // Active / Pending orders metrics via canonical order lifecycle
-  const pendingOrders = useMemo(
-    () => orders.filter((o) => isOrderActive(o.status)),
-    [orders]
-  );
-  const readyOrders = useMemo(() => orders.filter((o) => o.status === "ready"), [orders]);
-
-  // Active Tables metrics via canonical occupancy engine
-  const activeTableCount = useMemo(() => calculateOccupiedTables(tables, orders).length, [tables, orders]);
-  const totalTables = tables.length || 1;
-  const occupancyPercentage = Math.round((activeTableCount / totalTables) * 100);
-
-  // Revenue By Day
-  const byDay = useMemo(() => {
-    const days: Record<string, { day: string; revenue: number; orders: number }> = {};
-    for (let i = range - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const k = d.toISOString().slice(0, 10);
-      days[k] = { day: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), revenue: 0, orders: 0 };
-    }
-    for (const o of paidOrders) {
-      const k = o.created_at.slice(0, 10);
-      if (days[k]) {
-        days[k].revenue += o.total_cents / 100;
-        days[k].orders += 1;
-      }
-    }
-    return Object.values(days);
-  }, [paidOrders, range]);
-
-  // Orders by Hour (Peak Hours)
-  const byHour = useMemo(() => {
-    const arr = Array.from({ length: 24 }, (_, h) => ({
-      hour: `${h.toString().padStart(2, "0")}:00`,
-      orders: 0
-    }));
-    for (const o of paidOrders) {
-      const hr = new Date(o.created_at).getHours();
-      if (arr[hr]) arr[hr].orders += 1;
-    }
-    return arr;
-  }, [paidOrders]);
-
-  // Top Peak Hour identification
-  const peakHour = useMemo(() => {
-    let max = 0;
-    let peak = "12:00";
-    for (const h of byHour) {
-      if (h.orders > max) {
-        max = h.orders;
-        peak = h.hour;
-      }
-    }
-    return { hour: peak, count: max };
-  }, [byHour]);
-
-  // Top Selling Items
-  const topItems = useMemo(() => {
-    const m = new Map<string, { name: string; qty: number; revenue: number }>();
-    for (const o of paidOrders) {
-      for (const it of o.order_items ?? []) {
-        const cur = m.get(it.name) ?? { name: it.name, qty: 0, revenue: 0 };
-        cur.qty += it.qty;
-        cur.revenue += it.qty * it.price_cents;
-        m.set(it.name, cur);
-      }
-    }
-    const sorted = [...m.values()].sort((a, b) => b.qty - a.qty).slice(0, 6);
-    const maxQty = sorted[0]?.qty || 1;
-    return sorted.map((item) => ({ ...item, percentage: Math.round((item.qty / maxQty) * 100) }));
-  }, [paidOrders]);
-
-  // Ratings calculation
-  const avgRating = useMemo(() => {
-    if (!reviews.length) return 4.9;
-    const sum = reviews.reduce((acc, r) => acc + (r.rating || 5), 0);
-    return Number((sum / reviews.length).toFixed(1));
-  }, [reviews]);
-
-  const isLoading = ordersQ.isLoading || tablesQ.isLoading;
+  // Extract Pre-aggregated Analytics Model
+  const rangeRevenueMetrics = data?.rangeRevenueMetrics ?? {
+    grossSalesCents: 0,
+    discountsCents: 0,
+    taxCents: 0,
+    netSalesCents: 0,
+    orderCount: 0,
+    averageOrderValueCents: 0,
+  };
+  const todayRevenueMetrics = data?.todayRevenueMetrics ?? {
+    grossSalesCents: 0,
+    discountsCents: 0,
+    taxCents: 0,
+    netSalesCents: 0,
+    orderCount: 0,
+    averageOrderValueCents: 0,
+  };
+  const prepTimeStats = data?.prepTimeStats ?? {
+    value: "—",
+    subtext: "Awaiting production data",
+    hasData: false,
+    averageMinutes: null,
+  };
+  const pendingOrdersCount = data?.pendingOrdersCount ?? 0;
+  const readyOrdersCount = data?.readyOrdersCount ?? 0;
+  const activeTableCount = data?.activeTableCount ?? 0;
+  const totalTables = data?.totalTables ?? 1;
+  const occupancyPercentage = data?.occupancyPercentage ?? 0;
+  const byDay = data?.byDay ?? [];
+  const byHour = data?.byHour ?? [];
+  const peakHour = data?.peakHour ?? { hour: "12:00", count: 0 };
+  const topItems = data?.topItems ?? [];
+  const recentOrders = data?.recentOrders ?? [];
+  const avgRating = data?.avgRating ?? 4.9;
+  const reviewsCount = data?.reviewsCount ?? 0;
+  const staffCount = data?.staffCount ?? 1;
 
   return (
     <div className="space-y-8 pb-12">
@@ -244,12 +128,12 @@ export default function OwnerAnalyticsPage() {
       </header>
 
       {/* Operational Alert Banner */}
-      {pendingOrders.length > 0 && (
+      {pendingOrdersCount > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/8 px-4 py-3 text-amber-950 dark:text-amber-200">
           <div className="flex items-center gap-3 text-sm font-medium">
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
             <span>
-              <strong>{pendingOrders.length} Pending Orders</strong> currently requiring kitchen or staff attention.
+              <strong>{pendingOrdersCount} Pending Orders</strong> currently requiring kitchen or staff attention.
             </span>
           </div>
           <Link
@@ -299,8 +183,8 @@ export default function OwnerAnalyticsPage() {
           isLoading={isLoading}
           icon={Clock}
           label="Pending Orders"
-          value={pendingOrders.length.toString()}
-          subtext={readyOrders.length > 0 ? `${readyOrders.length} ready to serve` : "In preparation"}
+          value={pendingOrdersCount.toString()}
+          subtext={readyOrdersCount > 0 ? `${readyOrdersCount} ready to serve` : "In preparation"}
           accentColor="text-orange-500 bg-orange-500/10"
         />
         <KpiCard
@@ -459,11 +343,11 @@ export default function OwnerAnalyticsPage() {
 
             {isLoading ? (
               <ListSkeleton />
-            ) : orders.length === 0 ? (
+            ) : recentOrders.length === 0 ? (
               <p className="py-12 text-center text-sm text-muted-foreground">No recent orders.</p>
             ) : (
               <div className="space-y-2.5">
-                {orders.slice(0, 5).map((o) => (
+                {recentOrders.map((o) => (
                   <Link
                     key={o.id}
                     to={`/owner/orders?tab=live&orderId=${o.id}`}
@@ -475,7 +359,7 @@ export default function OwnerAnalyticsPage() {
                       </span>
                       <div>
                         <div className="font-semibold text-foreground">
-                          Table {tables.find((t) => t.id === o.table_id)?.label ?? "?"}
+                          Table {o.table_label}
                         </div>
                         <div className="text-[10px] text-muted-foreground">
                           {new Date(o.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -512,7 +396,7 @@ export default function OwnerAnalyticsPage() {
 
           <div className="grid grid-cols-3 gap-3 text-center py-2">
             <div className="rounded-2xl bg-secondary/30 p-3">
-              <div className="font-display text-xl font-bold">{reviews.length}</div>
+              <div className="font-display text-xl font-bold">{reviewsCount}</div>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Reviews Received</div>
             </div>
             <div className="rounded-2xl bg-secondary/30 p-3">
@@ -544,7 +428,7 @@ export default function OwnerAnalyticsPage() {
                 <Users className="h-5 w-5" />
               </div>
               <div>
-                <div className="font-display text-lg font-bold">{staffList.length || 1}</div>
+                <div className="font-display text-lg font-bold">{staffCount}</div>
                 <div className="text-xs text-muted-foreground">Active Members</div>
               </div>
             </div>

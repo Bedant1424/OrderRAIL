@@ -30,6 +30,8 @@ export interface ReceiptRenderPayload {
   tenders?: { method: string; amount: number }[];
   paymentStatus?: 'unpaid' | 'paid' | 'voided';
   isReprint?: boolean;
+  orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
+  externalOrderRef?: string | null;
 }
 
 export function renderReceiptText(payload: ReceiptRenderPayload, widthmm: 58 | 80 = 80): string {
@@ -68,10 +70,22 @@ export function renderReceiptText(payload: ReceiptRenderPayload, widthmm: 58 | 8
   }
 
   // Bill & Order Metadata
+  const source = payload.orderSource || "DINE_IN";
+  const refStr = payload.externalOrderRef ? `#${payload.externalOrderRef}` : "";
   const rawLabel = payload.tableLabel || "Express";
-  const cleanLabel = rawLabel.toLowerCase().startsWith("table") ? rawLabel : `Table ${rawLabel}`;
+  let cleanLabel = rawLabel;
 
-  lines.push(justify(`INVOICE #: ${payload.billNumber}`, `Table: ${cleanLabel}`));
+  if (source === "TAKEAWAY") {
+    cleanLabel = "Takeaway";
+  } else if (source === "SWIGGY") {
+    cleanLabel = `Swiggy ${refStr}`.trim();
+  } else if (source === "ZOMATO") {
+    cleanLabel = `Zomato ${refStr}`.trim();
+  } else if (!rawLabel.toLowerCase().startsWith("table")) {
+    cleanLabel = `Table ${rawLabel}`;
+  }
+
+  lines.push(justify(`INVOICE #: ${payload.billNumber}`, `Ref: ${cleanLabel}`));
   if (payload.orderNumber) {
     lines.push(justify(`Order #: ${payload.orderNumber}`, `Staff: ${payload.cashierName || "Counter"}`));
   }

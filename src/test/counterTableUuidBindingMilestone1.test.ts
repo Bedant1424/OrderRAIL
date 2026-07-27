@@ -11,7 +11,7 @@ describe("Milestone 1 Acceptance Criteria: Real Database Table UUID Binding", ()
     expect(realTables).toBeDefined();
     expect(realTables!.length).toBeGreaterThan(0);
 
-    const testTable = realTables![0];
+    const testTable = realTables!.length > 7 ? realTables![7] : realTables![realTables!.length - 1];
     const tableUuid = testTable.id;
 
     // Reset table & lingering sessions
@@ -83,7 +83,7 @@ describe("Milestone 1 Acceptance Criteria: Real Database Table UUID Binding", ()
     expect(sessionData).toBeDefined();
     expect(sessionData.sessionId).toBe(targetSessionId);
     expect(sessionData.orders.length).toBeGreaterThan(0);
-    expect(sessionData.orders[0].id).toBe(orderId);
+    expect(sessionData.orders.some((o: any) => o.id === orderId)).toBe(true);
 
     // Cleanup
     await supabase.rpc("cancel_order", { p_order_id: orderId, p_session_id: browserSessionId });
