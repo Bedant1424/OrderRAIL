@@ -2,13 +2,75 @@ import qz from "qz-tray";
 import type { Printer, PrinterDriverType } from "./types";
 import { ConnectionFailed, PrinterNotFound, PrintFailed } from "./types";
 import { PRINTING_CONSTANTS, ESC_POS } from "./constants";
+import { getCertificate } from "./security/certificate";
+import { signMessage } from "./security/signature";
 
 export class QZTrayPrinter implements Printer {
   public readonly driverType: PrinterDriverType = "QZ_TRAY";
   private reconnecting = false;
 
   constructor() {
+    this.setupSecurityPromises();
     this.setupAutoReconnect();
+  }
+
+  /**
+   * Configures QZ Tray security certificate, signature, and algorithm promises.
+   */
+  private setupSecurityPromises(): void {
+    console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit 1 & 3] Checking qz.security availability:`, !!qz?.security);
+
+    if (!qz?.security) {
+      console.error(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit 3 FAIL] qz.security is NOT available at runtime!`);
+      return;
+    }
+
+    try {
+      // 1. Set Signature Algorithm to SHA256 (QZ Tray 2.2+ default is SHA1 unless overridden)
+      if (typeof qz.security.setSignatureAlgorithm === "function") {
+        qz.security.setSignatureAlgorithm("SHA256");
+        console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit] Signature algorithm set to SHA256. Active algorithm:`, qz.security.getSignatureAlgorithm());
+      } else {
+        console.warn(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit] setSignatureAlgorithm method missing on qz.security.`);
+      }
+
+      // 2. Register Certificate Promise
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit 4] Registering setCertificatePromise...`);
+      qz.security.setCertificatePromise((resolve: (cert: string) => void, reject: (reason: any) => void) => {
+        console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} Certificate callback entered`);
+        try {
+          const cert = getCertificate();
+          console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} Certificate returned (length: ${cert?.length || 0}):`, cert ? cert.substring(0, 40) + "..." : "EMPTY");
+          resolve(cert);
+        } catch (err: any) {
+          console.error(`${PRINTING_CONSTANTS.LOG_PREFIX} Certificate callback exception:`, err);
+          reject(err);
+        }
+      });
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit 4 SUCCESS] setCertificatePromise registered successfully.`);
+
+      // 3. Register Signature Promise
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit 5] Registering setSignaturePromise...`);
+      qz.security.setSignaturePromise((toSign: string) => {
+        return (resolve: (signature: string) => void, reject: (reason: any) => void) => {
+          console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} Signature callback entered`);
+          console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} Message to sign:`, toSign);
+          signMessage(toSign)
+            .then((sig) => {
+              console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} Signature generated (length: ${sig?.length || 0}):`, sig ? sig.substring(0, 30) + "..." : "EMPTY");
+              console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} Signature length:`, sig?.length || 0);
+              resolve(sig);
+            })
+            .catch((err: any) => {
+              console.error(`${PRINTING_CONSTANTS.LOG_PREFIX} Signature callback exception stack trace:`, err?.stack || err);
+              reject(err);
+            });
+        };
+      });
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit 5 SUCCESS] setSignaturePromise registered successfully.`);
+    } catch (err: any) {
+      console.error(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit FAIL] Exception during setupSecurityPromises:`, err?.stack || err);
+    }
   }
 
   /**
@@ -66,6 +128,8 @@ export class QZTrayPrinter implements Printer {
 
     console.group(`${PRINTING_CONSTANTS.LOG_PREFIX} Connecting to QZ Tray`);
     try {
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} [FORENSIC Audit 2] Guaranteeing setupSecurityPromises before qz.websocket.connect()...`);
+      this.setupSecurityPromises();
       await qz.websocket.connect({ retries: 2, delay: 1 });
       console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Tray WebSocket active.`);
     } catch (error: any) {
