@@ -38,6 +38,7 @@ const StaffDashboardPage = lazy(() => import("./pages/staff/StaffDashboardPage")
 const OwnerLayout = lazy(() => import("./layouts/OwnerLayout"));
 const OwnerAnalyticsPage = lazy(() => import("./pages/owner/OwnerAnalyticsPage"));
 const OwnerOrdersPage = lazy(() => import("./pages/owner/OwnerOrdersPage"));
+const OwnerInvoicesPage = lazy(() => import("./pages/owner/OwnerInvoicesPage"));
 const OwnerCustomersPage = lazy(() => import("./pages/owner/OwnerCustomersPage"));
 const OwnerMenuPage = lazy(() => import("./pages/owner/OwnerMenuPage"));
 const OwnerTablesPage = lazy(() => import("./pages/owner/OwnerTablesPage"));
@@ -113,6 +114,7 @@ const App = () => {
                   <Route path="/owner" element={<OwnerLayout />}>
                     <Route index element={<OwnerAnalyticsPage />} />
                     <Route path="orders" element={<OwnerOrdersPage />} />
+                    <Route path="invoices" element={<OwnerInvoicesPage />} />
                     <Route path="customers" element={<OwnerCustomersPage />} />
                     <Route path="menu" element={<OwnerMenuPage />} />
                     <Route path="tables" element={<OwnerTablesPage />} />
