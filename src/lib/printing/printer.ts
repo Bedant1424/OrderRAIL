@@ -54,6 +54,42 @@ export class PrintService implements Printer {
     return this.driver.connect();
   }
 
+  public async autoConnect(): Promise<boolean> {
+    return this.driver.autoConnect();
+  }
+
+  /**
+   * Restores the last-used printer from localStorage or default printer if available
+   */
+  public async getRestoredPrinter(): Promise<string | null> {
+    const lastUsed = typeof localStorage !== "undefined"
+      ? localStorage.getItem(PRINTING_CONSTANTS.LAST_USED_PRINTER_KEY)
+      : null;
+
+    if (this.isConnected()) {
+      try {
+        const available = await this.listPrinters();
+        if (lastUsed && available.includes(lastUsed)) {
+          return lastUsed;
+        }
+        const def = await this.getDefaultPrinter();
+        return def || available[0] || null;
+      } catch {
+        return lastUsed || null;
+      }
+    }
+    return lastUsed || null;
+  }
+
+  /**
+   * Persists the selected printer as last-used in localStorage
+   */
+  public setLastUsedPrinter(printerName: string): void {
+    if (typeof localStorage !== "undefined" && printerName) {
+      localStorage.setItem(PRINTING_CONSTANTS.LAST_USED_PRINTER_KEY, printerName);
+    }
+  }
+
   public async disconnect(): Promise<void> {
     return this.driver.disconnect();
   }

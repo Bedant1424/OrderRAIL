@@ -141,6 +141,24 @@ export class QZTrayPrinter implements Printer {
     }
   }
 
+  /**
+   * Silently detects whether QZ Tray Desktop is running and auto-establishes the WebSocket connection.
+   */
+  public async autoConnect(): Promise<boolean> {
+    if (this.isConnected()) return true;
+
+    console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} Detecting QZ Tray desktop application status on startup...`);
+    try {
+      this.setupSecurityPromises();
+      await qz.websocket.connect({ retries: 0, delay: 0.2 });
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Tray detected and auto-connected successfully.`);
+      return true;
+    } catch {
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Tray desktop app is not running locally. Auto-connect skipped.`);
+      return false;
+    }
+  }
+
   public async disconnect(): Promise<void> {
     if (!this.isConnected()) return;
 

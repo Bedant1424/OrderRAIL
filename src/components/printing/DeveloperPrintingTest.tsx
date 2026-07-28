@@ -57,7 +57,11 @@ export const DeveloperPrintingTest: React.FC = () => {
         setDefaultPrinter(def);
         const list = await printService.listPrinters();
         setPrintersList(list);
-        if (!selectedPrinter && (def || list[0])) {
+        
+        const restored = await printService.getRestoredPrinter();
+        if (restored) {
+          setSelectedPrinter(restored);
+        } else if (def || list[0]) {
           setSelectedPrinter(def || list[0]);
         }
       } else {
@@ -69,11 +73,45 @@ export const DeveloperPrintingTest: React.FC = () => {
     } finally {
       setLoadingAction(null);
     }
-  }, [selectedPrinter]);
-
-  useEffect(() => {
-    void refreshStatus();
   }, []);
+
+  // Startup auto-detection of QZ Tray & printer restoration
+  useEffect(() => {
+    const initStartup = async () => {
+      setLoadingAction("refresh");
+      try {
+        setDriverName(printService.driverType);
+        // Automatically detect if QZ Tray Desktop is running and connect WebSocket
+        const autoConnected = await printService.autoConnect();
+        setIsConnected(autoConnected);
+
+        if (autoConnected) {
+          const def = await printService.getDefaultPrinter();
+          setDefaultPrinter(def);
+          const list = await printService.listPrinters();
+          setPrintersList(list);
+          
+          const restored = await printService.getRestoredPrinter();
+          if (restored) {
+            setSelectedPrinter(restored);
+          } else if (def || list[0]) {
+            setSelectedPrinter(def || list[0]);
+          }
+        }
+      } catch (err: any) {
+        console.warn("[Printing] Startup auto-connect notice:", err);
+      } finally {
+        setLoadingAction(null);
+      }
+    };
+
+    void initStartup();
+  }, []);
+
+  const handleSelectPrinter = (printerName: string) => {
+    setSelectedPrinter(printerName);
+    printService.setLastUsedPrinter(printerName);
+  };
 
   const handleFriendlyError = (err: unknown) => {
     let friendlyMessage = "An unexpected error occurred during printer operation.";
@@ -133,6 +171,9 @@ export const DeveloperPrintingTest: React.FC = () => {
     setLastError(null);
     try {
       const target = selectedPrinter || defaultPrinter || undefined;
+      if (target) {
+        printService.setLastUsedPrinter(target);
+      }
       await printService.printTest(target);
       const timestamp = new Date().toLocaleTimeString();
       const resMsg = `Signed test receipt successfully printed on "${target || 'Default Printer'}" at ${timestamp}`;
@@ -279,7 +320,7 @@ export const DeveloperPrintingTest: React.FC = () => {
                     <button
                       key={p}
                       type="button"
-                      onClick={() => setSelectedPrinter(p)}
+                      onClick={() => handleSelectPrinter(p)}
                       className={cn(
                         "w-full text-left p-2 rounded-xl text-xs font-mono transition flex items-center justify-between border cursor-pointer",
                         selectedPrinter === p

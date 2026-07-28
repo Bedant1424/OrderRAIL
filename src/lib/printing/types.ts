@@ -51,6 +51,7 @@ export type PrinterDriverType = "QZ_TRAY" | "LAN" | "USB" | "CLOUD";
 export interface Printer {
   readonly driverType: PrinterDriverType;
   connect(): Promise<void>;
+  autoConnect(): Promise<boolean>;
   disconnect(): Promise<void>;
   listPrinters(): Promise<string[]>;
   getDefaultPrinter(): Promise<string | null>;
