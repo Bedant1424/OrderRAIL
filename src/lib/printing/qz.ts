@@ -2,13 +2,45 @@ import qz from "qz-tray";
 import type { Printer, PrinterDriverType } from "./types";
 import { ConnectionFailed, PrinterNotFound, PrintFailed } from "./types";
 import { PRINTING_CONSTANTS, ESC_POS } from "./constants";
+import { getCertificate } from "./security/certificate";
+import { signMessage } from "./security/signature";
 
 export class QZTrayPrinter implements Printer {
   public readonly driverType: PrinterDriverType = "QZ_TRAY";
   private reconnecting = false;
 
   constructor() {
+    this.setupSecurityPromises();
     this.setupAutoReconnect();
+  }
+
+  /**
+   * Configures QZ Tray security certificate and signature promises.
+   */
+  private setupSecurityPromises(): void {
+    if (!qz?.security) return;
+
+    try {
+      qz.security.setCertificatePromise((resolve: (cert: string) => void, reject: (reason: any) => void) => {
+        try {
+          const cert = getCertificate();
+          resolve(cert);
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      qz.security.setSignaturePromise((toSign: string) => {
+        return (resolve: (signature: string) => void, reject: (reason: any) => void) => {
+          signMessage(toSign)
+            .then((sig) => resolve(sig))
+            .catch((err) => reject(err));
+        };
+      });
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Tray security promises configured.`);
+    } catch (err) {
+      console.warn(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Security configuration warning:`, err);
+    }
   }
 
   /**
