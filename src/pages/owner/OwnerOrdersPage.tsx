@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -21,7 +21,11 @@ import {
   Timer,
   AlertCircle,
   CheckCircle2,
-  Users
+  Users,
+  ShoppingBag,
+  DollarSign,
+  TrendingUp,
+  XCircle,
 } from "lucide-react";
 import { supabase, formatMoney, formatOrderLabel, type Order, type OrderItem, type TableRow } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
@@ -34,6 +38,7 @@ import { generateOrdersCSV } from "@/lib/orders/csvExporter";
 import { useOrders } from "@/lib/orders/useOrders";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { OrderRailDateRangePicker, formatDateDDMMYYYY } from "@/components/ui/OrderRailDateRangePicker";
 
 import { fetchCafeTables } from "@/lib/tables/tableRepository";
 
@@ -80,6 +85,8 @@ export default function OwnerOrdersPage() {
   const [isMonthOpen, setIsMonthOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const customRangeRef = useRef<HTMLButtonElement>(null);
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") ?? "");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
@@ -606,8 +613,8 @@ export default function OwnerOrdersPage() {
               </div>
             </div>
 
-            {/* Quick Presets Chips */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            {/* Quick Presets Chips + Custom Range Trigger */}
+            <div className="flex flex-wrap items-center gap-2">
               {[
                 { id: "today", label: "Today" },
                 { id: "yesterday", label: "Yesterday" },
@@ -623,8 +630,7 @@ export default function OwnerOrdersPage() {
                   key={chip.id}
                   onClick={() => {
                     handlePresetSelect(chip.id as DatePresetKey);
-                    setIsMonthOpen(false);
-                    setIsYearOpen(false);
+                    setIsPickerOpen(false);
                     setIsSortOpen(false);
                   }}
                   className={cn(
@@ -637,113 +643,115 @@ export default function OwnerOrdersPage() {
                   {chip.label}
                 </button>
               ))}
+
+              {/* Floating Date Range Picker Trigger Button */}
+              <div className="relative">
+                <button
+                  ref={customRangeRef}
+                  onClick={() => {
+                    setIsPickerOpen((prev) => !prev);
+                    setIsSortOpen(false);
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs h-8 active:scale-95",
+                    preset === "custom" || isPickerOpen
+                      ? "bg-primary text-primary-foreground border-primary font-bold shadow-soft"
+                      : "border-primary/40 bg-background text-foreground hover:bg-primary/5 hover:border-primary"
+                  )}
+                >
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  <span>
+                    📅 {preset === "custom" && customStartDate ? activeRangeLabel : "Custom Range"}
+                  </span>
+                </button>
+
+                {/* Floating Date Range Picker Component */}
+                <OrderRailDateRangePicker
+                  open={isPickerOpen}
+                  onClose={() => setIsPickerOpen(false)}
+                  triggerRef={customRangeRef}
+                  initialStartDate={customStartDate}
+                  initialEndDate={customEndDate}
+                  initialPreset={preset}
+                  onApply={(sDate, eDate, pKey) => {
+                    setPreset(pKey);
+                    if (sDate) {
+                      setCustomStartDate(sDate);
+                      setCustomEndDate(eDate || sDate);
+                    } else {
+                      setCustomStartDate("");
+                      setCustomEndDate("");
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Compact Reporting Analytics Strip */}
+          <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <ShoppingBag className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Orders</span>
+                  <span className="font-display font-bold text-foreground tabular-nums text-sm">{filteredOrders.length}</span>
+                </div>
+              </div>
+
+              <div className="h-6 w-[1px] bg-border/60 hidden sm:block" />
+
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <DollarSign className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Revenue</span>
+                  <span className="font-display font-bold text-emerald-600 dark:text-emerald-400 tabular-nums text-sm">{formatMoney(summary.totalRevenue || 0, currency)}</span>
+                </div>
+              </div>
+
+              <div className="h-6 w-[1px] bg-border/60 hidden sm:block" />
+
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Avg Order Value</span>
+                  <span className="font-display font-bold text-primary tabular-nums text-sm">{formatMoney(aovCents, currency)}</span>
+                </div>
+              </div>
+
+              <div className="h-6 w-[1px] bg-border/60 hidden sm:block" />
+
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Completed</span>
+                  <span className="font-display font-bold text-foreground tabular-nums text-sm">{summary.completedCount}</span>
+                </div>
+              </div>
+
+              <div className="h-6 w-[1px] bg-border/60 hidden sm:block" />
+
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-destructive/10 text-destructive">
+                  <XCircle className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Cancelled</span>
+                  <span className="font-display font-bold text-destructive tabular-nums text-sm">{summary.cancelledCount || 0}</span>
+                </div>
+              </div>
             </div>
 
-            <hr className="border-border/40" />
-
-            {/* Secondary Selectors (Month, Year, Custom Range) */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* OrderRail Styled Month Selector */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setIsMonthOpen((prev) => !prev);
-                    setIsYearOpen(false);
-                    setIsSortOpen(false);
-                  }}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs h-9",
-                    selectedMonth
-                      ? "border-primary/40 bg-primary/10 text-primary"
-                      : "border-border/60 bg-background text-foreground hover:bg-muted/50"
-                  )}
-                >
-                  <Calendar className="h-3.5 w-3.5 text-primary" />
-                  <span>{selectedMonth ? monthOptions.find((m) => m.value === selectedMonth)?.label : "Month"}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-
-                {isMonthOpen && (
-                  <div className="absolute left-0 mt-2 z-50 w-52 rounded-2xl border border-border/80 bg-popover p-1.5 shadow-xl space-y-0.5 max-h-60 overflow-y-auto">
-                    {monthOptions.map((m) => (
-                      <button
-                        key={m.value}
-                        onClick={() => {
-                          handleMonthSelect(m.value);
-                          setIsMonthOpen(false);
-                        }}
-                        className={cn(
-                          "w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer text-left",
-                          selectedMonth === m.value
-                            ? "bg-primary text-primary-foreground font-semibold"
-                            : "text-foreground hover:bg-muted"
-                        )}
-                      >
-                        <span>{m.label}</span>
-                        {selectedMonth === m.value && <CheckCircle2 className="h-3.5 w-3.5" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* OrderRail Styled Year Selector */}
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setIsYearOpen((prev) => !prev);
-                    setIsMonthOpen(false);
-                    setIsSortOpen(false);
-                  }}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs h-9",
-                    selectedYear
-                      ? "border-primary/40 bg-primary/10 text-primary"
-                      : "border-border/60 bg-background text-foreground hover:bg-muted/50"
-                  )}
-                >
-                  <Calendar className="h-3.5 w-3.5 text-primary" />
-                  <span>{selectedYear ? `Year ${selectedYear}` : "Year"}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-
-                {isYearOpen && (
-                  <div className="absolute left-0 mt-2 z-50 w-36 rounded-2xl border border-border/80 bg-popover p-1.5 shadow-xl space-y-0.5">
-                    {yearOptions.map((y) => (
-                      <button
-                        key={y}
-                        onClick={() => {
-                          handleYearSelect(y);
-                          setIsYearOpen(false);
-                        }}
-                        className={cn(
-                          "w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer text-left",
-                          selectedYear === y
-                            ? "bg-primary text-primary-foreground font-semibold"
-                            : "text-foreground hover:bg-muted"
-                        )}
-                      >
-                        <span>Year {y}</span>
-                        {selectedYear === y && <CheckCircle2 className="h-3.5 w-3.5" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Custom Range Button */}
-              <button
-                onClick={() => {
-                  toast.info("Custom Date Range Picker coming in the next update.");
-                  setIsMonthOpen(false);
-                  setIsYearOpen(false);
-                  setIsSortOpen(false);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-2xl border border-primary/40 bg-background px-3.5 py-1.5 text-xs font-semibold text-foreground transition-all duration-150 cursor-pointer shadow-xs hover:bg-primary/5 hover:border-primary active:scale-95 h-9"
-              >
-                <Calendar className="h-3.5 w-3.5 text-primary" />
-                <span>📅 Custom Range</span>
-              </button>
+            <div className="text-xs text-muted-foreground font-medium">
+              Report: <span className="font-bold text-foreground">{activeRangeLabel}</span>
             </div>
           </div>
 
