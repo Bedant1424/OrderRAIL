@@ -62,6 +62,7 @@ import {
   getTodayOpenStatus,
 } from "@/lib/billing/operationsSettings";
 import { LiveOperationsPreview } from "@/components/billing/LiveOperationsPreview";
+import { DeveloperPrintingTest } from "@/components/printing/DeveloperPrintingTest";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN", "CHF"];
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
@@ -1986,12 +1987,20 @@ export default function OwnerSettingsPage() {
             </div>
           )}
 
+          {/* ADVANCED / DEVELOPER TOOLS SECTION */}
+          {activeSection === "advanced" && (
+            <div className="space-y-6">
+              <DeveloperPrintingTest />
+            </div>
+          )}
+
           {/* PLACEHOLDER SECTIONS FOR OTHER CONFIGURATIONS */}
           {activeSection !== "business_profile" &&
             activeSection !== "receipts_billing" &&
             activeSection !== "taxes" &&
             activeSection !== "payments" &&
-            activeSection !== "operations" && (
+            activeSection !== "operations" &&
+            activeSection !== "advanced" && (
               <div className="rounded-3xl bg-card p-12 shadow-soft ring-1 ring-border/60 text-center space-y-4">
                 <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
                   <activeDef.icon className="h-7 w-7" />

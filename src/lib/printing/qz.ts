@@ -15,14 +15,20 @@ export class QZTrayPrinter implements Printer {
    * Sets up QZ Tray connection error handlers to auto-reconnect if dropped.
    */
   private setupAutoReconnect(): void {
-    qz.websocket.setClosedCallback((evt: any) => {
-      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Tray connection closed:`, evt);
-      void this.attemptAutoReconnect();
-    });
+    if (!qz?.websocket) return;
 
-    qz.websocket.setErrorCallback((evt: any) => {
-      console.error(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Tray error:`, evt);
-    });
+    if (typeof qz.websocket.setClosedCallback === "function") {
+      qz.websocket.setClosedCallback((evt: any) => {
+        console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Tray connection closed:`, evt);
+        void this.attemptAutoReconnect();
+      });
+    }
+
+    if (typeof qz.websocket.setErrorCallback === "function") {
+      qz.websocket.setErrorCallback((evt: any) => {
+        console.error(`${PRINTING_CONSTANTS.LOG_PREFIX} QZ Tray error:`, evt);
+      });
+    }
   }
 
   private async attemptAutoReconnect(): Promise<void> {
