@@ -7,6 +7,7 @@ import {
   CheckSquare,
   Square,
   ChevronRight,
+  ChevronDown,
   X,
   Clock,
   Utensils,
@@ -75,6 +76,8 @@ export default function OwnerOrdersPage() {
   const [customEndDate, setCustomEndDate] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("");
+  const [isMonthOpen, setIsMonthOpen] = useState(false);
+  const [isYearOpen, setIsYearOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") ?? "");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
@@ -506,99 +509,6 @@ export default function OwnerOrdersPage() {
         </div>
       </header>
 
-      {/* Advanced Reporting Date Filter Controls */}
-      <section className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary" />
-            <span className="text-sm font-bold">Reporting Period</span>
-            <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary border border-primary/20">
-              {activeRangeLabel}
-            </span>
-          </div>
-
-          {/* Selectors: Month, Year, Custom Range */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Month Selector */}
-            <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1 text-xs font-medium">
-              <span className="text-muted-foreground">Month:</span>
-              <select
-                value={selectedMonth}
-                onChange={(e) => handleMonthSelect(e.target.value)}
-                className="bg-transparent outline-none cursor-pointer text-foreground font-semibold"
-              >
-                <option value="">Select Month</option>
-                {monthOptions.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Year Selector */}
-            <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1 text-xs font-medium">
-              <span className="text-muted-foreground">Year:</span>
-              <select
-                value={selectedYear}
-                onChange={(e) => handleYearSelect(e.target.value)}
-                className="bg-transparent outline-none cursor-pointer text-foreground font-semibold"
-              >
-                <option value="">Select Year</option>
-                {yearOptions.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Custom Start & End Date Inputs */}
-            <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1 text-xs font-medium">
-              <span className="text-muted-foreground">From:</span>
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => handleCustomStartChange(e.target.value)}
-                className="bg-transparent outline-none cursor-pointer text-foreground font-semibold"
-              />
-              <span className="text-muted-foreground">To:</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => handleCustomEndChange(e.target.value)}
-                className="bg-transparent outline-none cursor-pointer text-foreground font-semibold"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Presets Chips */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/50">
-          <span className="text-[11px] font-bold text-muted-foreground mr-1.5 uppercase tracking-wider">Presets:</span>
-          {[
-            { id: "today", label: "Today" },
-            { id: "yesterday", label: "Yesterday" },
-            { id: "7d", label: "Last 7 Days" },
-            { id: "30d", label: "Last 30 Days" },
-            { id: "90d", label: "Last 90 Days" },
-            { id: "this_month", label: "This Month" },
-            { id: "last_month", label: "Last Month" },
-            { id: "this_year", label: "This Year" },
-            { id: "all", label: "All Time" },
-          ].map((chip) => (
-            <button
-              key={chip.id}
-              onClick={() => handlePresetSelect(chip.id as DatePresetKey)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-semibold transition cursor-pointer border",
-                preset === chip.id
-                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                  : "bg-secondary/60 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
-              )}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
       {/* Summary Cards */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
@@ -662,9 +572,157 @@ export default function OwnerOrdersPage() {
         </section>
       )}
 
-      {/* VIEW 2: HISTORICAL SALES LEDGER TABLE */}
+      {/* VIEW 2: HISTORICAL SALES LEDGER TABLE & REPORTING FILTERS */}
       {activeTab === "history" && (
         <section className="space-y-6">
+          {/* OrderRail Premium Reporting Period Section */}
+          <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold tracking-tight">Reporting Period</span>
+                <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary border border-primary/20">
+                  {activeRangeLabel}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Presets Chips */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: "today", label: "Today" },
+                { id: "yesterday", label: "Yesterday" },
+                { id: "7d", label: "Last 7 Days" },
+                { id: "30d", label: "Last 30 Days" },
+                { id: "90d", label: "Last 90 Days" },
+                { id: "this_month", label: "This Month" },
+                { id: "last_month", label: "Last Month" },
+                { id: "this_year", label: "This Year" },
+                { id: "all", label: "All Time" },
+              ].map((chip) => (
+                <button
+                  key={chip.id}
+                  onClick={() => {
+                    handlePresetSelect(chip.id as DatePresetKey);
+                    setIsMonthOpen(false);
+                    setIsYearOpen(false);
+                  }}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer border shadow-xs",
+                    preset === chip.id
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary/60 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+
+            <hr className="border-border/40" />
+
+            {/* Secondary Selectors (Month, Year, Custom Range) */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* OrderRail Styled Month Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setIsMonthOpen((prev) => !prev);
+                    setIsYearOpen(false);
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer shadow-xs",
+                    selectedMonth
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border/60 bg-background text-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  <span>{selectedMonth ? monthOptions.find((m) => m.value === selectedMonth)?.label : "Month"}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+
+                {isMonthOpen && (
+                  <div className="absolute left-0 mt-2 z-50 w-52 rounded-2xl border border-border/80 bg-popover p-1.5 shadow-xl space-y-0.5 max-h-60 overflow-y-auto">
+                    {monthOptions.map((m) => (
+                      <button
+                        key={m.value}
+                        onClick={() => {
+                          handleMonthSelect(m.value);
+                          setIsMonthOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer text-left",
+                          selectedMonth === m.value
+                            ? "bg-primary text-primary-foreground font-semibold"
+                            : "text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <span>{m.label}</span>
+                        {selectedMonth === m.value && <CheckCircle2 className="h-3.5 w-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* OrderRail Styled Year Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setIsYearOpen((prev) => !prev);
+                    setIsMonthOpen(false);
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer shadow-xs",
+                    selectedYear
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border/60 bg-background text-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  <span>{selectedYear ? `Year ${selectedYear}` : "Year"}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+
+                {isYearOpen && (
+                  <div className="absolute left-0 mt-2 z-50 w-36 rounded-2xl border border-border/80 bg-popover p-1.5 shadow-xl space-y-0.5">
+                    {yearOptions.map((y) => (
+                      <button
+                        key={y}
+                        onClick={() => {
+                          handleYearSelect(y);
+                          setIsYearOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer text-left",
+                          selectedYear === y
+                            ? "bg-primary text-primary-foreground font-semibold"
+                            : "text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <span>Year {y}</span>
+                        {selectedYear === y && <CheckCircle2 className="h-3.5 w-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Custom Range Button */}
+              <button
+                onClick={() => {
+                  toast.info("📅 Custom Date Range Picker will be enabled in Sprint 9.2.7.2");
+                  setIsMonthOpen(false);
+                  setIsYearOpen(false);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-2xl border border-border/60 bg-background px-3.5 py-1.5 text-xs font-semibold text-foreground transition cursor-pointer shadow-xs hover:bg-muted/50 active:scale-95"
+              >
+                <Calendar className="h-3.5 w-3.5 text-primary" />
+                <span>📅 Custom Range</span>
+              </button>
+            </div>
+          </div>
           {/* Controls Bar */}
           <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
