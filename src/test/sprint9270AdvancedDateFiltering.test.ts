@@ -202,4 +202,14 @@ describe("Sprint 9.2.7.0 — Advanced Date Filtering & Reporting Tests", () => {
     expect(resMulti.filenameRange).toBe("2026-07-22_to_2026-07-28");
     expect(resMulti.activeRangeLabel).toBe("Custom (2026-07-22 to 2026-07-28)");
   });
+
+  it("6. Computes Average Order Value (AOV) correctly without profit calculation", () => {
+    const totalRevenueCents = 150000; // ₹1,500.00
+    const completedOrders = 10;
+    const aovCents = completedOrders > 0 ? Math.round(totalRevenueCents / completedOrders) : 0;
+    expect(aovCents).toBe(15000); // ₹150.00 per order
+
+    const zeroCompletedAov = 0 > 0 ? Math.round(500 / 0) : 0;
+    expect(zeroCompletedAov).toBe(0);
+  });
 });

@@ -13,6 +13,7 @@ import {
   Utensils,
   ArrowUpDown,
   Calendar,
+  CalendarX,
   Sparkles,
   LayoutGrid,
   History,
@@ -78,6 +79,7 @@ export default function OwnerOrdersPage() {
   const [selectedYear, setSelectedYear] = useState<string>("");
   const [isMonthOpen, setIsMonthOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") ?? "");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
@@ -341,6 +343,12 @@ export default function OwnerOrdersPage() {
   // Operational summary metrics
   const summary = useMemo(() => calculateOperationalSummary(orders, tables), [orders, tables]);
 
+  // Average Order Value (AOV)
+  const aovCents = useMemo(() => {
+    if (!summary.completedCount || summary.completedCount === 0) return 0;
+    return Math.round((summary.totalRevenue || 0) / summary.completedCount);
+  }, [summary.completedCount, summary.totalRevenue]);
+
   // Deep-link trigger for orderId param
   useEffect(() => {
     const orderIdParam = searchParams.get("orderId");
@@ -510,39 +518,45 @@ export default function OwnerOrdersPage() {
       </header>
 
       {/* Summary Cards */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Orders</div>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Active Orders</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{summary.activeCount}</div>
           <div className="text-[11px] text-muted-foreground">{summary.activeOrdersText} in pipeline</div>
         </div>
 
-        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Preparing</div>
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Preparing</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-orange-600 dark:text-orange-400">{summary.preparingCount}</div>
           <div className="text-[11px] text-muted-foreground">In kitchen</div>
         </div>
 
-        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ready</div>
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ready</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{summary.readyCount}</div>
           <div className="text-[11px] text-muted-foreground">To serve</div>
         </div>
 
-        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed ({activeRangeLabel})</div>
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Completed ({activeRangeLabel})</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{summary.completedCount}</div>
           <div className="text-[11px] text-muted-foreground">Served orders</div>
         </div>
 
-        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Revenue ({activeRangeLabel})</div>
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Revenue ({activeRangeLabel})</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{formatMoney(summary.totalRevenue || 0, currency)}</div>
           <div className="text-[11px] text-muted-foreground">Gross revenue</div>
         </div>
 
-        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Occupied Tables</div>
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Average Order Value</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-primary">{formatMoney(aovCents, currency)}</div>
+          <div className="text-[11px] text-muted-foreground">Revenue per served order</div>
+        </div>
+
+        <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Occupied Tables</div>
           <div className="mt-1 font-display text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">{summary.occupiedTablesCount}</div>
           <div className="text-[11px] text-muted-foreground">{summary.occupiedTablesText}</div>
         </div>
@@ -578,12 +592,17 @@ export default function OwnerOrdersPage() {
           {/* OrderRail Premium Reporting Period Section */}
           <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-primary" />
-                <span className="text-sm font-bold tracking-tight">Reporting Period</span>
-                <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary border border-primary/20">
-                  {activeRangeLabel}
-                </span>
+              <div>
+                <h2 className="text-base font-bold tracking-tight text-foreground flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Reporting Period
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                  <span>Showing report for:</span>
+                  <span className="font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                    {activeRangeLabel}
+                  </span>
+                </p>
               </div>
             </div>
 
@@ -606,11 +625,12 @@ export default function OwnerOrdersPage() {
                     handlePresetSelect(chip.id as DatePresetKey);
                     setIsMonthOpen(false);
                     setIsYearOpen(false);
+                    setIsSortOpen(false);
                   }}
                   className={cn(
-                    "rounded-full px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer border shadow-xs",
+                    "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer border shadow-xs h-8 inline-flex items-center justify-center",
                     preset === chip.id
-                      ? "bg-primary text-primary-foreground border-primary"
+                      ? "bg-primary text-primary-foreground border-primary font-bold shadow-soft"
                       : "bg-secondary/60 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
                   )}
                 >
@@ -629,9 +649,10 @@ export default function OwnerOrdersPage() {
                   onClick={() => {
                     setIsMonthOpen((prev) => !prev);
                     setIsYearOpen(false);
+                    setIsSortOpen(false);
                   }}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer shadow-xs",
+                    "inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs h-9",
                     selectedMonth
                       ? "border-primary/40 bg-primary/10 text-primary"
                       : "border-border/60 bg-background text-foreground hover:bg-muted/50"
@@ -672,9 +693,10 @@ export default function OwnerOrdersPage() {
                   onClick={() => {
                     setIsYearOpen((prev) => !prev);
                     setIsMonthOpen(false);
+                    setIsSortOpen(false);
                   }}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer shadow-xs",
+                    "inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs h-9",
                     selectedYear
                       ? "border-primary/40 bg-primary/10 text-primary"
                       : "border-border/60 bg-background text-foreground hover:bg-muted/50"
@@ -712,17 +734,19 @@ export default function OwnerOrdersPage() {
               {/* Custom Range Button */}
               <button
                 onClick={() => {
-                  toast.info("📅 Custom Date Range Picker will be enabled in Sprint 9.2.7.2");
+                  toast.info("Custom Date Range Picker coming in the next update.");
                   setIsMonthOpen(false);
                   setIsYearOpen(false);
+                  setIsSortOpen(false);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-2xl border border-border/60 bg-background px-3.5 py-1.5 text-xs font-semibold text-foreground transition cursor-pointer shadow-xs hover:bg-muted/50 active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-2xl border border-primary/40 bg-background px-3.5 py-1.5 text-xs font-semibold text-foreground transition-all duration-150 cursor-pointer shadow-xs hover:bg-primary/5 hover:border-primary active:scale-95 h-9"
               >
                 <Calendar className="h-3.5 w-3.5 text-primary" />
                 <span>📅 Custom Range</span>
               </button>
             </div>
           </div>
+
           {/* Controls Bar */}
           <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -746,27 +770,56 @@ export default function OwnerOrdersPage() {
                 )}
               </div>
 
-              {/* Sort By Selector (Default: Newest First) */}
-              <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1.5 text-xs font-medium">
-                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="bg-transparent outline-none cursor-pointer text-foreground"
+              {/* OrderRail Styled Sort By Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setIsSortOpen((prev) => !prev);
+                    setIsMonthOpen(false);
+                    setIsYearOpen(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-2xl border border-border/60 bg-background px-3.5 py-1.5 text-xs font-semibold text-foreground transition-all duration-150 cursor-pointer shadow-xs hover:bg-muted/50 h-9"
                 >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="highest">Highest Total</option>
-                  <option value="lowest">Lowest Total</option>
-                </select>
+                  <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>Sort: {sortBy === "newest" ? "Newest First" : sortBy === "oldest" ? "Oldest First" : sortBy === "highest" ? "Highest Total" : "Lowest Total"}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+
+                {isSortOpen && (
+                  <div className="absolute right-0 mt-2 z-50 w-44 rounded-2xl border border-border/80 bg-popover p-1.5 shadow-xl space-y-0.5">
+                    {[
+                      { id: "newest", label: "Newest First" },
+                      { id: "oldest", label: "Oldest First" },
+                      { id: "highest", label: "Highest Total" },
+                      { id: "lowest", label: "Lowest Total" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          setSortBy(opt.id as SortOption);
+                          setIsSortOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer text-left",
+                          sortBy === opt.id
+                            ? "bg-primary text-primary-foreground font-semibold"
+                            : "text-foreground hover:bg-muted"
+                        )}
+                      >
+                        <span>{opt.label}</span>
+                        {sortBy === opt.id && <CheckCircle2 className="h-3.5 w-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Export CSV Button */}
               <button
                 onClick={handleExportCSV}
-                className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80 active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80 active:scale-95 cursor-pointer h-9"
               >
-                <Download className="h-4 w-4" /> Export CSV ({selectedIds.length || filteredOrders.length})
+                <Download className="h-4 w-4" /> Export CSV
               </button>
             </div>
 
@@ -798,10 +851,14 @@ export default function OwnerOrdersPage() {
             {isLoading ? (
               <TableSkeleton />
             ) : filteredOrders.length === 0 ? (
-              <div className="py-16 text-center text-muted-foreground space-y-2">
-                <Utensils className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                <p className="font-display text-base font-semibold">No sales history orders found</p>
-                <p className="text-xs">Adjust your search parameters, date filters, or status selection.</p>
+              <div className="py-16 text-center text-muted-foreground space-y-3">
+                <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
+                  <CalendarX className="h-6 w-6" />
+                </div>
+                <p className="font-display text-base font-bold text-foreground">No orders found for the selected reporting period.</p>
+                <p className="text-xs max-w-sm mx-auto text-muted-foreground">
+                  Try selecting a different date preset, clearing your search filter, or choosing another order status.
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
