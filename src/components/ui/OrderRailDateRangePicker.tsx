@@ -106,6 +106,8 @@ export function OrderRailDateRangePicker({
   const [draftEnd, setDraftEnd] = useState<string | null>(initialEndDate ?? null);
   const [hoverDate, setHoverDate] = useState<string | null>(null);
 
+  const todayStr = useMemo(() => toISODateString(new Date()), []);
+
   // Month 1 reference date (defaults to current month or draftStart month)
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => {
     if (initialStartDate) {
@@ -207,19 +209,15 @@ export function OrderRailDateRangePicker({
     const month = monthDate.getMonth();
     const monthName = monthDate.toLocaleString("en-US", { month: "long" });
 
-    // First day of month (0 = Sunday, 1 = Monday, etc.)
     const firstDayIndex = new Date(year, month, 1).getDay();
-    // Convert Sunday-indexed to Monday-indexed (Mon=0, Tue=1... Sun=6)
     const startingOffset = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const dayCells = [];
-    // Padding cells before day 1
     for (let i = 0; i < startingOffset; i++) {
       dayCells.push(<div key={`pad-${i}`} className="h-8 w-8" />);
     }
 
-    // Active day cells
     for (let d = 1; d <= daysInMonth; d++) {
       const dayStr = String(d).padStart(2, "0");
       const moStr = String(month + 1).padStart(2, "0");
@@ -228,8 +226,8 @@ export function OrderRailDateRangePicker({
       const isStart = draftStart === isoDate;
       const isEnd = draftEnd === isoDate;
       const isSingle = draftStart === isoDate && (draftEnd === isoDate || (!draftEnd && hoverDate === isoDate));
+      const isToday = isoDate === todayStr;
 
-      // Range evaluation
       const effectiveEnd = draftEnd || (draftStart && hoverDate && hoverDate > draftStart ? hoverDate : null);
       const isInRange =
         draftStart && effectiveEnd && isoDate > draftStart && isoDate < effectiveEnd;
@@ -240,15 +238,17 @@ export function OrderRailDateRangePicker({
           onClick={() => handleDayClick(isoDate)}
           onMouseEnter={() => setHoverDate(isoDate)}
           className={cn(
-            "h-8 w-8 text-xs font-semibold rounded-full transition duration-150 flex items-center justify-center cursor-pointer select-none",
+            "h-8 w-8 text-xs font-semibold rounded-full transition duration-150 flex items-center justify-center cursor-pointer select-none relative",
             isSingle
-              ? "bg-primary text-primary-foreground font-bold shadow-soft scale-105"
+              ? "bg-primary text-primary-foreground font-bold shadow-soft scale-105 z-10"
               : isStart
-              ? "bg-primary text-primary-foreground font-bold rounded-r-none shadow-soft"
+              ? "bg-primary text-primary-foreground font-bold rounded-r-none shadow-soft z-10"
               : isEnd
-              ? "bg-primary text-primary-foreground font-bold rounded-l-none shadow-soft"
+              ? "bg-primary text-primary-foreground font-bold rounded-l-none shadow-soft z-10"
               : isInRange
               ? "bg-primary/20 text-primary rounded-none font-bold"
+              : isToday
+              ? "ring-1 ring-primary/80 font-bold text-primary hover:bg-primary/10"
               : "text-foreground hover:bg-muted/70"
           )}
         >
@@ -258,23 +258,23 @@ export function OrderRailDateRangePicker({
     }
 
     return (
-      <div className="w-64 space-y-3">
+      <div className="w-full sm:w-64 space-y-2.5">
         {/* Month Header Navigation */}
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between px-1 h-8">
+          <div className="flex items-center gap-0.5">
             {showPrevNav && (
               <>
                 <button
                   onClick={prevYear}
                   title="Previous Year"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
                 >
                   <ChevronsLeft className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={prevMonth}
                   title="Previous Month"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
@@ -282,24 +282,24 @@ export function OrderRailDateRangePicker({
             )}
           </div>
 
-          <span className="font-display text-sm font-bold text-foreground">
+          <span className="font-display text-sm font-bold text-foreground tracking-tight">
             {monthName} {year}
           </span>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {showNextNav && (
               <>
                 <button
                   onClick={nextMonth}
                   title="Next Month"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={nextYear}
                   title="Next Year"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
                 >
                   <ChevronsRight className="h-3.5 w-3.5" />
                 </button>
@@ -309,7 +309,7 @@ export function OrderRailDateRangePicker({
         </div>
 
         {/* Days of Week Header */}
-        <div className="grid grid-cols-7 text-center text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+        <div className="grid grid-cols-7 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
           <span>Mo</span>
           <span>Tu</span>
           <span>We</span>
@@ -340,75 +340,76 @@ export function OrderRailDateRangePicker({
   ];
 
   return (
-    <AnchoredPopover open={open} onClose={onClose} triggerRef={triggerRef} className="w-[660px] max-w-[95vw]">
-      <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-2xl space-y-4 text-foreground">
+    <AnchoredPopover open={open} onClose={onClose} triggerRef={triggerRef} className="w-[720px] max-w-[95vw]">
+      <div className="rounded-3xl border border-border/80 bg-card p-4 sm:p-5 shadow-2xl space-y-4 text-foreground animate-in fade-in-50 zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border/50 pb-3">
+        <div className="flex items-center justify-between border-b border-border/50 pb-2.5">
           <div className="flex items-center gap-2">
-            <CalendarIcon className="h-4 w-4 text-primary" />
+            <div className="p-1.5 rounded-xl bg-primary/10 text-primary">
+              <CalendarIcon className="h-4 w-4" />
+            </div>
             <h3 className="font-display text-sm font-bold tracking-tight">Custom Reporting Date Range</h3>
           </div>
-          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-muted cursor-pointer">
+          <button onClick={onClose} className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Dual Calendar & Sidebar Layout */}
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Quick Presets Sidebar */}
-          <div className="w-full md:w-40 space-y-1 border-b md:border-b-0 md:border-r border-border/50 pb-3 md:pb-0 md:pr-4">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Presets</div>
+        {/* Top Quick Ranges Section */}
+        <div className="space-y-1.5 border-b border-border/40 pb-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Quick Ranges</div>
+          <div className="flex flex-wrap items-center gap-1.5">
             {presetList.map((p) => (
               <button
                 key={p.id}
                 onClick={() => handleSelectPreset(p.id)}
                 className={cn(
-                  "w-full flex items-center justify-between rounded-xl px-3 py-1.5 text-xs font-semibold transition cursor-pointer text-left",
+                  "rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150 cursor-pointer border shadow-xs h-7 inline-flex items-center justify-center gap-1",
                   draftPreset === p.id
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-primary text-primary-foreground border-primary font-bold shadow-soft"
+                    : "bg-secondary/60 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
                 )}
               >
                 <span>{p.label}</span>
-                {draftPreset === p.id && <CheckCircle2 className="h-3.5 w-3.5" />}
+                {draftPreset === p.id && <CheckCircle2 className="h-3 w-3" />}
               </button>
             ))}
           </div>
-
-          {/* Dual Month Calendars */}
-          <div className="flex-1 flex flex-col sm:flex-row gap-6 justify-center">
-            {renderCalendarMonth(currentMonthDate, true, false)}
-            {renderCalendarMonth(month2Date, false, true)}
-          </div>
         </div>
 
-        {/* Footer & Actions */}
+        {/* Dual Month Calendars */}
+        <div className="flex flex-col sm:flex-row gap-6 justify-between items-start py-1">
+          {renderCalendarMonth(currentMonthDate, true, false)}
+          {renderCalendarMonth(month2Date, false, true)}
+        </div>
+
+        {/* Dedicated Selected Range Footer */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-3">
-          {/* Selected Period Preview */}
-          <div className="text-xs">
-            <span className="text-muted-foreground mr-1">Selected Range:</span>
-            <span className="font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+              Selected Range
+            </span>
+            <div className="font-display text-sm font-bold text-primary mt-0.5">
               {draftPreset === "all"
                 ? "All Time"
                 : draftStart === (draftEnd || draftStart)
                 ? formatDateDDMMYYYY(draftStart)
                 : `${formatDateDDMMYYYY(draftStart)} → ${formatDateDDMMYYYY(draftEnd || draftStart)}`}
-            </span>
+            </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="rounded-full border border-border/60 bg-secondary/60 px-4 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground cursor-pointer"
+              className="rounded-full border border-border/60 bg-secondary/60 px-4 py-1.5 text-xs font-semibold text-muted-foreground transition hover:bg-secondary hover:text-foreground cursor-pointer h-9"
             >
               Cancel
             </button>
             <button
               onClick={handleApply}
-              className="rounded-full bg-primary px-5 py-1.5 text-xs font-bold text-primary-foreground shadow-soft transition hover:bg-primary/90 active:scale-95 cursor-pointer"
+              className="rounded-full bg-primary px-5 py-1.5 text-xs font-bold text-primary-foreground shadow-soft transition hover:bg-primary/90 active:scale-95 cursor-pointer h-9"
             >
-              Apply Filter
+              Apply
             </button>
           </div>
         </div>
