@@ -41,23 +41,48 @@ node scripts/generate-printing-cert.cjs
 
 ---
 
-## 3. Installing Certificate Trust on Windows Workstations
+## 3. Official QZ Tray 2.2.6 Trust Provisioning (`override.crt`)
 
-To allow QZ Tray to automatically accept OrderRail print requests without prompting the user on every print job:
+In QZ Tray 2.2.6, trust for custom or self-signed Root CA certificates is officially established using QZ Tray's **`override.crt`** mechanism.
 
-### Step-by-Step Installation:
-1. Export or copy the certificate PEM content from `src/lib/printing/security/keyManager.ts` and save it as `orderrail-root.crt`.
-2. Double-click `orderrail-root.crt` on the target Windows machine.
-3. Click **Install Certificate...**
-4. Select **Local Machine** (requires Administrator privileges) and click **Next**.
-5. Choose **Place all certificates in the following store**.
-6. Click **Browse...** and select **Trusted Root Certification Authorities**.
-7. Click **Next** -> **Finish**.
-8. Restart QZ Tray service. QZ Tray will now report **Signature: Valid / Trusted** for all OrderRail print requests.
+When `override.crt` is provisioned into QZ Tray's configuration directory, QZ Tray recognizes the certificate as a trusted authority, changes status from **`Untrusted website`** to **`Trusted website`**, and **completely eliminates approval popups**.
+
+### Official Provisioning Locations:
+1. **Per-User AppData (Recommended)**: `%APPDATA%\qz\override.crt`
+2. **System-Wide Installation Folder**: `C:\Program Files\QZ Tray\override.crt`
+
+### Automated One-Click Deployment Package:
+OrderRail includes a complete deployment package in `scripts/deployment/`:
+
+- **`scripts/deployment/orderrail-ca.crt`**: Public X.509 Certificate.
+- **`scripts/deployment/deploy-qz-trust.bat`**: One-click Batch launcher (requests Admin privileges).
+- **`scripts/deployment/deploy-qz-trust.ps1`**: Automated PowerShell provisioner.
+- **`scripts/deployment/uninstall-qz-trust.ps1`**: Trust removal script.
+
+### Deployment Steps on a Café PC:
+1. Copy the `scripts/deployment/` folder to the café POS computer.
+2. Double-click **`deploy-qz-trust.bat`**.
+3. The script automatically:
+   - Copies `orderrail-ca.crt` to `%APPDATA%\qz\override.crt`.
+   - Copies `orderrail-ca.crt` to `C:\Program Files\QZ Tray\override.crt` (if present).
+   - Installs `orderrail-ca.crt` into the Windows Trusted Root Store.
+   - Restarts QZ Tray to load `override.crt`.
 
 ---
 
-## 4. Deploying to Another Cafe Workstation
+## 4. Verification Checklist on Café PC
+
+After running `deploy-qz-trust.bat`:
+
+1. Launch OrderRail in browser.
+2. Go to **Owner Settings -> Advanced -> Developer Tools -> Printing**.
+3. Click **Connect** and **Print Test Receipt**.
+4. Open QZ Tray **Request Details** modal:
+   - **Signature**: `Valid`
+   - **Organization**: `OrderRail Inc`
+   - **Common Name**: `OrderRail POS Certificate`
+   - **Trusted**: **`Trusted website`** (Green)
+   - **Popups**: **Eliminated** (0 approval prompts).
 
 When onboarding a new restaurant workstation:
 
