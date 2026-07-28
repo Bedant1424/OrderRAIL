@@ -1,8 +1,9 @@
 /**
  * OrderRail X.509 Certificate & Key Generator for QZ Tray Request Signing
  * 
- * Generates an RSA 2048-bit private key (PKCS#8) and a real, syntactically valid X.509v3 Certificate
- * with Subject DN (CN=OrderRail POS Certificate, O=OrderRail Inc, OU=POS Printing Architecture).
+ * Generates ONE RSA 2048-bit keypair and self-signed X.509 Certificate with Subject DN
+ * (CN=OrderRail POS Certificate, O=OrderRail Inc, OU=POS Printing Architecture)
+ * and writes the exact same certificate PEM to BOTH keyManager.ts and orderrail-ca.crt.
  * 
  * Run with: node scripts/generate-printing-cert.cjs
  */
@@ -55,27 +56,16 @@ if (!certificatePem || !privateKeyPem) {
   ].join('\n');
 }
 
-// Verify certificate with Node crypto X509Certificate parser
-try {
-  const parsedCert = new crypto.X509Certificate(certificatePem);
-  console.log('[CertGen] X.509 Certificate Verified!');
-  console.log('[CertGen] Subject:', parsedCert.subject);
-  console.log('[CertGen] Issuer:', parsedCert.issuer);
-  console.log('[CertGen] Valid From:', parsedCert.validFrom);
-  console.log('[CertGen] Valid To:', parsedCert.validTo);
-} catch (err) {
-  console.warn('[CertGen] Certificate parse check:', err?.message || err);
-}
-
-// Calculate SHA-256 Fingerprint
+// Calculate SHA-256 Fingerprint of generated certificate
 const certClean = certificatePem.replace(/-----(BEGIN|END) CERTIFICATE-----/g, '').replace(/\s+/g, '');
 const certBuf = Buffer.from(certClean, 'base64');
 const fingerprint = crypto.createHash('sha256').update(certBuf).digest('hex').match(/.{2}/g).join(':').toUpperCase();
 
-console.log('[CertGen] Certificate SHA-256 Fingerprint:', fingerprint);
+// Target Output Paths
+const keyManagerPath = path.join(__dirname, '../src/lib/printing/security/keyManager.ts');
+const caCertPath = path.join(__dirname, 'deployment/orderrail-ca.crt');
 
-// Write keyManager.ts
-const targetPath = path.join(__dirname, '../src/lib/printing/security/keyManager.ts');
+// 1. Prepare keyManager.ts Content
 const keyManagerContent = `/**
  * OrderRail Printing Security Key Manager
  * 
@@ -117,10 +107,62 @@ export class KeyManager {
 }
 `;
 
-const dir = path.dirname(targetPath);
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true });
+// 2. Write keyManager.ts
+const kmDir = path.dirname(keyManagerPath);
+if (!fs.existsSync(kmDir)) {
+  fs.mkdirSync(kmDir, { recursive: true });
 }
+fs.writeFileSync(keyManagerPath, keyManagerContent, 'utf8');
 
-fs.writeFileSync(targetPath, keyManagerContent, 'utf8');
-console.log(`[CertGen] Successfully generated valid X.509 certificate and updated ${targetPath}`);
+// 3. Write orderrail-ca.crt
+const caDir = path.dirname(caCertPath);
+if (!fs.existsSync(caDir)) {
+  fs.mkdirSync(caDir, { recursive: true });
+}
+fs.writeFileSync(caCertPath, certificatePem + '\n', 'utf8');
+
+// ==================================================
+// AUTOMATED VALIDATION & SYNCHRONIZATION ASSERTIONS
+// ==================================================
+
+try {
+  // Read back outputs
+  const readKm = fs.readFileSync(keyManagerPath, 'utf8');
+  const readCa = fs.readFileSync(caCertPath, 'utf8').trim();
+
+  // Extract certificate PEM from keyManager.ts
+  const kmCertMatch = readKm.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/);
+  if (!kmCertMatch) {
+    throw new Error('Failed to extract certificate PEM from keyManager.ts');
+  }
+  const extractedKmCert = kmCertMatch[0].trim();
+  const extractedCaCert = readCa;
+
+  // Parse with X509Certificate
+  const kmX509 = new crypto.X509Certificate(extractedKmCert);
+  const caX509 = new crypto.X509Certificate(extractedCaCert);
+
+  // Assertions
+  if (extractedKmCert !== extractedCaCert) {
+    throw new Error('PEM contents mismatch between keyManager.ts and orderrail-ca.crt');
+  }
+
+  if (extractedKmCert.length !== extractedCaCert.length) {
+    throw new Error(`Byte count mismatch: keyManager (${extractedKmCert.length}) vs orderrail-ca.crt (${extractedCaCert.length})`);
+  }
+
+  if (kmX509.fingerprint256 !== caX509.fingerprint256) {
+    throw new Error(`Fingerprint mismatch: keyManager (${kmX509.fingerprint256}) vs orderrail-ca.crt (${caX509.fingerprint256})`);
+  }
+
+  // Print exact required output
+  console.log('✓ keyManager.ts updated');
+  console.log('✓ orderrail-ca.crt updated');
+  console.log(`✓ Fingerprint: ${kmX509.fingerprint256}`);
+  console.log(`✓ Byte count: ${extractedKmCert.length} bytes`);
+  console.log('✓ Certificates identical');
+
+} catch (validationError) {
+  console.error('❌ CERTIFICATE SYNCHRONIZATION ERROR:', validationError?.message || validationError);
+  process.exit(1);
+}
