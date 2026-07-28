@@ -27,7 +27,11 @@ import {
   QrCode,
   Wallet,
   Building,
-  Smartphone
+  Smartphone,
+  Clock,
+  ChefHat,
+  UtensilsCrossed,
+  AlertTriangle
 } from "lucide-react";
 import { useCafe } from "@/lib/cafe";
 import { supabase } from "@/lib/db";
@@ -47,6 +51,17 @@ import {
   type PaymentMethodKey,
 } from "@/lib/billing/paymentSettings";
 import { LivePaymentPreview } from "@/components/billing/LivePaymentPreview";
+import {
+  getOperationsSettings,
+  saveOperationsSettings,
+  type OperationsSettings,
+  type OrderChannel,
+  type RestaurantStatus,
+  type KdsRefreshInterval,
+  type SessionTimeoutOption,
+  getTodayOpenStatus,
+} from "@/lib/billing/operationsSettings";
+import { LiveOperationsPreview } from "@/components/billing/LiveOperationsPreview";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN", "CHF"];
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
@@ -132,6 +147,16 @@ const METHOD_LIST: { key: PaymentMethodKey; label: string; icon: React.ElementTy
   { key: "bank_transfer", label: "Bank Transfer", icon: Building },
 ];
 
+const CHANNEL_LIST: { key: OrderChannel; label: string }[] = [
+  { key: "dine_in", label: "Accept Dine-In Orders" },
+  { key: "counter", label: "Accept Counter Orders" },
+  { key: "takeaway", label: "Accept Takeaway Orders" },
+  { key: "swiggy", label: "Accept Swiggy Orders" },
+  { key: "zomato", label: "Accept Zomato Orders" },
+];
+
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
 export default function OwnerSettingsPage() {
   const qc = useQueryClient();
   const permissions = usePermissions();
@@ -172,6 +197,9 @@ export default function OwnerSettingsPage() {
   // Form Fields for Payments
   const [paymentForm, setPaymentForm] = useState<PaymentSettings>(() => getPaymentSettings(cafe?.id));
 
+  // Form Fields for Operations
+  const [opsForm, setOpsForm] = useState<OperationsSettings>(() => getOperationsSettings(cafe?.id));
+
   useEffect(() => {
     if (cafe) {
       setName(cafe.name || "");
@@ -191,6 +219,7 @@ export default function OwnerSettingsPage() {
       setReceiptForm(getReceiptSettings(cafe.id));
       setTaxForm(getTaxSettings(cafe.id));
       setPaymentForm(getPaymentSettings(cafe.id));
+      setOpsForm(getOperationsSettings(cafe.id));
     }
   }, [cafe]);
 
@@ -379,7 +408,7 @@ export default function OwnerSettingsPage() {
     toast.success("Payment settings saved successfully!");
   };
 
-  // Method toggle handler with validation
+  // Method toggle handler with validation for Payments
   const togglePaymentMethod = (key: PaymentMethodKey) => {
     const isCurrentlyEnabled = paymentForm.enabledMethods[key];
     const enabledCount = Object.values(paymentForm.enabledMethods).filter(Boolean).length;
@@ -406,7 +435,41 @@ export default function OwnerSettingsPage() {
     }));
   };
 
+  // Save handler for Operations
+  const saveOperations = () => {
+    const activeChannelsCount = Object.values(opsForm.enabledChannels).filter(Boolean).length;
+    if (activeChannelsCount === 0) {
+      return toast.error("At least one ordering channel must remain enabled.");
+    }
+
+    saveOperationsSettings(opsForm, cafe?.id);
+    if (opsForm.status === "closed" || opsForm.status === "maintenance") {
+      toast.warning(`Operations saved. Note: Restaurant is set to ${opsForm.status === "closed" ? "Temporarily Closed" : "Under Maintenance"}.`);
+    } else {
+      toast.success("Operations settings saved successfully!");
+    }
+  };
+
+  // Channel toggle handler with validation for Operations
+  const toggleOrderChannel = (key: OrderChannel) => {
+    const isCurrentlyEnabled = opsForm.enabledChannels[key];
+    const enabledCount = Object.values(opsForm.enabledChannels).filter(Boolean).length;
+
+    if (isCurrentlyEnabled && enabledCount <= 1) {
+      return toast.error("At least one ordering channel must remain enabled.");
+    }
+
+    setOpsForm((prev) => ({
+      ...prev,
+      enabledChannels: {
+        ...prev.enabledChannels,
+        [key]: !isCurrentlyEnabled,
+      },
+    }));
+  };
+
   const activeDef = SETTINGS_SECTIONS.find((s) => s.id === activeSection)!;
+  const todayStatus = getTodayOpenStatus(opsForm);
 
   return (
     <div className="space-y-6 pb-12">
@@ -769,6 +832,358 @@ export default function OwnerSettingsPage() {
                   </div>
                 </div>
               </section>
+            </div>
+          )}
+
+          {/* SECTION 3: OPERATIONS */}
+          {activeSection === "operations" && (
+            <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+              {/* Settings Configuration Column */}
+              <div className="space-y-6">
+                {/* Restaurant Status Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Store className="h-4 w-4 text-primary" /> Restaurant Operating Status
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    {[
+                      { id: "open", label: "Open", color: "border-emerald-500/40 text-emerald-600" },
+                      { id: "busy", label: "Busy", color: "border-amber-500/40 text-amber-600" },
+                      { id: "closed", label: "Temporarily Closed", color: "border-rose-500/40 text-rose-600" },
+                      { id: "maintenance", label: "Maintenance", color: "border-purple-500/40 text-purple-600" },
+                    ].map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setOpsForm((prev) => ({ ...prev, status: st.id as RestaurantStatus }))}
+                        className={cn(
+                          "rounded-2xl p-3 border text-center font-bold text-xs transition cursor-pointer select-none",
+                          opsForm.status === st.id
+                            ? "bg-primary text-primary-foreground border-primary shadow-soft"
+                            : "bg-secondary/40 text-muted-foreground border-border/60 hover:bg-secondary"
+                        )}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {(opsForm.status === "closed" || opsForm.status === "maintenance") && (
+                    <div className="rounded-2xl bg-amber-500/10 border border-amber-500/25 p-3 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                      <span>
+                        Restaurant is marked as <strong>{opsForm.status === "closed" ? "Temporarily Closed" : "Under Maintenance"}</strong>. Ordering workflows will be paused for customers.
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Per-Day Operating Hours Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-primary" /> Per-Day Operating Hours
+                    </h3>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold">
+                      <span className={cn("h-2 w-2 rounded-full", todayStatus.isOpen ? "bg-emerald-500" : "bg-rose-500")} />
+                      <span className={todayStatus.isOpen ? "text-emerald-600" : "text-rose-600"}>{todayStatus.text}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    {DAY_NAMES.map((dayName, index) => {
+                      const sched = opsForm.weeklySchedule[index] || { isOpen: true, openTime: "08:00", closeTime: "22:00" };
+                      return (
+                        <div
+                          key={dayName}
+                          className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl border border-border/50 bg-secondary/20"
+                        >
+                          <div className="flex items-center gap-3 min-w-[130px]">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpsForm((prev) => ({
+                                  ...prev,
+                                  weeklySchedule: {
+                                    ...prev.weeklySchedule,
+                                    [index]: { ...sched, isOpen: !sched.isOpen },
+                                  },
+                                }))
+                              }
+                              className={cn(
+                                "flex items-center gap-2 text-xs font-bold transition cursor-pointer select-none",
+                                sched.isOpen ? "text-foreground" : "text-muted-foreground line-through"
+                              )}
+                            >
+                              {sched.isOpen ? (
+                                <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                              ) : (
+                                <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                              )}
+                              <span>{dayName}</span>
+                            </button>
+                          </div>
+
+                          {sched.isOpen ? (
+                            <div className="flex items-center gap-2 text-xs font-mono">
+                              <input
+                                type="time"
+                                value={sched.openTime}
+                                onChange={(e) =>
+                                  setOpsForm((prev) => ({
+                                    ...prev,
+                                    weeklySchedule: {
+                                      ...prev.weeklySchedule,
+                                      [index]: { ...sched, openTime: e.target.value },
+                                    },
+                                  }))
+                                }
+                                className="rounded-xl border border-border bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
+                              />
+                              <span className="text-muted-foreground">to</span>
+                              <input
+                                type="time"
+                                value={sched.closeTime}
+                                onChange={(e) =>
+                                  setOpsForm((prev) => ({
+                                    ...prev,
+                                    weeklySchedule: {
+                                      ...prev.weeklySchedule,
+                                      [index]: { ...sched, closeTime: e.target.value },
+                                    },
+                                  }))
+                                }
+                                className="rounded-xl border border-border bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">Closed</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Order Acceptance Channels Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <UtensilsCrossed className="h-4 w-4 text-primary" /> Ordering Channels Acceptance
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {CHANNEL_LIST.map((ch) => {
+                      const isEnabled = opsForm.enabledChannels[ch.key];
+                      return (
+                        <button
+                          key={ch.key}
+                          type="button"
+                          onClick={() => toggleOrderChannel(ch.key)}
+                          className={cn(
+                            "flex items-center justify-between rounded-2xl p-3.5 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                            isEnabled
+                              ? "bg-primary/5 border-primary/40 text-foreground"
+                              : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            {isEnabled ? (
+                              <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                            ) : (
+                              <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                            )}
+                            <span>{ch.label}</span>
+                          </div>
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                            {isEnabled ? "Active" : "Disabled"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Kitchen & KDS Behavior Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <ChefHat className="h-4 w-4 text-primary" /> Kitchen Display System (KDS) & Sound
+                  </h3>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                        KDS Refresh Interval
+                      </label>
+                      <div className="flex gap-1.5">
+                        {(["2s", "5s", "10s", "30s"] as const).map((int) => (
+                          <button
+                            key={int}
+                            type="button"
+                            onClick={() => setOpsForm((prev) => ({ ...prev, kdsRefreshInterval: int }))}
+                            className={cn(
+                              "flex-1 rounded-2xl py-2 text-xs font-bold font-mono transition cursor-pointer border text-center",
+                              opsForm.kdsRefreshInterval === int
+                                ? "bg-primary text-primary-foreground border-primary shadow-soft"
+                                : "bg-secondary/40 text-muted-foreground border-border/60 hover:bg-secondary"
+                            )}
+                          >
+                            {int}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {[
+                        { key: "kdsAutoScroll", label: "Auto-scroll KDS" },
+                        { key: "kdsSoundEnabled", label: "Enable Kitchen Sound Alerts" },
+                        { key: "kdsHighlightDelayed", label: "Highlight Delayed Orders" },
+                      ].map((item) => {
+                        const isChecked = (opsForm as any)[item.key];
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() =>
+                              setOpsForm((prev) => ({ ...prev, [item.key]: !isChecked }))
+                            }
+                            className={cn(
+                              "w-full flex items-center gap-3 rounded-2xl p-2.5 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                              isChecked
+                                ? "bg-primary/5 border-primary/40 text-foreground"
+                                : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                            )}
+                          >
+                            {isChecked ? (
+                              <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                            ) : (
+                              <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                            )}
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table Behavior Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Sliders className="h-4 w-4 text-primary" /> Table Behavior & Session Timeouts
+                  </h3>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                        Dining Session Timeout
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: "30m", label: "30 mins" },
+                          { id: "60m", label: "60 mins" },
+                          { id: "90m", label: "90 mins" },
+                          { id: "never", label: "Never" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setOpsForm((prev) => ({ ...prev, sessionTimeout: opt.id as SessionTimeoutOption }))}
+                            className={cn(
+                              "rounded-2xl py-2 px-3 text-xs font-bold transition cursor-pointer border text-center",
+                              opsForm.sessionTimeout === opt.id
+                                ? "bg-primary text-primary-foreground border-primary shadow-soft"
+                                : "bg-secondary/40 text-muted-foreground border-border/60 hover:bg-secondary"
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                        Table Auto-Release Rules
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setOpsForm((prev) => ({ ...prev, autoReleaseTable: !prev.autoReleaseTable }))}
+                        className={cn(
+                          "w-full flex items-center gap-3 rounded-2xl p-3 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                          opsForm.autoReleaseTable
+                            ? "bg-primary/5 border-primary/40 text-foreground"
+                            : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                        )}
+                      >
+                        {opsForm.autoReleaseTable ? (
+                          <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                        ) : (
+                          <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span>Auto Release Table After Payment Settlement</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* KOT Printing Behavior Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Printer className="h-4 w-4 text-primary" /> Kitchen Order Ticket (KOT) Printing
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      { key: "autoPrintKot", label: "Auto Print KOT on Order Received" },
+                      { key: "reprintOnEdit", label: "Reprint KOT on Order Edit / Addition" },
+                      { key: "printCustomerCopy", label: "Print Customer Receipt Copy" },
+                      { key: "printKitchenCopy", label: "Print Kitchen Copy" },
+                    ].map((item) => {
+                      const isChecked = (opsForm as any)[item.key];
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => setOpsForm((prev) => ({ ...prev, [item.key]: !isChecked }))}
+                          className={cn(
+                            "flex items-center gap-3 rounded-2xl p-3 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                            isChecked
+                              ? "bg-primary/5 border-primary/40 text-foreground"
+                              : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                          )}
+                        >
+                          {isChecked ? (
+                            <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                          ) : (
+                            <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                          )}
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Section-Specific Save Button */}
+                <div className="pt-2">
+                  <button
+                    onClick={saveOperations}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-xs font-semibold transition cursor-pointer shadow-soft active:scale-95 bg-primary text-primary-foreground hover:opacity-90"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>Save Operations Settings</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Operations Preview Panel */}
+              <div className="space-y-4">
+                <div className="sticky top-6">
+                  <LiveOperationsPreview settings={opsForm} />
+                </div>
+              </div>
             </div>
           )}
 
@@ -1575,7 +1990,8 @@ export default function OwnerSettingsPage() {
           {activeSection !== "business_profile" &&
             activeSection !== "receipts_billing" &&
             activeSection !== "taxes" &&
-            activeSection !== "payments" && (
+            activeSection !== "payments" &&
+            activeSection !== "operations" && (
               <div className="rounded-3xl bg-card p-12 shadow-soft ring-1 ring-border/60 text-center space-y-4">
                 <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
                   <activeDef.icon className="h-7 w-7" />
