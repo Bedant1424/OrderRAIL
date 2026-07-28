@@ -22,7 +22,12 @@ import {
   CheckSquare,
   Square,
   Calculator,
-  Info
+  Info,
+  Banknote,
+  QrCode,
+  Wallet,
+  Building,
+  Smartphone
 } from "lucide-react";
 import { useCafe } from "@/lib/cafe";
 import { supabase } from "@/lib/db";
@@ -35,6 +40,13 @@ import { getReceiptSettings, saveReceiptSettings, type ReceiptSettings } from "@
 import { LiveReceiptPreview } from "@/components/billing/LiveReceiptPreview";
 import { getTaxSettings, saveTaxSettings, type TaxSettings } from "@/lib/billing/taxSettings";
 import { LiveTaxBillPreview } from "@/components/billing/LiveTaxBillPreview";
+import {
+  getPaymentSettings,
+  savePaymentSettings,
+  type PaymentSettings,
+  type PaymentMethodKey,
+} from "@/lib/billing/paymentSettings";
+import { LivePaymentPreview } from "@/components/billing/LivePaymentPreview";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN", "CHF"];
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
@@ -112,6 +124,14 @@ const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   },
 ];
 
+const METHOD_LIST: { key: PaymentMethodKey; label: string; icon: React.ElementType }[] = [
+  { key: "cash", label: "Cash", icon: Banknote },
+  { key: "upi", label: "UPI Instant QR", icon: QrCode },
+  { key: "card", label: "Credit / Debit Card", icon: CreditCard },
+  { key: "wallet", label: "Digital Wallet", icon: Wallet },
+  { key: "bank_transfer", label: "Bank Transfer", icon: Building },
+];
+
 export default function OwnerSettingsPage() {
   const qc = useQueryClient();
   const permissions = usePermissions();
@@ -149,6 +169,9 @@ export default function OwnerSettingsPage() {
   // Form Fields for Taxes & Pricing
   const [taxForm, setTaxForm] = useState<TaxSettings>(() => getTaxSettings(cafe?.id));
 
+  // Form Fields for Payments
+  const [paymentForm, setPaymentForm] = useState<PaymentSettings>(() => getPaymentSettings(cafe?.id));
+
   useEffect(() => {
     if (cafe) {
       setName(cafe.name || "");
@@ -164,9 +187,10 @@ export default function OwnerSettingsPage() {
       setInstagram(cafe.instagram ?? "");
       setOperatingHours(cafe.operating_hours ?? "");
 
-      // Load receipt & tax settings for cafe
+      // Load settings for cafe
       setReceiptForm(getReceiptSettings(cafe.id));
       setTaxForm(getTaxSettings(cafe.id));
+      setPaymentForm(getPaymentSettings(cafe.id));
     }
   }, [cafe]);
 
@@ -270,7 +294,7 @@ export default function OwnerSettingsPage() {
     }
   };
 
-  // Section-specific save handler for Business Profile
+  // Save handler for Business Profile
   const saveBusinessProfile = async () => {
     if (!cafe) return;
 
@@ -312,7 +336,7 @@ export default function OwnerSettingsPage() {
     void refreshCafe();
   };
 
-  // Section-specific save handler for Receipts & Billing Settings
+  // Save handler for Receipts & Billing
   const saveReceiptsBilling = () => {
     if (receiptForm.receiptHeader.length > 100) {
       return toast.error("Receipt header must be 100 characters or less.");
@@ -328,7 +352,7 @@ export default function OwnerSettingsPage() {
     toast.success("Receipts & Billing settings saved successfully!");
   };
 
-  // Section-specific save handler for Taxes & Pricing
+  // Save handler for Taxes & Pricing
   const saveTaxesPricing = () => {
     if (taxForm.gstPercentage < 0 || taxForm.gstPercentage > 100) {
       return toast.error("GST percentage must be between 0% and 100%.");
@@ -342,6 +366,44 @@ export default function OwnerSettingsPage() {
 
     saveTaxSettings(taxForm, cafe?.id);
     toast.success("Taxes & Pricing settings saved successfully!");
+  };
+
+  // Save handler for Payments
+  const savePayment = () => {
+    const enabledCount = Object.values(paymentForm.enabledMethods).filter(Boolean).length;
+    if (enabledCount === 0) {
+      return toast.error("At least one payment method must remain enabled.");
+    }
+
+    savePaymentSettings(paymentForm, cafe?.id);
+    toast.success("Payment settings saved successfully!");
+  };
+
+  // Method toggle handler with validation
+  const togglePaymentMethod = (key: PaymentMethodKey) => {
+    const isCurrentlyEnabled = paymentForm.enabledMethods[key];
+    const enabledCount = Object.values(paymentForm.enabledMethods).filter(Boolean).length;
+
+    if (isCurrentlyEnabled && enabledCount <= 1) {
+      return toast.error("At least one payment method must remain enabled.");
+    }
+
+    const nextEnabled = {
+      ...paymentForm.enabledMethods,
+      [key]: !isCurrentlyEnabled,
+    };
+
+    let nextDefault = paymentForm.defaultMethod;
+    if (!nextEnabled[nextDefault]) {
+      const firstAvailable = (Object.keys(nextEnabled) as PaymentMethodKey[]).find((k) => nextEnabled[k]);
+      if (firstAvailable) nextDefault = firstAvailable;
+    }
+
+    setPaymentForm((prev) => ({
+      ...prev,
+      enabledMethods: nextEnabled,
+      defaultMethod: nextDefault,
+    }));
   };
 
   const activeDef = SETTINGS_SECTIONS.find((s) => s.id === activeSection)!;
@@ -1291,10 +1353,229 @@ export default function OwnerSettingsPage() {
             </div>
           )}
 
+          {/* SECTION 6: PAYMENTS */}
+          {activeSection === "payments" && (
+            <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+              {/* Settings Configuration Column */}
+              <div className="space-y-6">
+                {/* Accepted Payment Methods Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-primary" /> Accepted Payment Methods
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {METHOD_LIST.map((method) => {
+                      const isEnabled = paymentForm.enabledMethods[method.key];
+                      const Icon = method.icon;
+
+                      return (
+                        <button
+                          key={method.key}
+                          type="button"
+                          onClick={() => togglePaymentMethod(method.key)}
+                          className={cn(
+                            "flex items-center justify-between rounded-2xl p-3.5 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                            isEnabled
+                              ? "bg-primary/5 border-primary/40 text-foreground"
+                              : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            {isEnabled ? (
+                              <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                            ) : (
+                              <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-muted-foreground" />
+                              <span>{method.label}</span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                            {isEnabled ? "Enabled" : "Disabled"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Default Preselected Payment Method Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-primary" /> Default Preselected Method
+                  </h3>
+
+                  <div className="max-w-xs">
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                      Preselected Payment Method at Checkout
+                    </label>
+                    <select
+                      value={paymentForm.defaultMethod}
+                      onChange={(e) =>
+                        setPaymentForm((prev) => ({ ...prev, defaultMethod: e.target.value as PaymentMethodKey }))
+                      }
+                      className="w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+                    >
+                      {METHOD_LIST.filter((m) => paymentForm.enabledMethods[m.key]).map((m) => (
+                        <option key={m.key} value={m.key}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Payment Behavior & Settlement Rules Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Sliders className="h-4 w-4 text-primary" /> Settlement & Order Closing Rules
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {/* Require Payment Before Closing */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentForm((prev) => ({
+                          ...prev,
+                          requirePaymentBeforeClosing: !prev.requirePaymentBeforeClosing,
+                        }))
+                      }
+                      className={cn(
+                        "flex items-center gap-3 rounded-2xl p-3 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                        paymentForm.requirePaymentBeforeClosing
+                          ? "bg-primary/5 border-primary/40 text-foreground"
+                          : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
+                      {paymentForm.requirePaymentBeforeClosing ? (
+                        <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                      ) : (
+                        <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span>Require Payment Before Closing Order</span>
+                    </button>
+
+                    {/* Auto Close Order After Payment */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentForm((prev) => ({
+                          ...prev,
+                          autoCloseOrder: !prev.autoCloseOrder,
+                        }))
+                      }
+                      className={cn(
+                        "flex items-center gap-3 rounded-2xl p-3 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                        paymentForm.autoCloseOrder
+                          ? "bg-primary/5 border-primary/40 text-foreground"
+                          : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
+                      {paymentForm.autoCloseOrder ? (
+                        <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                      ) : (
+                        <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span>Auto Close Order After Payment</span>
+                    </button>
+
+                    {/* Partial Payments Placeholder */}
+                    <div className="flex items-center justify-between rounded-2xl p-3 border border-border/60 bg-muted/30 text-xs font-semibold text-muted-foreground opacity-75">
+                      <div className="flex items-center gap-3">
+                        <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span>Allow Partial Payments</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
+                        <Sparkles className="h-3 w-3" /> Coming Soon
+                      </span>
+                    </div>
+
+                    {/* Split Bills Placeholder */}
+                    <div className="flex items-center justify-between rounded-2xl p-3 border border-border/60 bg-muted/30 text-xs font-semibold text-muted-foreground opacity-75">
+                      <div className="flex items-center gap-3">
+                        <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span>Allow Split Bills</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
+                        <Sparkles className="h-3 w-3" /> Coming Soon
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Digital & Thermal Receipt Behavior Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Printer className="h-4 w-4 text-primary" /> Receipt Dispatch & Printing Rules
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      { key: "offerDigitalReceipt", label: "Offer Digital Receipt" },
+                      { key: "offerPrintedReceipt", label: "Offer Thermal Printed Receipt" },
+                      { key: "printAutomatically", label: "Print Automatically After Payment" },
+                      { key: "printCustomerCopy", label: "Print Customer Copy" },
+                      { key: "printKitchenCopy", label: "Print Kitchen Copy" },
+                    ].map((item) => {
+                      const isChecked = (paymentForm as any)[item.key];
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() =>
+                            setPaymentForm((prev) => ({
+                              ...prev,
+                              [item.key]: !isChecked,
+                            }))
+                          }
+                          className={cn(
+                            "flex items-center gap-3 rounded-2xl p-3 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                            isChecked
+                              ? "bg-primary/5 border-primary/40 text-foreground"
+                              : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                          )}
+                        >
+                          {isChecked ? (
+                            <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                          ) : (
+                            <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                          )}
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Section-Specific Save Button */}
+                <div className="pt-2">
+                  <button
+                    onClick={savePayment}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-xs font-semibold transition cursor-pointer shadow-soft active:scale-95 bg-primary text-primary-foreground hover:opacity-90"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>Save Payment Settings</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Live Payment Preview Panel */}
+              <div className="space-y-4">
+                <div className="sticky top-6">
+                  <LivePaymentPreview settings={paymentForm} />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* PLACEHOLDER SECTIONS FOR OTHER CONFIGURATIONS */}
           {activeSection !== "business_profile" &&
             activeSection !== "receipts_billing" &&
-            activeSection !== "taxes" && (
+            activeSection !== "taxes" &&
+            activeSection !== "payments" && (
               <div className="rounded-3xl bg-card p-12 shadow-soft ring-1 ring-border/60 text-center space-y-4">
                 <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
                   <activeDef.icon className="h-7 w-7" />
