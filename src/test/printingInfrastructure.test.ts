@@ -28,6 +28,12 @@ vi.mock("qz-tray", () => {
       configs: {
         create: vi.fn(() => ({})),
       },
+      security: {
+        setCertificatePromise: vi.fn(),
+        setSignaturePromise: vi.fn(),
+        setSignatureAlgorithm: vi.fn(),
+        getSignatureAlgorithm: vi.fn(() => "SHA256"),
+      },
       print: vi.fn(async () => {}),
     },
   };
