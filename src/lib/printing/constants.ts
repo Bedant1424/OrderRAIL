@@ -7,6 +7,7 @@ export const PRINTING_CONSTANTS = {
   RECONNECT_ATTEMPTS: 3,
   RECONNECT_DELAY_MS: 2000,
   POS_58_CHAR_WIDTH: 32,
+  LAST_USED_PRINTER_KEY: "orderrail_last_used_printer",
 };
 
 /**
