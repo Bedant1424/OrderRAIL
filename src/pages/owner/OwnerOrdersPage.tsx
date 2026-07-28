@@ -373,12 +373,15 @@ export default function OwnerOrdersPage() {
     return orders.filter((o) => {
       if (selectedTableIdFilter && o.table_id !== selectedTableIdFilter) return false;
 
-      const tableLabel = tableLabelMap.get(o.table_id) ?? "";
       const dailyNum = dailyOrderNumMap.get(o.id) ?? o.order_number;
       const dailyOrderLabel = formatOrderLabel(dailyNum).toLowerCase();
       const rawNumStr = String(dailyNum);
       const dbNumStr = String(o.order_number);
       const query = searchQuery.toLowerCase().trim();
+
+      const customerName = (o.customer_name || "").toLowerCase();
+      const customerPhone = (o.customer_phone || "").toLowerCase();
+      const channelStr = (o.order_source || o.order_type || "dine_in").toLowerCase();
 
       const d = new Date(o.created_at);
       const dateFormattedStr = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toLowerCase();
@@ -390,7 +393,10 @@ export default function OwnerOrdersPage() {
           dailyOrderLabel.includes(query) ||
           rawNumStr.includes(query) ||
           dbNumStr.includes(query) ||
-          tableLabel.toLowerCase().includes(query) ||
+          customerName.includes(query) ||
+          customerPhone.includes(query) ||
+          (query.includes("walk") && !o.customer_name?.trim()) ||
+          channelStr.includes(query) ||
           itemsStr.includes(query) ||
           dateFormattedStr.includes(query) ||
           isoDateStr.includes(query) ||
@@ -401,7 +407,7 @@ export default function OwnerOrdersPage() {
 
       // History Status Filters (All / Completed / Cancelled)
       if (statusFilter === "completed") {
-        if (o.status !== "served" && o.status !== "ready") return false;
+        if (o.status !== "served" && o.status !== "completed" && o.status !== "ready") return false;
       } else if (statusFilter === "cancelled") {
         if (o.status !== "cancelled") return false;
       }
@@ -418,13 +424,13 @@ export default function OwnerOrdersPage() {
       }
       if (sortBy === "lowest") {
         const diff = a.total_cents - b.total_cents;
-        return diff !== 0 ? diff : new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return diff !== 0 ? diff : new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       }
       // Default: Newest First
       const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       return diff !== 0 ? diff : b.id.localeCompare(a.id);
     });
-  }, [orders, searchQuery, statusFilter, tableLabelMap, sortBy, selectedTableIdFilter, dailyOrderNumMap]);
+  }, [orders, searchQuery, statusFilter, sortBy, selectedTableIdFilter, dailyOrderNumMap]);
 
   // Selection helpers
   const isAllSelected = filteredOrders.length > 0 && selectedIds.length === filteredOrders.length;
@@ -448,7 +454,7 @@ export default function OwnerOrdersPage() {
         setSelectedOrder((prev) => (prev ? { ...prev, status: nextStatus } : null));
       }
     } catch {
-      // Toast already triggered by hook
+      toast.error("Failed to update order status");
     }
   };
 
@@ -480,46 +486,50 @@ export default function OwnerOrdersPage() {
   return (
     <div className="space-y-6 pb-12">
       {/* Header Bar */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-3xl font-semibold tracking-tight">Order Operations Center</h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 border border-emerald-500/20">
-              <Radio className="h-3 w-3 animate-pulse text-emerald-500" /> Live Sync Active
-            </span>
+      <header className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
+                Orders Ledger & Sales History
+              </h1>
+              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 border border-emerald-500/20">
+                Live Sync Active
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Monitor active kitchen pipeline and search historical sales ledger records.
+            </p>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? "OrderRail"} · Shared real-time restaurant orders & historical sales ledger
-          </p>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <GlobalNotificationControls />
+          <div className="flex items-center gap-3">
+            <GlobalNotificationControls />
 
-          {/* Navigation Tabs */}
-          <div className="inline-flex rounded-full bg-secondary p-1 text-xs font-medium shadow-inner">
-            <button
-              onClick={() => setActiveTab("live")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold cursor-pointer",
-                activeTab === "live"
-                  ? "bg-brand text-brand-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" /> Live KDS
-            </button>
-            <button
-              onClick={() => setActiveTab("history")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold cursor-pointer",
-                activeTab === "history"
-                  ? "bg-brand text-brand-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <History className="h-3.5 w-3.5" /> Sales History
-            </button>
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-1 rounded-full bg-muted/60 p-1 border border-border/40">
+              <button
+                onClick={() => setActiveTab("live")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold cursor-pointer",
+                  activeTab === "live"
+                    ? "bg-brand text-brand-foreground shadow-soft"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Radio className="h-3.5 w-3.5" /> Live Operations
+              </button>
+              <button
+                onClick={() => setActiveTab("history")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-4 py-1.5 transition duration-150 font-semibold cursor-pointer",
+                  activeTab === "history"
+                    ? "bg-brand text-brand-foreground shadow-soft"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <History className="h-3.5 w-3.5" /> Sales History
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -688,73 +698,6 @@ export default function OwnerOrdersPage() {
             </div>
           </div>
 
-          {/* Compact Reporting Analytics Strip */}
-          <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 flex flex-wrap items-center justify-between gap-4 text-xs">
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <ShoppingBag className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Orders</span>
-                  <span className="font-display font-bold text-foreground tabular-nums text-sm">{filteredOrders.length}</span>
-                </div>
-              </div>
-
-              <div className="h-6 w-[1px] bg-border/60 hidden sm:block" />
-
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  <DollarSign className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Revenue</span>
-                  <span className="font-display font-bold text-emerald-600 dark:text-emerald-400 tabular-nums text-sm">{formatMoney(summary.totalRevenue || 0, currency)}</span>
-                </div>
-              </div>
-
-              <div className="h-6 w-[1px] bg-border/60 hidden sm:block" />
-
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <TrendingUp className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Avg Order Value</span>
-                  <span className="font-display font-bold text-primary tabular-nums text-sm">{formatMoney(aovCents, currency)}</span>
-                </div>
-              </div>
-
-              <div className="h-6 w-[1px] bg-border/60 hidden sm:block" />
-
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Completed</span>
-                  <span className="font-display font-bold text-foreground tabular-nums text-sm">{summary.completedCount}</span>
-                </div>
-              </div>
-
-              <div className="h-6 w-[1px] bg-border/60 hidden sm:block" />
-
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-destructive/10 text-destructive">
-                  <XCircle className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Cancelled</span>
-                  <span className="font-display font-bold text-destructive tabular-nums text-sm">{summary.cancelledCount || 0}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-xs text-muted-foreground font-medium">
-              Report: <span className="font-bold text-foreground">{activeRangeLabel}</span>
-            </div>
-          </div>
-
           {/* Controls Bar */}
           <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -765,7 +708,7 @@ export default function OwnerOrdersPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by Order #, Table, Items, or Date..."
+                  placeholder="Search by Order #, Customer Name, Phone, Items, Channel, or Date..."
                   className="w-full rounded-2xl border border-border bg-background pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/60"
                 />
                 {searchQuery && (
@@ -883,7 +826,8 @@ export default function OwnerOrdersPage() {
                         </button>
                       </th>
                       <th className="p-4">Order #</th>
-                      <th className="p-4">Table</th>
+                      <th className="p-4">Customer</th>
+                      <th className="p-4">Channel</th>
                       <th className="p-4">Status</th>
                       <th className="p-4">Item Summary</th>
                       <th className="p-4 text-right">Total</th>
@@ -908,6 +852,9 @@ export default function OwnerOrdersPage() {
                         ? (o.order_items ?? []).map((it) => `${it.name} ×${it.qty}`).join(", ")
                         : "1× Order Items";
 
+                      const customerName = o.customer_name?.trim() || "Walk-in Customer";
+                      const customerPhone = o.customer_phone?.trim() || null;
+
                       return (
                         <tr
                           key={o.id}
@@ -929,8 +876,24 @@ export default function OwnerOrdersPage() {
                           <td className="p-4 font-display font-bold text-foreground">
                             {formatOrderLabel(dailyNum)}
                           </td>
-                          <td className="p-4 font-medium text-foreground">
-                            Table {tableLabelMap.get(o.table_id) ?? "?"}
+                          <td className="p-4">
+                            <div className="font-semibold text-foreground text-sm">
+                              {customerName}
+                            </div>
+                            {customerPhone && (
+                              <div className="text-xs text-muted-foreground font-mono">
+                                {customerPhone}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4 text-xs font-semibold">
+                            {(() => {
+                              const src = (o.order_source || o.order_type || "dine_in").toLowerCase();
+                              if (src.includes("swiggy")) return <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 text-orange-600 px-2.5 py-0.5 border border-orange-500/20">🛵 Swiggy</span>;
+                              if (src.includes("zomato")) return <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 text-red-600 px-2.5 py-0.5 border border-red-500/20">🛵 Zomato</span>;
+                              if (src.includes("takeaway")) return <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 text-blue-600 px-2.5 py-0.5 border border-blue-500/20">🥡 Takeaway</span>;
+                              return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-600 px-2.5 py-0.5 border border-emerald-500/20">🍽 Dine In</span>;
+                            })()}
                           </td>
                           <td className="p-4">
                             <OrderStatusBadge status={o.status} />

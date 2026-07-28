@@ -10,9 +10,9 @@ export const STANDARDIZED_CSV_HEADERS = [
   "Order ID",
   "Date",
   "Time",
-  "Table",
-  "Order Source",
-  "Customer",
+  "Customer Name",
+  "Customer Phone",
+  "Channel",
   "Status",
   "Item Count",
   "Items",
@@ -50,7 +50,7 @@ export function generateOrdersCSV(
   const rows = orders.map((o) => {
     const createdDate = new Date(o.created_at);
     
-    // Task 6: Human-readable Date (YYYY-MM-DD) and Time (10:35 PM)
+    // Human-readable Date (YYYY-MM-DD) and Time (10:35 PM)
     const dateStr = createdDate.toISOString().slice(0, 10);
     const timeStr = createdDate.toLocaleTimeString("en-IN", {
       hour: "2-digit",
@@ -58,12 +58,10 @@ export function generateOrdersCSV(
       hour12: true
     });
     
-    const tableLabel = `Table ${tableLabelMap.get(o.table_id) ?? "?"}`;
-    const orderSource = "QR Table Order";
-    
-    // Task 7: Validated Customer & Payment Status
-    const customer = "QR Customer";
-    const paymentStatus = o.status === "served" ? "Paid" : o.status === "cancelled" ? "Cancelled" : "Pending";
+    const customerName = o.customer_name?.trim() || "Walk-in Customer";
+    const customerPhone = o.customer_phone?.trim() || "—";
+    const channel = (o.order_source || o.order_type || "dine_in").toUpperCase();
+    const paymentStatus = o.status === "served" || o.status === "completed" ? "Paid" : o.status === "cancelled" ? "Cancelled" : "Pending";
     
     const itemCount = (o.order_items ?? []).reduce((s, it) => s + it.qty, 0);
     const itemsFormatted = (o.order_items ?? []).map((it) => `${it.qty}x ${it.name}`).join("; ");
@@ -74,9 +72,9 @@ export function generateOrdersCSV(
     const netTotal = grossAmount;
     const createdAt = createdDate.toISOString();
     const updatedAt = o.updated_at ? new Date(o.updated_at).toISOString() : "";
-    const paymentMethod = "Digital / QR";
-    const servedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
-    const completedAt = o.status === "served" && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+    const paymentMethod = "Digital / Counter";
+    const servedAt = (o.status === "served" || o.status === "completed") && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+    const completedAt = (o.status === "served" || o.status === "completed") && o.updated_at ? new Date(o.updated_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
 
     const displayNum = (o as any).daily_order_number ?? dailyOrderNumMap?.get(o.id) ?? o.order_number;
 
@@ -84,9 +82,9 @@ export function generateOrdersCSV(
       escapeCSVCell(formatOrderLabel(displayNum)),
       escapeCSVCell(dateStr),
       escapeCSVCell(timeStr),
-      escapeCSVCell(tableLabel),
-      escapeCSVCell(orderSource),
-      escapeCSVCell(customer),
+      escapeCSVCell(customerName),
+      escapeCSVCell(customerPhone),
+      escapeCSVCell(channel),
       escapeCSVCell(o.status),
       escapeCSVCell(itemCount),
       escapeCSVCell(itemsFormatted),

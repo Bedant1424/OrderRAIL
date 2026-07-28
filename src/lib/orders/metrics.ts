@@ -6,6 +6,10 @@ export interface OperationalSummaryModel {
   activeCount: number;
   preparingCount: number;
   readyCount: number;
+  completedCount: number;
+  cancelledCount: number;
+  totalOrdersCount: number;
+  totalRevenue: number;
   ordersCompletedToday: number;
   revenueTodayCents: number;
   occupiedTablesCount: number;
@@ -15,8 +19,7 @@ export interface OperationalSummaryModel {
 }
 
 /**
- * Calculates operational metrics for current business day.
- * Bug 5 Fix: Removed "Longest Wait" metric completely.
+ * Calculates operational metrics for current business day or filtered historical range.
  */
 export function calculateOperationalSummary(
   orders: Order[],
@@ -27,24 +30,31 @@ export function calculateOperationalSummary(
   todayStart.setHours(0, 0, 0, 0);
   const todayStartMs = todayStart.getTime();
 
-  // Filter orders created today
-  const todayOrders = orders.filter((o) => {
-    if (!o.created_at) return false;
-    const createdTime = new Date(o.created_at).getTime();
-    return !isNaN(createdTime) && createdTime >= todayStartMs;
-  });
-
   // Active orders (pending, preparing, ready)
   const activeOrders = orders.filter((o) => isOrderActive(o.status));
   const activeCount = activeOrders.length;
   const preparingCount = orders.filter((o) => o.status === "preparing").length;
   const readyCount = orders.filter((o) => o.status === "ready").length;
 
-  // Served orders today for revenue calculation
-  const servedOrdersToday = todayOrders.filter((o) => o.status === "served");
+  // Completed / served & cancelled orders across passed dataset
+  const completedOrders = orders.filter((o) => o.status === "served" || o.status === "completed");
+  const completedCount = completedOrders.length;
+  const cancelledCount = orders.filter((o) => o.status === "cancelled").length;
+  const totalOrdersCount = orders.length;
+
+  const rawRevenue = completedOrders.reduce((sum, o) => sum + (o.total_cents || 0), 0);
+  const totalRevenue = isNaN(rawRevenue) || rawRevenue < 0 ? 0 : rawRevenue;
+
+  // Legacy today calculation for backwards compatibility
+  const todayOrders = orders.filter((o) => {
+    if (!o.created_at) return false;
+    const createdTime = new Date(o.created_at).getTime();
+    return !isNaN(createdTime) && createdTime >= todayStartMs;
+  });
+  const servedOrdersToday = todayOrders.filter((o) => o.status === "served" || o.status === "completed");
   const ordersCompletedToday = servedOrdersToday.length;
-  const rawRevenue = servedOrdersToday.reduce((sum, o) => sum + (o.total_cents || 0), 0);
-  const revenueTodayCents = isNaN(rawRevenue) || rawRevenue < 0 ? 0 : rawRevenue;
+  const rawRevenueToday = servedOrdersToday.reduce((sum, o) => sum + (o.total_cents || 0), 0);
+  const revenueTodayCents = isNaN(rawRevenueToday) || rawRevenueToday < 0 ? 0 : rawRevenueToday;
 
   // Single occupancy calculation
   const occupiedTablesList = calculateOccupiedTables(tables, orders);
@@ -54,35 +64,24 @@ export function calculateOperationalSummary(
   const occupiedTablesText =
     occupiedTablesCount === 1 ? "1 table occupied" : `${occupiedTablesCount} tables occupied`;
 
-  if (activeCount === 0) {
-    return {
-      activeCount: 0,
-      preparingCount: 0,
-      readyCount: 0,
-      ordersCompletedToday,
-      revenueTodayCents,
-      occupiedTablesCount,
-      avgWaitMinsFormatted: "—",
-      activeOrdersText,
-      occupiedTablesText,
-    };
-  }
-
   let totalWaitMs = 0;
-
   for (const o of activeOrders) {
     const createdTime = new Date(o.created_at).getTime();
     const waitMs = Math.max(0, now - createdTime);
     totalWaitMs += waitMs;
   }
 
-  const avgMins = Math.round(totalWaitMs / activeCount / (1000 * 60));
-  const avgWaitMinsFormatted = avgMins === 1 ? "1 min" : `${avgMins} min`;
+  const avgMins = activeCount > 0 ? Math.round(totalWaitMs / activeCount / (1000 * 60)) : 0;
+  const avgWaitMinsFormatted = activeCount === 0 ? "—" : avgMins === 1 ? "1 min" : `${avgMins} min`;
 
   return {
     activeCount,
     preparingCount,
     readyCount,
+    completedCount,
+    cancelledCount,
+    totalOrdersCount,
+    totalRevenue,
     ordersCompletedToday,
     revenueTodayCents,
     occupiedTablesCount,
