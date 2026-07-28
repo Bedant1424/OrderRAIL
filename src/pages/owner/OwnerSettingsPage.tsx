@@ -20,7 +20,9 @@ import {
   Printer,
   FileText,
   CheckSquare,
-  Square
+  Square,
+  Calculator,
+  Info
 } from "lucide-react";
 import { useCafe } from "@/lib/cafe";
 import { supabase } from "@/lib/db";
@@ -31,6 +33,8 @@ import { GlobalNotificationControls } from "@/components/owner/GlobalNotificatio
 import { resetDemoEnvironmentInDb } from "@/lib/demoReset";
 import { getReceiptSettings, saveReceiptSettings, type ReceiptSettings } from "@/lib/billing/receiptSettings";
 import { LiveReceiptPreview } from "@/components/billing/LiveReceiptPreview";
+import { getTaxSettings, saveTaxSettings, type TaxSettings } from "@/lib/billing/taxSettings";
+import { LiveTaxBillPreview } from "@/components/billing/LiveTaxBillPreview";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "INR", "BRL", "MXN", "CHF"];
 const SIGNED_YEARS = 60 * 60 * 24 * 365 * 10;
@@ -142,6 +146,9 @@ export default function OwnerSettingsPage() {
   // Form Fields for Receipts & Billing
   const [receiptForm, setReceiptForm] = useState<ReceiptSettings>(() => getReceiptSettings(cafe?.id));
 
+  // Form Fields for Taxes & Pricing
+  const [taxForm, setTaxForm] = useState<TaxSettings>(() => getTaxSettings(cafe?.id));
+
   useEffect(() => {
     if (cafe) {
       setName(cafe.name || "");
@@ -157,8 +164,9 @@ export default function OwnerSettingsPage() {
       setInstagram(cafe.instagram ?? "");
       setOperatingHours(cafe.operating_hours ?? "");
 
-      // Load receipt settings for cafe
+      // Load receipt & tax settings for cafe
       setReceiptForm(getReceiptSettings(cafe.id));
+      setTaxForm(getTaxSettings(cafe.id));
     }
   }, [cafe]);
 
@@ -318,6 +326,22 @@ export default function OwnerSettingsPage() {
 
     saveReceiptSettings(receiptForm, cafe?.id);
     toast.success("Receipts & Billing settings saved successfully!");
+  };
+
+  // Section-specific save handler for Taxes & Pricing
+  const saveTaxesPricing = () => {
+    if (taxForm.gstPercentage < 0 || taxForm.gstPercentage > 100) {
+      return toast.error("GST percentage must be between 0% and 100%.");
+    }
+    if (taxForm.serviceChargePercentage < 0 || taxForm.serviceChargePercentage > 100) {
+      return toast.error("Service charge percentage must be between 0% and 100%.");
+    }
+    if (taxForm.gstNumber.length > 15) {
+      return toast.error("GST Number must be 15 characters or less.");
+    }
+
+    saveTaxSettings(taxForm, cafe?.id);
+    toast.success("Taxes & Pricing settings saved successfully!");
   };
 
   const activeDef = SETTINGS_SECTIONS.find((s) => s.id === activeSection)!;
@@ -999,30 +1023,300 @@ export default function OwnerSettingsPage() {
             </div>
           )}
 
-          {/* PLACEHOLDER SECTIONS FOR OTHER CONFIGURATIONS */}
-          {activeSection !== "business_profile" && activeSection !== "receipts_billing" && (
-            <div className="rounded-3xl bg-card p-12 shadow-soft ring-1 ring-border/60 text-center space-y-4">
-              <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
-                <activeDef.icon className="h-7 w-7" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-display text-lg font-bold text-foreground">{activeDef.label} Configuration</h3>
-                <p className="text-xs text-muted-foreground max-w-md mx-auto">{activeDef.description}</p>
-              </div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent border border-accent/20">
-                <Sparkles className="h-3.5 w-3.5" /> Coming Soon
+          {/* SECTION 5: TAXES & PRICING */}
+          {activeSection === "taxes" && (
+            <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+              {/* Settings Configuration Column */}
+              <div className="space-y-6">
+                {/* Tax Profile Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Percent className="h-4 w-4 text-primary" /> Tax Profile & Service Charge
+                  </h3>
+
+                  {/* GST Toggles & Fields */}
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setTaxForm((prev) => ({ ...prev, gstEnabled: !prev.gstEnabled }))}
+                      className={cn(
+                        "w-full flex items-center justify-between rounded-2xl p-3 border text-xs font-semibold transition cursor-pointer select-none",
+                        taxForm.gstEnabled
+                          ? "bg-primary/5 border-primary/40 text-foreground"
+                          : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        {taxForm.gstEnabled ? (
+                          <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                        ) : (
+                          <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span>GST Taxation Active</span>
+                      </div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                        {taxForm.gstEnabled ? "Enabled" : "Disabled"}
+                      </span>
+                    </button>
+
+                    {taxForm.gstEnabled && (
+                      <div className="grid gap-4 sm:grid-cols-2 pt-1 pl-1">
+                        <div>
+                          <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                            GST Registration No. (GSTIN)
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            value={taxForm.gstNumber}
+                            onChange={(e) =>
+                              setTaxForm((prev) => ({ ...prev, gstNumber: e.target.value.toUpperCase() }))
+                            }
+                            placeholder="e.g. 27AAAAA0000A1Z5"
+                            className="w-full rounded-2xl border border-border bg-background p-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-ring/60"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                            Default GST Rate (%)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.5}
+                              value={taxForm.gstPercentage}
+                              onChange={(e) =>
+                                setTaxForm((prev) => ({ ...prev, gstPercentage: Number(e.target.value) }))
+                              }
+                              className="w-full rounded-2xl border border-border bg-background p-2.5 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/60 font-mono"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">%</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Service Charge Toggles & Fields */}
+                  <div className="space-y-3 pt-3 border-t border-border/40">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTaxForm((prev) => ({ ...prev, serviceChargeEnabled: !prev.serviceChargeEnabled }))
+                      }
+                      className={cn(
+                        "w-full flex items-center justify-between rounded-2xl p-3 border text-xs font-semibold transition cursor-pointer select-none",
+                        taxForm.serviceChargeEnabled
+                          ? "bg-primary/5 border-primary/40 text-foreground"
+                          : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        {taxForm.serviceChargeEnabled ? (
+                          <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                        ) : (
+                          <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span>Service Charge Active</span>
+                      </div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                        {taxForm.serviceChargeEnabled ? "Enabled" : "Disabled"}
+                      </span>
+                    </button>
+
+                    {taxForm.serviceChargeEnabled && (
+                      <div className="pt-1 pl-1 max-w-xs">
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                          Default Service Charge Rate (%)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.5}
+                            value={taxForm.serviceChargePercentage}
+                            onChange={(e) =>
+                              setTaxForm((prev) => ({ ...prev, serviceChargePercentage: Number(e.target.value) }))
+                            }
+                            className="w-full rounded-2xl border border-border bg-background p-2.5 pr-8 text-sm outline-none focus:ring-2 focus:ring-ring/60 font-mono"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">%</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pricing Behavior Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-primary" /> Menu Pricing Behavior
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setTaxForm((prev) => ({ ...prev, pricingMode: "exclusive" }))}
+                      className={cn(
+                        "rounded-2xl p-4 border text-left space-y-2 transition cursor-pointer",
+                        taxForm.pricingMode === "exclusive"
+                          ? "bg-primary/5 border-primary text-foreground shadow-soft"
+                          : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-foreground">Tax Exclusive Pricing</span>
+                        {taxForm.pricingMode === "exclusive" && <CheckSquare className="h-4 w-4 text-primary" />}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Taxes and service charges are calculated and added on top of menu item subtotal at checkout.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTaxForm((prev) => ({ ...prev, pricingMode: "inclusive" }))}
+                      className={cn(
+                        "rounded-2xl p-4 border text-left space-y-2 transition cursor-pointer",
+                        taxForm.pricingMode === "inclusive"
+                          ? "bg-primary/5 border-primary text-foreground shadow-soft"
+                          : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-foreground">Tax Inclusive Pricing</span>
+                        {taxForm.pricingMode === "inclusive" && <CheckSquare className="h-4 w-4 text-primary" />}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Menu prices include all taxes. Tax amounts are calculated backwards for receipt breakdown.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Rounding Options Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <Sliders className="h-4 w-4 text-primary" /> Final Bill Rounding
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {[
+                      { id: "none", label: "No Rounding", desc: "Exact cents" },
+                      { id: "nearest_1", label: "Nearest ₹1", desc: "Round to whole ₹1" },
+                      { id: "nearest_0_5", label: "Nearest ₹0.50", desc: "Round to 50 paise" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setTaxForm((prev) => ({ ...prev, roundingMode: opt.id as any }))}
+                        className={cn(
+                          "rounded-2xl p-3 border text-left space-y-1 transition cursor-pointer",
+                          taxForm.roundingMode === opt.id
+                            ? "bg-primary/5 border-primary text-foreground font-bold shadow-soft"
+                            : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                        )}
+                      >
+                        <div className="font-bold text-xs text-foreground">{opt.label}</div>
+                        <div className="text-[10px] text-muted-foreground">{opt.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tax Display Preferences Card */}
+                <div className="rounded-3xl bg-card p-6 shadow-soft ring-1 ring-border/60 space-y-4">
+                  <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" /> Tax Display Preferences
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {[
+                      { key: "showTaxBreakdown", label: "Show Tax Breakdown" },
+                      { key: "showServiceCharge", label: "Show Service Charge" },
+                      { key: "mergeTaxesInTotal", label: "Merge Taxes in Total" },
+                    ].map((toggle) => {
+                      const isChecked = (taxForm as any)[toggle.key];
+                      return (
+                        <button
+                          key={toggle.key}
+                          type="button"
+                          onClick={() =>
+                            setTaxForm((prev) => ({
+                              ...prev,
+                              [toggle.key]: !isChecked,
+                            }))
+                          }
+                          className={cn(
+                            "flex items-center gap-3 rounded-2xl p-3 border text-xs font-semibold transition cursor-pointer text-left select-none",
+                            isChecked
+                              ? "bg-primary/5 border-primary/40 text-foreground"
+                              : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary"
+                          )}
+                        >
+                          {isChecked ? (
+                            <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                          ) : (
+                            <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                          )}
+                          <span>{toggle.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Section-Specific Save Button */}
+                <div className="pt-2">
+                  <button
+                    onClick={saveTaxesPricing}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-xs font-semibold transition cursor-pointer shadow-soft active:scale-95 bg-primary text-primary-foreground hover:opacity-90"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>Save Taxes & Pricing Settings</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="pt-6 border-t border-border/40 max-w-md mx-auto">
-                <button
-                  disabled
-                  className="w-full rounded-full bg-muted py-2.5 text-xs font-semibold text-muted-foreground border border-border cursor-not-allowed"
-                >
-                  Save {activeDef.label} Settings
-                </button>
+              {/* Live Tax Bill Calculation Preview Panel */}
+              <div className="space-y-4">
+                <div className="sticky top-6">
+                  <LiveTaxBillPreview settings={taxForm} currency={currency} />
+                </div>
               </div>
             </div>
           )}
+
+          {/* PLACEHOLDER SECTIONS FOR OTHER CONFIGURATIONS */}
+          {activeSection !== "business_profile" &&
+            activeSection !== "receipts_billing" &&
+            activeSection !== "taxes" && (
+              <div className="rounded-3xl bg-card p-12 shadow-soft ring-1 ring-border/60 text-center space-y-4">
+                <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
+                  <activeDef.icon className="h-7 w-7" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-display text-lg font-bold text-foreground">{activeDef.label} Configuration</h3>
+                  <p className="text-xs text-muted-foreground max-w-md mx-auto">{activeDef.description}</p>
+                </div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent border border-accent/20">
+                  <Sparkles className="h-3.5 w-3.5" /> Coming Soon
+                </div>
+
+                <div className="pt-6 border-t border-border/40 max-w-md mx-auto">
+                  <button
+                    disabled
+                    className="w-full rounded-full bg-muted py-2.5 text-xs font-semibold text-muted-foreground border border-border cursor-not-allowed"
+                  >
+                    Save {activeDef.label} Settings
+                  </button>
+                </div>
+              </div>
+            )}
         </main>
       </div>
 

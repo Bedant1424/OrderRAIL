@@ -1,0 +1,128 @@
+export type TaxPricingMode = "inclusive" | "exclusive";
+export type RoundingMode = "none" | "nearest_1" | "nearest_0_5";
+
+export interface TaxSettings {
+  // Tax Profile
+  gstEnabled: boolean;
+  gstNumber: string; // GSTIN
+  gstPercentage: number; // e.g. 5
+  serviceChargeEnabled: boolean;
+  serviceChargePercentage: number; // e.g. 5
+
+  // Pricing Behavior
+  pricingMode: TaxPricingMode;
+
+  // Rounding
+  roundingMode: RoundingMode;
+
+  // Tax Display Preferences
+  showTaxBreakdown: boolean;
+  showServiceCharge: boolean;
+  mergeTaxesInTotal: boolean;
+}
+
+export const DEFAULT_TAX_SETTINGS: TaxSettings = {
+  gstEnabled: true,
+  gstNumber: "27AAAAA0000A1Z5",
+  gstPercentage: 5,
+  serviceChargeEnabled: false,
+  serviceChargePercentage: 5,
+  pricingMode: "exclusive",
+  roundingMode: "none",
+  showTaxBreakdown: true,
+  showServiceCharge: true,
+  mergeTaxesInTotal: false,
+};
+
+export interface TaxCalculationResult {
+  subtotalCents: number;
+  cgstCents: number;
+  sgstCents: number;
+  totalGstCents: number;
+  serviceChargeCents: number;
+  roundingAdjustmentCents: number;
+  grandTotalCents: number;
+}
+
+/**
+ * Calculates tax breakdown, service charge, and rounding for a given base subtotal.
+ */
+export function calculateTaxAndTotals(
+  baseSubtotalCents: number,
+  settings: TaxSettings
+): TaxCalculationResult {
+  let subtotalCents = baseSubtotalCents;
+  let totalGstCents = 0;
+  let serviceChargeCents = 0;
+
+  const gstRate = settings.gstEnabled ? Math.max(0, settings.gstPercentage) / 100 : 0;
+  const serviceChargeRate = settings.serviceChargeEnabled ? Math.max(0, settings.serviceChargePercentage) / 100 : 0;
+
+  if (settings.pricingMode === "inclusive" && gstRate > 0) {
+    // Subtotal is extracted from tax-inclusive price
+    const netFactor = 1 + gstRate;
+    subtotalCents = Math.round(baseSubtotalCents / netFactor);
+    totalGstCents = baseSubtotalCents - subtotalCents;
+  } else if (settings.pricingMode === "exclusive" && gstRate > 0) {
+    // Tax is calculated on top of subtotal
+    totalGstCents = Math.round(baseSubtotalCents * gstRate);
+  }
+
+  if (serviceChargeRate > 0) {
+    serviceChargeCents = Math.round(subtotalCents * serviceChargeRate);
+  }
+
+  const cgstCents = Math.round(totalGstCents / 2);
+  const sgstCents = totalGstCents - cgstCents;
+
+  const rawGrandTotalCents =
+    settings.pricingMode === "inclusive"
+      ? baseSubtotalCents + serviceChargeCents
+      : subtotalCents + totalGstCents + serviceChargeCents;
+
+  // Rounding adjustment
+  let grandTotalCents = rawGrandTotalCents;
+  let roundingAdjustmentCents = 0;
+
+  if (settings.roundingMode === "nearest_1") {
+    // Round to nearest 100 cents (₹1)
+    grandTotalCents = Math.round(rawGrandTotalCents / 100) * 100;
+    roundingAdjustmentCents = grandTotalCents - rawGrandTotalCents;
+  } else if (settings.roundingMode === "nearest_0_5") {
+    // Round to nearest 50 cents (₹0.50)
+    grandTotalCents = Math.round(rawGrandTotalCents / 50) * 50;
+    roundingAdjustmentCents = grandTotalCents - rawGrandTotalCents;
+  }
+
+  return {
+    subtotalCents,
+    cgstCents,
+    sgstCents,
+    totalGstCents,
+    serviceChargeCents,
+    roundingAdjustmentCents,
+    grandTotalCents,
+  };
+}
+
+/**
+ * Loads tax settings for a given cafe from localStorage, falling back to default settings.
+ */
+export function getTaxSettings(cafeId?: string): TaxSettings {
+  try {
+    const key = `orderrail_tax_settings_${cafeId || "default"}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      return { ...DEFAULT_TAX_SETTINGS, ...JSON.parse(stored) };
+    }
+  } catch {}
+  return DEFAULT_TAX_SETTINGS;
+}
+
+/**
+ * Saves tax settings for a given cafe to localStorage.
+ */
+export function saveTaxSettings(settings: TaxSettings, cafeId?: string): void {
+  const key = `orderrail_tax_settings_${cafeId || "default"}`;
+  localStorage.setItem(key, JSON.stringify(settings));
+}
