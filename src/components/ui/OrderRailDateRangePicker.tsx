@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   X
 } from "lucide-react";
-import { AnchoredPopover } from "@/components/ui/AnchoredPopover";
 import { cn } from "@/lib/utils";
 
 export type DatePresetKey =
@@ -27,7 +26,7 @@ export type DatePresetKey =
 interface OrderRailDateRangePickerProps {
   open: boolean;
   onClose: () => void;
-  triggerRef: React.RefObject<HTMLElement>;
+  triggerRef?: React.RefObject<HTMLElement>;
   initialStartDate?: string | null; // YYYY-MM-DD
   initialEndDate?: string | null;   // YYYY-MM-DD
   initialPreset?: DatePresetKey;
@@ -95,7 +94,6 @@ export function getPresetDates(key: DatePresetKey, refNow: Date = new Date()): {
 export function OrderRailDateRangePicker({
   open,
   onClose,
-  triggerRef,
   initialStartDate,
   initialEndDate,
   initialPreset = "all",
@@ -108,7 +106,7 @@ export function OrderRailDateRangePicker({
 
   const todayStr = useMemo(() => toISODateString(new Date()), []);
 
-  // Month 1 reference date (defaults to current month or draftStart month)
+  // Current month reference date
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => {
     if (initialStartDate) {
       const [y, m] = initialStartDate.split("-").map(Number);
@@ -135,21 +133,25 @@ export function OrderRailDateRangePicker({
     }
   }, [open, initialStartDate, initialEndDate, initialPreset]);
 
-  // Handle ESC key to close
+  // Handle ESC key to close & prevent body scroll
   useEffect(() => {
+    if (!open) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
+      if (e.key === "Escape") {
         onClose();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
 
-  // Derived Month 2 (Next month)
-  const month2Date = useMemo(() => {
-    return new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1, 1);
-  }, [currentMonthDate]);
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
 
   // Handlers for month/year navigation
   const prevMonth = () => {
@@ -203,8 +205,8 @@ export function OrderRailDateRangePicker({
     onClose();
   };
 
-  // Render month calendar grid helper
-  const renderCalendarMonth = (monthDate: Date, showPrevNav = false, showNextNav = false) => {
+  // Render single month calendar grid helper
+  const renderCalendarMonth = (monthDate: Date) => {
     const year = monthDate.getFullYear();
     const month = monthDate.getMonth();
     const monthName = monthDate.toLocaleString("en-US", { month: "long" });
@@ -215,7 +217,7 @@ export function OrderRailDateRangePicker({
 
     const dayCells = [];
     for (let i = 0; i < startingOffset; i++) {
-      dayCells.push(<div key={`pad-${i}`} className="h-8 w-8" />);
+      dayCells.push(<div key={`pad-${i}`} className="h-9 w-9" />);
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
@@ -238,7 +240,7 @@ export function OrderRailDateRangePicker({
           onClick={() => handleDayClick(isoDate)}
           onMouseEnter={() => setHoverDate(isoDate)}
           className={cn(
-            "h-8 w-8 text-xs font-semibold rounded-full transition duration-150 flex items-center justify-center cursor-pointer select-none relative",
+            "h-9 w-9 text-xs font-semibold rounded-full transition duration-150 flex items-center justify-center cursor-pointer select-none relative",
             isSingle
               ? "bg-primary text-primary-foreground font-bold shadow-soft scale-105 z-10"
               : isStart
@@ -258,58 +260,50 @@ export function OrderRailDateRangePicker({
     }
 
     return (
-      <div className="w-full sm:w-64 space-y-2.5">
+      <div className="w-full max-w-[320px] space-y-3">
         {/* Month Header Navigation */}
-        <div className="flex items-center justify-between px-1 h-8">
-          <div className="flex items-center gap-0.5">
-            {showPrevNav && (
-              <>
-                <button
-                  onClick={prevYear}
-                  title="Previous Year"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
-                >
-                  <ChevronsLeft className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={prevMonth}
-                  title="Previous Month"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
+        <div className="flex items-center justify-between px-1 h-9">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={prevYear}
+              title="Previous Year"
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={prevMonth}
+              title="Previous Month"
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
           </div>
 
-          <span className="font-display text-sm font-bold text-foreground tracking-tight">
+          <span className="font-display text-base font-bold text-foreground tracking-tight">
             {monthName} {year}
           </span>
 
-          <div className="flex items-center gap-0.5">
-            {showNextNav && (
-              <>
-                <button
-                  onClick={nextMonth}
-                  title="Next Month"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={nextYear}
-                  title="Next Year"
-                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
-                >
-                  <ChevronsRight className="h-3.5 w-3.5" />
-                </button>
-              </>
-            )}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={nextMonth}
+              title="Next Month"
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <button
+              onClick={nextYear}
+              title="Next Year"
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
         {/* Days of Week Header */}
-        <div className="grid grid-cols-7 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+        <div className="grid grid-cols-7 text-center text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
           <span>Mo</span>
           <span>Tu</span>
           <span>We</span>
@@ -339,11 +333,17 @@ export function OrderRailDateRangePicker({
     { id: "all", label: "All Time" },
   ];
 
+  if (!open) return null;
+
   return (
-    <AnchoredPopover open={open} onClose={onClose} triggerRef={triggerRef} className="w-[720px] max-w-[95vw]">
-      <div className="rounded-3xl border border-border/80 bg-card p-4 sm:p-5 shadow-2xl space-y-4 text-foreground animate-in fade-in-50 zoom-in-95 duration-150">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border/50 pb-2.5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      {/* Backdrop Backdrop Click */}
+      <div className="absolute inset-0" onClick={onClose} />
+
+      {/* Modal Centered Card */}
+      <div className="relative z-10 w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl border border-border/80 bg-card shadow-2xl overflow-hidden text-foreground animate-in zoom-in-95 duration-150">
+        {/* Sticky Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border/50 bg-card shrink-0">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-xl bg-primary/10 text-primary">
               <CalendarIcon className="h-4 w-4" />
@@ -355,36 +355,38 @@ export function OrderRailDateRangePicker({
           </button>
         </div>
 
-        {/* Top Quick Ranges Section */}
-        <div className="space-y-1.5 border-b border-border/40 pb-3">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Quick Ranges</div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {presetList.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleSelectPreset(p.id)}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150 cursor-pointer border shadow-xs h-7 inline-flex items-center justify-center gap-1",
-                  draftPreset === p.id
-                    ? "bg-primary text-primary-foreground border-primary font-bold shadow-soft"
-                    : "bg-secondary/60 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
-                )}
-              >
-                <span>{p.label}</span>
-                {draftPreset === p.id && <CheckCircle2 className="h-3 w-3" />}
-              </button>
-            ))}
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Quick Ranges Section */}
+          <div className="space-y-1.5 border-b border-border/40 pb-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Quick Ranges</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {presetList.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleSelectPreset(p.id)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-semibold transition-all duration-150 cursor-pointer border shadow-xs h-7 inline-flex items-center justify-center gap-1",
+                    draftPreset === p.id
+                      ? "bg-primary text-primary-foreground border-primary font-bold shadow-soft"
+                      : "bg-secondary/60 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  <span>{p.label}</span>
+                  {draftPreset === p.id && <CheckCircle2 className="h-3 w-3" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Single Calendar */}
+          <div className="flex justify-center py-1">
+            {renderCalendarMonth(currentMonthDate)}
           </div>
         </div>
 
-        {/* Dual Month Calendars */}
-        <div className="flex flex-col sm:flex-row gap-6 justify-between items-start py-1">
-          {renderCalendarMonth(currentMonthDate, true, false)}
-          {renderCalendarMonth(month2Date, false, true)}
-        </div>
-
-        {/* Dedicated Selected Range Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 pt-3">
+        {/* Sticky Footer */}
+        <div className="flex items-center justify-between gap-3 p-4 border-t border-border/50 bg-card shrink-0">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
               Selected Range
@@ -414,6 +416,6 @@ export function OrderRailDateRangePicker({
           </div>
         </div>
       </div>
-    </AnchoredPopover>
+    </div>
   );
 }
