@@ -3,6 +3,8 @@ import { BillWithItems } from '@/lib/billing/types';
 import { formatCurrency } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { Printer } from 'lucide-react';
+import { getReceiptSettings } from '@/lib/billing/receiptSettings';
+import { getTaxSettings } from '@/lib/billing/taxSettings';
 
 export interface CafeBrandingInfo {
   name?: string;
@@ -32,6 +34,9 @@ export const Receipt: React.FC<ReceiptProps> = ({
   showFooterButtons = false,
   onPrint,
 }) => {
+  const receiptSettings = getReceiptSettings();
+  const taxSettings = getTaxSettings();
+
   const formattedDate = new Date(bill.created_at).toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
@@ -43,29 +48,46 @@ export const Receipt: React.FC<ReceiptProps> = ({
     hour12: true,
   });
 
+  const invoiceNumber = `${receiptSettings.invoicePrefix || 'INV-'}${bill.bill_number}`;
+
   return (
     <div
       className={cn(
         'w-full max-w-sm mx-auto bg-white text-black p-5 rounded-lg border border-gray-300 font-mono text-xs flex flex-col gap-3 select-none shadow-none',
+        receiptSettings.receiptWidth === '58mm' ? 'max-w-[270px]' : 'max-w-[340px]',
         className
       )}
     >
       {/* 1. CAFE HEADER */}
       <div className="flex flex-col items-center text-center gap-0.5 border-b border-dashed border-gray-400 pb-3">
+        {receiptSettings.showLogo && (cafeInfo.logoUrl || (bill as any).logo_url) && (
+          <img
+            src={cafeInfo.logoUrl || (bill as any).logo_url}
+            alt="Logo"
+            className="h-10 w-10 object-contain rounded-full mb-1 border border-gray-200"
+          />
+        )}
         <h2 className="text-base font-black uppercase tracking-wider text-black">{cafeInfo.name}</h2>
-        <p className="text-[11px] text-gray-700">{cafeInfo.address}</p>
-        <p className="text-[11px] text-gray-700">Ph: {cafeInfo.phone}</p>
-        {cafeInfo.gstin && (
+        {receiptSettings.showAddress && cafeInfo.address && (
+          <p className="text-[11px] text-gray-700">{cafeInfo.address}</p>
+        )}
+        {receiptSettings.showPhone && cafeInfo.phone && (
+          <p className="text-[11px] text-gray-700">Ph: {cafeInfo.phone}</p>
+        )}
+        {receiptSettings.showGst && (receiptSettings.gstNumber || cafeInfo.gstin) && (
           <p className="text-[10px] font-bold text-gray-700 mt-0.5">
-            GSTIN: {cafeInfo.gstin}
+            GSTIN: {receiptSettings.gstNumber || cafeInfo.gstin}
           </p>
+        )}
+        {receiptSettings.receiptHeader && (
+          <p className="text-[10px] italic text-gray-800 mt-1 font-semibold">"{receiptSettings.receiptHeader}"</p>
         )}
       </div>
 
       {/* 2. BILL METADATA */}
       <div className="grid grid-cols-2 gap-1 text-[11px] border-b border-dashed border-gray-400 pb-2">
         <div className="flex flex-col">
-          <span className="font-bold text-black">Bill #{bill.bill_number}</span>
+          <span className="font-bold text-black">{invoiceNumber}</span>
           <span className="text-gray-700">{bill.table_id || bill.order_type}</span>
         </div>
         <div className="flex flex-col text-right">

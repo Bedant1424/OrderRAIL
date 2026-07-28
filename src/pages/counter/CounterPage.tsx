@@ -45,6 +45,7 @@ import { BillService, BillSummaryCalculator, type BillWithItems } from '@/lib/bi
 import { SortingPolicy, RestaurantOperationsService, REALTIME_EVENTS } from '@/lib/operations';
 import { CompactDiscountControl, type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { Receipt } from '@/components/billing/Receipt';
+import { getPaymentSettings } from '@/lib/billing/paymentSettings';
 
 import './counter.css';
 
@@ -912,6 +913,7 @@ const ActiveOrderPanel = ({
 };
 
 // --- 5. PAYMENT DIALOG MODAL (INR LOCALIZATION) ---
+
 const PaymentDialogModal = ({
   tableLabel,
   netTotal,
@@ -933,9 +935,14 @@ const PaymentDialogModal = ({
   onComplete: (tenders: PaymentTenderRecord[], customerDetails?: { customerName?: string; customerPhone?: string }) => Promise<void> | void;
   onClose: () => void;
 }) => {
+  const paymentSettings = getPaymentSettings();
+  const initialMethod = (paymentSettings.enabledMethods as any)[paymentSettings.defaultMethod] !== false
+    ? (paymentSettings.defaultMethod === 'upi' ? 'upi' : paymentSettings.defaultMethod === 'card' ? 'card' : 'cash')
+    : 'cash';
+
   const [isSplitMode, setIsSplitMode] = useState<boolean>(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState<boolean>(false);
-  const [method, setMethod] = useState<'cash' | 'card' | 'upi'>('cash');
+  const [method, setMethod] = useState<'cash' | 'card' | 'upi'>(initialMethod);
   const [tenderAmount, setTenderAmount] = useState<string>('');
   const [receivedAmount, setReceivedAmount] = useState<string>('');
   const [transactionRef, setTransactionRef] = useState<string>('');
@@ -1228,33 +1235,39 @@ const PaymentDialogModal = ({
           )}
 
           <div className="grid grid-cols-3 gap-2">
-            <button 
-              className={cn(
-                'h-12 rounded-xl border font-bold text-xs flex flex-col items-center justify-center gap-1 transition',
-                method === 'cash' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground'
-              )}
-              onClick={() => setMethod('cash')}
-            >
-              <IndianRupeeIcon className="w-4 h-4" /> Cash
-            </button>
-            <button 
-              className={cn(
-                'h-12 rounded-xl border font-bold text-xs flex flex-col items-center justify-center gap-1 transition',
-                method === 'card' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground'
-              )}
-              onClick={() => setMethod('card')}
-            >
-              <CreditCard className="w-4 h-4" /> Card
-            </button>
-            <button 
-              className={cn(
-                'h-12 rounded-xl border font-bold text-xs flex flex-col items-center justify-center gap-1 transition',
-                method === 'upi' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground'
-              )}
-              onClick={() => setMethod('upi')}
-            >
-              <Smartphone className="w-4 h-4" /> UPI
-            </button>
+            {paymentSettings.enabledMethods.cash !== false && (
+              <button 
+                className={cn(
+                  'h-12 rounded-xl border font-bold text-xs flex flex-col items-center justify-center gap-1 transition',
+                  method === 'cash' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => setMethod('cash')}
+              >
+                <IndianRupeeIcon className="w-4 h-4" /> Cash
+              </button>
+            )}
+            {paymentSettings.enabledMethods.card !== false && (
+              <button 
+                className={cn(
+                  'h-12 rounded-xl border font-bold text-xs flex flex-col items-center justify-center gap-1 transition',
+                  method === 'card' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => setMethod('card')}
+              >
+                <CreditCard className="w-4 h-4" /> Card
+              </button>
+            )}
+            {paymentSettings.enabledMethods.upi !== false && (
+              <button 
+                className={cn(
+                  'h-12 rounded-xl border font-bold text-xs flex flex-col items-center justify-center gap-1 transition',
+                  method === 'upi' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted/30 border-border/40 text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => setMethod('upi')}
+              >
+                <QrCode className="w-4 h-4" /> UPI / QR
+              </button>
+            )}
           </div>
 
           {method === 'cash' && (

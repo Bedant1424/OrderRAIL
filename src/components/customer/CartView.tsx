@@ -18,7 +18,7 @@ import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, STICKY_FOOTER_GAP, STICKY_FOOTER_
 import { cn } from "@/lib/utils";
 import { APP_CONFIG } from "@/config/app";
 import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
-import { useCustomerNavigate } from "@/hooks/useCustomerBack";
+import { getOperationsSettings, getTodayOpenStatus } from "@/lib/billing/operationsSettings";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const { lines, setQty, remove, subtotalCents, clear, note, setNote, editingOrderId, editingOrderVersion, cancelEditing } = useCart();
@@ -135,6 +135,19 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         toast.error(
           `Some items are no longer available and were removed from your cart: ${unavailableNames.join(", ")}. Please review your order.`
         );
+        setPlacing(false);
+        return;
+      }
+
+      // Check runtime Operations Settings
+      const opsSettings = getOperationsSettings(cafe.id);
+      const todayStatus = getTodayOpenStatus(opsSettings);
+
+      if (!todayStatus.isOpen || !opsSettings.enabledChannels.dine_in) {
+        const errorMsg = !todayStatus.isOpen
+          ? `Restaurant is currently ${todayStatus.text.toLowerCase()} for ordering.`
+          : "Dine-In ordering is currently disabled by management.";
+        toast.error(`Cannot place order: ${errorMsg}`);
         setPlacing(false);
         return;
       }
