@@ -12,39 +12,44 @@ import { toast } from "@/components/ui/sonner";
 
 export interface UseOrdersOptions {
   cafeId?: string | null;
-  dateRange?: "today" | "7d" | "30d" | "all";
+  dateRange?: string;
+  sinceDate?: string | null;
+  untilDate?: string | null;
 }
 
-export function useOrders({ cafeId, dateRange = "all" }: UseOrdersOptions) {
+export function useOrders({ cafeId, dateRange = "all", sinceDate: propSinceDate, untilDate: propUntilDate }: UseOrdersOptions) {
   const queryClient = useQueryClient();
 
-  const sinceDate = useMemo(() => {
+  const { sinceDate, untilDate } = useMemo(() => {
+    if (propSinceDate !== undefined || propUntilDate !== undefined) {
+      return { sinceDate: propSinceDate, untilDate: propUntilDate };
+    }
     if (dateRange === "today") {
       const d = new Date();
       d.setHours(0, 0, 0, 0);
-      return d.toISOString();
+      return { sinceDate: d.toISOString(), untilDate: null };
     }
     if (dateRange === "7d") {
       const d = new Date();
       d.setDate(d.getDate() - 7);
-      return d.toISOString();
+      return { sinceDate: d.toISOString(), untilDate: null };
     }
     if (dateRange === "30d") {
       const d = new Date();
       d.setDate(d.getDate() - 30);
-      return d.toISOString();
+      return { sinceDate: d.toISOString(), untilDate: null };
     }
-    return null;
-  }, [dateRange]);
+    return { sinceDate: null, untilDate: null };
+  }, [dateRange, propSinceDate, propUntilDate]);
 
   // Unified Query Key across Owner & Staff
-  const queryKey = useMemo(() => ["shared-orders", cafeId, dateRange], [cafeId, dateRange]);
+  const queryKey = useMemo(() => ["shared-orders", cafeId, dateRange, sinceDate, untilDate], [cafeId, dateRange, sinceDate, untilDate]);
 
   // Main Query
   const ordersQ = useQuery({
     queryKey,
     enabled: !!cafeId,
-    queryFn: () => fetchCafeOrders(cafeId!, sinceDate),
+    queryFn: () => fetchCafeOrders(cafeId!, sinceDate, untilDate),
     refetchInterval: 10000,
   });
 

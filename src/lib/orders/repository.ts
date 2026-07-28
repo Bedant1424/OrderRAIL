@@ -30,7 +30,7 @@ export interface EditOrderItemPayload {
   note?: string | null;
 }
 
-export async function fetchCafeOrders(cafeId: string, sinceDate?: string | null): Promise<OrderWithItems[]> {
+export async function fetchCafeOrders(cafeId: string, sinceDate?: string | null, untilDate?: string | null): Promise<OrderWithItems[]> {
   let query = supabase
     .from("orders")
     .select("*, order_items(*), tables(label)")
@@ -39,6 +39,9 @@ export async function fetchCafeOrders(cafeId: string, sinceDate?: string | null)
 
   if (sinceDate) {
     query = query.gte("created_at", sinceDate);
+  }
+  if (untilDate) {
+    query = query.lte("created_at", untilDate);
   }
 
   const { data, error } = await query;

@@ -38,7 +38,19 @@ import { fetchCafeTables } from "@/lib/tables/tableRepository";
 type MainTab = "live" | "history";
 type SortOption = "newest" | "oldest" | "highest" | "lowest";
 type StatusFilter = "all" | "completed" | "cancelled";
-type DateRangeFilter = "today" | "7d" | "30d" | "all";
+export type DatePresetKey =
+  | "today"
+  | "yesterday"
+  | "7d"
+  | "30d"
+  | "90d"
+  | "this_month"
+  | "last_month"
+  | "this_year"
+  | "all"
+  | "custom"
+  | "month"
+  | "year";
 
 export default function OwnerOrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,26 +62,245 @@ export default function OwnerOrdersPage() {
     (searchParams.get("tab") as MainTab) ?? "live"
   );
 
-  // Filter States
+  // Advanced Reporting Date Filter States
+  const [preset, setPreset] = useState<DatePresetKey>(() => {
+    const range = searchParams.get("range");
+    if (range === "today") return "today";
+    if (range === "7d") return "7d";
+    if (range === "30d") return "30d";
+    return "all";
+  });
+
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<string>("");
+
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") ?? "");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     (searchParams.get("status") as StatusFilter) ?? "all"
   );
-  const [dateRange, setDateRange] = useState<DateRangeFilter>(
-    (searchParams.get("range") as DateRangeFilter) ?? "all"
-  );
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [selectedTableIdFilter, setSelectedTableIdFilter] = useState<string | null>(null);
+
+  // Compute sinceDate, untilDate, filenameRange, and activeRangeLabel
+  const { sinceDate, untilDate, filenameRange, activeRangeLabel } = useMemo(() => {
+    const now = new Date();
+
+    if (preset === "today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: `today_${now.toISOString().slice(0, 10)}`,
+        activeRangeLabel: "Today"
+      };
+    }
+
+    if (preset === "yesterday") {
+      const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const start = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 0, 0, 0, 0);
+      const end = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 23, 59, 59, 999);
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: `yesterday_${yest.toISOString().slice(0, 10)}`,
+        activeRangeLabel: "Yesterday"
+      };
+    }
+
+    if (preset === "7d") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: "last_7_days",
+        activeRangeLabel: "Last 7 Days"
+      };
+    }
+
+    if (preset === "30d") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: "last_30_days",
+        activeRangeLabel: "Last 30 Days"
+      };
+    }
+
+    if (preset === "90d") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 89, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: "last_90_days",
+        activeRangeLabel: "Last 90 Days"
+      };
+    }
+
+    if (preset === "this_month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: monthStr,
+        activeRangeLabel: `This Month (${now.toLocaleString("en-US", { month: "short" })})`
+      };
+    }
+
+    if (preset === "last_month") {
+      const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const start = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1, 0, 0, 0, 0);
+      const end = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+      const monthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: monthStr,
+        activeRangeLabel: `Last Month (${prevMonthDate.toLocaleString("en-US", { month: "short" })})`
+      };
+    }
+
+    if (preset === "this_year") {
+      const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: `${now.getFullYear()}`,
+        activeRangeLabel: `This Year (${now.getFullYear()})`
+      };
+    }
+
+    if (preset === "month" && selectedMonth) {
+      const [yrStr, moStr] = selectedMonth.split("-");
+      const yr = parseInt(yrStr, 10);
+      const mo = parseInt(moStr, 10) - 1;
+      const start = new Date(yr, mo, 1, 0, 0, 0, 0);
+      const end = new Date(yr, mo + 1, 0, 23, 59, 59, 999);
+      const dateObj = new Date(yr, mo, 1);
+      const label = dateObj.toLocaleString("en-US", { month: "long", year: "numeric" });
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: selectedMonth,
+        activeRangeLabel: label
+      };
+    }
+
+    if (preset === "year" && selectedYear) {
+      const yr = parseInt(selectedYear, 10);
+      const start = new Date(yr, 0, 1, 0, 0, 0, 0);
+      const end = new Date(yr, 11, 31, 23, 59, 59, 999);
+      return {
+        sinceDate: start.toISOString(),
+        untilDate: end.toISOString(),
+        filenameRange: `${yr}`,
+        activeRangeLabel: `Year ${yr}`
+      };
+    }
+
+    if (preset === "custom" && customStartDate) {
+      const endDateStr = customEndDate || customStartDate;
+      const sDate = new Date(`${customStartDate}T00:00:00`);
+      const eDate = new Date(`${endDateStr}T23:59:59.999`);
+      const filenameRange = customStartDate === endDateStr ? customStartDate : `${customStartDate}_to_${endDateStr}`;
+      const activeRangeLabel = customStartDate === endDateStr ? `Custom (${customStartDate})` : `Custom (${customStartDate} to ${endDateStr})`;
+      return {
+        sinceDate: sDate.toISOString(),
+        untilDate: eDate.toISOString(),
+        filenameRange,
+        activeRangeLabel
+      };
+    }
+
+    return {
+      sinceDate: null,
+      untilDate: null,
+      filenameRange: "all_time",
+      activeRangeLabel: "All Time"
+    };
+  }, [preset, customStartDate, customEndDate, selectedMonth, selectedYear]);
 
   // Drawer & Selection States
   const [selectedOrder, setSelectedOrder] = useState<(Order & { order_items: OrderItem[] }) | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // Consuming Shared Order Engine Hook (Phase 4 & 5)
+  // Consuming Shared Order Engine Hook with custom Date Filter
   const { orders, isLoading, updateStatus, cancelOrder, isUpdating } = useOrders({
     cafeId: cafe?.id,
-    dateRange
+    sinceDate,
+    untilDate
   });
+
+  // Dynamic Options for Month & Year dropdowns
+  const monthOptions = useMemo(() => {
+    const opts = [];
+    const now = new Date();
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleString("en-US", { month: "long", year: "numeric" });
+      opts.push({ value, label });
+    }
+    return opts;
+  }, []);
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return [currentYear, currentYear - 1, currentYear - 2, currentYear - 3].map(String);
+  }, []);
+
+  // Handlers for Reporting Filter controls
+  const handlePresetSelect = (key: DatePresetKey) => {
+    setPreset(key);
+    setSelectedMonth("");
+    setSelectedYear("");
+    setCustomStartDate("");
+    setCustomEndDate("");
+  };
+
+  const handleMonthSelect = (val: string) => {
+    if (!val) return;
+    setSelectedMonth(val);
+    setPreset("month");
+    setSelectedYear("");
+    setCustomStartDate("");
+    setCustomEndDate("");
+  };
+
+  const handleYearSelect = (val: string) => {
+    if (!val) return;
+    setSelectedYear(val);
+    setPreset("year");
+    setSelectedMonth("");
+    setCustomStartDate("");
+    setCustomEndDate("");
+  };
+
+  const handleCustomStartChange = (val: string) => {
+    setCustomStartDate(val);
+    if (val && !customEndDate) {
+      setCustomEndDate(val);
+    }
+    setPreset("custom");
+    setSelectedMonth("");
+    setSelectedYear("");
+  };
+
+  const handleCustomEndChange = (val: string) => {
+    setCustomEndDate(val);
+    setPreset("custom");
+    setSelectedMonth("");
+    setSelectedYear("");
+  };
 
   // Daily Display Order Numbers Mapping (Resets per calendar day)
   const dailyOrderNumMap = useMemo(() => computeDailyOrderNumbers(orders), [orders]);
@@ -203,7 +434,7 @@ export default function OwnerOrdersPage() {
     }
   };
 
-  // Standardized CSV Exporter using Daily Order Numbers
+  // Standardized CSV Exporter using Daily Order Numbers and Reporting Filename
   const handleExportCSV = () => {
     const listToExport = selectedIds.length > 0
       ? filteredOrders.filter((o) => selectedIds.includes(o.id))
@@ -219,12 +450,13 @@ export default function OwnerOrdersPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `orderrail-orders-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    const exportFilename = `orders_${filenameRange}.csv`;
+    link.setAttribute("download", exportFilename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success(`Exported ${listToExport.length} orders to standardized CSV.`);
+    toast.success(`Exported ${listToExport.length} orders as ${exportFilename}`);
   };
 
   return (
@@ -274,6 +506,99 @@ export default function OwnerOrdersPage() {
         </div>
       </header>
 
+      {/* Advanced Reporting Date Filter Controls */}
+      <section className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-primary" />
+            <span className="text-sm font-bold">Reporting Period</span>
+            <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-bold text-primary border border-primary/20">
+              {activeRangeLabel}
+            </span>
+          </div>
+
+          {/* Selectors: Month, Year, Custom Range */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Month Selector */}
+            <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1 text-xs font-medium">
+              <span className="text-muted-foreground">Month:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => handleMonthSelect(e.target.value)}
+                className="bg-transparent outline-none cursor-pointer text-foreground font-semibold"
+              >
+                <option value="">Select Month</option>
+                {monthOptions.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Year Selector */}
+            <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1 text-xs font-medium">
+              <span className="text-muted-foreground">Year:</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => handleYearSelect(e.target.value)}
+                className="bg-transparent outline-none cursor-pointer text-foreground font-semibold"
+              >
+                <option value="">Select Year</option>
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Custom Start & End Date Inputs */}
+            <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1 text-xs font-medium">
+              <span className="text-muted-foreground">From:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => handleCustomStartChange(e.target.value)}
+                className="bg-transparent outline-none cursor-pointer text-foreground font-semibold"
+              />
+              <span className="text-muted-foreground">To:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => handleCustomEndChange(e.target.value)}
+                className="bg-transparent outline-none cursor-pointer text-foreground font-semibold"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Presets Chips */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/50">
+          <span className="text-[11px] font-bold text-muted-foreground mr-1.5 uppercase tracking-wider">Presets:</span>
+          {[
+            { id: "today", label: "Today" },
+            { id: "yesterday", label: "Yesterday" },
+            { id: "7d", label: "Last 7 Days" },
+            { id: "30d", label: "Last 30 Days" },
+            { id: "90d", label: "Last 90 Days" },
+            { id: "this_month", label: "This Month" },
+            { id: "last_month", label: "Last Month" },
+            { id: "this_year", label: "This Year" },
+            { id: "all", label: "All Time" },
+          ].map((chip) => (
+            <button
+              key={chip.id}
+              onClick={() => handlePresetSelect(chip.id as DatePresetKey)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold transition cursor-pointer border",
+                preset === chip.id
+                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                  : "bg-secondary/60 text-muted-foreground border-border/40 hover:bg-secondary hover:text-foreground"
+              )}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* Summary Cards */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
@@ -295,14 +620,14 @@ export default function OwnerOrdersPage() {
         </div>
 
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed Today</div>
-          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{summary.ordersCompletedToday}</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Completed ({activeRangeLabel})</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{summary.completedCount}</div>
           <div className="text-[11px] text-muted-foreground">Served orders</div>
         </div>
 
         <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Revenue Today</div>
-          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{formatMoney(summary.revenueTodayCents || 0, currency)}</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Revenue ({activeRangeLabel})</div>
+          <div className="mt-1 font-display text-2xl font-bold tabular-nums text-foreground">{formatMoney(summary.totalRevenue || 0, currency)}</div>
           <div className="text-[11px] text-muted-foreground">Gross revenue</div>
         </div>
 
@@ -361,21 +686,6 @@ export default function OwnerOrdersPage() {
                     <X className="h-4 w-4" />
                   </button>
                 )}
-              </div>
-
-              {/* Date Range Selector */}
-              <div className="flex items-center gap-1.5 rounded-2xl border border-border bg-background px-3 py-1.5 text-xs font-medium">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value as DateRangeFilter)}
-                  className="bg-transparent outline-none cursor-pointer text-foreground"
-                >
-                  <option value="all">All Dates</option>
-                  <option value="today">Today</option>
-                  <option value="7d">Last 7 Days</option>
-                  <option value="30d">Last 30 Days</option>
-                </select>
               </div>
 
               {/* Sort By Selector (Default: Newest First) */}
