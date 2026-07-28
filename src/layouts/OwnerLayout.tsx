@@ -87,6 +87,7 @@ export function useOwnerLayout() {
 const nav = [
   { to: "/owner", end: true, label: "Analytics", icon: BarChart3 },
   { to: "/owner/orders", label: "Orders", icon: ClipboardList },
+  { to: "/owner/customers", label: "Customers", icon: Users },
   { to: "/owner/menu", label: "Menu", icon: UtensilsCrossed },
   { to: "/owner/tables", label: "Tables & QR", icon: QrCode },
   { to: "/owner/staff", label: "Staff", icon: Users },

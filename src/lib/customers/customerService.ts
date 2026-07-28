@@ -19,7 +19,10 @@ export interface CustomerProfile {
  * Groups primarily by customer phone number, falling back to customer name.
  * Computes: Visit Count, Lifetime Spend, Average Bill, First & Last Visit dates, Preferred Channel.
  */
-export function aggregateCustomerProfiles(orders: Order[]): CustomerProfile[] {
+export function aggregateCustomerProfiles(
+  orders: Order[],
+  options?: { excludeWalkins?: boolean }
+): CustomerProfile[] {
   const customerMap = new Map<string, {
     id: string;
     name: string;
@@ -81,6 +84,12 @@ export function aggregateCustomerProfiles(orders: Order[]): CustomerProfile[] {
   const profiles: CustomerProfile[] = [];
 
   for (const entry of customerMap.values()) {
+    // Walk-in customers without phone or custom name are excluded when excludeWalkins is true
+    if (options?.excludeWalkins) {
+      const isAnonymousWalkin = !entry.phone && (!entry.name || entry.name === "Walk-in Customer");
+      if (isAnonymousWalkin) continue;
+    }
+
     // Determine preferred channel
     let preferredChannel = "dine_in";
     let maxChannelCount = 0;
