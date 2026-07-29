@@ -18,6 +18,7 @@ import {
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
 import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders, OrderService, BillingService, PaymentService, type PaymentMethod, type OrderSource } from '@/lib/orders/repository';
+import { getOperationsSettings } from '@/lib/billing/operationsSettings';
 import { computeDailyOrderNumbers } from '@/lib/orders/orderUtils';
 import { fetchActiveServiceRequests } from '@/lib/serviceRequests/repository';
 import { getSessionId } from '@/lib/session';
@@ -577,7 +578,7 @@ const OrderCard = memo(({
         {isPending && onAcceptOrder && (
           <button 
             className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1"
-            onClick={() => onAcceptOrder(order.id, order.orderNumber)}
+            onClick={() => onAcceptOrder(order.id, order.orderNumber, order)}
           >
             <Check className="w-3.5 h-3.5" /> Accept Order
           </button>
@@ -2969,16 +2970,35 @@ const CounterLayout = () => {
   const [activeKot, setActiveKot] = useState<KotPrintPayload | null>(null);
 
   // Accept QR / New Order (Transitions status from Pending -> Preparing)
-  const handleAcceptOrder = useCallback(async (orderId: string, orderNumber: number) => {
+  const handleAcceptOrder = useCallback(async (orderId: string, orderNumber: number, orderObj?: SessionOrder) => {
     try {
       await OrderService.updateOrderStatus(orderId, "preparing", "staff");
       toast.success(`✅ Order #${orderNumber} Accepted!`);
+
+      const opsSettings = getOperationsSettings();
+      if (opsSettings.autoPrintKot && orderObj && orderObj.items?.length) {
+        const cleanLabel = (selectedTable?.label || 'Express').toLowerCase().startsWith('table')
+          ? (selectedTable?.label || 'Express')
+          : `Table ${selectedTable?.label || 'Express'}`;
+
+        void OrderService.printKot({
+          orderId: orderId,
+          orderNumber: orderNumber,
+          kotNumber: orderNumber,
+          tableLabel: cleanLabel,
+          timestamp: orderObj.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+          items: orderObj.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
+        }).catch((err) => {
+          console.warn("[handleAcceptOrder] Auto-print KOT warning:", err);
+        });
+      }
+
       await loadSessionsFromDb();
     } catch (e) {
       console.warn("[handleAcceptOrder] Error:", e);
       toast.error("Failed to accept order");
     }
-  }, [loadSessionsFromDb]);
+  }, [loadSessionsFromDb, selectedTable]);
 
   // Send KOT (Prints KOT slip & updates status to Preparing)
   const handleSendKotOrder = useCallback(async (order: SessionOrder, tableLabel: string) => {

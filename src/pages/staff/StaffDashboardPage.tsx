@@ -812,6 +812,29 @@ export default function StaffDashboardPage() {
     if (!next) return;
     try {
       await updateOrderStatusInDb(o.id, next, "staff");
+
+      if (o.status === "pending" && next === "preparing") {
+        const opsSettings = getOperationsSettings();
+        if (opsSettings.autoPrintKot && o.order_items?.length) {
+          const rawLabel = o.table_number ? `Table ${o.table_number}` : (o.order_type || "Express");
+          void PrinterAdapter.printKot({
+            orderId: o.id,
+            orderNumber: o.daily_order_number || o.id.slice(0, 6),
+            kotNumber: o.daily_order_number || 101,
+            tableLabel: rawLabel,
+            timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+            items: o.order_items.map((i) => ({
+              id: i.id,
+              name: i.menu_item?.name || "Item",
+              qty: i.quantity || 1,
+              price: i.unit_price || 0,
+              notes: i.notes,
+            })),
+          }).catch((err) => {
+            console.warn("[StaffDashboard] Auto-print KOT warning:", err);
+          });
+        }
+      }
     } catch (error: any) {
       toast.error(error?.message || "Failed to update order status");
     }

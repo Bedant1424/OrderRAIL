@@ -4,6 +4,7 @@ import { PrinterAdapter } from "../lib/printing/printerAdapter";
 import { MockProvider } from "../lib/printing/providers/MockProvider";
 import { KotBuilder } from "../lib/printing/kotBuilder";
 import { ReceiptBuilder } from "../lib/printing/receiptBuilder";
+import { getOperationsSettings } from "../lib/billing/operationsSettings";
 
 describe("Production End-to-End Printing Audit Suite (58mm Unified Profile)", () => {
   beforeEach(() => {
@@ -101,7 +102,28 @@ describe("Production End-to-End Printing Audit Suite (58mm Unified Profile)", ()
     expect(lastJob.payload.formattedText).toContain("** REPRINT RECEIPT **");
   });
 
-  it("6. Unified Profile Check: KotBuilder and ReceiptBuilder both render 32 columns max width", () => {
+  it("6. Accept Order Auto-Print KOT: Should automatically enqueue KOT print job when autoPrintKot is true", async () => {
+    const opsSettings = getOperationsSettings();
+    expect(opsSettings.autoPrintKot).toBe(true);
+
+    const res = await PrinterAdapter.printKot({
+      orderId: "ord-accept-1",
+      kotNumber: 505,
+      orderNumber: 505,
+      tableLabel: "Table 4",
+      timestamp: "11:45 AM",
+      items: [{ id: "i1", name: "Paneer Tikka Roll", qty: 2, price: 180 }]
+    });
+
+    expect(res.success).toBe(true);
+
+    const history = printService.getJobHistory();
+    const lastJob = history[history.length - 1];
+    expect(lastJob.type).toBe("KOT");
+    expect(lastJob.payload.escpos).toContain("Paneer Tikka Roll");
+  });
+
+  it("7. Unified Profile Check: KotBuilder and ReceiptBuilder both render 32 columns max width", () => {
     const kot = KotBuilder.build({
       kotNumber: 1,
       orderNumber: 1,
