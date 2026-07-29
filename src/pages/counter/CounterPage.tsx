@@ -3140,21 +3140,24 @@ const CounterLayout = () => {
 
     const orderTimestamp = createdDbOrder?.created_at || new Date().toISOString();
 
-    // Spool & print KOT for draft order via PrintService
-    const kotPayload: KotPrintPayloadData = {
-      type: 'KOT',
-      orderId: createdOrderId || undefined,
-      orderNumber: orderNum,
-      tableLabel: cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel}` : 'Express Takeaway',
-      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      items: cur.draftCart.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
-    };
-
-    const { success: printSuccess } = await printService.enqueue('KOT', 'KOT_PRINTER', kotPayload, { orderId: createdOrderId || undefined });
-    if (printSuccess) {
-      toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${orderNum})`);
-    } else {
-      toast.warn(`⚠️ Order created, but KOT printing failed for Order #${orderNum}.`);
+    // Spool & print KOT via canonical OrderService -> PrinterAdapter -> KotBuilder pipeline
+    try {
+      const res = await OrderService.printKot({
+        orderId: createdOrderId || `ord-kot-${Date.now()}`,
+        orderNumber: orderNum,
+        kotNumber: orderNum,
+        tableLabel: cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel}` : 'Express Takeaway',
+        timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        items: cur.draftCart.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
+      });
+      if (!res.queued) {
+        toast.success(`🍳 KOT #${orderNum} Printed & Sent to Kitchen!`);
+      } else {
+        toast.info(`⏳ KOT #${orderNum} Queued for Printing`);
+      }
+    } catch (e: any) {
+      console.warn("[handleKot] Print KOT warning:", e);
+      toast.warn(`⚠️ Order created, but KOT printing failed for Order #${orderNum}: ${e?.message || 'Error'}`);
     }
 
     const eventPayload: CounterNotification = {
