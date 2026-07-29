@@ -3079,7 +3079,7 @@ const CounterLayout = () => {
         session_id: getSessionId(),
         dining_session_id: targetSessionId,
         total_cents: Math.round(subtotal * 100),
-        status: "kot_sent" as any,
+        status: "preparing",
         items: cur.draftCart.map((i) => ({
           menu_item_id: i.menuItemId || (i.id.startsWith("c-") ? undefined : i.id),
           name: i.name,
@@ -3116,15 +3116,21 @@ const CounterLayout = () => {
       syncState: isQueuedOffline ? 'Pending Sync' : 'Synced'
     };
 
-    // Clear draft cart immediately while preserving session ID
-    setTableSessions((prev) => ({
-      ...prev,
-      [activeTableId]: {
-        ...(prev[activeTableId] || cur),
-        sessionId: targetSessionId || cur.sessionId,
-        draftCart: []
-      }
-    }));
+    // Update session orders and clear draft cart immediately
+    setTableSessions((prev) => {
+      const existingSession = prev[activeTableId] || cur;
+      const existingOrders = existingSession.orders || [];
+      const filteredOrders = existingOrders.filter((o) => o.id !== newSessionOrder.id);
+      return {
+        ...prev,
+        [activeTableId]: {
+          ...existingSession,
+          sessionId: targetSessionId || existingSession.sessionId,
+          orders: [...filteredOrders, newSessionOrder],
+          draftCart: []
+        }
+      };
+    });
 
     const orderTimestamp = createdDbOrder?.created_at || new Date().toISOString();
 

@@ -648,6 +648,10 @@ export async function fetchCustomerOrders(
       const isTableMatch = off.table_id === tableId;
       const isSessMatch = activeSessionId && off.dining_session_id === activeSessionId;
       if ((isTableMatch || isSessMatch) && off.status !== "cancelled") {
+        // Canonical PostgreSQL order takes precedence once created; do not overwrite with optimistic offline object
+        if (combinedMap.has(off.id)) {
+          continue;
+        }
         combinedMap.set(off.id, {
           id: off.id,
           cafe_id: off.cafe_id,
