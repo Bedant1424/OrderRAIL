@@ -89,11 +89,11 @@ export class OrderServiceClass {
     OperationExecutor.registerHandler("CREATE_ORDER", async (payload: CreateOrderPayload) => {
       const realOrderId = orderIdMapping.get(payload.id!) || payload.id;
       const finalPayload = { ...payload, id: realOrderId };
-      const serverId = await createOrderInDb(finalPayload);
-      if (payload.id && payload.id !== serverId) {
-        orderIdMapping.set(payload.id, serverId);
+      const createdOrder = await createOrderInDb(finalPayload);
+      if (payload.id && payload.id !== createdOrder.id) {
+        orderIdMapping.set(payload.id, createdOrder.id);
       }
-      return { orderId: serverId };
+      return { orderId: createdOrder.id, dbOrder: createdOrder };
     });
 
     // Handler 2: EDIT_ORDER
@@ -156,7 +156,7 @@ export class OrderServiceClass {
   public async createOrder(
     payload: CreateOrderPayload,
     options?: { forceQueue?: boolean }
-  ): Promise<{ orderId: string; queued: boolean; status: Operation["status"] }> {
+  ): Promise<{ orderId: string; queued: boolean; status: Operation["status"]; dbOrder?: any }> {
     this.initHandlers();
 
     const tempId = payload.id || `temp_ord_${generateUUID()}`;
@@ -175,6 +175,7 @@ export class OrderServiceClass {
       orderId: realId,
       queued: res.queued,
       status: res.status,
+      dbOrder: res.result?.dbOrder,
     };
   }
 

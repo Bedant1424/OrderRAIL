@@ -295,8 +295,8 @@ export interface CreateOrderPayload {
 const isUuid = (val?: string | null): boolean =>
   !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
-export async function createOrderInDb(payload: CreateOrderPayload): Promise<string> {
-  const orderId = payload.id || crypto.randomUUID();
+export async function createOrderInDb(payload: CreateOrderPayload): Promise<OrderWithItems> {
+  const orderId = isUuid(payload.id) ? payload.id! : crypto.randomUUID();
   
   // Normalize status for DB check constraints
   let initialStatus = (payload.status || "pending").toString().toLowerCase();
@@ -318,8 +318,8 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
 
   let diningSessionId = payload.dining_session_id || null;
 
-  // Resolve or create active dining session for table if dining_session_id is missing or dummy
-  if ((!diningSessionId || diningSessionId.startsWith("session-")) && targetTableId) {
+  // Resolve or create active dining session for table if dining_session_id is missing or non-UUID
+  if ((!diningSessionId || !isUuid(diningSessionId)) && targetTableId) {
     const { data: activeSess } = await supabase
       .from("dining_sessions")
       .select("id")
@@ -491,7 +491,27 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     }
   }
 
-  return orderId;
+  return (verifiedOrder as unknown as OrderWithItems) || ({
+    id: orderId,
+    cafe_id: cleanCafeId,
+    table_id: targetTableId,
+    dining_session_id: diningSessionId,
+    session_id: payload.session_id || payload.guest_session_id || getSessionId(),
+    guest_session_id: payload.guest_session_id || null,
+    total_cents: payload.total_cents,
+    note: payload.note ?? null,
+    status: initialStatus,
+    created_at: new Date().toISOString(),
+    order_items: payload.items.map((i) => ({
+      id: `item-${Date.now()}`,
+      order_id: orderId,
+      menu_item_id: i.menu_item_id || "",
+      name: i.name,
+      price_cents: i.price_cents,
+      qty: i.qty,
+      created_at: new Date().toISOString(),
+    })),
+  } as OrderWithItems);
 }
 
 export const createOrder = createOrderInDb;

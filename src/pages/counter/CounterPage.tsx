@@ -3072,6 +3072,7 @@ const CounterLayout = () => {
 
     let createdOrderId: string | null = null;
     let isQueuedOffline = false;
+    let createdDbOrder: any = null;
     try {
       const res = await OrderService.createOrder({
         cafe_id: cafeId || '',
@@ -3089,6 +3090,9 @@ const CounterLayout = () => {
       });
       createdOrderId = res.orderId;
       isQueuedOffline = res.queued;
+      if (res.dbOrder) {
+        createdDbOrder = res.dbOrder;
+      }
 
       if (selectedTable) {
         await tableEngine.openTable(selectedTable.id);
@@ -3097,10 +3101,12 @@ const CounterLayout = () => {
       console.warn("[handleKot] OrderService write warning:", e);
     }
 
-    const res = await loadSessionsFromDb("Send KOT Post-Write");
-    const dbOrders = res?.dbOrders;
+    const loadRes = await loadSessionsFromDb("Send KOT Post-Write");
+    const dbOrders = loadRes?.dbOrders;
 
-    const createdDbOrder = dbOrders?.find((o: any) => o.id === createdOrderId);
+    if (!createdDbOrder) {
+      createdDbOrder = dbOrders?.find((o: any) => o.id === createdOrderId);
+    }
     const rawLabel = selectedTable ? selectedTable.label : 'Express';
     const cleanTableLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel.substring(5).trim() : rawLabel;
 
