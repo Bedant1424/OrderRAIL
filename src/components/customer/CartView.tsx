@@ -18,6 +18,7 @@ import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, STICKY_FOOTER_GAP, STICKY_FOOTER_
 import { cn } from "@/lib/utils";
 import { APP_CONFIG } from "@/config/app";
 import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
+import { useCustomerNavigate } from "@/hooks/useCustomerBack";
 import { getOperationsSettings, getTodayOpenStatus } from "@/lib/billing/operationsSettings";
 
 export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
@@ -27,7 +28,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const customerNavigate = useCustomerNavigate();
   const outletContext = useOutletContext<{ guestSessionId?: string | null; isSessionActive?: boolean }>() || {};
   const { isSessionActive = true } = outletContext;
-  const currentGuestSessionId = outletContext.guestSessionId || getStoredGuestSessionId(table.id);
+  const currentGuestSessionId = outletContext.guestSessionId || (table?.id ? getStoredGuestSessionId(table.id) : null);
 
   const [placing, setPlacing] = useState(false);
   const [callingType, setCallingType] = useState<ServiceRequestType | null>(null);
@@ -41,8 +42,9 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadHistory = async () => {
+    if (!table?.id) return;
     setLoadingHistory(true);
-    const localIds = getOrderHistory(table?.id, table?.active_session_id);
+    const localIds = getOrderHistory(table.id, table.active_session_id);
     const browserSessionId = getSessionId();
 
     try {
@@ -59,7 +61,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       });
 
       // 2. Value returned from fetchCustomerOrders()
-      const ords = await fetchCustomerOrders(table?.id, table?.active_session_id, localIds, currentGuestSessionId);
+      const ords = await fetchCustomerOrders(table.id, table.active_session_id, localIds, currentGuestSessionId);
       console.log("[INSTRUMENTATION 2] Value returned from fetchCustomerOrders():", {
         returnedValue: ords,
         count: ords.length,
@@ -81,11 +83,11 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   useEffect(() => {
     void loadHistory();
-  }, [table.id, table.active_session_id, currentGuestSessionId]);
+  }, [table?.id, table?.active_session_id, currentGuestSessionId]);
 
   // Realtime subscription: sync orders (INSERT, UPDATE, DELETE) for table without refresh
   useEffect(() => {
-    if (!table.id) return;
+    if (!table?.id) return;
     const channel = supabase
       .channel(`cart-orders-${table.id}`)
       .on(

@@ -37,20 +37,32 @@ export default function TableLayout() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["table", tableId],
     queryFn: async () => {
-      let { data: table, error: tErr } = await supabase
-        .from("tables")
-        .select("*")
-        .eq("id", tableId!)
-        .maybeSingle();
+      const isUuid = (val?: string | null): boolean =>
+        !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+      let table: TableRow | null = null;
+      let tErr: any = null;
+
+      if (isUuid(tableId)) {
+        const res = await supabase
+          .from("tables")
+          .select("*")
+          .eq("id", tableId!)
+          .maybeSingle();
+        table = res.data as TableRow | null;
+        tErr = res.error;
+      }
 
       if (!table && !tErr) {
         const cleanLabel = tableId!.replace(/^t-/i, "").trim();
-        const { data: tableByLabel } = await supabase
+        const { data: tableByLabel, error: lErr } = await supabase
           .from("tables")
           .select("*")
           .or(`label.eq.${tableId},label.eq.${cleanLabel},label.ilike.Table ${cleanLabel}`)
+          .limit(1)
           .maybeSingle();
-        table = tableByLabel;
+        table = tableByLabel as TableRow | null;
+        tErr = lErr;
       }
 
       if (tErr) throw tErr;
