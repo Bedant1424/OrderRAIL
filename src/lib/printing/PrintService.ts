@@ -51,6 +51,40 @@ export class PrintService {
     this.notifyStatusChange();
   }
 
+  public async setDriver(driver: any): Promise<void> {
+    if (driver && typeof driver.initialize === 'function') {
+      await this.setProvider(driver);
+    } else if (driver) {
+      const adapterProvider: IPrintProvider = {
+        id: driver.driverType || 'legacy-driver',
+        name: driver.driverType || 'Legacy Driver',
+        initialize: async () => {},
+        connect: async () => driver.connect(),
+        disconnect: async () => driver.disconnect(),
+        getConnectionState: () => (driver.isConnected() ? 'CONNECTED' : 'DISCONNECTED'),
+        discoverPrinters: async () => {
+          const list = await driver.listPrinters();
+          const def = await driver.getDefaultPrinter();
+          return list.map((name: string) => ({
+            name,
+            isDefault: name === def,
+            connectionType: 'USB',
+          }));
+        },
+        print: async () => true,
+        testPrint: async (dest) => {
+          await driver.printTest(dest);
+          return true;
+        },
+        dispose: async () => {},
+      };
+      if (typeof driver.autoConnect === 'function') {
+        (adapterProvider as any).autoConnect = () => driver.autoConnect();
+      }
+      await this.setProvider(adapterProvider);
+    }
+  }
+
   public async setProviderType(type: ProviderType): Promise<void> {
     providerFactory.setActiveProviderType(type);
     const newProvider = providerFactory.createProvider(type, this.config);
@@ -173,6 +207,89 @@ export class PrintService {
 
   public clearQueue(): void {
     this.queue.clear();
+  }
+
+  // Provider Delegation & Driver Facade Methods
+  public get driverType(): string {
+    return this.provider ? this.provider.id : 'none';
+  }
+
+  public isConnected(): boolean {
+    return this.provider ? this.provider.getConnectionState() === 'CONNECTED' : false;
+  }
+
+  public async connect(): Promise<void> {
+    if (this.provider) {
+      await this.provider.connect();
+      this.notifyStatusChange();
+    }
+  }
+
+  public async disconnect(): Promise<void> {
+    if (this.provider) {
+      await this.provider.disconnect();
+      this.notifyStatusChange();
+    }
+  }
+
+  public async autoConnect(): Promise<boolean> {
+    if (!this.provider) return false;
+    try {
+      if ('autoConnect' in (this.provider as any) && typeof (this.provider as any).autoConnect === 'function') {
+        const res = await (this.provider as any).autoConnect();
+        this.notifyStatusChange();
+        return Boolean(res);
+      }
+      await this.provider.connect();
+      this.notifyStatusChange();
+      return this.isConnected();
+    } catch {
+      return false;
+    }
+  }
+
+  public async listPrinters(): Promise<string[]> {
+    if (!this.provider) return [];
+    const discovered = await this.provider.discoverPrinters();
+    return discovered.map((p) => p.name);
+  }
+
+  public async getDefaultPrinter(): Promise<string | null> {
+    if (!this.provider) return null;
+    const discovered = await this.provider.discoverPrinters();
+    const def = discovered.find((p) => p.isDefault);
+    return def ? def.name : (discovered[0]?.name || null);
+  }
+
+  public async getRestoredPrinter(): Promise<string | null> {
+    const lastUsed = typeof localStorage !== "undefined"
+      ? localStorage.getItem("orderrail_last_used_printer")
+      : null;
+
+    if (this.isConnected()) {
+      try {
+        const available = await this.listPrinters();
+        if (lastUsed && available.includes(lastUsed)) {
+          return lastUsed;
+        }
+        const def = await this.getDefaultPrinter();
+        return def || available[0] || null;
+      } catch {
+        return lastUsed || null;
+      }
+    }
+    return lastUsed || null;
+  }
+
+  public setLastUsedPrinter(printerName: string): void {
+    if (typeof localStorage !== "undefined" && printerName) {
+      localStorage.setItem("orderrail_last_used_printer", printerName);
+    }
+  }
+
+  public async printTest(printerName?: string): Promise<boolean> {
+    if (!this.provider) return false;
+    return this.provider.testPrint(printerName as any);
   }
 }
 
