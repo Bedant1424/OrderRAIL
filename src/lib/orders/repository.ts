@@ -394,9 +394,9 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     }
 
     if (orderErr && orderErr.code !== "23505") {
-      console.error("[createOrderInDb ERROR DETAILS]", {
-        message: orderErr.message,
+      console.error("[createOrderInDb orders INSERT ERROR]", {
         code: orderErr.code,
+        message: orderErr.message,
         details: orderErr.details,
         hint: orderErr.hint,
         payload: insertObj,
@@ -411,16 +411,52 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     .eq("order_id", orderId);
 
   if (!existingItems || existingItems.length === 0) {
-    const { error: itemsErr } = await supabase.from("order_items").insert(
-      payload.items.map((i) => ({
-        order_id: orderId,
-        menu_item_id: i.menu_item_id || null,
-        name: i.name,
-        price_cents: i.price_cents,
-        qty: i.qty,
-      })),
-    );
-    if (itemsErr) throw itemsErr;
+    const itemsPayload = payload.items.map((i) => ({
+      order_id: orderId,
+      menu_item_id: isUuid(i.menu_item_id) ? i.menu_item_id : null,
+      name: i.name,
+      price_cents: i.price_cents,
+      qty: i.qty,
+    }));
+
+    const { error: itemsErr } = await supabase.from("order_items").insert(itemsPayload);
+
+    if (itemsErr) {
+      console.error("[createOrderInDb order_items INSERT ERROR]", {
+        code: itemsErr.code,
+        message: itemsErr.message,
+        details: itemsErr.details,
+        hint: itemsErr.hint,
+        itemsPayload,
+      });
+      throw itemsErr;
+    }
+  }
+
+  // Immediate SELECT verification
+  const { data: verifiedOrder, error: selectErr } = await supabase
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (selectErr) {
+    console.error("[createOrderInDb SELECT VERIFICATION ERROR]", {
+      code: selectErr.code,
+      message: selectErr.message,
+      details: selectErr.details,
+      hint: selectErr.hint,
+      orderId,
+    });
+  } else if (!verifiedOrder) {
+    console.warn("[createOrderInDb SELECT VERIFICATION MISSING]", { orderId });
+  } else {
+    console.log("[createOrderInDb SELECT VERIFICATION SUCCESSFUL]", {
+      id: verifiedOrder.id,
+      order_number: verifiedOrder.order_number,
+      status: verifiedOrder.status,
+      itemsCount: verifiedOrder.order_items?.length || 0,
+    });
   }
 
   // Synchronize table occupancy and active_session_id

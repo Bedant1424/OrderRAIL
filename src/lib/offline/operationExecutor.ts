@@ -82,9 +82,17 @@ class OperationExecutorClass {
       op.lastAttemptAt = new Date().toISOString();
       const result = await this.executeHandler(op);
       op.status = "Completed";
-      console.log(`[OperationExecutor] Online: Executed operation ${op.operationType} (${op.operationId})`);
+      console.log(`[OperationExecutor SUCCESS] Executed operation ${op.operationType} (${op.operationId})`, { result });
       return { operationId: op.operationId, status: "Completed", result, queued: false };
     } catch (err: any) {
+      console.error(`[OperationExecutor FAILURE] Operation ${op.operationType} (${op.operationId}) failed:`, {
+        code: err?.code,
+        message: err?.message,
+        details: err?.details,
+        hint: err?.hint,
+        rawError: err,
+      });
+
       const isNetworkOrHardwareError =
         !NetworkManager.isOnline() ||
         err?.message?.toLowerCase().includes("network") ||

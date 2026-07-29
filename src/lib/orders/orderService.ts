@@ -11,6 +11,7 @@ import {
   SyncManager,
   NetworkManager,
   getAllOperations,
+  removeOperation,
   type Operation,
 } from "@/lib/offline";
 import {
@@ -397,6 +398,31 @@ export class OrderServiceClass {
           existing.status = payload.nextStatus;
           existing.syncState = syncState;
         }
+      }
+    }
+
+    // Reconcile with Supabase PostgreSQL: remove operations whose order already exists in PostgreSQL orders table
+    const queuedIds = Array.from(queuedOrdersMap.keys());
+    if (queuedIds.length > 0) {
+      try {
+        const { data: dbExisting } = await supabase
+          .from("orders")
+          .select("id")
+          .in("id", queuedIds);
+
+        if (dbExisting && dbExisting.length > 0) {
+          const dbIdSet = new Set(dbExisting.map((o) => o.id));
+          for (const op of allOps) {
+            const payloadId = (op.payload as any)?.id || (op.payload as any)?.orderId;
+            const realId = orderIdMapping.get(payloadId) || payloadId;
+            if (realId && dbIdSet.has(realId)) {
+              queuedOrdersMap.delete(realId);
+              void removeOperation(op.operationId);
+            }
+          }
+        }
+      } catch (errDb) {
+        console.warn("[getQueuedOfflineOrders] DB reconciliation warning:", errDb);
       }
     }
 
