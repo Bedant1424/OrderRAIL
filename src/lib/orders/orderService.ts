@@ -14,6 +14,7 @@ import {
   removeOperation,
   type Operation,
 } from "@/lib/offline";
+import { supabase } from "@/lib/db";
 import {
   createOrderInDb,
   editOrderInDb,
@@ -349,7 +350,7 @@ export class OrderServiceClass {
           status: payload.status || "pending",
           syncState,
           operationId: op.operationId,
-          items: payload.items.map((i) => ({
+          items: (payload.items || []).map((i) => ({
             id: i.menu_item_id || undefined,
             menu_item_id: i.menu_item_id,
             name: i.name,
@@ -402,23 +403,42 @@ export class OrderServiceClass {
     }
 
     // Reconcile with Supabase PostgreSQL: remove operations whose order already exists in PostgreSQL orders table
-    const queuedIds = Array.from(queuedOrdersMap.keys());
-    if (queuedIds.length > 0) {
+    const queuedOpsList = Array.from(queuedOrdersMap.values());
+    if (allOps.length > 0) {
       try {
-        const { data: dbExisting } = await supabase
-          .from("orders")
-          .select("id")
-          .in("id", queuedIds);
+        const payloadIds = allOps.map((op) => (op.payload as any)?.id || (op.payload as any)?.orderId).filter(Boolean);
+        const diningSessionIds = allOps.map((op) => (op.payload as any)?.dining_session_id).filter(Boolean);
+        const tableIds = allOps.map((op) => (op.payload as any)?.table_id).filter(Boolean);
 
-        if (dbExisting && dbExisting.length > 0) {
-          const dbIdSet = new Set(dbExisting.map((o) => o.id));
-          for (const op of allOps) {
-            const payloadId = (op.payload as any)?.id || (op.payload as any)?.orderId;
-            const realId = orderIdMapping.get(payloadId) || payloadId;
-            if (realId && dbIdSet.has(realId)) {
-              queuedOrdersMap.delete(realId);
-              void removeOperation(op.operationId);
-            }
+        const { data: dbOrders } = await supabase
+          .from("orders")
+          .select("id, dining_session_id, table_id, total_cents")
+          .or(
+            [
+              payloadIds.length > 0 ? `id.in.(${payloadIds.join(",")})` : "",
+              diningSessionIds.length > 0 ? `dining_session_id.in.(${diningSessionIds.join(",")})` : "",
+              tableIds.length > 0 ? `table_id.in.(${tableIds.join(",")})` : "",
+            ]
+              .filter(Boolean)
+              .join(",")
+          );
+
+        const dbIdSet = new Set((dbOrders || []).map((o) => o.id));
+        const dbSessionSet = new Set((dbOrders || []).map((o) => o.dining_session_id).filter(Boolean));
+
+        for (const op of allOps) {
+          const payloadId = (op.payload as any)?.id || (op.payload as any)?.orderId;
+          const realId = orderIdMapping.get(payloadId) || payloadId;
+          const diningSessId = (op.payload as any)?.dining_session_id;
+
+          const existsById = realId && dbIdSet.has(realId);
+          const existsBySession = diningSessId && dbSessionSet.has(diningSessId);
+          const isFailedStale = op.status === "Failed" && (existsById || existsBySession);
+
+          if (existsById || existsBySession || isFailedStale) {
+            if (realId) queuedOrdersMap.delete(realId);
+            await removeOperation(op.operationId);
+            console.log(`[getQueuedOfflineOrders] Reconciled & removed stale IndexedDB operation ${op.operationId} (realId: ${realId})`);
           }
         }
       } catch (errDb) {
