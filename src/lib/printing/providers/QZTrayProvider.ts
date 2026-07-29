@@ -58,7 +58,7 @@ export class QZTrayProvider implements IPrintProvider {
     }
 
     const payload = job.payload;
-    const targetPrinter = this.resolveDestinationPrinter(job.destination);
+    const targetPrinter = await this.resolveDestinationPrinter(job.destination);
 
     if (payload.escpos) {
       await this.printer.printRaw(payload.escpos, targetPrinter);
@@ -75,7 +75,7 @@ export class QZTrayProvider implements IPrintProvider {
   }
 
   public async testPrint(destination?: PrintJob['destination']): Promise<boolean> {
-    const targetPrinter = this.resolveDestinationPrinter(destination);
+    const targetPrinter = await this.resolveDestinationPrinter(destination);
     await this.printer.printTest(targetPrinter);
     return true;
   }
@@ -84,17 +84,42 @@ export class QZTrayProvider implements IPrintProvider {
     await this.disconnect();
   }
 
-  private resolveDestinationPrinter(destination?: PrintJob['destination']): string | undefined {
-    if (!destination || !this.config) return undefined;
-    if (destination === 'KOT_PRINTER' && this.config.kotPrinterName) {
-      return this.config.kotPrinterName;
+  private async resolveDestinationPrinter(destination?: PrintJob['destination']): Promise<string | undefined> {
+    let configuredName: string | undefined = undefined;
+
+    if (destination === 'KOT_PRINTER' && this.config?.kotPrinterName) {
+      configuredName = this.config.kotPrinterName;
+    } else if (destination === 'BILL_PRINTER' && this.config?.billPrinterName) {
+      configuredName = this.config.billPrinterName;
+    } else if (destination === 'DEFAULT_PRINTER' && this.config?.defaultPrinterName) {
+      configuredName = this.config.defaultPrinterName;
+    } else if (typeof destination === 'string' && destination !== 'DEFAULT_PRINTER' && destination !== 'KOT_PRINTER' && destination !== 'BILL_PRINTER') {
+      configuredName = destination;
     }
-    if (destination === 'BILL_PRINTER' && this.config.billPrinterName) {
-      return this.config.billPrinterName;
+
+    // Check if user selected a last-used printer in localStorage
+    const restored = typeof localStorage !== 'undefined' ? localStorage.getItem('orderrail_last_used_printer') : null;
+    if (restored && restored !== 'Default Printer' && restored.trim() !== '') {
+      configuredName = restored;
     }
-    if (typeof destination === 'string' && destination !== 'DEFAULT_PRINTER' && destination !== 'KOT_PRINTER' && destination !== 'BILL_PRINTER') {
-      return destination;
+
+    // If configured printer is undefined, empty string, or placeholder "Default Printer"
+    const isPlaceholder = !configuredName || configuredName.trim() === '' || configuredName === 'Default Printer';
+
+    if (isPlaceholder) {
+      try {
+        const osDefault = await this.printer.getDefaultPrinter();
+        if (osDefault) {
+          console.log(`[QZTrayProvider] Placeholder "${configuredName || 'undefined'}" resolved to OS Default Printer: "${osDefault}"`);
+          return osDefault;
+        }
+      } catch (err) {
+        console.warn('[QZTrayProvider] Could not resolve OS default printer:', err);
+      }
+      return undefined;
     }
-    return undefined;
+
+    console.log(`[QZTrayProvider] Configured target printer: "${configuredName}"`);
+    return configuredName;
   }
 }
