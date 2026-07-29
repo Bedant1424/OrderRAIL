@@ -2597,25 +2597,11 @@ const CounterLayout = () => {
           }
 
           const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || sess.startedAtTimestamp;
-          const prevOrders = prev[tId]?.orders || [];
-          const combinedOrdersMap = new Map<string, SessionOrder>();
-          for (const o of sess.orders) {
-            const isServedOrPaid = o.status === 'SERVED' || o.status === 'PAID' || o.status === 'served' || o.status === 'paid';
-            if (!isServedOrPaid) {
-              combinedOrdersMap.set(o.id, o);
-            }
-          }
-          for (const o of prevOrders) {
-            const isServedOrPaid = o.status === 'SERVED' || o.status === 'PAID' || o.status === 'served' || o.status === 'paid';
-            if (!isServedOrPaid && !combinedOrdersMap.has(o.id)) {
-              combinedOrdersMap.set(o.id, o);
-            }
-          }
 
           merged[tId] = {
             ...sess,
             startedAtTimestamp: sessCreatedAt,
-            orders: Array.from(combinedOrdersMap.values()),
+            orders: sess.orders, // Pure PostgreSQL orders
             draftCart: prev[tId]?.draftCart || []
           };
         }
@@ -3118,12 +3104,12 @@ const CounterLayout = () => {
       syncState: isQueuedOffline ? 'Pending Sync' : 'Synced'
     };
 
+    // Clear draft cart immediately while preserving session ID
     setTableSessions((prev) => ({
       ...prev,
       [activeTableId]: {
         ...(prev[activeTableId] || cur),
         sessionId: targetSessionId || cur.sessionId,
-        orders: [...(prev[activeTableId]?.orders || cur.orders), newSessionOrder],
         draftCart: []
       }
     }));
@@ -3135,9 +3121,7 @@ const CounterLayout = () => {
     const rawLabel = selectedTable ? selectedTable.label : 'Express';
     const cleanTableLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel.substring(5).trim() : rawLabel;
 
-    const orderNum = createdDbOrder?.order_number 
-      ? createdDbOrder.order_number 
-      : newSessionOrder.orderNumber;
+    const orderNum = createdDbOrder?.order_number || (createdDbOrder as any)?.daily_order_number || 101;
 
     const orderTimestamp = createdDbOrder?.created_at || new Date().toISOString();
 
