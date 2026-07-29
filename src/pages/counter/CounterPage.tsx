@@ -26,6 +26,7 @@ import { sortTablesNatural } from '@/lib/tables/naturalTableSort';
 import { sortCounterOrders } from '@/lib/orders/sortCounterOrders';
 import { OperationsStatusIndicator } from '@/components/offline/OperationsStatusIndicator';
 import { DemoDevToolsPanel } from '@/components/offline/DemoDevToolsPanel';
+import { NetworkManager } from '@/lib/offline';
 import { formatSessionElapsed } from '@/lib/tables/liveSessionTimer';
 import {
   loadCounterNotifications,
@@ -2613,50 +2614,52 @@ const CounterLayout = () => {
           }
         }
 
-        // Merge queued offline orders
-        for (const off of offlineOrders) {
-          const tId = off.table_id || "express";
-          const isServedOrPaid = off.status === 'served' || off.status === 'paid' || off.status === 'cancelled' || off.status === 'SERVED' || off.status === 'PAID' || off.status === 'CANCELLED';
+        // Merge queued offline orders ONLY when currently offline
+        if (!NetworkManager.isOnline()) {
+          for (const off of offlineOrders) {
+            const tId = off.table_id || "express";
+            const isServedOrPaid = off.status === 'served' || off.status === 'paid' || off.status === 'cancelled' || off.status === 'SERVED' || off.status === 'PAID' || off.status === 'CANCELLED';
 
-          // Skip merging offline order if table has no active session or if order is already served/paid/cancelled
-          if (tId !== "express" && (!activeSessionMap.has(tId) || isServedOrPaid)) {
-            continue;
-          }
+            // Skip merging offline order if table has no active session or if order is already served/paid/cancelled
+            if (tId !== "express" && (!activeSessionMap.has(tId) || isServedOrPaid)) {
+              continue;
+            }
 
-          const sessOrder: SessionOrder = {
-            id: off.id,
-            orderNumber: (off as any).order_number || ((merged[tId]?.orders.length || 0) + 1),
-            timestamp: new Date(off.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-            createdAt: off.created_at || new Date().toISOString(),
-            status: (off.status.toUpperCase() as any),
-            items: off.items.map((it: any) => ({
-              id: it.id || it.menu_item_id || `c-${Date.now()}`,
-              name: it.name,
-              price: it.price_cents / 100,
-              qty: it.qty,
-              notes: it.note || undefined,
-            })),
-            subtotal: off.total_cents / 100,
-            syncState: off.syncState,
-          };
-
-          if (!merged[tId]) {
-            merged[tId] = {
-              sessionId: off.dining_session_id || "",
-              sessionCode: "#S-OFFL",
-              startedAt: new Date(off.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-              startedAtTimestamp: off.created_at,
-              guestCount: 2,
-              orders: [],
-              draftCart: []
+            const sessOrder: SessionOrder = {
+              id: off.id,
+              orderNumber: (off as any).order_number || (off as any).daily_order_number || 101,
+              timestamp: new Date(off.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+              createdAt: off.created_at || new Date().toISOString(),
+              status: (off.status.toUpperCase() as any),
+              items: off.items.map((it: any) => ({
+                id: it.id || it.menu_item_id || `c-${Date.now()}`,
+                name: it.name,
+                price: it.price_cents / 100,
+                qty: it.qty,
+                notes: it.note || undefined,
+              })),
+              subtotal: off.total_cents / 100,
+              syncState: off.syncState,
             };
-          }
 
-          const existingIdx = merged[tId].orders.findIndex((o) => o.id === sessOrder.id);
-          if (existingIdx >= 0) {
-            merged[tId].orders[existingIdx] = sessOrder;
-          } else {
-            merged[tId].orders.push(sessOrder);
+            if (!merged[tId]) {
+              merged[tId] = {
+                sessionId: off.dining_session_id || "",
+                sessionCode: "#S-OFFL",
+                startedAt: new Date(off.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+                startedAtTimestamp: off.created_at,
+                guestCount: 2,
+                orders: [],
+                draftCart: []
+              };
+            }
+
+            const existingIdx = merged[tId].orders.findIndex((o) => o.id === sessOrder.id);
+            if (existingIdx >= 0) {
+              merged[tId].orders[existingIdx] = sessOrder;
+            } else {
+              merged[tId].orders.push(sessOrder);
+            }
           }
         }
 

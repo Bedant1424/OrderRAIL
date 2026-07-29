@@ -311,6 +311,9 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     const { data: tRow } = await supabase.from("tables").select("cafe_id").eq("id", cleanTableId).maybeSingle();
     if (tRow?.cafe_id) cleanCafeId = tRow.cafe_id;
   }
+  if (!cleanCafeId) {
+    cleanCafeId = "8c418a5a-7cd4-4054-8a88-f412c1762f7d";
+  }
 
   let diningSessionId = isUuid(payload.dining_session_id) ? payload.dining_session_id! : null;
 
