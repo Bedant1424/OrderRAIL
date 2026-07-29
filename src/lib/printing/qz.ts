@@ -275,6 +275,45 @@ export class QZTrayPrinter implements Printer {
     }
   }
 
+  public async printRaw(rawEscPos: string, targetPrinterName?: string): Promise<void> {
+    await this.ensureConnection();
+
+    let targetPrinter = targetPrinterName;
+    if (!targetPrinter) {
+      targetPrinter = (await this.getDefaultPrinter()) || undefined;
+    }
+
+    if (!targetPrinter) {
+      throw new PrinterNotFound("No default or target printer available for raw ESC/POS print.");
+    }
+
+    console.group(`${PRINTING_CONSTANTS.LOG_PREFIX} Executing Raw ESC/POS Print on "${targetPrinter}"`);
+
+    try {
+      const config = qz.configs.create(targetPrinter, {
+        encoding: "ISO-8859-1",
+      });
+
+      const printData = [
+        {
+          type: "raw",
+          format: "command",
+          flavor: "plain",
+          data: rawEscPos,
+        },
+      ];
+
+      await qz.print(config, printData);
+      console.log(`${PRINTING_CONSTANTS.LOG_PREFIX} Raw ESC/POS payload sent successfully to "${targetPrinter}".`);
+    } catch (error: any) {
+      const msg = error?.message || String(error);
+      console.error(`${PRINTING_CONSTANTS.LOG_PREFIX} Raw ESC/POS print failed:`, msg);
+      throw new PrintFailed(msg);
+    } finally {
+      console.groupEnd();
+    }
+  }
+
   private async ensureConnection(): Promise<void> {
     if (!this.isConnected()) {
       await this.connect();

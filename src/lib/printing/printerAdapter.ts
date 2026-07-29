@@ -6,7 +6,7 @@
  */
 
 import { printService } from "./PrintService";
-import { renderKotText, type KotRenderPayload } from "./kotRenderer";
+import { KotBuilder, renderKotText, type KotRenderPayload } from "./kotRenderer";
 import { renderReceiptText, type ReceiptRenderPayload } from "./receiptRenderer";
 
 export type PrinterAdapterState = 'CONNECTED' | 'DISCONNECTED' | 'OUT_OF_PAPER' | 'ERROR';
@@ -102,8 +102,8 @@ class PrinterAdapterClass {
       throw new Error(`[PrinterAdapter] ${errReason}`);
     }
 
-    // Render formatted text
-    const kotText = renderKotText(payload, 80);
+    // Build dedicated production KOT ticket using ESC/POS KotBuilder
+    const kotBuild = KotBuilder.build(payload, 80);
 
     const res = await printService.enqueue(
       'KOT',
@@ -121,13 +121,16 @@ class PrinterAdapterClass {
           price: i.price,
           qty: i.qty,
           notes: i.notes,
+          modifiers: (i as any).modifiers,
         })),
+        escpos: kotBuild.escpos,
+        formattedText: kotBuild.text,
       },
       { orderId: payload.orderId }
     );
 
     if (res.success) {
-      console.log(`[PrinterAdapter] KOT #${payload.kotNumber} printed successfully:\n${kotText}`);
+      console.log(`[PrinterAdapter] KOT #${payload.kotNumber} printed successfully:\n${kotBuild.text}`);
       return { success: true };
     }
 

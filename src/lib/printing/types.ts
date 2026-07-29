@@ -56,5 +56,6 @@ export interface Printer {
   listPrinters(): Promise<string[]>;
   getDefaultPrinter(): Promise<string | null>;
   printTest(printerName?: string): Promise<void>;
+  printRaw?(rawEscPos: string, printerName?: string): Promise<void>;
   isConnected(): boolean;
 }

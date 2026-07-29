@@ -105,6 +105,12 @@ export class PrintService implements Printer {
   public async printTest(printerName?: string): Promise<void> {
     return this.driver.printTest(printerName);
   }
+
+  public async printRaw(rawEscPos: string, printerName?: string): Promise<void> {
+    if (this.driver.printRaw) {
+      return this.driver.printRaw(rawEscPos, printerName);
+    }
+  }
 }
 
 /**
