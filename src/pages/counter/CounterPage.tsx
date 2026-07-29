@@ -2419,7 +2419,7 @@ const CounterLayout = () => {
         const tableObj = dbTablesData?.find((t: any) => t.id === ord.table_id);
         const tableLabel = tableObj ? tableObj.label : (ord.table_id ? 'Table' : 'Takeaway');
         const cleanTableLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel.substring(5).trim() : tableLabel;
-        const orderNum = (ord as any).daily_order_number ?? dailyOrderNumMap.get(ordId) ?? ord.order_number ?? 101;
+        const orderNum = (ord as any).daily_order_number ?? ord.order_number;
         const isServed = ord.status === 'served' || ord.status === 'SERVED' || ord.status === 'paid' || ord.status === 'PAID';
 
         // Event 1: New Customer Order
@@ -2554,7 +2554,7 @@ const CounterLayout = () => {
 
         const sessOrder: SessionOrder = {
           id: ord.id,
-          orderNumber: (ord as any).daily_order_number ?? dailyOrderNumMap.get(ord.id) ?? ord.order_number ?? 101,
+          orderNumber: (ord as any).daily_order_number ?? ord.order_number,
           timestamp: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
           createdAt: ord.created_at || new Date().toISOString(),
           status: mappedStatus,
@@ -2627,7 +2627,7 @@ const CounterLayout = () => {
 
             const sessOrder: SessionOrder = {
               id: off.id,
-              orderNumber: (off as any).order_number || (off as any).daily_order_number || 101,
+              orderNumber: (off as any).order_number || (off as any).daily_order_number,
               timestamp: new Date(off.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
               createdAt: off.created_at || new Date().toISOString(),
               status: (off.status.toUpperCase() as any),
@@ -3097,11 +3097,20 @@ const CounterLayout = () => {
       console.warn("[handleKot] OrderService write warning:", e);
     }
 
+    const res = await loadSessionsFromDb("Send KOT Post-Write");
+    const dbOrders = res?.dbOrders;
+
+    const createdDbOrder = dbOrders?.find((o: any) => o.id === createdOrderId);
+    const rawLabel = selectedTable ? selectedTable.label : 'Express';
+    const cleanTableLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel.substring(5).trim() : rawLabel;
+
+    const orderNum = createdDbOrder?.order_number || (createdDbOrder as any)?.daily_order_number;
+
     const newSessionOrder: SessionOrder = {
       id: createdOrderId || `ord-kot-${Date.now()}`,
-      orderNumber: cur.orders.length + 1,
+      orderNumber: orderNum,
       timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      status: 'KOT_SENT',
+      status: 'PREPARING',
       items: cur.draftCart,
       subtotal,
       syncState: isQueuedOffline ? 'Pending Sync' : 'Synced'
@@ -3116,15 +3125,6 @@ const CounterLayout = () => {
         draftCart: []
       }
     }));
-
-    const res = await loadSessionsFromDb("Send KOT Post-Write");
-    const dbOrders = res?.dbOrders;
-
-    const createdDbOrder = dbOrders?.find((o: any) => o.id === createdOrderId);
-    const rawLabel = selectedTable ? selectedTable.label : 'Express';
-    const cleanTableLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel.substring(5).trim() : rawLabel;
-
-    const orderNum = createdDbOrder?.order_number || (createdDbOrder as any)?.daily_order_number || 101;
 
     const orderTimestamp = createdDbOrder?.created_at || new Date().toISOString();
 

@@ -119,7 +119,11 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
     <div className="pb-32">
       <div className="px-4 pt-4">
         <h1 className="font-display text-3xl font-semibold">Order status</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{formatOrderLabel(order.order_number)}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {order.order_number || (order as any).daily_order_number
+            ? formatOrderLabel(order.order_number || (order as any).daily_order_number)
+            : "Order pending…"}
+        </p>
       </div>
 
       {order.status === "cancelled" ? (
