@@ -2639,7 +2639,7 @@ const CounterLayout = () => {
 
           const sessOrder: SessionOrder = {
             id: off.id,
-            orderNumber: 990 + (merged[tId]?.orders.length || 0) + 1,
+            orderNumber: (off as any).order_number || ((merged[tId]?.orders.length || 0) + 1),
             timestamp: new Date(off.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
             createdAt: off.created_at || new Date().toISOString(),
             status: (off.status.toUpperCase() as any),

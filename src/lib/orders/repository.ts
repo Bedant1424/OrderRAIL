@@ -293,16 +293,33 @@ export interface CreateOrderPayload {
 
 export async function createOrderInDb(payload: CreateOrderPayload): Promise<string> {
   const orderId = payload.id || crypto.randomUUID();
-  const initialStatus = payload.status || "pending";
+  
+  // Normalize status for DB check constraints
+  let initialStatus = (payload.status || "pending").toString().toLowerCase();
+  if (initialStatus === "kot_sent") {
+    initialStatus = "preparing";
+  }
 
-  let diningSessionId = payload.dining_session_id || null;
+  // Validate UUID string
+  const isUuid = (val?: string | null): boolean =>
+    !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+  const cleanTableId = isUuid(payload.table_id) ? payload.table_id! : null;
+  let cleanCafeId = payload.cafe_id && payload.cafe_id !== '' ? payload.cafe_id : null;
+
+  if (!cleanCafeId && cleanTableId) {
+    const { data: tRow } = await supabase.from("tables").select("cafe_id").eq("id", cleanTableId).maybeSingle();
+    if (tRow?.cafe_id) cleanCafeId = tRow.cafe_id;
+  }
+
+  let diningSessionId = isUuid(payload.dining_session_id) ? payload.dining_session_id! : null;
 
   // Resolve or create active dining session for table if dining_session_id is missing or invalid dummy
-  if ((!diningSessionId || diningSessionId.startsWith("session-")) && payload.table_id) {
+  if (!diningSessionId && cleanTableId) {
     const { data: activeSess } = await supabase
       .from("dining_sessions")
       .select("id")
-      .eq("table_id", payload.table_id)
+      .eq("table_id", cleanTableId)
       .neq("status", "closed")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -313,7 +330,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     } else {
       const { data: newSess } = await supabase
         .from("dining_sessions")
-        .insert({ table_id: payload.table_id, status: "browsing" })
+        .insert({ table_id: cleanTableId, status: "browsing" })
         .select("id")
         .maybeSingle();
       if (newSess) {
@@ -342,7 +359,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
   if (import.meta.env.DEV) {
     console.log("[ORDER CREATION] Creating order in DB:", {
       orderId,
-      tableId: payload.table_id,
+      tableId: cleanTableId,
       sessionId: payload.session_id,
       diningSessionId,
       guestSessionId: payload.guest_session_id,
@@ -358,8 +375,8 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
   if (!existingOrder) {
     const insertObj: any = {
       id: orderId,
-      cafe_id: payload.cafe_id,
-      table_id: payload.table_id,
+      cafe_id: cleanCafeId,
+      table_id: cleanTableId,
       session_id: payload.session_id || payload.guest_session_id || getSessionId(),
       dining_session_id: diningSessionId,
       guest_session_id: payload.guest_session_id || null,
