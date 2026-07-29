@@ -1,5 +1,6 @@
 import { IPrintProvider } from './PrintProvider';
 import { MockProvider } from './MockProvider';
+import { QZTrayProvider } from './QZTrayProvider';
 import { ConnectionState } from '../models/ConnectionState';
 import { DiscoveredPrinter, PrinterMappingConfig } from '../models/PrinterConfig';
 import { PrintJob } from '../models/PrintJob';
@@ -98,7 +99,7 @@ export class OrderRailPrintAgentPlaceholder implements IPrintProvider {
 export class ProviderFactory {
   private static instance: ProviderFactory | null = null;
   private registry: Map<string, ProviderFactoryFn> = new Map();
-  private activeProviderType: ProviderType = 'mock';
+  private activeProviderType: ProviderType = 'qz-tray';
 
   private constructor() {
     this.registerDefaults();
@@ -117,7 +118,7 @@ export class ProviderFactory {
 
   private registerDefaults(): void {
     this.registry.set('mock', () => new MockProvider());
-    this.registry.set('qz-tray', () => new QZTrayProviderPlaceholder());
+    this.registry.set('qz-tray', () => new QZTrayProvider());
     this.registry.set('orderrail-agent', () => new OrderRailPrintAgentPlaceholder());
   }
 
