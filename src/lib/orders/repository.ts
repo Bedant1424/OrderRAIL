@@ -291,6 +291,10 @@ export interface CreateOrderPayload {
   }[];
 }
 
+// Validate UUID string
+const isUuid = (val?: string | null): boolean =>
+  !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
 export async function createOrderInDb(payload: CreateOrderPayload): Promise<string> {
   const orderId = payload.id || crypto.randomUUID();
   
@@ -300,29 +304,26 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     initialStatus = "preparing";
   }
 
-  // Validate UUID string
-  const isUuid = (val?: string | null): boolean =>
-    !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+  // Resolve table ID (null for express mode)
+  const targetTableId = payload.table_id && payload.table_id !== 'express' && payload.table_id !== '' ? payload.table_id : null;
 
-  const cleanTableId = isUuid(payload.table_id) ? payload.table_id! : null;
   let cleanCafeId = payload.cafe_id && payload.cafe_id !== '' ? payload.cafe_id : null;
-
-  if (!cleanCafeId && cleanTableId) {
-    const { data: tRow } = await supabase.from("tables").select("cafe_id").eq("id", cleanTableId).maybeSingle();
+  if (!cleanCafeId && targetTableId) {
+    const { data: tRow } = await supabase.from("tables").select("cafe_id").eq("id", targetTableId).maybeSingle();
     if (tRow?.cafe_id) cleanCafeId = tRow.cafe_id;
   }
   if (!cleanCafeId) {
     cleanCafeId = "8c418a5a-7cd4-4054-8a88-f412c1762f7d";
   }
 
-  let diningSessionId = isUuid(payload.dining_session_id) ? payload.dining_session_id! : null;
+  let diningSessionId = payload.dining_session_id || null;
 
-  // Resolve or create active dining session for table if dining_session_id is missing or invalid dummy
-  if (!diningSessionId && cleanTableId) {
+  // Resolve or create active dining session for table if dining_session_id is missing or dummy
+  if ((!diningSessionId || diningSessionId.startsWith("session-")) && targetTableId) {
     const { data: activeSess } = await supabase
       .from("dining_sessions")
       .select("id")
-      .eq("table_id", cleanTableId)
+      .eq("table_id", targetTableId)
       .neq("status", "closed")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -333,7 +334,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     } else {
       const { data: newSess } = await supabase
         .from("dining_sessions")
-        .insert({ table_id: cleanTableId, status: "browsing" })
+        .insert({ table_id: targetTableId, status: "browsing" })
         .select("id")
         .maybeSingle();
       if (newSess) {
@@ -362,7 +363,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
   if (import.meta.env.DEV) {
     console.log("[ORDER CREATION] Creating order in DB:", {
       orderId,
-      tableId: cleanTableId,
+      tableId: targetTableId,
       sessionId: payload.session_id,
       diningSessionId,
       guestSessionId: payload.guest_session_id,
@@ -379,7 +380,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<stri
     const insertObj: any = {
       id: orderId,
       cafe_id: cleanCafeId,
-      table_id: cleanTableId,
+      table_id: targetTableId,
       session_id: payload.session_id || payload.guest_session_id || getSessionId(),
       dining_session_id: diningSessionId,
       guest_session_id: payload.guest_session_id || null,
