@@ -9,6 +9,7 @@ import { GlobalNotificationControls } from "@/components/owner/GlobalNotificatio
 import { usePermissions } from "@/lib/permissions";
 import { getTableStatus } from "@/lib/tables/occupancy";
 import { cn } from "@/lib/utils";
+import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 
 const QR_SIZE = 144;
 const QR_PADDING = 12;
