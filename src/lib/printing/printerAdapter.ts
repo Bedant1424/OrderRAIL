@@ -7,7 +7,7 @@
 
 import { printService } from "./PrintService";
 import { KotBuilder, renderKotText, type KotRenderPayload } from "./kotRenderer";
-import { renderReceiptText, type ReceiptRenderPayload } from "./receiptRenderer";
+import { ReceiptBuilder, renderReceiptText, type ReceiptRenderPayload } from "./receiptRenderer";
 
 export type PrinterAdapterState = 'CONNECTED' | 'DISCONNECTED' | 'OUT_OF_PAPER' | 'ERROR';
 
@@ -103,7 +103,7 @@ class PrinterAdapterClass {
     }
 
     // Build dedicated production KOT ticket using ESC/POS KotBuilder
-    const kotBuild = KotBuilder.build(payload, 80);
+    const kotBuild = KotBuilder.build(payload, 58);
 
     const res = await printService.enqueue(
       'KOT',
@@ -155,8 +155,8 @@ class PrinterAdapterClass {
       throw new Error(`[PrinterAdapter] ${errReason}`);
     }
 
-    // Render formatted text
-    const receiptText = renderReceiptText(payload, 80);
+    // Build dedicated 58mm customer receipt using ESC/POS ReceiptBuilder
+    const receiptBuild = ReceiptBuilder.build(payload, 58);
 
     const res = await printService.enqueue(
       'RECEIPT',
@@ -180,12 +180,14 @@ class PrinterAdapterClass {
         discountAmt: payload.discountAmt || 0,
         netTotal: payload.netTotal,
         tenders: payload.tenders || [],
+        escpos: receiptBuild.escpos,
+        formattedText: receiptBuild.text,
       },
       { orderId: payload.orderId }
     );
 
     if (res.success) {
-      console.log(`[PrinterAdapter] Bill Receipt #${payload.billNumber} printed successfully:\n${receiptText}`);
+      console.log(`[PrinterAdapter] Bill Receipt #${payload.billNumber} printed successfully:\n${receiptBuild.text}`);
       return { success: true };
     }
 

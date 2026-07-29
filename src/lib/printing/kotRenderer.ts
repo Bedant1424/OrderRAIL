@@ -10,6 +10,6 @@ export type KotRenderPayload = KotBuilderPayload & { orderId?: string };
 
 export { KotBuilder };
 
-export function renderKotText(payload: KotRenderPayload, widthmm: 58 | 80 = 80): string {
+export function renderKotText(payload: KotRenderPayload, widthmm: 58 | 80 = 58): string {
   return KotBuilder.buildText(payload, widthmm);
 }

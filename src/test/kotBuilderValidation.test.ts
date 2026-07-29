@@ -4,14 +4,14 @@ import { PrinterAdapter } from "../lib/printing/printerAdapter";
 import { printService } from "../lib/printing/PrintService";
 import { MockProvider } from "../lib/printing/providers/MockProvider";
 
-describe("Kitchen Order Ticket (KOT) Builder & Integration Validation Tests", () => {
+describe("Kitchen Order Ticket (KOT) Builder (58mm) & Integration Validation Tests", () => {
   beforeEach(() => {
     // Reset PrintService to clean MockProvider before each test
     printService.setProvider(new MockProvider({ simulatedDelayMs: 0 }));
     PrinterAdapter.setSimulatedState(null);
   });
 
-  it("1. Single Item Order: Should generate valid 80mm ESC/POS & Text ticket for single item", () => {
+  it("1. Single Item Order: Should generate valid 58mm ESC/POS & Text ticket for single item", () => {
     const payload: KotBuilderPayload = {
       restaurantName: "OrderRail Gourmet Cafe",
       kotNumber: "101",
@@ -23,7 +23,7 @@ describe("Kitchen Order Ticket (KOT) Builder & Integration Validation Tests", ()
       ]
     };
 
-    const result = KotBuilder.build(payload, 80);
+    const result = KotBuilder.build(payload, 58);
 
     // Text assertions
     expect(result.text).toContain("ORDERRAIL GOURMET CAFE");
@@ -55,7 +55,7 @@ describe("Kitchen Order Ticket (KOT) Builder & Integration Validation Tests", ()
       ]
     };
 
-    const result = KotBuilder.build(payload, 80);
+    const result = KotBuilder.build(payload, 58);
 
     expect(result.text).toContain("2x   Double Espresso");
     expect(result.text).toContain("3x   Avocado Toast");
@@ -82,16 +82,16 @@ describe("Kitchen Order Ticket (KOT) Builder & Integration Validation Tests", ()
       specialInstructions: "Make it extra spicy, deliver immediately to table."
     };
 
-    const result = KotBuilder.build(payload, 80);
+    const result = KotBuilder.build(payload, 58);
 
     // Modifiers & notes assertions
     expect(result.text).toContain("* Modifiers: Extra Cheese, Gluten-Free Bread, Cut into triangles");
     expect(result.text).toContain("SPECIAL INSTRUCTIONS:");
-    expect(result.text).toContain("Make it extra spicy, deliver immediately to");
-    expect(result.text).toContain("table.");
+    expect(result.text).toContain("Make it extra spicy, deliver");
+    expect(result.text).toContain("immediately to table.");
   });
 
-  it("4. Long Item Names: Should wrap text cleanly across multiple indented lines", () => {
+  it("4. Long Item Names: Should wrap text cleanly across multiple 32-column lines", () => {
     const payload: KotBuilderPayload = {
       restaurantName: "OrderRail Bistro",
       kotNumber: "104",
@@ -107,15 +107,13 @@ describe("Kitchen Order Ticket (KOT) Builder & Integration Validation Tests", ()
       ]
     };
 
-    const result = KotBuilder.build(payload, 80);
+    const result = KotBuilder.build(payload, 58);
 
-    // Verify line wrapping without overflow
+    // Verify line wrapping without overflow (<= 32 chars)
     const lines = result.text.split("\n");
-    const itemLine1 = lines.find(l => l.includes("1x   Super Ultimate Supreme Loaded Barbecue"));
-    const itemLine2 = lines.find(l => l.includes("     Bacon Cheese Burger with Extra Crispy Onion"));
-
-    expect(itemLine1).toBeDefined();
-    expect(itemLine2).toBeDefined();
+    for (const line of lines) {
+      expect(line.length).toBeLessThanOrEqual(32);
+    }
   });
 
   it("5. Reprint: Should include prominent ** REPRINT ** tag when isReprint is true", () => {
@@ -131,13 +129,13 @@ describe("Kitchen Order Ticket (KOT) Builder & Integration Validation Tests", ()
       ]
     };
 
-    const result = KotBuilder.build(payload, 80);
+    const result = KotBuilder.build(payload, 58);
 
     expect(result.text).toContain("** REPRINT **");
     expect(result.escpos).toContain("** REPRINT **");
   });
 
-  it("6. Integration with PrinterAdapter & PrintService: Should dispatch KOT job successfully", async () => {
+  it("6. Integration with PrinterAdapter & PrintService: Should dispatch 58mm KOT job successfully", async () => {
     const res = await PrinterAdapter.printKot({
       orderId: "ord-test-999",
       kotNumber: 999,

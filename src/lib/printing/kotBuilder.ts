@@ -35,9 +35,9 @@ export interface KotBuildResult {
 
 export class KotBuilder {
   /**
-   * Builds both clean plain text (for previews/logs) and raw ESC/POS commands (for thermal printers).
+   * Builds both clean plain text (for previews/logs) and raw ESC/POS commands (for 58mm thermal printers).
    */
-  public static build(payload: KotBuilderPayload, widthmm: 58 | 80 = 80): KotBuildResult {
+  public static build(payload: KotBuilderPayload, widthmm: 58 | 80 = 58): KotBuildResult {
     return {
       text: this.buildText(payload, widthmm),
       escpos: this.buildEscPos(payload, widthmm),
@@ -45,9 +45,9 @@ export class KotBuilder {
   }
 
   /**
-   * Generates clean formatted text representation of KOT
+   * Generates clean formatted text representation of KOT (default 58mm / 32 columns)
    */
-  public static buildText(payload: KotBuilderPayload, widthmm: 58 | 80 = 80): string {
+  public static buildText(payload: KotBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
     const divider = "-".repeat(cols);
     const doubleDivider = "=".repeat(cols);
@@ -156,9 +156,9 @@ export class KotBuilder {
   }
 
   /**
-   * Generates ESC/POS thermal command stream for 80mm thermal printers
+   * Generates ESC/POS thermal command stream for 58mm thermal printers
    */
-  public static buildEscPos(payload: KotBuilderPayload, widthmm: 58 | 80 = 80): string {
+  public static buildEscPos(payload: KotBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
     const divider = "-".repeat(cols) + "\n";
     const doubleDivider = "=".repeat(cols) + "\n";

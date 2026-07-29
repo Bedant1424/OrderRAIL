@@ -8,6 +8,7 @@ export * from "./qz";
 export { PrintService, printService } from "./PrintService";
 export * from "./kotBuilder";
 export * from "./kotRenderer";
+export * from "./receiptBuilder";
 export * from "./receiptRenderer";
 export * from "./printerAdapter";
 export * from "./providers/MockProvider";
