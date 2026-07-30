@@ -3191,9 +3191,46 @@ const CounterLayout = () => {
   }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
   const handlePrintBill = useCallback(async () => {
-    if (selectedTable) await tableEngine.requestBill(selectedTable.id);
-    toast.success(`🖨️ Bill Printed for ${selectedTable?.label ?? 'Express Sale'}`);
-  }, [selectedTable, tableEngine]);
+    const cur = activeSessionData;
+    const sessionOrders = cur.orders || [];
+    const allItems = [
+      ...sessionOrders.flatMap((o) => (o.items || []).map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty }))),
+      ...(cur.draftCart || []).map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+    ];
+
+    if (allItems.length === 0) {
+      toast.error("No items available to print bill.");
+      return;
+    }
+
+    try {
+      const firstOrder = sessionOrders[0];
+      const createdBill = await BillingService.createBill({
+        orderId: firstOrder?.id || `ord-${Date.now()}`,
+        orderNumber: firstOrder?.orderNumber,
+        tableId: selectedTable?.id || null,
+        tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Sale`,
+        cashierName: user?.email ? user.email.split('@')[0] : 'Counter Staff',
+        items: allItems,
+        discountPct: customDiscount,
+      });
+
+      const res = await BillingService.printBill(createdBill.bill.billId);
+
+      if (selectedTable) {
+        await tableEngine.requestBill(selectedTable.id);
+      }
+
+      if (!res.queued) {
+        toast.success(`🖨️ Pre-Payment Bill #${createdBill.bill.billNumber} Sent to Printer!`);
+      } else {
+        toast.info(`⏳ Bill #${createdBill.bill.billNumber} Queued for Printing`);
+      }
+    } catch (e: any) {
+      console.warn("[handlePrintBill] Print Bill error:", e);
+      toast.error(`❌ Failed to print bill: ${e?.message || 'Error'}`);
+    }
+  }, [activeSessionData, customDiscount, orderSourceMode, selectedTable, tableEngine, user]);
 
   // Complete Payment & CLOSE Active Session (Archives active session from Counter view)
   const handlePaymentComplete = useCallback(async (
