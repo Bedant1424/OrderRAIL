@@ -86,6 +86,37 @@ export interface SessionOrder {
   customerPhone?: string | null;
 }
 
+export function mapOrderToSessionOrder(ord: any, syncState: SessionOrder['syncState'] = 'Synced'): SessionOrder {
+  const orderNum = (ord as any).daily_order_number ?? ord.order_number ?? 1;
+  const mappedItems: CartLineItem[] = (ord.order_items || []).map((it: any) => ({
+    id: it.id,
+    name: it.name,
+    price: (typeof it.price_cents === 'number' && !isNaN(it.price_cents) && it.price_cents > 0)
+      ? it.price_cents / 100
+      : (typeof it.price === 'number' && !isNaN(it.price))
+      ? it.price
+      : (typeof it.unit_price === 'number' && !isNaN(it.unit_price))
+      ? it.unit_price
+      : 0,
+    qty: it.qty || it.quantity || 1,
+    notes: it.notes,
+  }));
+
+  return {
+    id: ord.id,
+    orderNumber: orderNum,
+    timestamp: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+    createdAt: ord.created_at || new Date().toISOString(),
+    status: (ord.status || 'PREPARING').toString().toUpperCase(),
+    items: mappedItems,
+    subtotal: (ord.total_cents || 0) / 100,
+    syncState: syncState,
+    orderSource: (ord as any).order_source || (ord.table_id ? "DINE_IN" : "TAKEAWAY"),
+    customerName: (ord as any).customer_name || null,
+    customerPhone: (ord as any).customer_phone || null,
+  };
+}
+
 export interface KotPrintPayload {
   orderNumber: number;
   tableLabel: string;
@@ -320,7 +351,10 @@ const TableRail = memo(({
               ? 'bg-amber-500 text-white shadow-md ring-1 ring-amber-500/30 scale-[1.02]' 
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
           )}
-          onClick={() => onSelectOrderMode('TAKEAWAY')}
+          onClick={() => {
+            onSelectOrderMode('TAKEAWAY');
+            onSelect('express');
+          }}
         >
           <span>🛍️ Takeaway</span>
         </button>
@@ -332,7 +366,10 @@ const TableRail = memo(({
               ? 'bg-amber-500 text-white shadow-md ring-1 ring-amber-500/30 scale-[1.02]' 
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
           )}
-          onClick={() => onSelectOrderMode('SWIGGY')}
+          onClick={() => {
+            onSelectOrderMode('SWIGGY');
+            onSelect('express');
+          }}
         >
           <span>🛵 Swiggy</span>
         </button>
@@ -344,7 +381,10 @@ const TableRail = memo(({
               ? 'bg-amber-500 text-white shadow-md ring-1 ring-amber-500/30 scale-[1.02]' 
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
           )}
-          onClick={() => onSelectOrderMode('ZOMATO')}
+          onClick={() => {
+            onSelectOrderMode('ZOMATO');
+            onSelect('express');
+          }}
         >
           <span>🛵 Zomato</span>
         </button>
@@ -2562,33 +2602,7 @@ const CounterLayout = () => {
           }
         }
 
-        const mappedItems: CartLineItem[] = (ord.order_items || []).map((it: any) => ({
-          id: it.id,
-          name: it.name,
-          price: (typeof it.price_cents === 'number' && !isNaN(it.price_cents) && it.price_cents > 0)
-            ? it.price_cents / 100
-            : (typeof it.price === 'number' && !isNaN(it.price))
-            ? it.price
-            : (typeof it.unit_price === 'number' && !isNaN(it.unit_price))
-            ? it.unit_price
-            : 0,
-          qty: it.qty || it.quantity || 1,
-        }));
-
-        const mappedStatus = (ord.status.toUpperCase() as SessionOrder['status']);
-
-        const sessOrder: SessionOrder = {
-          id: ord.id,
-          orderNumber: (ord as any).daily_order_number ?? ord.order_number,
-          timestamp: new Date(ord.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-          createdAt: ord.created_at || new Date().toISOString(),
-          status: mappedStatus,
-          items: mappedItems,
-          subtotal: (ord.total_cents || 0) / 100,
-          orderSource: (ord as any).order_source || (ord.table_id ? "DINE_IN" : "TAKEAWAY"),
-          customerName: (ord as any).customer_name || null,
-          customerPhone: (ord as any).customer_phone || null,
-        };
+        const sessOrder: SessionOrder = mapOrderToSessionOrder(ord);
 
         if (!sessionsMap[tId]) {
           const sId = ord.dining_session_id || activeSessionMap.get(tId) || "";
@@ -3144,30 +3158,34 @@ const CounterLayout = () => {
     const orderNum = (createdDbOrder as any)?.daily_order_number ?? createdDbOrder?.order_number;
     const effectiveOrderNum = typeof orderNum === 'number' && !isNaN(orderNum) ? orderNum : (dbOrders?.length ? dbOrders.length + 1 : 1);
 
-    const newSessionOrder: SessionOrder = {
-      id: createdOrderId || `ord-kot-${Date.now()}`,
-      orderNumber: effectiveOrderNum,
-      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-      status: 'PREPARING',
-      items: cur.draftCart,
-      subtotal,
-      syncState: isQueuedOffline ? 'Pending Sync' : 'Synced',
-      orderSource: orderSourceMode,
-      customerName: customerName || null,
-      customerPhone: customerPhone || null,
-    };
-
-    // Update session orders and clear draft cart immediately
+    // Clear draft cart immediately and populate canonical order via loadSessionsFromDb
     setTableSessions((prev) => {
       const existingSession = prev[activeTableId] || cur;
       const existingOrders = existingSession.orders || [];
-      const filteredOrders = existingOrders.filter((o) => o.id !== newSessionOrder.id);
+
+      let updatedOrders = existingOrders;
+      if (isQueuedOffline) {
+        const optimisticOrder: SessionOrder = {
+          id: createdOrderId || `ord-kot-${Date.now()}`,
+          orderNumber: effectiveOrderNum,
+          timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+          status: 'PREPARING',
+          items: cur.draftCart,
+          subtotal,
+          syncState: 'Pending Sync',
+          orderSource: orderSourceMode,
+          customerName: customerName || null,
+          customerPhone: customerPhone || null,
+        };
+        updatedOrders = [...existingOrders.filter((o) => o.id !== optimisticOrder.id), optimisticOrder];
+      }
+
       return {
         ...prev,
         [activeTableId]: {
           ...existingSession,
           sessionId: targetSessionId || existingSession.sessionId,
-          orders: [...filteredOrders, newSessionOrder],
+          orders: updatedOrders,
           draftCart: []
         }
       };
