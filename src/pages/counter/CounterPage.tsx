@@ -3158,12 +3158,12 @@ const CounterLayout = () => {
     const orderNum = (createdDbOrder as any)?.daily_order_number ?? createdDbOrder?.order_number;
     const effectiveOrderNum = typeof orderNum === 'number' && !isNaN(orderNum) ? orderNum : (dbOrders?.length ? dbOrders.length + 1 : 1);
 
-    // Clear draft cart immediately and populate canonical order via loadSessionsFromDb
+    // Fix #1: Clear draft cart immediately while preserving canonical orders loaded by loadSessionsFromDb
     setTableSessions((prev) => {
       const existingSession = prev[activeTableId] || cur;
-      const existingOrders = existingSession.orders || [];
+      const currentOrders = prev[activeTableId]?.orders ?? existingSession.orders ?? [];
 
-      let updatedOrders = existingOrders;
+      let updatedOrders = currentOrders;
       if (isQueuedOffline) {
         const optimisticOrder: SessionOrder = {
           id: createdOrderId || `ord-kot-${Date.now()}`,
@@ -3177,7 +3177,7 @@ const CounterLayout = () => {
           customerName: customerName || null,
           customerPhone: customerPhone || null,
         };
-        updatedOrders = [...existingOrders.filter((o) => o.id !== optimisticOrder.id), optimisticOrder];
+        updatedOrders = [...currentOrders.filter((o) => o.id !== optimisticOrder.id), optimisticOrder];
       }
 
       return {
@@ -3217,15 +3217,16 @@ const CounterLayout = () => {
       toast.warn(`⚠️ Order created, but KOT printing failed for Order #${effectiveOrderNum}: ${e?.message || 'Error'}`);
     }
 
+    // Fix #2: Pass canonical effectiveOrderNum to notification and toast
     const eventPayload: CounterNotification = {
       id: `notif-new-${createdOrderId || Date.now()}`,
       type: 'new_order',
       title: 'New Order',
-      description: cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel} placed Order #${orderNum}` : `Express placed Order #${orderNum}`,
+      description: cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel} placed Order #${effectiveOrderNum}` : `Express placed Order #${effectiveOrderNum}`,
       timestamp: orderTimestamp,
       read: false,
       tableLabel: cleanTableLabel,
-      orderNumber: orderNum,
+      orderNumber: effectiveOrderNum,
     };
 
     if (createdOrderId) {
@@ -3244,7 +3245,7 @@ const CounterLayout = () => {
       }
     }
 
-    toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${eventPayload.orderNumber} for ${cleanTableLabel !== 'Express' ? 'Table ' + cleanTableLabel : 'Express'})`);
+    toast.success(`✅ KOT Spooled & Sent to Kitchen! (Order #${effectiveOrderNum} for ${cleanTableLabel !== 'Express' ? 'Table ' + cleanTableLabel : 'Express'})`);
   }, [activeSessionData, activeTableId, cafeId, loadSessionsFromDb, selectedTable, tableEngine]);
 
   const handlePrintBill = useCallback(async () => {
