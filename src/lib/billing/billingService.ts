@@ -70,7 +70,35 @@ export interface BillRecord {
 }
 
 export const billsMap = new Map<string, BillRecord>();
-let billCounter = 1000;
+
+const BILL_COUNTER_KEY = "ORDERRAIL_BILL_COUNTER";
+
+function loadPersistedBillCounter(): number {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const saved = localStorage.getItem(BILL_COUNTER_KEY);
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (!isNaN(val) && val >= 1000) return val;
+      }
+    }
+  } catch (e) {
+    console.warn("[BillingService] Failed to load persisted bill counter:", e);
+  }
+  return 1000;
+}
+
+function savePersistedBillCounter(counter: number): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem(BILL_COUNTER_KEY, counter.toString());
+    }
+  } catch (e) {
+    console.warn("[BillingService] Failed to save persisted bill counter:", e);
+  }
+}
+
+let billCounter = loadPersistedBillCounter();
 
 export class BillingServiceClass {
   private handlersRegistered = false;
@@ -114,38 +142,20 @@ export class BillingServiceClass {
         customerName: existing.customerName,
         customerPhone: existing.customerPhone,
       });
-
-      existing.status = "Printed";
-      existing.syncState = "Synced";
-      billsMap.set(existing.billId, existing);
-      return printRes;
+      return { billId: existing.billId, status: "Printed", result: printRes };
     });
 
     // Operation 3: REPRINT_BILL
-    OperationExecutor.registerHandler("REPRINT_BILL", async (payload: BillRecord) => {
-      const existing = billsMap.get(payload.billId) || payload;
+    OperationExecutor.registerHandler("REPRINT_BILL", async (payload: { billId: string }) => {
+      const existing = billsMap.get(payload.billId);
+      if (!existing) {
+        throw new Error(`Bill ${payload.billId} not found for reprint`);
+      }
       const printRes = await PrinterAdapter.printReceipt({
-        billId: existing.billId,
-        billNumber: existing.billNumber,
-        orderId: existing.orderId,
-        orderNumber: existing.orderNumber,
-        tableLabel: existing.tableLabel,
-        cashierName: existing.cashierName,
-        timestamp: existing.timestamp,
-        items: existing.items,
-        subtotal: existing.subtotal,
-        tax: existing.tax,
-        discountPct: existing.discountPct,
-        discountAmt: existing.discountAmt,
-        netTotal: existing.netTotal,
-        paymentStatus: existing.paymentStatus,
+        ...existing,
         isReprint: true,
-        customerName: existing.customerName,
-        customerPhone: existing.customerPhone,
       });
-      existing.syncState = "Synced";
-      billsMap.set(existing.billId, existing);
-      return printRes;
+      return { billId: existing.billId, status: "Reprinted", result: printRes };
     });
 
     // Operation 4: VOID_BILL
@@ -155,7 +165,7 @@ export class BillingServiceClass {
         existing.status = "Voided";
         existing.paymentStatus = "voided";
         existing.syncState = "Synced";
-        billsMap.set(existing.billId, existing);
+        billsMap.set(payload.billId, existing);
       }
       return { success: true, billId: payload.billId };
     });
@@ -179,7 +189,7 @@ export class BillingServiceClass {
   }
 
   /**
-   * Create & finalize a new bill via Operations Engine
+   * Create & finalize a new bill via Operations Engine (or reuse existing bill for same order)
    */
   public async createBill(
     payload: CreateBillPayload,
@@ -187,8 +197,21 @@ export class BillingServiceClass {
   ): Promise<{ bill: BillRecord; queued: boolean; status: Operation["status"] }> {
     this.initHandlers();
 
+    const targetBillId = payload.billId || `bill-${payload.orderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+    const existingBill = billsMap.get(targetBillId) || Array.from(billsMap.values()).find((b) => b.orderId === payload.orderId);
+
+    if (existingBill) {
+      return {
+        bill: existingBill,
+        queued: false,
+        status: "Completed",
+      };
+    }
+
     billCounter++;
-    const billId = payload.billId || `temp_bill_${generateUUID()}`;
+    savePersistedBillCounter(billCounter);
+
+    const billId = targetBillId;
     const billNumber = payload.billNumber || `B-${billCounter}`;
     const timestamp = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
@@ -214,7 +237,7 @@ export class BillingServiceClass {
       netTotal,
       status: "Finalized",
       paymentStatus: "unpaid",
-      cashierName: payload.cashierName || "Counter",
+      cashierName: "Counter",
       timestamp,
       createdAt: new Date().toISOString(),
       syncState: "Pending Sync",

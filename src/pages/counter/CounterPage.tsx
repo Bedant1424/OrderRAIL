@@ -1492,7 +1492,7 @@ const ReceiptModal = ({
           billNumber: bill.bill_number,
           orderId: bill.id,
           tableLabel: bill.table_id || bill.order_type,
-          cashierName: bill.cashier_id || 'Counter Staff',
+          cashierName: "Counter",
           items: bill.items.map((i) => ({ id: i.id || i.item_name, name: i.item_name, price: i.unit_price, qty: i.quantity })),
         });
         const res = await BillingService.printBill(createdBill.bill.billId);
@@ -1527,7 +1527,7 @@ const ReceiptModal = ({
             orderId: receipt.orderId,
             orderNumber: receipt.orderId,
             tableLabel: receipt.tableLabel,
-            cashierName: receipt.cashierName,
+            cashierName: "Counter",
             items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
             discountPct: receipt.discountPct,
           });
@@ -3226,13 +3226,16 @@ const CounterLayout = () => {
     }
 
     try {
-      const firstOrder = sessionOrders[0];
+      const primaryOrderId = sessionOrders[0]?.id || `ord-${Date.now()}`;
+      const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
       const createdBill = await BillingService.createBill({
-        orderId: firstOrder?.id || `ord-${Date.now()}`,
-        orderNumber: firstOrder?.orderNumber,
+        billId: primaryBillId,
+        orderId: primaryOrderId,
+        orderNumber: sessionOrders[0]?.orderNumber,
         tableId: selectedTable?.id || null,
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Sale`,
-        cashierName: user?.email ? user.email.split('@')[0] : 'Counter Staff',
+        cashierName: 'Counter',
         items: allItems,
         discountPct: typeof customDiscount === 'object' ? (customDiscount?.value || 0) : (Number(customDiscount) || 0),
       });
@@ -3273,7 +3276,7 @@ const CounterLayout = () => {
       orderId: primaryOrderId,
       sessionId: cur.sessionId,
       tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
-      cashierName: user?.email ? user.email.split('@')[0] : 'Sarah M.',
+      cashierName: 'Counter',
       timestamp: new Date().toLocaleTimeString('en-IN'),
       orders: cur.orders,
       draftItems: cur.draftCart,
