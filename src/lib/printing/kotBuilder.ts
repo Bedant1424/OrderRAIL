@@ -76,7 +76,7 @@ export class KotBuilder {
     } else if (source === "ZOMATO") {
       lines.push(center(`*** ZOMATO KOT ${refStr} ***`.trim()));
     } else {
-      lines.push(center("*** KITCHEN ORDER TICKET ***"));
+      lines.push(center("*** KITCHEN KOT ***"));
     }
 
     if (payload.isReprint) {
@@ -84,23 +84,29 @@ export class KotBuilder {
     }
     lines.push(doubleDivider);
 
-    // Metadata Section
+    // Table Visibility (Prominent Header Section)
     const rawLabel = payload.tableLabel || "Express";
     let cleanLabel = rawLabel;
     if (source === "TAKEAWAY") {
-      cleanLabel = "Takeaway";
+      cleanLabel = "TAKEAWAY";
     } else if (source === "SWIGGY") {
-      cleanLabel = `Swiggy ${refStr}`.trim();
+      cleanLabel = `SWIGGY ${refStr}`.trim();
     } else if (source === "ZOMATO") {
-      cleanLabel = `Zomato ${refStr}`.trim();
+      cleanLabel = `ZOMATO ${refStr}`.trim();
     } else if (!rawLabel.toLowerCase().startsWith("table")) {
-      cleanLabel = `Table ${rawLabel}`;
+      cleanLabel = `TABLE ${rawLabel.toUpperCase()}`;
+    } else {
+      cleanLabel = rawLabel.toUpperCase();
     }
+
+    lines.push(center(cleanLabel));
+    lines.push(center(source.replace(/_/g, " ")));
+    lines.push(doubleDivider);
 
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
     lines.push(this.justify(`KOT #: ${payload.kotNumber}`, `Order #: ${payload.orderNumber}`, cols));
-    lines.push(this.justify(cleanLabel, timeStr, cols));
+    lines.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols));
     lines.push(divider);
 
     // Items Header
@@ -131,7 +137,9 @@ export class KotBuilder {
       }
 
       if (mods.length > 0) {
-        lines.push(`     * Modifiers: ${mods.join(", ")}`);
+        for (const m of mods) {
+          lines.push(`     > ${m}`);
+        }
       }
     }
 
@@ -192,7 +200,7 @@ export class KotBuilder {
     } else if (source === "ZOMATO") {
       parts.push(`ZOMATO KOT ${refStr}\n`.trim() + "\n");
     } else {
-      parts.push("KITCHEN ORDER TICKET\n");
+      parts.push("KITCHEN KOT\n");
     }
 
     parts.push("\x1D\x21\x00"); // Reset font size
@@ -207,25 +215,36 @@ export class KotBuilder {
 
     parts.push(doubleDivider);
 
-    // Metadata Section
-    parts.push(ESC_POS.ALIGN_LEFT);
-
+    // Prominent Table Banner (Double Height & Width)
     const rawLabel = payload.tableLabel || "Express";
     let cleanLabel = rawLabel;
     if (source === "TAKEAWAY") {
-      cleanLabel = "Takeaway";
+      cleanLabel = "TAKEAWAY";
     } else if (source === "SWIGGY") {
-      cleanLabel = `Swiggy ${refStr}`.trim();
+      cleanLabel = `SWIGGY ${refStr}`.trim();
     } else if (source === "ZOMATO") {
-      cleanLabel = `Zomato ${refStr}`.trim();
+      cleanLabel = `ZOMATO ${refStr}`.trim();
     } else if (!rawLabel.toLowerCase().startsWith("table")) {
-      cleanLabel = `Table ${rawLabel}`;
+      cleanLabel = `TABLE ${rawLabel.toUpperCase()}`;
+    } else {
+      cleanLabel = rawLabel.toUpperCase();
     }
 
+    parts.push(ESC_POS.BOLD_ON);
+    parts.push("\x1D\x21\x11"); // Double Width & Height
+    parts.push(`${cleanLabel}\n`);
+    parts.push("\x1D\x21\x00");
+    parts.push(`${source.replace(/_/g, " ")}\n`);
+    parts.push(ESC_POS.BOLD_OFF);
+
+    parts.push(doubleDivider);
+
+    // Metadata Section
+    parts.push(ESC_POS.ALIGN_LEFT);
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 
     parts.push(this.justify(`KOT #: ${payload.kotNumber}`, `Order #: ${payload.orderNumber}`, cols) + "\n");
-    parts.push(this.justify(cleanLabel, timeStr, cols) + "\n");
+    parts.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols) + "\n");
     parts.push(divider);
 
     // Items Header
@@ -265,7 +284,9 @@ export class KotBuilder {
 
       if (mods.length > 0) {
         parts.push(ESC_POS.BOLD_ON);
-        parts.push(`     * Modifiers: ${mods.join(", ")}\n`);
+        for (const m of mods) {
+          parts.push(`     > ${m}\n`);
+        }
         parts.push(ESC_POS.BOLD_OFF);
       }
     }

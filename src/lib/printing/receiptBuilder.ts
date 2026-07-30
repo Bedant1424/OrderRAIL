@@ -94,12 +94,16 @@ export class ReceiptBuilder {
     } else {
       lines.push(center("GSTIN: 27AAAAA0000A1Z5"));
     }
-    lines.push(doubleDivider);
+    lines.push(divider);
+
+    const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
+    const docTitle = isPaid ? "*** PAID RECEIPT ***" : "*** PRE-PAYMENT BILL ***";
+    lines.push(center(docTitle));
 
     if (payload.isReprint) {
-      lines.push(center("** REPRINT RECEIPT **"));
-      lines.push(divider);
+      lines.push(center("** REPRINT **"));
     }
+    lines.push(doubleDivider);
 
     // Bill & Order Metadata
     const source = payload.orderSource || "DINE_IN";
@@ -178,7 +182,7 @@ export class ReceiptBuilder {
     if (payload.tenders && payload.tenders.length > 0) {
       lines.push("PAYMENT DETAILS:");
       for (const t of payload.tenders) {
-        lines.push(justify(`  ${t.method.toUpperCase()}`, `₹${t.amount.toFixed(2)}`));
+        lines.push(justify(`  ${t.method.toUpperCase()}`, `Rs.${t.amount.toFixed(2)}`));
       }
       lines.push(divider);
     } else {
@@ -223,14 +227,24 @@ export class ReceiptBuilder {
     }
 
     parts.push(`GSTIN: ${payload.gstin || "27AAAAA0000A1Z5"}\n`);
-    parts.push(doubleDivider);
+    parts.push(divider);
+
+    const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
+    const docTitle = isPaid ? "*** PAID RECEIPT ***" : "*** PRE-PAYMENT BILL ***";
+
+    parts.push(ESC_POS.BOLD_ON);
+    parts.push("\x1D\x21\x10"); // Double Height Font
+    parts.push(`${docTitle}\n`);
+    parts.push("\x1D\x21\x00");
+    parts.push(ESC_POS.BOLD_OFF);
 
     if (payload.isReprint) {
       parts.push(ESC_POS.BOLD_ON);
-      parts.push("** REPRINT RECEIPT **\n");
+      parts.push("** REPRINT **\n");
       parts.push(ESC_POS.BOLD_OFF);
-      parts.push(divider);
     }
+
+    parts.push(doubleDivider);
 
     // Bill & Order Metadata
     parts.push(ESC_POS.ALIGN_LEFT);
