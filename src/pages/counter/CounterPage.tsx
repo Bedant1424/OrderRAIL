@@ -1509,20 +1509,36 @@ const ReceiptModal = ({
 
     if (receipt) {
       try {
-        const aggregated = aggregateReceiptItems(receipt);
-        const createdBill = await BillingService.createBill({
-          orderId: receipt.orderId,
-          orderNumber: receipt.orderId,
-          tableLabel: receipt.tableLabel,
-          cashierName: receipt.cashierName,
-          items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
-          discountPct: receipt.discountPct,
-        });
-        const res = await BillingService.printBill(createdBill.bill.billId);
-        if (!res.queued) {
-          toast.success('🖨️ Receipt sent to printer.');
+        const primaryOrderId = receipt.orders?.[0]?.id || receipt.orderId;
+        const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+        const existingBill = billsMap.get(primaryBillId) || Array.from(billsMap.values()).find(b => b.orderId === primaryOrderId || b.billId === receipt.orderId);
+
+        if (existingBill) {
+          const res = await BillingService.reprintBill(existingBill.billId);
+          if (!res.queued) {
+            toast.success(`🖨️ Paid Receipt #${existingBill.billNumber} sent to printer.`);
+          } else {
+            toast.info(`⏳ Paid Receipt #${existingBill.billNumber} queued for printing`);
+          }
         } else {
-          toast.info('⏳ Receipt queued for printing');
+          const aggregated = aggregateReceiptItems(receipt);
+          const createdBill = await BillingService.createBill({
+            billId: primaryBillId,
+            orderId: receipt.orderId,
+            orderNumber: receipt.orderId,
+            tableLabel: receipt.tableLabel,
+            cashierName: receipt.cashierName,
+            items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
+            discountPct: receipt.discountPct,
+          });
+          createdBill.bill.paymentStatus = 'paid';
+          createdBill.bill.status = 'Paid';
+          const res = await BillingService.reprintBill(createdBill.bill.billId);
+          if (!res.queued) {
+            toast.success('🖨️ Paid Receipt sent to printer.');
+          } else {
+            toast.info('⏳ Paid Receipt queued for printing');
+          }
         }
       } catch (e: any) {
         toast.error(`❌ Failed to print receipt: ${e?.message || 'Error'}`);
@@ -2546,8 +2562,14 @@ const CounterLayout = () => {
         const mappedItems: CartLineItem[] = (ord.order_items || []).map((it: any) => ({
           id: it.id,
           name: it.name,
-          price: it.price_cents / 100,
-          qty: it.qty,
+          price: (typeof it.price_cents === 'number' && !isNaN(it.price_cents) && it.price_cents > 0)
+            ? it.price_cents / 100
+            : (typeof it.price === 'number' && !isNaN(it.price))
+            ? it.price
+            : (typeof it.unit_price === 'number' && !isNaN(it.unit_price))
+            ? it.unit_price
+            : 0,
+          qty: it.qty || it.quantity || 1,
         }));
 
         const mappedStatus = (ord.status.toUpperCase() as SessionOrder['status']);
@@ -3212,7 +3234,7 @@ const CounterLayout = () => {
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Sale`,
         cashierName: user?.email ? user.email.split('@')[0] : 'Counter Staff',
         items: allItems,
-        discountPct: customDiscount,
+        discountPct: typeof customDiscount === 'object' ? (customDiscount?.value || 0) : (Number(customDiscount) || 0),
       });
 
       const res = await BillingService.printBill(createdBill.bill.billId);

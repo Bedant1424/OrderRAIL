@@ -140,7 +140,7 @@ export class ReceiptBuilder {
     // Items List
     for (const item of payload.items) {
       const itemTotal = (item.price || 0) * (item.qty || 1);
-      const priceStr = `₹${itemTotal.toFixed(2)}`;
+      const priceStr = `Rs.${itemTotal.toFixed(2)}`;
       const qtyStr = `${item.qty}x`.padEnd(4);
 
       const maxNameLen = cols - qtyStr.length - priceStr.length - 1;
@@ -157,21 +157,21 @@ export class ReceiptBuilder {
     lines.push(divider);
 
     // Totals Section
-    lines.push(justify("Subtotal:", `₹${payload.subtotal.toFixed(2)}`));
+    lines.push(justify("Subtotal:", `Rs.${payload.subtotal.toFixed(2)}`));
 
     if (payload.tax > 0) {
       const cgst = payload.tax / 2;
       const sgst = payload.tax / 2;
-      lines.push(justify("CGST (2.5%):", `₹${cgst.toFixed(2)}`));
-      lines.push(justify("SGST (2.5%):", `₹${sgst.toFixed(2)}`));
+      lines.push(justify("CGST (2.5%):", `Rs.${cgst.toFixed(2)}`));
+      lines.push(justify("SGST (2.5%):", `Rs.${sgst.toFixed(2)}`));
     }
 
     if (payload.discountAmt && payload.discountAmt > 0) {
-      lines.push(justify("Discount:", `-₹${payload.discountAmt.toFixed(2)}`));
+      lines.push(justify("Discount:", `-Rs.${payload.discountAmt.toFixed(2)}`));
     }
 
     lines.push(doubleDivider);
-    lines.push(justify("NET PAYABLE TOTAL:", `₹${payload.netTotal.toFixed(2)}`));
+    lines.push(justify("NET PAYABLE TOTAL:", `Rs.${payload.netTotal.toFixed(2)}`));
     lines.push(doubleDivider);
 
     // Tender / Payment Details
@@ -275,7 +275,7 @@ export class ReceiptBuilder {
     // Items List
     for (const item of payload.items) {
       const itemTotal = (item.price || 0) * (item.qty || 1);
-      const priceStr = `₹${itemTotal.toFixed(2)}`;
+      const priceStr = `Rs.${itemTotal.toFixed(2)}`;
       const qtyStr = `${item.qty}x`.padEnd(4);
 
       const maxNameLen = cols - qtyStr.length - priceStr.length - 1;
@@ -292,24 +292,24 @@ export class ReceiptBuilder {
     parts.push(divider);
 
     // Totals Section
-    parts.push(this.justify("Subtotal:", `₹${payload.subtotal.toFixed(2)}`, cols) + "\n");
+    parts.push(this.justify("Subtotal:", `Rs.${payload.subtotal.toFixed(2)}`, cols) + "\n");
 
     if (payload.tax > 0) {
       const cgst = payload.tax / 2;
       const sgst = payload.tax / 2;
-      parts.push(this.justify("CGST (2.5%):", `₹${cgst.toFixed(2)}`, cols) + "\n");
-      parts.push(this.justify("SGST (2.5%):", `₹${sgst.toFixed(2)}`, cols) + "\n");
+      parts.push(this.justify("CGST (2.5%):", `Rs.${cgst.toFixed(2)}`, cols) + "\n");
+      parts.push(this.justify("SGST (2.5%):", `Rs.${sgst.toFixed(2)}`, cols) + "\n");
     }
 
     if (payload.discountAmt && payload.discountAmt > 0) {
-      parts.push(this.justify("Discount:", `-₹${payload.discountAmt.toFixed(2)}`, cols) + "\n");
+      parts.push(this.justify("Discount:", `-Rs.${payload.discountAmt.toFixed(2)}`, cols) + "\n");
     }
 
     parts.push(doubleDivider);
 
     // Bold Net Total
     parts.push(ESC_POS.BOLD_ON);
-    parts.push(this.justify("NET PAYABLE TOTAL:", `₹${payload.netTotal.toFixed(2)}`, cols) + "\n");
+    parts.push(this.justify("NET PAYABLE TOTAL:", `Rs.${payload.netTotal.toFixed(2)}`, cols) + "\n");
     parts.push(ESC_POS.BOLD_OFF);
 
     parts.push(doubleDivider);
@@ -320,7 +320,7 @@ export class ReceiptBuilder {
       parts.push("PAYMENT DETAILS:\n");
       parts.push(ESC_POS.BOLD_OFF);
       for (const t of payload.tenders) {
-        parts.push(this.justify(`  ${t.method.toUpperCase()}`, `₹${t.amount.toFixed(2)}`, cols) + "\n");
+        parts.push(this.justify(`  ${t.method.toUpperCase()}`, `Rs.${t.amount.toFixed(2)}`, cols) + "\n");
       }
       parts.push(divider);
     } else {
