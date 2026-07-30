@@ -1511,7 +1511,7 @@ const ReceiptModal = ({
       try {
         const primaryOrderId = receipt.orders?.[0]?.id || receipt.orderId;
         const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
-        const existingBill = billsMap.get(primaryBillId) || Array.from(billsMap.values()).find(b => b.orderId === primaryOrderId || b.billId === receipt.orderId);
+        const existingBill = BillingService.getBill(primaryBillId) || BillingService.getBillByOrderId(primaryOrderId) || BillingService.getBill(receipt.orderId);
 
         if (existingBill) {
           const res = await BillingService.reprintBill(existingBill.billId);
@@ -3266,8 +3266,11 @@ const CounterLayout = () => {
       discount: customDiscount,
     });
 
+    const primaryOrderId = cur.orders[0]?.id || `ord-${Date.now()}`;
+    const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
     const receipt: CompletedOrderReceipt = {
-      orderId: cur.orders[0]?.orderNumber ? `OR-${cur.orders[0].orderNumber}` : `OR-${Date.now().toString().slice(-4)}`,
+      orderId: primaryOrderId,
       sessionId: cur.sessionId,
       tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
       cashierName: user?.email ? user.email.split('@')[0] : 'Sarah M.',

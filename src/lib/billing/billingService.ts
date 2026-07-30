@@ -328,6 +328,13 @@ export class BillingServiceClass {
   }
 
   /**
+   * Get bill by Order ID
+   */
+  public getBillByOrderId(orderId: string): BillRecord | undefined {
+    return Array.from(billsMap.values()).find((b) => b.orderId === orderId);
+  }
+
+  /**
    * Fetch all queued/pending bills merged from IndexedDB
    */
   public async getQueuedBills(): Promise<BillRecord[]> {
