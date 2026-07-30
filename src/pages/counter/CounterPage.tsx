@@ -3103,6 +3103,9 @@ const CounterLayout = () => {
         dining_session_id: targetSessionId,
         total_cents: Math.round(subtotal * 100),
         status: "preparing",
+        order_source: orderSourceMode,
+        customer_name: customerName || null,
+        customer_phone: customerPhone || null,
         items: cur.draftCart.map((i) => ({
           menu_item_id: i.menuItemId || (i.id.startsWith("c-") ? undefined : i.id),
           name: i.name,
@@ -3133,10 +3136,11 @@ const CounterLayout = () => {
     const cleanTableLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel.substring(5).trim() : rawLabel;
 
     const orderNum = createdDbOrder?.order_number || (createdDbOrder as any)?.daily_order_number;
+    const effectiveOrderNum = orderNum || 1;
 
     const newSessionOrder: SessionOrder = {
       id: createdOrderId || `ord-kot-${Date.now()}`,
-      orderNumber: orderNum,
+      orderNumber: effectiveOrderNum,
       timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
       status: 'PREPARING',
       items: cur.draftCart,
@@ -3166,20 +3170,24 @@ const CounterLayout = () => {
     try {
       const res = await OrderService.printKot({
         orderId: createdOrderId || `ord-kot-${Date.now()}`,
-        orderNumber: orderNum,
-        kotNumber: orderNum,
-        tableLabel: cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel}` : 'Express Takeaway',
+        orderNumber: effectiveOrderNum,
+        kotNumber: effectiveOrderNum,
+        orderSource: orderSourceMode,
+        externalOrderRef: externalOrderRef || null,
+        customerName: customerName || null,
+        customerPhone: customerPhone || null,
+        tableLabel: orderSourceMode === "TAKEAWAY" ? "TAKEAWAY" : (cleanTableLabel !== 'Express' ? `Table ${cleanTableLabel}` : 'TAKEAWAY'),
         timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
         items: cur.draftCart.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
       });
       if (!res.queued) {
-        toast.success(`🍳 KOT #${orderNum} Printed & Sent to Kitchen!`);
+        toast.success(`🍳 ${orderSourceMode === "TAKEAWAY" ? "TAKEAWAY KOT" : "KOT"} #${effectiveOrderNum} Printed & Sent to Kitchen!`);
       } else {
-        toast.info(`⏳ KOT #${orderNum} Queued for Printing`);
+        toast.info(`⏳ KOT #${effectiveOrderNum} Queued for Printing`);
       }
     } catch (e: any) {
       console.warn("[handleKot] Print KOT warning:", e);
-      toast.warn(`⚠️ Order created, but KOT printing failed for Order #${orderNum}: ${e?.message || 'Error'}`);
+      toast.warn(`⚠️ Order created, but KOT printing failed for Order #${effectiveOrderNum}: ${e?.message || 'Error'}`);
     }
 
     const eventPayload: CounterNotification = {

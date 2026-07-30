@@ -283,6 +283,9 @@ export interface CreateOrderPayload {
   note?: string | null;
   total_cents: number;
   status?: Order["status"];
+  order_source?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO" | string;
+  customer_name?: string | null;
+  customer_phone?: string | null;
   items: {
     menu_item_id?: string | null;
     name: string;
@@ -297,6 +300,7 @@ const isUuid = (val?: string | null): boolean =>
 
 export async function createOrderInDb(payload: CreateOrderPayload): Promise<OrderWithItems> {
   const orderId = isUuid(payload.id) ? payload.id! : crypto.randomUUID();
+  const orderSource = payload.order_source || (payload.table_id && payload.table_id !== 'express' ? "DINE_IN" : "TAKEAWAY");
   
   // Normalize status for DB check constraints
   let initialStatus = (payload.status || "pending").toString().toLowerCase();
@@ -358,6 +362,9 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
     guest_session_id: payload.guest_session_id || payload.session_id || null,
     dining_session_id: diningSessionId,
     session_id: payload.session_id || payload.guest_session_id || getSessionId(),
+    order_source: orderSource,
+    customer_name: payload.customer_name || null,
+    customer_phone: payload.customer_phone || null,
   });
 
   if (import.meta.env.DEV) {
@@ -367,6 +374,8 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
       sessionId: payload.session_id,
       diningSessionId,
       guestSessionId: payload.guest_session_id,
+      orderSource,
+      customerName: payload.customer_name,
     });
   }
 

@@ -39,6 +39,10 @@ export interface PrintKotOperationPayload {
   kotNumber: number | string;
   timestamp: string;
   printerTarget?: string;
+  orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO" | string;
+  externalOrderRef?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
   items: {
     id?: string;
     name: string;

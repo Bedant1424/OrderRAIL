@@ -104,9 +104,18 @@ export class KotBuilder {
     lines.push(doubleDivider);
 
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : 1;
+    const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
 
-    lines.push(this.justify(`KOT #: ${payload.kotNumber}`, `Order #: ${payload.orderNumber}`, cols));
+    lines.push(this.justify(`KOT #: ${safeKotNum}`, `Order #: ${safeOrderNum}`, cols));
     lines.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols));
+
+    if (payload.customerName && payload.customerName.trim()) {
+      lines.push(`Customer: ${payload.customerName.trim()}`);
+    }
+    if (payload.customerPhone && payload.customerPhone.trim()) {
+      lines.push(`Phone   : ${payload.customerPhone.trim()}`);
+    }
     lines.push(divider);
 
     // Items Header
@@ -242,9 +251,18 @@ export class KotBuilder {
     // Metadata Section
     parts.push(ESC_POS.ALIGN_LEFT);
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : 1;
+    const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
 
-    parts.push(this.justify(`KOT #: ${payload.kotNumber}`, `Order #: ${payload.orderNumber}`, cols) + "\n");
+    parts.push(this.justify(`KOT #: ${safeKotNum}`, `Order #: ${safeOrderNum}`, cols) + "\n");
     parts.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols) + "\n");
+
+    if (payload.customerName && payload.customerName.trim()) {
+      parts.push(`Customer: ${payload.customerName.trim()}\n`);
+    }
+    if (payload.customerPhone && payload.customerPhone.trim()) {
+      parts.push(`Phone   : ${payload.customerPhone.trim()}\n`);
+    }
     parts.push(divider);
 
     // Items Header
