@@ -81,6 +81,9 @@ export interface SessionOrder {
   items: CartLineItem[];
   subtotal: number;
   syncState?: 'Pending Sync' | 'Syncing' | 'Synced' | 'Sync Failed';
+  orderSource?: OrderSource;
+  customerName?: string | null;
+  customerPhone?: string | null;
 }
 
 export interface KotPrintPayload {
@@ -2581,7 +2584,10 @@ const CounterLayout = () => {
           createdAt: ord.created_at || new Date().toISOString(),
           status: mappedStatus,
           items: mappedItems,
-          subtotal: (ord.total_cents || 0) / 100
+          subtotal: (ord.total_cents || 0) / 100,
+          orderSource: (ord as any).order_source || (ord.table_id ? "DINE_IN" : "TAKEAWAY"),
+          customerName: (ord as any).customer_name || null,
+          customerPhone: (ord as any).customer_phone || null,
         };
 
         if (!sessionsMap[tId]) {
@@ -3135,8 +3141,8 @@ const CounterLayout = () => {
     const rawLabel = selectedTable ? selectedTable.label : 'Express';
     const cleanTableLabel = rawLabel.toLowerCase().startsWith('table') ? rawLabel.substring(5).trim() : rawLabel;
 
-    const orderNum = createdDbOrder?.order_number || (createdDbOrder as any)?.daily_order_number;
-    const effectiveOrderNum = orderNum || 1;
+    const orderNum = (createdDbOrder as any)?.daily_order_number ?? createdDbOrder?.order_number;
+    const effectiveOrderNum = typeof orderNum === 'number' && !isNaN(orderNum) ? orderNum : (dbOrders?.length ? dbOrders.length + 1 : 1);
 
     const newSessionOrder: SessionOrder = {
       id: createdOrderId || `ord-kot-${Date.now()}`,
@@ -3145,7 +3151,10 @@ const CounterLayout = () => {
       status: 'PREPARING',
       items: cur.draftCart,
       subtotal,
-      syncState: isQueuedOffline ? 'Pending Sync' : 'Synced'
+      syncState: isQueuedOffline ? 'Pending Sync' : 'Synced',
+      orderSource: orderSourceMode,
+      customerName: customerName || null,
+      customerPhone: customerPhone || null,
     };
 
     // Update session orders and clear draft cart immediately
