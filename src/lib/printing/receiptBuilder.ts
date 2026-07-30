@@ -94,14 +94,14 @@ export class ReceiptBuilder {
     } else {
       lines.push(center("GSTIN: 27AAAAA0000A1Z5"));
     }
-    lines.push(divider);
+    lines.push(doubleDivider);
 
     const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
-    const docTitle = isPaid ? "*** PAID RECEIPT ***" : "*** PRE-PAYMENT BILL ***";
+    const docTitle = isPaid ? "PAID RECEIPT" : "PRE-PAYMENT BILL";
     lines.push(center(docTitle));
 
     if (payload.isReprint) {
-      lines.push(center("** REPRINT **"));
+      lines.push(center("REPRINT"));
     }
     lines.push(doubleDivider);
 
@@ -231,10 +231,10 @@ export class ReceiptBuilder {
     }
 
     parts.push(`GSTIN: ${payload.gstin || "27AAAAA0000A1Z5"}\n`);
-    parts.push(divider);
+    parts.push(doubleDivider);
 
     const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
-    const docTitle = isPaid ? "*** PAID RECEIPT ***" : "*** PRE-PAYMENT BILL ***";
+    const docTitle = isPaid ? "PAID RECEIPT" : "PRE-PAYMENT BILL";
 
     parts.push(ESC_POS.BOLD_ON);
     parts.push("\x1D\x21\x10"); // Double Height Font
@@ -244,7 +244,7 @@ export class ReceiptBuilder {
 
     if (payload.isReprint) {
       parts.push(ESC_POS.BOLD_ON);
-      parts.push("** REPRINT **\n");
+      parts.push("REPRINT\n");
       parts.push(ESC_POS.BOLD_OFF);
     }
 
