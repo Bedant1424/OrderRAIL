@@ -151,10 +151,16 @@ export default function SharedOrderKanban({
                             </div>
                           </div>
 
-                          {/* Table # & Total Currency */}
+                          {/* Table # / Channel & Total Currency */}
                           <div className="flex items-center justify-between text-sm">
-                            <div className="font-semibold text-foreground/90">
-                              Table {tableLabel}
+                            <div className="font-semibold text-foreground/90 flex items-center gap-1.5">
+                              {((order as any).order_source === "TAKEAWAY" || !order.table_id) ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">
+                                  🛍 Takeaway {(order as any).customer_name ? `(${ (order as any).customer_name })` : ''}
+                                </span>
+                              ) : (
+                                <span>Table {tableLabel}</span>
+                              )}
                             </div>
                             <div className="font-display text-base font-bold tabular-nums text-foreground whitespace-nowrap">
                               {formatMoney(order.total_cents, currency)}
