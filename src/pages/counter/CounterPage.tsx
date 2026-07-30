@@ -3235,6 +3235,10 @@ const CounterLayout = () => {
         orderNumber: sessionOrders[0]?.orderNumber,
         tableId: selectedTable?.id || null,
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Sale`,
+        orderSource: orderSourceMode,
+        externalOrderRef: externalOrderRef || null,
+        customerName: customerName || null,
+        customerPhone: customerPhone || null,
         cashierName: 'Counter',
         items: allItems,
         discountPct: typeof customDiscount === 'object' ? (customDiscount?.value || 0) : (Number(customDiscount) || 0),
@@ -3255,7 +3259,7 @@ const CounterLayout = () => {
       console.warn("[handlePrintBill] Print Bill error:", e);
       toast.error(`❌ Failed to print bill: ${e?.message || 'Error'}`);
     }
-  }, [activeSessionData, customDiscount, orderSourceMode, selectedTable, tableEngine, user]);
+  }, [activeSessionData, customDiscount, customerName, customerPhone, externalOrderRef, orderSourceMode, selectedTable, tableEngine, user]);
 
   // Complete Payment & CLOSE Active Session (Archives active session from Counter view)
   const handlePaymentComplete = useCallback(async (
@@ -3286,8 +3290,8 @@ const CounterLayout = () => {
       discountAmt: summary.discountAmount,
       netTotal: summary.grandTotal,
       tenders,
-      customerName: customerDetails?.customerName || null,
-      customerPhone: customerDetails?.customerPhone || null,
+      customerName: customerDetails?.customerName || customerName || null,
+      customerPhone: customerDetails?.customerPhone || customerPhone || null,
     };
 
     console.log("[INSTRUMENT_STEP_1]", {
@@ -3310,7 +3314,7 @@ const CounterLayout = () => {
       const billRes = await BillingService.createBill({
         billId: primaryBillId,
         orderId: primaryOrderId,
-        orderNumber: cur.orders[0]?.orderNumber || 101,
+        orderNumber: cur.orders[0]?.orderNumber,
         diningSessionId: cur.sessionId,
         tableId: selectedTable?.id,
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
@@ -3318,8 +3322,8 @@ const CounterLayout = () => {
         externalOrderRef: externalOrderRef || null,
         items: allItems.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
         discountPct: summary.discountPercent,
-        customerName: customerDetails?.customerName || null,
-        customerPhone: customerDetails?.customerPhone || null,
+        customerName: customerDetails?.customerName || customerName || null,
+        customerPhone: customerDetails?.customerPhone || customerPhone || null,
       });
 
       // 2. Record payment & settlement via PaymentService

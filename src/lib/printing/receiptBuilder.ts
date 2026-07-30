@@ -123,17 +123,21 @@ export class ReceiptBuilder {
 
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
     const statusStr = (payload.paymentStatus || "UNPAID").toUpperCase();
+    const isValidOrderNum = payload.orderNumber && !String(payload.orderNumber).startsWith("ord-") && !String(payload.orderNumber).includes("-");
 
     lines.push(justify(`INVOICE #: ${payload.billNumber}`, `Ref: ${cleanLabel}`));
-    if (payload.orderNumber) {
+    if (isValidOrderNum) {
       lines.push(justify(`Order #: ${payload.orderNumber}`, `Staff: ${payload.cashierName || "Counter"}`));
+      lines.push(justify(`Date: ${timeStr}`, `Status: ${statusStr}`));
+    } else {
+      lines.push(justify(`Date: ${timeStr}`, `Staff: ${payload.cashierName || "Counter"}`));
     }
-    lines.push(justify(`Date: ${timeStr}`, `Status: ${statusStr}`));
-    if (payload.customerName) {
-      lines.push(`Customer: ${payload.customerName}`);
+
+    if (payload.customerName && payload.customerName.trim()) {
+      lines.push(`Customer: ${payload.customerName.trim()}`);
     }
-    if (payload.customerPhone) {
-      lines.push(`Phone   : ${payload.customerPhone}`);
+    if (payload.customerPhone && payload.customerPhone.trim()) {
+      lines.push(`Phone   : ${payload.customerPhone.trim()}`);
     }
     lines.push(divider);
 
@@ -266,17 +270,21 @@ export class ReceiptBuilder {
 
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
     const statusStr = (payload.paymentStatus || "UNPAID").toUpperCase();
+    const isValidOrderNum = payload.orderNumber && !String(payload.orderNumber).startsWith("ord-") && !String(payload.orderNumber).includes("-");
 
     parts.push(this.justify(`INVOICE #: ${payload.billNumber}`, `Ref: ${cleanLabel}`, cols) + "\n");
-    if (payload.orderNumber) {
+    if (isValidOrderNum) {
       parts.push(this.justify(`Order #: ${payload.orderNumber}`, `Staff: ${payload.cashierName || "Counter"}`, cols) + "\n");
+      parts.push(this.justify(`Date: ${timeStr}`, `Status: ${statusStr}`, cols) + "\n");
+    } else {
+      parts.push(this.justify(`Date: ${timeStr}`, `Staff: ${payload.cashierName || "Counter"}`, cols) + "\n");
     }
-    parts.push(this.justify(`Date: ${timeStr}`, `Status: ${statusStr}`, cols) + "\n");
-    if (payload.customerName) {
-      parts.push(`Customer: ${payload.customerName}\n`);
+
+    if (payload.customerName && payload.customerName.trim()) {
+      parts.push(`Customer: ${payload.customerName.trim()}\n`);
     }
-    if (payload.customerPhone) {
-      parts.push(`Phone   : ${payload.customerPhone}\n`);
+    if (payload.customerPhone && payload.customerPhone.trim()) {
+      parts.push(`Phone   : ${payload.customerPhone.trim()}\n`);
     }
     parts.push(divider);
 
