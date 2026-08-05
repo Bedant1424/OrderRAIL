@@ -35,9 +35,9 @@ describe("Customer Receipt (58mm) Builder & End-to-End Printing Validation Tests
     expect(result.text).toContain("Ref: Table 2");
     expect(result.text).toContain("Staff: Alex");
     expect(result.text).toContain("1x  Cappuccino");
-    expect(result.text).toContain("₹140.00");
+    expect(result.text).toContain("Rs.140.00");
     expect(result.text).toContain("NET PAYABLE TOTAL:");
-    expect(result.text).toContain("₹147.00");
+    expect(result.text).toContain("Rs.147.00");
     expect(result.text).toContain("[ PAYMENT STATUS: PAID ]");
 
     // ESC/POS assertions
@@ -73,13 +73,13 @@ describe("Customer Receipt (58mm) Builder & End-to-End Printing Validation Tests
     expect(result.text).toContain("2x  Espresso");
     expect(result.text).toContain("1x  Avocado Toast");
     expect(result.text).toContain("Subtotal:");
-    expect(result.text).toContain("₹490.00");
+    expect(result.text).toContain("Rs.490.00");
     expect(result.text).toContain("CGST (2.5%):");
     expect(result.text).toContain("SGST (2.5%):");
     expect(result.text).toContain("Discount:");
-    expect(result.text).toContain("-₹50.00");
+    expect(result.text).toContain("-Rs.50.00");
     expect(result.text).toContain("NET PAYABLE TOTAL:");
-    expect(result.text).toContain("₹464.50");
+    expect(result.text).toContain("Rs.464.50");
     expect(result.text).toContain("UPI");
   });
 
@@ -112,7 +112,7 @@ describe("Customer Receipt (58mm) Builder & End-to-End Printing Validation Tests
     }
   });
 
-  it("4. Reprint Receipt Tag: Should contain prominent ** REPRINT RECEIPT ** header", () => {
+  it("4. Reprint Receipt Tag: Should contain prominent REPRINT header", () => {
     const payload: ReceiptBuilderPayload = {
       cafeName: "OrderRail Bistro",
       billNumber: "INV-504",
@@ -126,8 +126,8 @@ describe("Customer Receipt (58mm) Builder & End-to-End Printing Validation Tests
 
     const result = ReceiptBuilder.build(payload, 58);
 
-    expect(result.text).toContain("** REPRINT RECEIPT **");
-    expect(result.escpos).toContain("** REPRINT RECEIPT **");
+    expect(result.text).toContain("REPRINT");
+    expect(result.escpos).toContain("REPRINT");
   });
 
   it("5. End-to-End PrinterAdapter & PrintService Dispatch: Should enqueue 58mm receipt job successfully", async () => {

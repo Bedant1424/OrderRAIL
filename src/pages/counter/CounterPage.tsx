@@ -1537,6 +1537,10 @@ const ReceiptModal = ({
           tableLabel: bill.table_id || bill.order_type,
           cashierName: "Counter",
           items: bill.items.map((i) => ({ id: i.id || i.item_name, name: i.item_name, price: i.unit_price, qty: i.quantity })),
+          cafeName: cafe?.name,
+          address: cafe?.address,
+          phone: cafe?.phone,
+          cafeId: cafe?.id,
         });
         const res = await BillingService.printBill(createdBill.bill.billId);
         if (!res.queued) {
@@ -1573,6 +1577,10 @@ const ReceiptModal = ({
             cashierName: "Counter",
             items: aggregated.map((i) => ({ id: i.id, name: i.name, price: i.unitPrice, qty: i.qty })),
             discountPct: receipt.discountPct,
+            cafeName: cafe?.name,
+            address: cafe?.address,
+            phone: cafe?.phone,
+            cafeId: cafe?.id,
           });
           createdBill.bill.paymentStatus = 'paid';
           createdBill.bill.status = 'Paid';
@@ -3360,6 +3368,10 @@ const CounterLayout = () => {
         discountPct: summary.discountPercent,
         customerName: customerDetails?.customerName || customerName || null,
         customerPhone: customerDetails?.customerPhone || customerPhone || null,
+        cafeName: cafe?.name,
+        address: cafe?.address,
+        phone: cafe?.phone,
+        cafeId: cafe?.id,
       });
 
       // 2. Record payment & settlement via PaymentService

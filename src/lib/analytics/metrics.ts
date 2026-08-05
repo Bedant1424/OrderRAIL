@@ -1,8 +1,9 @@
 import type { Order, OrderItem } from "@/lib/db";
+import { FinancialSummaryCalculator } from "./FinancialSummaryCalculator";
 
 /**
  * Task 1: Shared Revenue Metrics Model
- * Designed for future POS / Counter billing extensions (Gross Sales, Discounts, Tax, Net Sales).
+ * Unified through FinancialSummaryCalculator for consistent financial reporting.
  */
 export interface RevenueMetricsModel {
   grossSalesCents: number;
@@ -16,23 +17,15 @@ export interface RevenueMetricsModel {
 export function calculateRevenueMetrics(
   targetOrders: (Order & { order_items?: OrderItem[] })[]
 ): RevenueMetricsModel {
-  const paid = targetOrders.filter((o) => o.status !== "cancelled");
-  
-  const grossSalesCents = paid.reduce((sum, o) => sum + (o.total_cents || 0), 0);
-  const discountsCents = 0; // Reserved for POS coupon & discount module extension
-  const taxCents = 0;       // Reserved for POS tax calculation module extension
-  const netSalesCents = Math.max(0, grossSalesCents - discountsCents + taxCents);
-  
-  const orderCount = paid.length;
-  const averageOrderValueCents = orderCount > 0 ? Math.round(netSalesCents / orderCount) : 0;
+  const summary = FinancialSummaryCalculator.calculateFromOrders(targetOrders);
 
   return {
-    grossSalesCents,
-    discountsCents,
-    taxCents,
-    netSalesCents,
-    orderCount,
-    averageOrderValueCents,
+    grossSalesCents: summary.grossSalesCents,
+    discountsCents: summary.discountsCents,
+    taxCents: summary.taxCents,
+    netSalesCents: summary.netSalesCents,
+    orderCount: summary.nonCancelledOrdersCount,
+    averageOrderValueCents: summary.averageOrderValueCents,
   };
 }
 

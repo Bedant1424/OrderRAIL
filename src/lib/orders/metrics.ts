@@ -1,6 +1,7 @@
 import type { Order, TableRow } from "@/lib/db";
 import { calculateOccupiedTables } from "@/lib/tables/occupancy";
 import { isOrderActive } from "@/lib/orders/orderUtils";
+import { FinancialSummaryCalculator } from "@/lib/analytics/FinancialSummaryCalculator";
 
 export interface OperationalSummaryModel {
   activeCount: number;
@@ -42,8 +43,8 @@ export function calculateOperationalSummary(
   const cancelledCount = orders.filter((o) => o.status === "cancelled").length;
   const totalOrdersCount = orders.length;
 
-  const rawRevenue = completedOrders.reduce((sum, o) => sum + (o.total_cents || 0), 0);
-  const totalRevenue = isNaN(rawRevenue) || rawRevenue < 0 ? 0 : rawRevenue;
+  const totalSummary = FinancialSummaryCalculator.calculateFromOrders(completedOrders);
+  const totalRevenue = totalSummary.netSalesCents;
 
   // Legacy today calculation for backwards compatibility
   const todayOrders = orders.filter((o) => {
@@ -53,8 +54,9 @@ export function calculateOperationalSummary(
   });
   const servedOrdersToday = todayOrders.filter((o) => o.status === "served" || o.status === "completed");
   const ordersCompletedToday = servedOrdersToday.length;
-  const rawRevenueToday = servedOrdersToday.reduce((sum, o) => sum + (o.total_cents || 0), 0);
-  const revenueTodayCents = isNaN(rawRevenueToday) || rawRevenueToday < 0 ? 0 : rawRevenueToday;
+
+  const todaySummary = FinancialSummaryCalculator.calculateFromOrders(servedOrdersToday);
+  const revenueTodayCents = todaySummary.netSalesCents;
 
   // Single occupancy calculation
   const occupiedTablesList = calculateOccupiedTables(tables, orders);

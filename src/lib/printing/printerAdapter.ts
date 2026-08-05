@@ -8,6 +8,7 @@
 import { printService } from "./PrintService";
 import { KotBuilder, renderKotText, type KotRenderPayload } from "./kotRenderer";
 import { ReceiptBuilder, renderReceiptText, type ReceiptRenderPayload } from "./receiptRenderer";
+import { getReceiptSettings } from "../billing/receiptSettings";
 
 export type PrinterAdapterState = 'CONNECTED' | 'DISCONNECTED' | 'OUT_OF_PAPER' | 'ERROR';
 
@@ -155,8 +156,11 @@ class PrinterAdapterClass {
       throw new Error(`[PrinterAdapter] ${errReason}`);
     }
 
-    // Build dedicated 58mm customer receipt using ESC/POS ReceiptBuilder
-    const receiptBuild = ReceiptBuilder.build(payload, 58);
+    const settings = getReceiptSettings((payload as any).cafeId);
+    const widthmm: 58 | 80 = settings.receiptWidth === "58mm" ? 58 : 80;
+
+    // Build dedicated customer receipt using ESC/POS ReceiptBuilder with owner configured width (58mm or 80mm)
+    const receiptBuild = ReceiptBuilder.build(payload, widthmm);
 
     const res = await printService.enqueue(
       'RECEIPT',

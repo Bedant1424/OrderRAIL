@@ -15,6 +15,7 @@ import {
 } from "@/lib/offline";
 import { PrinterAdapter } from "@/lib/printing/printerAdapter";
 import { renderReceiptText } from "@/lib/printing/receiptRenderer";
+import { getReceiptSettings } from "./receiptSettings";
 
 export type BillStatus = 'Draft' | 'Finalized' | 'Printed' | 'Paid' | 'Voided';
 
@@ -41,6 +42,10 @@ export interface CreateBillPayload {
   externalOrderRef?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  cafeName?: string;
+  address?: string;
+  phone?: string;
+  cafeId?: string;
 }
 
 export interface BillRecord {
@@ -67,6 +72,10 @@ export interface BillRecord {
   externalOrderRef?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  cafeName?: string;
+  address?: string;
+  phone?: string;
+  cafeId?: string;
 }
 
 export const billsMap = new Map<string, BillRecord>();
@@ -123,6 +132,13 @@ export class BillingServiceClass {
     // Operation 2: PRINT_BILL
     OperationExecutor.registerHandler("PRINT_BILL", async (payload: BillRecord) => {
       const existing = billsMap.get(payload.billId) || payload;
+      const settings = getReceiptSettings(existing.cafeId);
+
+      let fullAddr = existing.address;
+      if (settings.showPhone && existing.phone) {
+        fullAddr = fullAddr ? `${fullAddr} | Ph: ${existing.phone}` : `Ph: ${existing.phone}`;
+      }
+
       const printRes = await PrinterAdapter.printReceipt({
         billId: existing.billId,
         billNumber: existing.billNumber,
@@ -141,7 +157,13 @@ export class BillingServiceClass {
         isReprint: false,
         customerName: existing.customerName,
         customerPhone: existing.customerPhone,
-      });
+        orderSource: existing.orderSource,
+        externalOrderRef: existing.externalOrderRef,
+        cafeName: existing.cafeName,
+        address: settings.showAddress ? fullAddr : undefined,
+        gstin: settings.showGst ? (settings.gstNumber || undefined) : undefined,
+        cafeId: existing.cafeId,
+      } as any);
       return { billId: existing.billId, status: "Printed", result: printRes };
     });
 
@@ -151,10 +173,21 @@ export class BillingServiceClass {
       if (!existing) {
         throw new Error(`Bill ${payload.billId} not found for reprint`);
       }
+      const settings = getReceiptSettings(existing.cafeId);
+
+      let fullAddr = existing.address;
+      if (settings.showPhone && existing.phone) {
+        fullAddr = fullAddr ? `${fullAddr} | Ph: ${existing.phone}` : `Ph: ${existing.phone}`;
+      }
+
       const printRes = await PrinterAdapter.printReceipt({
         ...existing,
+        cafeName: existing.cafeName,
+        address: settings.showAddress ? fullAddr : undefined,
+        gstin: settings.showGst ? (settings.gstNumber || undefined) : undefined,
         isReprint: true,
-      });
+        cafeId: existing.cafeId,
+      } as any);
       return { billId: existing.billId, status: "Reprinted", result: printRes };
     });
 
@@ -245,6 +278,10 @@ export class BillingServiceClass {
       externalOrderRef: payload.externalOrderRef || null,
       customerName: payload.customerName || null,
       customerPhone: payload.customerPhone || null,
+      cafeName: payload.cafeName,
+      address: payload.address,
+      phone: payload.phone,
+      cafeId: payload.cafeId,
     };
 
     // Store in local memory map immediately for UI reactivity
