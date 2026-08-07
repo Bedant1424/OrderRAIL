@@ -1,39 +1,33 @@
 // Cheese Corner Brand Configuration & Constants
 
-import logoImg from "/branding/cheesecorner/assets/logo/logo.png";
-import posterBurger from "/branding/cheesecorner/assets/posters/poster-burger.jpg";
-import posterFries from "/branding/cheesecorner/assets/posters/poster-fries.jpg";
-import posterMojito from "/branding/cheesecorner/assets/posters/poster-mojito.jpg";
-import qrStandImg from "/branding/cheesecorner/assets/qr/qr-stand.png";
-
 export const CHEESE_CORNER_CONFIG = {
   name: "Cheese Corner",
   tagline: "Where Every Slice & Bite is Packed with Melted Goodness!",
   subtitle: "Savor artisanal pizzas, juicy burgers, loaded fries, creamy shakes, and refreshing mojitos crafted fresh daily.",
   
-  logoUrl: logoImg,
-  qrStandUrl: qrStandImg,
+  logoUrl: "/branding/cheesecorner/logo/logo.png",
+  qrStandUrl: "/branding/cheesecorner/qr/qr-stand.png",
 
   posters: [
     {
       id: "poster-burger",
       title: "Sizzling Gourmet Burgers",
       subtitle: "Layered with double cheese, fresh veggies & house secret sauce",
-      image: posterBurger,
+      image: "/branding/cheesecorner/posters/poster-burger.jpg",
       tag: "Chef's Special"
     },
     {
       id: "poster-fries",
       title: "Crispy Loaded Cheese Fries",
       subtitle: "Golden crinkles tossed in piri piri & drenched in warm cheddar",
-      image: posterFries,
+      image: "/branding/cheesecorner/posters/poster-fries.jpg",
       tag: "Best Seller"
     },
     {
       id: "poster-mojito",
       title: "Handcrafted Cool Mojitos",
       subtitle: "Refreshing mint, zesty lime & exotic fruit infusions",
-      image: posterMojito,
+      image: "/branding/cheesecorner/posters/poster-mojito.jpg",
       tag: "Coolers & Shakes"
     }
   ],
