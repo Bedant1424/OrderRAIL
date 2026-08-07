@@ -219,3 +219,6 @@ Milestones and upcoming feature additions are tracked in the planned `ROADMAP.md
 ## 📄 License
 
 Licensed under TBD.
+
+Deployment verification commit - 2026-08-07
+
