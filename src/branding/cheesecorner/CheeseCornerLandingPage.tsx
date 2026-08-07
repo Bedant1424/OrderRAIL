@@ -20,7 +20,7 @@ import { useMenu, type ProductionMenuItem } from "@/hooks/useMenu";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { formatMoney } from "@/lib/db";
 
-// ─── HERO POSTER CAROUSEL (SPRINT 7E) ───
+// ─── HERO POSTER CAROUSEL (MILESTONES 1 & 3) ───
 function HeroPosterCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -45,11 +45,11 @@ function HeroPosterCarousel() {
 
   return (
     <div
-      className="group relative mx-auto w-full max-w-md lg:max-w-lg overflow-hidden rounded-3xl border-4 border-white bg-black/5 shadow-2xl transition-all duration-300"
+      className="group relative mx-auto w-full max-w-lg lg:max-w-xl overflow-hidden rounded-3xl border-4 border-white bg-black/5 shadow-2xl transition-all duration-300"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative h-[360px] sm:h-[420px] lg:h-[500px] w-full overflow-hidden rounded-2xl">
+      <div className="relative h-[380px] sm:h-[440px] lg:h-[520px] w-full overflow-hidden rounded-2xl">
         <AnimatePresence mode="wait">
           <motion.div
             key={posters[currentIndex].id}
@@ -59,7 +59,7 @@ function HeroPosterCarousel() {
             transition={{ duration: 0.8, ease: "easeInOut" }}
             className="absolute inset-0 h-full w-full"
           >
-            {/* Smooth Ken Burns slow scale animation on pure artwork */}
+            {/* Smooth Ken Burns slow scale animation on web-optimized artwork */}
             <motion.img
               src={posters[currentIndex].image}
               alt={posters[currentIndex].title}
@@ -75,7 +75,7 @@ function HeroPosterCarousel() {
         {/* Minimal Bottom Gradient to ensure control visibility */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 via-black/15 to-transparent rounded-b-2xl" />
 
-        {/* Navigation Arrows (Appear only on hover) */}
+        {/* Navigation Arrows (Appear on hover) */}
         <button
           onClick={handlePrev}
           aria-label="Previous slide"
@@ -122,10 +122,10 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       whileHover={{ y: -4 }}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-amber-200/80 bg-white/90 p-4 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-amber-400 hover:shadow-md"
+      className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md border border-amber-100/80"
     >
       <div>
-        <div className="relative mb-3 h-40 w-full overflow-hidden rounded-2xl bg-amber-100/50">
+        <div className="relative mb-3 h-40 w-full overflow-hidden rounded-2xl bg-amber-100/40">
           {imageUrl ? (
             <img
               src={imageUrl}
@@ -152,7 +152,7 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
               {item.tags.slice(0, 1).map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-sm"
+                  className="rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-sm"
                 >
                   {tag}
                 </span>
@@ -171,17 +171,17 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
         </div>
 
         {item.description && (
-          <p className="mt-1.5 line-clamp-2 text-xs text-amber-800/80 leading-relaxed font-medium">
+          <p className="mt-1.5 line-clamp-2 text-xs text-amber-900/70 leading-relaxed font-medium">
             {item.description}
           </p>
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-amber-100 pt-3 text-xs">
-        <span className="text-[11px] font-semibold text-amber-600/90">
+      <div className="mt-4 flex items-center justify-between border-t border-amber-100/70 pt-3 text-xs">
+        <span className="text-[11px] font-semibold text-amber-700/80">
           {item.categoryName || "Specialty"}
         </span>
-        <span className="inline-flex items-center gap-1 font-bold text-amber-700">
+        <span className="inline-flex items-center gap-1 font-bold text-amber-800">
           In-House Specialty
         </span>
       </div>
@@ -195,7 +195,6 @@ export default function CheeseCornerLandingPage() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [selectedPoster, setSelectedPoster] = useState<string | null>(null);
   const [isOrderNowModalOpen, setIsOrderNowModalOpen] = useState(false);
-  const [galleryErrors, setGalleryErrors] = useState<Record<string, boolean>>({});
 
   // Filter menu preview items based on active tab
   const filteredPreviewItems = useMemo(() => {
@@ -212,10 +211,10 @@ export default function CheeseCornerLandingPage() {
   }, [items, categories, activeCategory]);
 
   return (
-    <div className="min-h-screen bg-[#FFFBEB] text-[#451A03] font-sans antialiased selection:bg-amber-400/40">
+    <div className="min-h-screen bg-[#FFFBEB] text-[#321300] font-sans antialiased selection:bg-amber-400/40">
       
       {/* ─── HEADER ─── */}
-      <header className="sticky top-0 z-50 border-b border-amber-200/60 bg-[#FFFBEB]/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-amber-200/50 bg-[#FFFBEB]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6">
           <div className="flex items-center gap-3">
             <img
@@ -233,7 +232,7 @@ export default function CheeseCornerLandingPage() {
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-amber-900/80">
+          <nav className="hidden md:flex items-center gap-7 text-sm font-bold text-amber-900/80">
             <a href="#about" className="hover:text-amber-600 transition-colors">About</a>
             <a href="#categories" className="hover:text-amber-600 transition-colors">Categories</a>
             <a href="#menu-preview" className="hover:text-amber-600 transition-colors">Menu</a>
@@ -253,7 +252,7 @@ export default function CheeseCornerLandingPage() {
       </header>
 
       {/* ─── HERO SECTION ─── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-amber-100/80 via-[#FFFBEB] to-[#FFFBEB] pt-10 pb-16 md:pt-16 md:pb-24">
+      <section className="relative overflow-hidden bg-gradient-to-b from-amber-100/70 via-[#FFFBEB] to-[#FFFBEB] pt-10 pb-16 md:pt-16 md:pb-24">
         <div className="pointer-events-none absolute top-10 left-[-5%] h-72 w-72 rounded-full bg-amber-300/20 blur-3xl" />
         <div className="pointer-events-none absolute top-40 right-[-5%] h-96 w-96 rounded-full bg-orange-400/20 blur-3xl" />
 
@@ -267,7 +266,7 @@ export default function CheeseCornerLandingPage() {
               transition={{ duration: 0.5 }}
               className="lg:col-span-7"
             >
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-100/90 px-4 py-1.5 text-xs font-extrabold text-amber-900 shadow-sm">
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-1.5 text-xs font-extrabold text-amber-900">
                 <Flame className="h-4 w-4 text-orange-500 animate-pulse" />
                 <span>Cheesy, Sizzling & Fresh Daily</span>
               </div>
@@ -295,14 +294,14 @@ export default function CheeseCornerLandingPage() {
 
                 <a
                   href="#menu-preview"
-                  className="inline-flex items-center gap-2 rounded-full border-2 border-amber-300 bg-white/90 px-7 py-3.5 text-sm font-extrabold text-amber-900 shadow-sm transition hover:bg-amber-50 active:scale-95"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-amber-200 bg-white px-7 py-3.5 text-sm font-extrabold text-amber-900 shadow-sm transition hover:bg-amber-50 active:scale-95"
                 >
                   <Utensils className="h-4 w-4 text-amber-600" />
                   <span>Explore Menu</span>
                 </a>
               </div>
 
-              <div className="mt-10 grid grid-cols-3 gap-3 border-t border-amber-200/80 pt-6">
+              <div className="mt-10 grid grid-cols-3 gap-3 border-t border-amber-200/60 pt-6">
                 <div>
                   <div className="font-display text-2xl font-black text-amber-950">100%</div>
                   <div className="text-xs font-bold text-amber-800/80">Fresh Ingredients</div>
@@ -318,7 +317,7 @@ export default function CheeseCornerLandingPage() {
               </div>
             </motion.div>
 
-            {/* Right Hero Poster Showcase (Sprint 7E Carousel) */}
+            {/* Right Hero Poster Showcase */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -333,7 +332,7 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── ABOUT SECTION ─── */}
-      <section id="about" className="border-t border-amber-200/60 bg-white py-16 md:py-24">
+      <section id="about" className="bg-white py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center max-w-3xl mx-auto">
             <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
@@ -356,11 +355,11 @@ export default function CheeseCornerLandingPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.08 }}
                 whileHover={{ y: -4 }}
-                className="rounded-3xl border border-amber-200/80 bg-[#FFFBEB] p-5 text-center shadow-sm transition-all hover:border-amber-400 hover:shadow-md"
+                className="rounded-3xl bg-[#FFFBEB] p-5 text-center transition-all hover:shadow-md"
               >
                 <div className="text-4xl mb-2">{h.icon}</div>
                 <h3 className="font-display text-lg font-bold text-amber-950">{h.name}</h3>
-                <span className="inline-block my-1 rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-900">
+                <span className="inline-block my-1 rounded-full bg-amber-200/70 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-900">
                   {h.count}
                 </span>
                 <p className="mt-2 text-xs text-amber-900/70 leading-relaxed font-medium">
@@ -373,7 +372,7 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── FEATURED CATEGORIES SECTION ─── */}
-      <section id="categories" className="border-t border-amber-200/60 bg-[#FFFBEB] py-16 md:py-24">
+      <section id="categories" className="bg-[#FFFBEB] py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
@@ -401,7 +400,7 @@ export default function CheeseCornerLandingPage() {
                   const el = document.getElementById("menu-preview");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="cursor-pointer group relative overflow-hidden rounded-3xl border border-amber-200 bg-white p-5 shadow-sm transition-all hover:border-orange-400 hover:shadow-md"
+                className="cursor-pointer group relative overflow-hidden rounded-3xl bg-white p-5 shadow-sm transition-all hover:shadow-md"
               >
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-3xl transition-transform group-hover:scale-110">{cat.icon}</span>
@@ -425,7 +424,7 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── MENU PREVIEW SECTION ─── */}
-      <section id="menu-preview" className="border-t border-amber-200/60 bg-white py-16 md:py-24">
+      <section id="menu-preview" className="bg-white py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
             <div>
@@ -486,8 +485,8 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── GALLERY SECTION (POSTER SHOWCASE) ─── */}
-      <section id="gallery" className="border-t border-amber-200/60 bg-[#FFFBEB] py-16 md:py-24">
+      {/* ─── GALLERY SECTION (MILESTONE 2: CLEAN RENDER) ─── */}
+      <section id="gallery" className="bg-[#FFFBEB] py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
@@ -510,22 +509,14 @@ export default function CheeseCornerLandingPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.1 }}
                 onClick={() => setSelectedPoster(poster.image)}
-                className="group relative cursor-pointer overflow-hidden rounded-3xl border-4 border-white bg-amber-200 shadow-md transition-all duration-300 hover:shadow-2xl"
+                className="group relative cursor-pointer overflow-hidden rounded-3xl bg-amber-200 shadow-md transition-all duration-300 hover:shadow-2xl"
               >
-                {!galleryErrors[poster.id] ? (
-                  <img
-                    src={poster.image}
-                    alt={poster.title}
-                    onError={() => setGalleryErrors(prev => ({ ...prev, [poster.id]: true }))}
-                    className="h-[440px] w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-[440px] w-full flex-col items-center justify-center bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 p-6 text-center text-white">
-                    <img src={CHEESE_CORNER_CONFIG.logoUrl} alt="Logo" className="h-16 w-16 object-contain mb-3" />
-                    <h3 className="font-display text-xl font-bold">{poster.title}</h3>
-                    <p className="text-xs text-amber-100 max-w-xs">{poster.subtitle}</p>
-                  </div>
-                )}
+                <img
+                  src={poster.image}
+                  alt={poster.title}
+                  loading="lazy"
+                  className="h-[440px] w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
 
                 {/* Subtle Overlay on Gallery Posters */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-6 flex flex-col justify-end text-white">
@@ -548,9 +539,9 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── LOCATION & CONTACT SECTION ─── */}
-      <section id="contact" className="border-t border-amber-200/60 bg-white py-16 md:py-24">
+      <section id="contact" className="bg-white py-16 md:py-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
-          <div className="rounded-3xl border-2 border-amber-200 bg-[#FFFBEB] p-8 md:p-12 shadow-sm space-y-8">
+          <div className="rounded-3xl bg-[#FFFBEB] p-8 md:p-12 shadow-sm space-y-8">
             <div className="text-center max-w-xl mx-auto">
               <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
                 Visit Cheese Corner
@@ -564,7 +555,7 @@ export default function CheeseCornerLandingPage() {
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 text-sm">
-              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-amber-200/70 shadow-sm">
+              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 shadow-sm">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-900">
                   <MapPin className="h-6 w-6 text-orange-600" />
                 </div>
@@ -574,7 +565,7 @@ export default function CheeseCornerLandingPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-amber-200/70 shadow-sm">
+              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 shadow-sm">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-900">
                   <Phone className="h-6 w-6 text-orange-600" />
                 </div>
@@ -584,7 +575,7 @@ export default function CheeseCornerLandingPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-amber-200/70 shadow-sm">
+              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 shadow-sm">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-900">
                   <Instagram className="h-6 w-6 text-orange-600" />
                 </div>
@@ -594,7 +585,7 @@ export default function CheeseCornerLandingPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-amber-200/70 shadow-sm">
+              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 shadow-sm">
                 <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-900">
                   <Clock className="h-6 w-6 text-orange-600" />
                 </div>
@@ -609,7 +600,7 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <footer className="border-t border-amber-200/80 bg-amber-950 text-amber-100 py-10">
+      <footer className="border-t border-amber-200/40 bg-amber-950 text-amber-100 py-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <img src={CHEESE_CORNER_CONFIG.logoUrl} alt="Logo" className="h-8 w-8 object-contain" />
@@ -637,7 +628,7 @@ export default function CheeseCornerLandingPage() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative max-w-md w-full overflow-hidden rounded-3xl border-2 border-white bg-white p-6 shadow-2xl text-[#451A03]"
+            className="relative max-w-md w-full overflow-hidden rounded-3xl border-2 border-white bg-white p-6 shadow-2xl text-[#321300]"
           >
             <button
               onClick={() => setIsOrderNowModalOpen(false)}
@@ -657,7 +648,6 @@ export default function CheeseCornerLandingPage() {
                 Dine-In At Cheese Corner
               </h3>
 
-              {/* Substantially Enlarged QR Stand Image */}
               <div className="my-4 flex justify-center">
                 <div className="rounded-2xl border-2 border-amber-200 bg-[#FFFBEB] p-4 shadow-md">
                   <img
@@ -668,7 +658,6 @@ export default function CheeseCornerLandingPage() {
                 </div>
               </div>
 
-              {/* Clean 4-Step Instructions */}
               <div className="my-4 grid grid-cols-2 gap-2 text-left text-xs font-medium text-amber-900">
                 <div className="rounded-xl bg-amber-50 p-2.5 border border-amber-200/60">
                   <div className="font-extrabold text-amber-950">1. Visit Café</div>
