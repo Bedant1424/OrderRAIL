@@ -6,8 +6,9 @@ import { supabase, type TableRow } from "@/lib/db";
 import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 import { useCafe } from "@/lib/cafe";
 import { useAuth, hasRole } from "@/lib/auth";
-import { isDemoDeployment } from "@/lib/permissions";
+import { APP_CONFIG } from "@/config/app";
 import B2bLandingPage from "./B2bLandingPage";
+import CheeseCornerLandingPage from "@/branding/cheesecorner/CheeseCornerLandingPage";
 
 function TableQR({ tableId, label }: { tableId: string; label: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -82,6 +83,10 @@ export default function Index() {
         </div>
       </div>
     );
+  }
+
+  if (APP_CONFIG.cafeSlug === "cheesecorner" || cafe?.slug === "cheesecorner") {
+    return <CheeseCornerLandingPage />;
   }
 
   if (!isDemoDeployment()) {
