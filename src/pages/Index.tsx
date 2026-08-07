@@ -74,6 +74,10 @@ export default function Index() {
     }
   }, [loading, session, roles, navigate]);
 
+  if (APP_CONFIG.cafeSlug === "cheesecorner" || cafe?.slug === "cheesecorner") {
+    return <CheeseCornerLandingPage />;
+  }
+
   if (loading) {
     return (
       <div className="grid min-h-screen place-items-center bg-gradient-warm text-muted-foreground">
@@ -83,10 +87,6 @@ export default function Index() {
         </div>
       </div>
     );
-  }
-
-  if (APP_CONFIG.cafeSlug === "cheesecorner" || cafe?.slug === "cheesecorner") {
-    return <CheeseCornerLandingPage />;
   }
 
   if (!isDemoDeployment()) {

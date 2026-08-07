@@ -20,13 +20,12 @@ import { useMenu, type ProductionMenuItem } from "@/hooks/useMenu";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { formatMoney } from "@/lib/db";
 
-// ─── HERO POSTER CAROUSEL (MILESTONES 1 & 3) ───
+// ─── HERO POSTER CAROUSEL (RESTORED WITH OPACITY ANIMATION) ───
 function HeroPosterCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const posters = CHEESE_CORNER_CONFIG.posters;
 
-  // Auto-rotate every 6 seconds unless hovered
   useEffect(() => {
     if (isHovered) return;
     const timer = setInterval(() => {
