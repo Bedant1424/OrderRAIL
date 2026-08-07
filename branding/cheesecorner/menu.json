@@ -1,0 +1,1749 @@
+{
+  "addons": [
+    {
+      "id": "cheese-slice",
+      "name": "Cheese Slice",
+      "price": 20,
+      "status": "available",
+      "taxIncluded": true
+    },
+    {
+      "id": "cheese-injector",
+      "name": "Cheese Injector",
+      "price": 30,
+      "status": "available",
+      "taxIncluded": true
+    },
+    {
+      "id": "double-cheese",
+      "name": "Double Cheese",
+      "price": 40,
+      "status": "available",
+      "taxIncluded": true
+    },
+    {
+      "id": "ice-cream-scoop",
+      "name": "Ice Cream Scoop",
+      "price": 30,
+      "status": "available",
+      "taxIncluded": true
+    }
+  ],
+  "tags": [
+    {
+      "id": "best-seller",
+      "name": "Best Seller",
+      "code": "BEST_SELLER"
+    },
+    {
+      "id": "must-try",
+      "name": "Must Try",
+      "code": "MUST_TRY"
+    },
+    {
+      "id": "house-special",
+      "name": "House Special",
+      "code": "HOUSE_SPECIAL"
+    }
+  ],
+  "categories": [
+    {
+      "id": "burger",
+      "name": "Burger"
+    },
+    {
+      "id": "fries",
+      "name": "Fries"
+    },
+    {
+      "id": "pizza",
+      "name": "Pizza"
+    },
+    {
+      "id": "pasta",
+      "name": "Pasta"
+    },
+    {
+      "id": "sandwich",
+      "name": "Sandwich"
+    },
+    {
+      "id": "kulhad",
+      "name": "Kulhad"
+    },
+    {
+      "id": "garlic-bread",
+      "name": "Garlic Bread"
+    },
+    {
+      "id": "wrap",
+      "name": "Wrap"
+    },
+    {
+      "id": "nachos",
+      "name": "Nachos"
+    },
+    {
+      "id": "momos",
+      "name": "Momos"
+    },
+    {
+      "id": "maggi",
+      "name": "Maggi"
+    },
+    {
+      "id": "shakes",
+      "name": "Shakes"
+    },
+    {
+      "id": "mojito",
+      "name": "Mojito"
+    },
+    {
+      "id": "beverages",
+      "name": "Beverages"
+    },
+    {
+      "id": "dessert",
+      "name": "Dessert"
+    },
+    {
+      "id": "meal-combos",
+      "name": "Meal Combos"
+    }
+  ],
+  "items": [
+    {
+      "id": "garden-fresh-burger",
+      "categoryId": "burger",
+      "name": "Garden Fresh Burger",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crisp veg patty layered with fresh lettuce, sliced tomatoes, onions, and creamy mayo in a toasted sesame bun.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/garden-fresh-burger.jpg"
+    },
+    {
+      "id": "new-york-yankee-burger",
+      "categoryId": "burger",
+      "name": "New York Yankee Burger",
+      "subtitle": null,
+      "price": 69,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Classic american style potato patty topped with tangy gherkins, yellow cheddar cheese sauce, crisp onions, and mustard mayo.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/new-york-yankee-burger.jpg"
+    },
+    {
+      "id": "spicy-salsa-burger",
+      "categoryId": "burger",
+      "name": "Spicy Salsa Burger",
+      "subtitle": null,
+      "price": 89,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crunchy spiced vegetable patty drizzled with fiery Mexican salsa, jalapeno slices, shredded lettuce, and chipotle mayonnaise.",
+      "tags": [],
+      "veg": true,
+      "spicy": true,
+      "sortOrder": 2,
+      "image": "assets/menu/images/spicy-salsa-burger.jpg"
+    },
+    {
+      "id": "double-decker-burger",
+      "categoryId": "burger",
+      "name": "Double Decker Burger",
+      "subtitle": null,
+      "price": 99,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Two crispy vegetable patties stacked high with double cheese, fresh tomato, crisp onion rings, and signature house sauce.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/double-decker-burger.jpg"
+    },
+    {
+      "id": "corn-cheese-burger",
+      "categoryId": "burger",
+      "name": "Corn Cheese Burger",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Golden sweet corn patty blended with melted cheese, topped with garlic mayo, fresh lettuce, and soft toasted buns.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 4,
+      "image": "assets/menu/images/corn-cheese-burger.jpg"
+    },
+    {
+      "id": "sizzling-burger",
+      "categoryId": "burger",
+      "name": "Sizzling Burger",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Grilled spiced patty tossed in chef's special sizzling pepper sauce, loaded with melted mozzarella, sautéed onions, and lettuce.",
+      "tags": [
+        "house-special"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 5,
+      "image": "assets/menu/images/sizzling-burger.jpg"
+    },
+    {
+      "id": "creamy-mushroom-burger",
+      "categoryId": "burger",
+      "name": "Creamy Mushroom Burger",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Sautéed garlic button mushrooms folded into a savory vegetable patty, finished with rich mushroom cream sauce and lettuce.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 6,
+      "image": "assets/menu/images/creamy-mushroom-burger.jpg"
+    },
+    {
+      "id": "paneer-delight-burger",
+      "categoryId": "burger",
+      "name": "Paneer Delight Burger",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Thick slab of spiced grilled paneer coated in tikka marinade, topped with mint mayo, crisp onions, and tomatoes.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 7,
+      "image": "assets/menu/images/paneer-delight-burger.jpg"
+    },
+    {
+      "id": "french-fries",
+      "categoryId": "fries",
+      "name": "French Fries",
+      "subtitle": null,
+      "price": 79,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Golden, crispy potato fries lightly salted and served piping hot with classic tomato ketchup and garlic dip.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/french-fries.jpg"
+    },
+    {
+      "id": "piri-piri-fries",
+      "categoryId": "fries",
+      "name": "Piri Piri Fries",
+      "subtitle": null,
+      "price": 99,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crispy crinkle-cut fries tossed generously in zesty African piri piri spice mix for a tangy chili kick.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/piri-piri-fries.jpg"
+    },
+    {
+      "id": "cheese-masala-fries",
+      "categoryId": "fries",
+      "name": "Cheese Masala Fries",
+      "subtitle": null,
+      "price": 99,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Hot potato fries tossed in Indian chaat spices and smothered with warm, gooey melted cheese sauce.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/cheese-masala-fries.jpg"
+    },
+    {
+      "id": "exotic-fries",
+      "categoryId": "fries",
+      "name": "Exotic Fries",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Golden fries loaded with melted mozzarella, sliced jalapenos, black olives, sweet corn, and special herb seasoning.",
+      "tags": [
+        "best-seller"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/exotic-fries.jpg"
+    },
+    {
+      "id": "bbq-cheese-fries",
+      "categoryId": "fries",
+      "name": "BBQ Cheese Fries",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crunchy fries layered with smoky barbecue sauce, rich melted cheese blend, spring onions, and cracked black pepper.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 4,
+      "image": "assets/menu/images/bbq-cheese-fries.jpg"
+    },
+    {
+      "id": "cheese-chilli-fries",
+      "categoryId": "fries",
+      "name": "Cheese Chilli Fries",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Spicy potato fries topped with crushed red chilies, green chili slices, and melted orange cheddar cheese sauce.",
+      "tags": [],
+      "veg": true,
+      "spicy": true,
+      "sortOrder": 5,
+      "image": "assets/menu/images/cheese-chilli-fries.jpg"
+    },
+    {
+      "id": "salsa-cheese-fries",
+      "categoryId": "fries",
+      "name": "Salsa Cheese Fries",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Thick cut fries covered in tangy tomato salsa, melted cheese sauce, chopped cilantro, and savory Mexican spices.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 6,
+      "image": "assets/menu/images/salsa-cheese-fries.jpg"
+    },
+    {
+      "id": "margherita",
+      "categoryId": "pizza",
+      "name": "Margherita",
+      "subtitle": null,
+      "price": 99,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Traditional Italian pizza baked with fresh tomato sauce, rich mozzarella cheese, basil leaves, and olive oil drizzle.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/margherita.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 99,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 119,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "sweet-corn-delight",
+      "categoryId": "pizza",
+      "name": "Sweet Corn Delight",
+      "subtitle": "Kids Special",
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Kid friendly pizza topped with juicy sweet corn kernels, mild tomato sauce, and a generous layer of mozzarella.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/sweet-corn-delight.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 129,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 139,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "latino-heat",
+      "categoryId": "pizza",
+      "name": "Latino Heat",
+      "subtitle": null,
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Fiery pizza loaded with spicy salsa sauce, sliced jalapenos, red chili flakes, capsicum, and melted mozzarella cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": true,
+      "sortOrder": 2,
+      "image": "assets/menu/images/latino-heat.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 149,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 159,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "exotic-italian",
+      "categoryId": "pizza",
+      "name": "Exotic Italian",
+      "subtitle": null,
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Premium pizza topped with black olives, jalapenos, sliced mushrooms, capsicum, sweet corn, and Italian herb seasoning.",
+      "tags": [
+        "best-seller"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/exotic-italian.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 149,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 159,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "paneer-maharaja-pizza",
+      "categoryId": "pizza",
+      "name": "Paneer Maharaja Pizza",
+      "subtitle": null,
+      "price": 169,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Royal pizza topped with marinated paneer cubes, diced capsicum, red onions, sweet corn, and rich mozzarella cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 4,
+      "image": "assets/menu/images/paneer-maharaja-pizza.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 169,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 179,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "wild-mushroom-pizza",
+      "categoryId": "pizza",
+      "name": "Wild Mushroom Pizza",
+      "subtitle": null,
+      "price": 169,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Earthy pizza loaded with sliced button mushrooms, garlic butter drizzle, aromatic herbs, and melted mozzarella cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 5,
+      "image": "assets/menu/images/wild-mushroom-pizza.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 169,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 179,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "create-your-own-pizza",
+      "categoryId": "pizza",
+      "name": "Create Your Own Pizza",
+      "subtitle": "ANY 3 TOPPINGS",
+      "price": 169,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Customize your pizza with your choice of any four fresh toppings including paneer, corn, mushrooms, olives, and peppers.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 6,
+      "image": "assets/menu/images/create-your-own-pizza.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 169,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 179,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "cheese-bliss-pizza",
+      "categoryId": "pizza",
+      "name": "Cheese Bliss Pizza",
+      "subtitle": null,
+      "price": 179,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Irresistible pizza featuring a blend of mozzarella, cheddar, and cheese sauce baked to golden melted perfection.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 7,
+      "image": "assets/menu/images/cheese-bliss-pizza.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 179,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 189,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "four-cheese-pizza",
+      "categoryId": "pizza",
+      "name": "Four Cheese Pizza",
+      "subtitle": null,
+      "price": 189,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Decadent pizza featuring a blend of mozzarella, cheddar, processed cheese, and cheese sauce with Italian herbs.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 8,
+      "image": "assets/menu/images/four-cheese-pizza.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 189,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 199,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "mix-italian-pizza",
+      "categoryId": "pizza",
+      "name": "Mix Italian Pizza",
+      "subtitle": null,
+      "price": 199,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Flavorful pizza loaded with capsicum, red paprika, baby corn, black olives, mozzarella, and house pizza sauce.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 9,
+      "image": "assets/menu/images/mix-italian-pizza.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 199,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 209,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "quattro-formaggi",
+      "categoryId": "pizza",
+      "name": "Quattro Formaggi",
+      "subtitle": null,
+      "price": 219,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Gourmet four cheese pizza with rich mozzarella, sharp cheddar, cream cheese, and oregano on a crispy crust.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 10,
+      "image": "assets/menu/images/quattro-formaggi.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 219,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 229,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "royal-paneer-pizza",
+      "categoryId": "pizza",
+      "name": "Royal Paneer Pizza",
+      "subtitle": null,
+      "price": 209,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Loaded pizza featuring tandoori spiced paneer cubes, crisp capsicum, onions, mozzarella, and spicy makhani sauce.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 11,
+      "image": "assets/menu/images/royal-paneer-pizza.jpg",
+      "variants": [
+        {
+          "id": "thin-crust",
+          "name": "Thin Crust",
+          "price": 209,
+          "status": "available",
+          "taxIncluded": true
+        },
+        {
+          "id": "cheese-sauce-blanket",
+          "name": "Cheese Sauce Blanket",
+          "price": 219,
+          "status": "available",
+          "taxIncluded": true
+        }
+      ]
+    },
+    {
+      "id": "alfredo",
+      "categoryId": "pasta",
+      "name": "Alfredo",
+      "subtitle": "Baked",
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Penne pasta tossed in a rich, velvety garlic parmesan cream sauce with sautéed herbs and black pepper.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/alfredo.jpg"
+    },
+    {
+      "id": "arrabbiata",
+      "categoryId": "pasta",
+      "name": "Arrabbiata",
+      "subtitle": "Baked",
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Classic penne pasta cooked in a fiery Italian tomato sauce infused with garlic, red chilies, and fresh basil.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/arrabbiata.jpg"
+    },
+    {
+      "id": "pink-delight",
+      "categoryId": "pasta",
+      "name": "Pink Delight",
+      "subtitle": "Baked",
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Penne pasta cooked in a harmonious blend of creamy alfredo and tangy arrabbiata sauce with garden vegetables.",
+      "tags": [
+        "best-seller"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/pink-delight.jpg"
+    },
+    {
+      "id": "mac-cheese",
+      "categoryId": "pasta",
+      "name": "Mac & Cheese",
+      "subtitle": "Baked",
+      "price": 159,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Classic elbow macaroni coated in a smooth, gooey cheddar cheese sauce, baked with a golden cheese crust.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/mac-cheese.jpg"
+    },
+    {
+      "id": "classic-vegetable-sandwich",
+      "categoryId": "sandwich",
+      "name": "Classic Vegetable Sandwich",
+      "subtitle": "Non-Grilled",
+      "price": 89,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Fresh white bread layered with sliced cucumber, tomato, onion, capsicum, mint chutney, and butter.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/classic-vegetable-sandwich.jpg"
+    },
+    {
+      "id": "nutella-sandwich",
+      "categoryId": "sandwich",
+      "name": "Nutella Sandwich",
+      "subtitle": "Non-Grilled",
+      "price": 109,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Soft white bread generously spread with rich hazelnut Nutella, served fresh as a sweet café treat.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/nutella-sandwich.jpg"
+    },
+    {
+      "id": "cheese-chilli-sandwich",
+      "categoryId": "sandwich",
+      "name": "Cheese Chilli Sandwich",
+      "subtitle": "Grilled",
+      "price": 119,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Grilled bread stuffed with spicy chili garlic paste, chopped green chilies, and gooey melted mozzarella cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": true,
+      "sortOrder": 2,
+      "image": "assets/menu/images/cheese-chilli-sandwich.jpg"
+    },
+    {
+      "id": "veg-grilled-cheese-sandwich",
+      "categoryId": "sandwich",
+      "name": "Veg Grilled Cheese Sandwich",
+      "subtitle": "Grilled",
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Toasted sandwich packed with crisp garden vegetables, house spices, and melted cheese, grilled to crispy perfection.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/veg-grilled-cheese-sandwich.jpg"
+    },
+    {
+      "id": "corn-cheese-sandwich",
+      "categoryId": "sandwich",
+      "name": "Corn Cheese Sandwich",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Golden toasted sandwich stuffed with sweet corn kernels, creamy mayo, herb seasoning, and melted cheddar cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 4,
+      "image": "assets/menu/images/corn-cheese-sandwich.jpg"
+    },
+    {
+      "id": "paneer-tikka-sandwich",
+      "categoryId": "sandwich",
+      "name": "Paneer Tikka Sandwich",
+      "subtitle": "Grilled",
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Grilled sandwich loaded with tandoori marinated paneer cubes, sliced onions, capsicum, and tangy mint mayo.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 5,
+      "image": "assets/menu/images/paneer-tikka-sandwich.jpg"
+    },
+    {
+      "id": "cheesy-creamy-mushroom",
+      "categoryId": "sandwich",
+      "name": "Cheesy Creamy Mushroom",
+      "subtitle": null,
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crispy grilled sandwich filled with garlic sautéed button mushrooms, white cream sauce, and gooey melted mozzarella.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 6,
+      "image": "assets/menu/images/cheesy-creamy-mushroom.jpg"
+    },
+    {
+      "id": "junglee-sandwich",
+      "categoryId": "sandwich",
+      "name": "Junglee Sandwich",
+      "subtitle": "Grilled",
+      "price": 179,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Ultimate grilled sandwich loaded with spiced potatoes, paneer, veggies, green chutney, and double layers of melted cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 7,
+      "image": "assets/menu/images/junglee-sandwich.jpg"
+    },
+    {
+      "id": "clay-pot-pizza",
+      "categoryId": "kulhad",
+      "name": "Clay Pot Pizza",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Kulhad Pizza is a mini pizza served in a clay cup, with a crispy crust, melted cheese, spicy pizza sauce, and toppings.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/clay-pot-pizza.jpg"
+    },
+    {
+      "id": "kulhad-maggi-mania",
+      "categoryId": "kulhad",
+      "name": "Kulhad Maggi Mania",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Kulhad Maggi is a unique version of Maggi served in a traditional clay cup, featuring flavorful Maggi rich spices, and aromatic broth.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/kulhad-maggi-mania.jpg"
+    },
+    {
+      "id": "kulhad-dumplings",
+      "categoryId": "kulhad",
+      "name": "Kulhad Dumplings",
+      "subtitle": null,
+      "price": 159,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Kulhad Momo is a mini Momo served in a traditional clay cup, with a crispy crust, melted cheese, tangy sauce, and toppings.",
+      "tags": [
+        "best-seller"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/kulhad-dumplings.jpg"
+    },
+    {
+      "id": "cheese-garlic-bread",
+      "categoryId": "garlic-bread",
+      "name": "Cheese Garlic Bread",
+      "subtitle": "Kids Special",
+      "price": 89,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Cheese Garlic Bread is toasted bread topped with a buttery garlic spread and melted cheese, offering a savory, crispy treat.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/cheese-garlic-bread.jpg"
+    },
+    {
+      "id": "supreme-treat-garlic-bread",
+      "categoryId": "garlic-bread",
+      "name": "Supreme Treat Garlic Bread",
+      "subtitle": null,
+      "price": 109,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Garlic bread toasted with sweet corn, sliced jalapenos, onions, mozzarella cheese, and zesty Italian seasoning.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/supreme-treat-garlic-bread.jpg"
+    },
+    {
+      "id": "crispy-garlic-delight",
+      "categoryId": "garlic-bread",
+      "name": "Crispy Garlic Delight",
+      "subtitle": null,
+      "price": 119,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Thin Crust Garlic Bread Features A Crispy, Golden Crust Topped With Buttery Garlic, Herbs, And A Hint Of Cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/crispy-garlic-delight.jpg"
+    },
+    {
+      "id": "cheese-pull-tear-garlic-bun",
+      "categoryId": "garlic-bread",
+      "name": "Cheese Pull & Tear Garlic Bun",
+      "subtitle": null,
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Soft baked bun stuffed with warm garlic butter, orange cheese sauce, herbs, and gooey pull-apart mozzarella cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/cheese-pull-tear-garlic-bun.jpg"
+    },
+    {
+      "id": "cheese-delight-wrap",
+      "categoryId": "wrap",
+      "name": "Cheese Delight Wrap",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "The Cheesy Delight Wrap is a warm tortilla filled with gooey melted cheese, fresh veggies, and savory seasonings for a quick treat.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/cheese-delight-wrap.jpg"
+    },
+    {
+      "id": "corn-cheese-wrap",
+      "categoryId": "wrap",
+      "name": "Corn & Cheese Wrap",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "The Corn & Cheese Wrap features a soft tortilla filled with sweet corn, melted cheese, and savory seasonings, offering a delicious bite.",
+      "tags": [
+        "best-seller"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/corn-cheese-wrap.jpg"
+    },
+    {
+      "id": "creamy-mushroom-wrap",
+      "categoryId": "wrap",
+      "name": "Creamy Mushroom Wrap",
+      "subtitle": null,
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Tortilla wrap filled with garlic sautéed mushrooms, creamy white sauce, fresh lettuce, and mild spices.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/creamy-mushroom-wrap.jpg"
+    },
+    {
+      "id": "bbq-paneer-wrap",
+      "categoryId": "wrap",
+      "name": "BBQ Paneer Wrap",
+      "subtitle": null,
+      "price": 159,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "The BBQ Paneer Wrap features tender paneer chunks coated in spicy BBQ sauce, wrapped with fresh veggies in a soft tortilla.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/bbq-paneer-wrap.jpg"
+    },
+    {
+      "id": "nachos-with-cheese-dip",
+      "categoryId": "nachos",
+      "name": "Nachos With Cheese Dip",
+      "subtitle": null,
+      "price": 79,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crispy Nachos Chips served with orange cheese sauce and a side bowl of warm cheddar dip.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/nachos-with-cheese-dip.jpg"
+    },
+    {
+      "id": "nachos-salsa",
+      "categoryId": "nachos",
+      "name": "Nachos & Salsa",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Nachos & Salsa are crispy tortilla chips paired with tangy, fresh tomato salsa, offering a delicious balance of crunch and zest.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/nachos-salsa.jpg"
+    },
+    {
+      "id": "exotic-nachos",
+      "categoryId": "nachos",
+      "name": "Exotic Nachos",
+      "subtitle": null,
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crunchy Nachos With Loaded Zorko Special Sauce Cheese Olives and Jalapeno, baked to golden perfection.",
+      "tags": [
+        "best-seller"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/exotic-nachos.jpg"
+    },
+    {
+      "id": "steam-momos",
+      "categoryId": "momos",
+      "name": "Steam Momos",
+      "subtitle": null,
+      "price": 79,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Classic Tibetan style dumplings filled with finely chopped spiced vegetables, steamed tender and served with red chili chutney.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/steam-momos.jpg"
+    },
+    {
+      "id": "fried-momos",
+      "categoryId": "momos",
+      "name": "Fried Momos",
+      "subtitle": null,
+      "price": 79,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crispy golden vegetable dumplings fried to perfection, served piping hot with fiery chili garlic dipping sauce.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/fried-momos.jpg"
+    },
+    {
+      "id": "kurkure-momos",
+      "categoryId": "momos",
+      "name": "Kurkure Momos",
+      "subtitle": null,
+      "price": 99,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Crunchy crusted vegetable momos coated in crunchy cornflake batter, fried golden and served with spicy mayo.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/kurkure-momos.jpg"
+    },
+    {
+      "id": "bbq-momos",
+      "categoryId": "momos",
+      "name": "BBQ Momos",
+      "subtitle": null,
+      "price": 119,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Fried vegetable dumplings tossed in smoky barbecue glaze, sprinkled with sesame seeds and spring onions.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/bbq-momos.jpg"
+    },
+    {
+      "id": "creamy-alfredo-momos",
+      "categoryId": "momos",
+      "name": "Creamy Alfredo Momos",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Steamed vegetable momos smothered in a rich, garlic-infused white alfredo cream sauce with herbs.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 4,
+      "image": "assets/menu/images/creamy-alfredo-momos.jpg"
+    },
+    {
+      "id": "cheesy-soupy-maggi",
+      "categoryId": "maggi",
+      "name": "Cheesy Soupy Maggi",
+      "subtitle": null,
+      "price": 79,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Comforting bowl of hot soupy Maggi noodles topped with a slice of melted cheddar cheese.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/cheesy-soupy-maggi.jpg"
+    },
+    {
+      "id": "double-masala-maggi",
+      "categoryId": "maggi",
+      "name": "Double Masala Maggi",
+      "subtitle": null,
+      "price": 89,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Classic Maggi noodles cooked with an extra punch of Indian spices, green chilies, and fresh coriander.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/double-masala-maggi.jpg"
+    },
+    {
+      "id": "cheddar-cheese-maggi",
+      "categoryId": "maggi",
+      "name": "Cheddar Cheese Maggi",
+      "subtitle": null,
+      "price": 99,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Maggi noodles cooked with mild spices and mixed with rich cheddar cheese sauce for a creamy finish.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/cheddar-cheese-maggi.jpg"
+    },
+    {
+      "id": "fried-maggi",
+      "categoryId": "maggi",
+      "name": "Fried Maggi",
+      "subtitle": null,
+      "price": 99,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Pan fried Maggi noodles tossed with crisp onions, capsicum, green peas, and tangy Indian spices.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/fried-maggi.jpg"
+    },
+    {
+      "id": "maggi-trois-delices",
+      "categoryId": "maggi",
+      "name": "Maggi Trois Delices",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Specialty Maggi noodles cooked with sweet corn, green peas, paneer cubes, butter, and secret aromatic spices.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 4,
+      "image": "assets/menu/images/maggi-trois-delices.jpg"
+    },
+    {
+      "id": "rose-delight-shake",
+      "categoryId": "shakes",
+      "name": "Rose Delight Shake",
+      "subtitle": null,
+      "price": 79,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Chilled milk blended with fragrant rose syrup, vanilla ice cream, and topped with rose petals.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/rose-delight-shake.jpg"
+    },
+    {
+      "id": "surti-cold-coco",
+      "categoryId": "shakes",
+      "name": "Surti Cold Coco",
+      "subtitle": null,
+      "price": 89,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Traditional Gujarati thick chocolate milk drink served chilled, topped with grated dark chocolate and cocoa powder.",
+      "tags": [
+        "best-seller"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/surti-cold-coco.jpg"
+    },
+    {
+      "id": "cookie-cream-shake",
+      "categoryId": "shakes",
+      "name": "Cookie & Cream Shake",
+      "subtitle": null,
+      "price": 109,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Thick creamy milkshake blended with crunchy chocolate Oreo cookies, topped with whipped cream and cookie crumbs.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/cookie-cream-shake.jpg"
+    },
+    {
+      "id": "chocolate-shake",
+      "categoryId": "shakes",
+      "name": "Chocolate Shake",
+      "subtitle": null,
+      "price": 109,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Classic rich chocolate milkshake made with cocoa, milk, and chocolate ice cream, served chilled.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/chocolate-shake.jpg"
+    },
+    {
+      "id": "strawberry-shake",
+      "categoryId": "shakes",
+      "name": "Strawberry Shake",
+      "subtitle": null,
+      "price": 109,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Refreshing milkshake blended with real strawberry syrup, cold milk, and smooth vanilla ice cream.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 4,
+      "image": "assets/menu/images/strawberry-shake.jpg"
+    },
+    {
+      "id": "kit-kat-shake",
+      "categoryId": "shakes",
+      "name": "Kit Kat Shake",
+      "subtitle": null,
+      "price": 119,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Decadent milkshake blended with crunchy Kit Kat chocolate bars, chocolate syrup, and vanilla ice cream.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 5,
+      "image": "assets/menu/images/kit-kat-shake.jpg"
+    },
+    {
+      "id": "brownie-blast-shake",
+      "categoryId": "shakes",
+      "name": "Brownie Blast Shake",
+      "subtitle": null,
+      "price": 129,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Thick chocolate shake blended with rich fudgy chocolate brownie chunks, topped with chocolate drizzle.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 6,
+      "image": "assets/menu/images/brownie-blast-shake.jpg"
+    },
+    {
+      "id": "nutella-shake",
+      "categoryId": "shakes",
+      "name": "Nutella Shake",
+      "subtitle": null,
+      "price": 139,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Creamy milkshake blended with authentic hazelnut Nutella spread, cold milk, and rich chocolate ice cream.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 7,
+      "image": "assets/menu/images/nutella-shake.jpg"
+    },
+    {
+      "id": "berry-mojito",
+      "categoryId": "mojito",
+      "name": "Berry Mojito",
+      "subtitle": null,
+      "price": 69,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Sparkling mocktail infused with mixed berry syrup, fresh mint leaves, lime juice, and soda over ice.",
+      "tags": [
+        "best-seller"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/berry-mojito.jpg"
+    },
+    {
+      "id": "spicy-guava-mojito",
+      "categoryId": "mojito",
+      "name": "Spicy Guava Mojito",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Zesty guava mocktail stirred with pink guava juice, fresh mint, lime, soda, and a pinch of chili salt.",
+      "tags": [],
+      "veg": true,
+      "spicy": true,
+      "sortOrder": 1,
+      "image": "assets/menu/images/spicy-guava-mojito.jpg"
+    },
+    {
+      "id": "strawberry-mojito",
+      "categoryId": "mojito",
+      "name": "Strawberry Mojito",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Cooling summer drink made with sweet strawberry puree, crushed mint leaves, lime juice, and sparkling soda.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/strawberry-mojito.jpg"
+    },
+    {
+      "id": "mango-mojito",
+      "categoryId": "mojito",
+      "name": "Mango Mojito",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Tropical mocktail blending sweet mango pulp, fresh mint leaves, tangy lime juice, and chilled soda.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/mango-mojito.jpg"
+    },
+    {
+      "id": "pine-mojito",
+      "categoryId": "mojito",
+      "name": "Pine Mojito",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Refreshing pineapple mocktail mixed with sweet pineapple juice, mint leaves, lime, and bubbly soda.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 4,
+      "image": "assets/menu/images/pine-mojito.jpg"
+    },
+    {
+      "id": "lychee-mojito",
+      "categoryId": "mojito",
+      "name": "Lychee Mojito",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Exotic cooling mocktail made with sweet lychee juice, muddled mint, lime, and chilled sparkling soda water.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 5,
+      "image": "assets/menu/images/lychee-mojito.jpg"
+    },
+    {
+      "id": "orange-sunset-mojito",
+      "categoryId": "mojito",
+      "name": "Orange Sunset Mojito",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Vibrant mocktail combining fresh orange juice, grenadine syrup, muddled mint leaves, lime, and sparkling soda.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 6,
+      "image": "assets/menu/images/orange-sunset-mojito.jpg"
+    },
+    {
+      "id": "blue-ocean-mojito",
+      "categoryId": "mojito",
+      "name": "Blue Ocean Mojito",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Electric blue ocean mocktail made with blue curaçao syrup, fresh mint, lime juice, and fizzing soda.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 7,
+      "image": "assets/menu/images/blue-ocean-mojito.jpg"
+    },
+    {
+      "id": "mint-mojito",
+      "categoryId": "mojito",
+      "name": "Mint Mojito",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Classic virgin mint mojito made with freshly muddled mint leaves, lime wedges, sugar, and sparkling soda.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 8,
+      "image": "assets/menu/images/mint-mojito.jpg"
+    },
+    {
+      "id": "rose-mojito",
+      "categoryId": "mojito",
+      "name": "Rose Mojito",
+      "subtitle": null,
+      "price": 79,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Fragrant rose mocktail crafted with rose syrup, fresh mint leaves, lime juice, and chilled soda over ice.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 9,
+      "image": "assets/menu/images/rose-mojito.jpg"
+    },
+    {
+      "id": "masala-tea",
+      "categoryId": "beverages",
+      "name": "Masala Tea",
+      "subtitle": null,
+      "price": 19,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Traditional Indian hot milk tea simmered with aromatic ginger, cardamom, cloves, and tea leaves.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/masala-tea.jpg"
+    },
+    {
+      "id": "hot-coffee",
+      "categoryId": "beverages",
+      "name": "Hot Coffee",
+      "subtitle": null,
+      "price": 29,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Freshly brewed hot milk coffee prepared with fine roasted coffee beans, warm milk, and sugar.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/hot-coffee.jpg"
+    },
+    {
+      "id": "hot-chocolate",
+      "categoryId": "beverages",
+      "name": "Hot Chocolate",
+      "subtitle": null,
+      "price": 49,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Rich, velvety hot chocolate made with melted dark cocoa, steaming milk, and a dusting of cocoa.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/hot-chocolate.jpg"
+    },
+    {
+      "id": "cold-coffee",
+      "categoryId": "beverages",
+      "name": "Cold Coffee",
+      "subtitle": null,
+      "price": 59,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Creamy chilled coffee blended with espresso, milk, sugar, and vanilla ice cream, topped with chocolate drizzle.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/cold-coffee.jpg"
+    },
+    {
+      "id": "vanilla-ice-cream",
+      "categoryId": "dessert",
+      "name": "Vanilla Ice Cream",
+      "subtitle": null,
+      "price": 39,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Two scoops of classic smooth vanilla bean ice cream served chilled in a glass bowl.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/vanilla-ice-cream.jpg"
+    },
+    {
+      "id": "chocolate-ice-cream",
+      "categoryId": "dessert",
+      "name": "Chocolate Ice Cream",
+      "subtitle": null,
+      "price": 49,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Rich and creamy scoops of dark chocolate ice cream garnished with chocolate chips and chocolate sauce.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/chocolate-ice-cream.jpg"
+    },
+    {
+      "id": "sizzling-brownie",
+      "categoryId": "dessert",
+      "name": "Sizzling Brownie",
+      "subtitle": null,
+      "price": 149,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Warm fudgy chocolate brownie served on a sizzling hot iron plate with vanilla ice cream and hot fudge.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/sizzling-brownie.jpg"
+    },
+    {
+      "id": "kulhad-chocolaty-mud-pie",
+      "categoryId": "dessert",
+      "name": "Kulhad Chocolaty Mud Pie",
+      "subtitle": null,
+      "price": 199,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Decadent chocolate mud cake layered with chocolate ganache and crumble, served inside a traditional clay kulhad.",
+      "tags": [
+        "must-try"
+      ],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 3,
+      "image": "assets/menu/images/kulhad-chocolaty-mud-pie.jpg"
+    },
+    {
+      "id": "meal-for-two",
+      "categoryId": "meal-combos",
+      "name": "MEAL FOR TWO",
+      "subtitle": null,
+      "price": 419,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Perfect meal combo featuring 1 Pizza Siciliano, 1 Wrap of choice, 1 French Fries, and 2 refreshing Mojitos.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 0,
+      "image": "assets/menu/images/meal-for-two.jpg",
+      "combo_contents": [
+        "Pizza Siciliano",
+        "Any Wrap",
+        "French Fries",
+        "Any 2 Mojito"
+      ]
+    },
+    {
+      "id": "meal-for-three",
+      "categoryId": "meal-combos",
+      "name": "MEAL FOR THREE",
+      "subtitle": null,
+      "price": 539,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Satisfying group meal combo featuring 1 Margherita Pizza, 3 Garden Fresh Burgers, 3 Garlic Bread Slices, 1 French Fries, and 3 Mojitos.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 1,
+      "image": "assets/menu/images/meal-for-three.jpg",
+      "combo_contents": [
+        "Margherita Pizza",
+        "Garden Fresh Burger (3 Pcs)",
+        "Cheese Garlic Bread (3 Slices)",
+        "French Fries",
+        "Any 3 Mojito"
+      ]
+    },
+    {
+      "id": "meal-for-four",
+      "categoryId": "meal-combos",
+      "name": "MEAL FOR FOUR",
+      "subtitle": null,
+      "price": 599,
+      "taxIncluded": true,
+      "status": "available",
+      "description": "Grand feast combo containing 1 Cheese Bliss Pizza, 4 Garden Fresh Burgers, 1 Piri Piri Fries, 4 Garlic Bread Slices, and 4 Mojitos.",
+      "tags": [],
+      "veg": true,
+      "spicy": false,
+      "sortOrder": 2,
+      "image": "assets/menu/images/meal-for-four.jpg",
+      "combo_contents": [
+        "Cheese Bliss Pizza",
+        "Garden Fresh Burger (4 Pcs)",
+        "Piri Piri Fries",
+        "Cheese Garlic Bread (4 Slices)",
+        "Any 4 Mojito"
+      ]
+    }
+  ]
+}
