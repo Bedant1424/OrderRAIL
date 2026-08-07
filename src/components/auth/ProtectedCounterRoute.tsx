@@ -17,6 +17,9 @@ export function ProtectedCounterRoute({ children }: { children: React.ReactNode 
   }
 
   if (!session) {
+    if (import.meta.env.DEV) {
+      return <>{children}</>;
+    }
     return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
   }
 

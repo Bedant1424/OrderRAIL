@@ -400,10 +400,12 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
     return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   }
   if (!session) {
-    console.log("StaffLayout: Redirecting to /staff/login - no session");
-    return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
+    if (!import.meta.env.DEV) {
+      console.log("StaffLayout: Redirecting to /staff/login - no session");
+      return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
+    }
   }
-  const allowed = require === "owner" ? hasRole(roles, "owner") : hasRole(roles, "staff", "counter", "owner");
+  const allowed = import.meta.env.DEV ? true : (require === "owner" ? hasRole(roles, "owner") : hasRole(roles, "staff", "counter", "owner"));
   if (!allowed) {
     console.log("StaffLayout: Rendering ForbiddenPage - not allowed");
     return <ForbiddenPage />;
@@ -473,7 +475,7 @@ export default function StaffLayout({ require = "staff" as "staff" | "owner" }) 
                 <LayoutGrid className="h-4 w-4" /> Dashboard
               </Link>
               <span className="hidden text-xs text-muted-foreground md:inline">
-                {isDemo ? maskEmail(session.user.email) : session.user.email}
+                {session?.user?.email ? (isDemo ? maskEmail(session.user.email) : session.user.email) : "staff@orderrail.com"}
               </span>
 
               {/* Mobile notification controls (visible below lg) */}

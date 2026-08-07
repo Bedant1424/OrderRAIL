@@ -41,3 +41,7 @@ test_mobile_popover.js
 login_and_screenshot.js
 repro_regression.js
 verify_customer_ui.js
+
+# Supabase CLI temp files
+supabase/.temp/
+

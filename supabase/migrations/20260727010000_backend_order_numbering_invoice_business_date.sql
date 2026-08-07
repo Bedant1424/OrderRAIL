@@ -72,7 +72,7 @@ BEGIN
     END IF;
 
     -- Automatically assign invoice_number if order is created directly in paid or served status
-    IF (NEW.status = 'paid' OR NEW.status = 'served') AND NEW.invoice_number IS NULL THEN
+    IF (NEW.status::text = 'paid' OR NEW.status::text = 'served') AND NEW.invoice_number IS NULL THEN
         INSERT INTO public.cafe_invoice_counters (cafe_id, counter)
         VALUES (NEW.cafe_id, 1)
         ON CONFLICT (cafe_id)
@@ -99,7 +99,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_next_inv_num INTEGER;
 BEGIN
-    IF (NEW.status = 'paid' OR NEW.status = 'served') AND NEW.invoice_number IS NULL THEN
+    IF (NEW.status::text = 'paid' OR NEW.status::text = 'served') AND NEW.invoice_number IS NULL THEN
         INSERT INTO public.cafe_invoice_counters (cafe_id, counter)
         VALUES (NEW.cafe_id, 1)
         ON CONFLICT (cafe_id)
@@ -117,7 +117,7 @@ DROP TRIGGER IF EXISTS trigger_assign_invoice_number_on_payment ON public.orders
 CREATE TRIGGER trigger_assign_invoice_number_on_payment
 BEFORE UPDATE ON public.orders
 FOR EACH ROW
-WHEN ((NEW.status = 'paid' OR NEW.status = 'served') AND OLD.invoice_number IS NULL)
+WHEN ((NEW.status::text = 'paid' OR NEW.status::text = 'served') AND OLD.invoice_number IS NULL)
 EXECUTE FUNCTION public.assign_invoice_number_on_payment();
 
 -- 8. Backfill historical orders
@@ -147,7 +147,7 @@ BEGIN
             order_number = v_daily_counter
         WHERE id = r.id;
 
-        IF r.status = 'paid' OR r.status = 'served' THEN
+        IF r.status::text = 'paid' OR r.status::text = 'served' THEN
             INSERT INTO public.cafe_invoice_counters (cafe_id, counter)
             VALUES (r.cafe_id, 1)
             ON CONFLICT (cafe_id)

@@ -1,6 +1,6 @@
 export const APP_CONFIG = {
   appName: "OrderRail",
-  cafeSlug: "orderrail",
+  cafeSlug: import.meta.env.VITE_CAFE_SLUG || "orderrail",
   defaultCurrency: "INR",
   googleReviewUrl: "https://g.page/r/your-google-review-link/review", // Configured URL
   serviceRequestCooldownMs: 60_000, // minimum time between repeat requests of the same type
