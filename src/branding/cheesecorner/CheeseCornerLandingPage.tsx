@@ -11,15 +11,106 @@ import {
   X,
   Maximize2,
   QrCode,
-  Sparkles,
-  ChevronRight,
-  Compass
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { CHEESE_CORNER_CONFIG } from "./config";
 import { useCafe } from "@/lib/cafe";
 import { useMenu, type ProductionMenuItem } from "@/hooks/useMenu";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { formatMoney } from "@/lib/db";
+
+// ─── HERO POSTER CAROUSEL (SPRINT 7E) ───
+function HeroPosterCarousel() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const posters = CHEESE_CORNER_CONFIG.posters;
+
+  // Auto-rotate every 6 seconds unless hovered
+  useEffect(() => {
+    if (isHovered) return;
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % posters.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [isHovered, posters.length]);
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % posters.length);
+  };
+
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + posters.length) % posters.length);
+  };
+
+  return (
+    <div
+      className="group relative mx-auto w-full max-w-md lg:max-w-lg overflow-hidden rounded-3xl border-4 border-white bg-black/5 shadow-2xl transition-all duration-300"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="relative h-[360px] sm:h-[420px] lg:h-[500px] w-full overflow-hidden rounded-2xl">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={posters[currentIndex].id}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="absolute inset-0 h-full w-full"
+          >
+            {/* Smooth Ken Burns slow scale animation on pure artwork */}
+            <motion.img
+              src={posters[currentIndex].image}
+              alt={posters[currentIndex].title}
+              initial={{ scale: 1 }}
+              animate={{ scale: 1.05 }}
+              transition={{ duration: 6, ease: "linear" }}
+              loading={currentIndex === 0 ? "eager" : "lazy"}
+              className="h-full w-full object-cover rounded-2xl select-none"
+            />
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Minimal Bottom Gradient to ensure control visibility */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/50 via-black/15 to-transparent rounded-b-2xl" />
+
+        {/* Navigation Arrows (Appear only on hover) */}
+        <button
+          onClick={handlePrev}
+          aria-label="Previous slide"
+          className="absolute left-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-black/40 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-black/70 active:scale-95 z-10"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+
+        <button
+          onClick={handleNext}
+          aria-label="Next slide"
+          className="absolute right-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-black/40 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-black/70 active:scale-95 z-10"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+
+        {/* Manual Pagination Dots */}
+        <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-2 z-10">
+          {posters.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              aria-label={`Go to slide ${idx + 1}`}
+              className={`h-2.5 rounded-full transition-all duration-300 ${
+                idx === currentIndex
+                  ? "w-8 bg-amber-400 shadow-md"
+                  : "w-2.5 bg-white/60 hover:bg-white"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; currency: string }) {
   const imageUrl = useImageUrl(item.image_url);
@@ -104,16 +195,7 @@ export default function CheeseCornerLandingPage() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [selectedPoster, setSelectedPoster] = useState<string | null>(null);
   const [isOrderNowModalOpen, setIsOrderNowModalOpen] = useState(false);
-  const [currentPosterIndex, setCurrentPosterIndex] = useState(0);
-  const [posterErrors, setPosterErrors] = useState<Record<string, boolean>>({});
-
-  // Auto-rotate hero posters every 6 seconds
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentPosterIndex((prev) => (prev + 1) % CHEESE_CORNER_CONFIG.posters.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, []);
+  const [galleryErrors, setGalleryErrors] = useState<Record<string, boolean>>({});
 
   // Filter menu preview items based on active tab
   const filteredPreviewItems = useMemo(() => {
@@ -128,8 +210,6 @@ export default function CheeseCornerLandingPage() {
       );
     });
   }, [items, categories, activeCategory]);
-
-  const activeHeroPoster = CHEESE_CORNER_CONFIG.posters[currentPosterIndex];
 
   return (
     <div className="min-h-screen bg-[#FFFBEB] text-[#451A03] font-sans antialiased selection:bg-amber-400/40">
@@ -172,7 +252,7 @@ export default function CheeseCornerLandingPage() {
         </div>
       </header>
 
-      {/* ─── HERO SECTION (MILESTONE 1 & 6) ─── */}
+      {/* ─── HERO SECTION ─── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-amber-100/80 via-[#FFFBEB] to-[#FFFBEB] pt-10 pb-16 md:pt-16 md:pb-24">
         <div className="pointer-events-none absolute top-10 left-[-5%] h-72 w-72 rounded-full bg-amber-300/20 blur-3xl" />
         <div className="pointer-events-none absolute top-40 right-[-5%] h-96 w-96 rounded-full bg-orange-400/20 blur-3xl" />
@@ -203,7 +283,6 @@ export default function CheeseCornerLandingPage() {
                 {CHEESE_CORNER_CONFIG.subtitle}
               </p>
 
-              {/* Milestone 6: Renamed Primary CTA */}
               <div className="mt-8 flex flex-wrap gap-4 items-center">
                 <button
                   onClick={() => setIsOrderNowModalOpen(true)}
@@ -239,68 +318,14 @@ export default function CheeseCornerLandingPage() {
               </div>
             </motion.div>
 
-            {/* Milestone 1: Rotating Hero Poster Showcase */}
+            {/* Right Hero Poster Showcase (Sprint 7E Carousel) */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="lg:col-span-5 relative"
+              className="lg:col-span-5"
             >
-              <div className="relative mx-auto max-w-md overflow-hidden rounded-3xl border-4 border-white bg-amber-200 p-2 shadow-2xl">
-                <div className="relative h-[460px] w-full overflow-hidden rounded-2xl">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={activeHeroPoster.id}
-                      initial={{ opacity: 0, scale: 1.03 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.6 }}
-                      className="h-full w-full"
-                    >
-                      {!posterErrors[activeHeroPoster.id] ? (
-                        <img
-                          src={activeHeroPoster.image}
-                          alt={activeHeroPoster.title}
-                          onError={() => setPosterErrors(prev => ({ ...prev, [activeHeroPoster.id]: true }))}
-                          className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 p-6 text-center text-white">
-                          <img
-                            src={CHEESE_CORNER_CONFIG.logoUrl}
-                            alt="Logo"
-                            className="h-20 w-20 object-contain drop-shadow-md mb-3"
-                          />
-                          <h3 className="font-display text-2xl font-black">{activeHeroPoster.title}</h3>
-                          <p className="mt-1 text-xs text-amber-100 font-medium max-w-xs">{activeHeroPoster.subtitle}</p>
-                        </div>
-                      )}
-
-                      {/* Bottom Gradient Overlay */}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-5 text-white">
-                        <div className="flex items-center justify-between">
-                          <span className="rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-black">
-                            {activeHeroPoster.tag}
-                          </span>
-                          <div className="flex gap-1.5">
-                            {CHEESE_CORNER_CONFIG.posters.map((_, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => setCurrentPosterIndex(idx)}
-                                className={`h-2 rounded-full transition-all ${
-                                  idx === currentPosterIndex ? "w-6 bg-amber-400" : "w-2 bg-white/50"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        <h3 className="mt-2 font-display text-xl font-bold">{activeHeroPoster.title}</h3>
-                        <p className="text-xs text-amber-100/90 line-clamp-1 mt-0.5">{activeHeroPoster.subtitle}</p>
-                      </div>
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-              </div>
+              <HeroPosterCarousel />
             </motion.div>
 
           </div>
@@ -461,7 +486,7 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── GALLERY SECTION (MILESTONES 4 & 5) ─── */}
+      {/* ─── GALLERY SECTION (POSTER SHOWCASE) ─── */}
       <section id="gallery" className="border-t border-amber-200/60 bg-[#FFFBEB] py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-12">
@@ -487,11 +512,11 @@ export default function CheeseCornerLandingPage() {
                 onClick={() => setSelectedPoster(poster.image)}
                 className="group relative cursor-pointer overflow-hidden rounded-3xl border-4 border-white bg-amber-200 shadow-md transition-all duration-300 hover:shadow-2xl"
               >
-                {!posterErrors[poster.id] ? (
+                {!galleryErrors[poster.id] ? (
                   <img
                     src={poster.image}
                     alt={poster.title}
-                    onError={() => setPosterErrors(prev => ({ ...prev, [poster.id]: true }))}
+                    onError={() => setGalleryErrors(prev => ({ ...prev, [poster.id]: true }))}
                     className="h-[440px] w-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 ) : (
@@ -502,7 +527,7 @@ export default function CheeseCornerLandingPage() {
                   </div>
                 )}
 
-                {/* Promotional Overlay */}
+                {/* Subtle Overlay on Gallery Posters */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-6 flex flex-col justify-end text-white">
                   <span className="inline-self-start rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-black w-max mb-2">
                     {poster.tag}
@@ -522,7 +547,7 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── LOCATION & CONTACT SECTION (MILESTONE 2: CLEAN SINGLE LOCATION BLOCK) ─── */}
+      {/* ─── LOCATION & CONTACT SECTION ─── */}
       <section id="contact" className="border-t border-amber-200/60 bg-white py-16 md:py-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
           <div className="rounded-3xl border-2 border-amber-200 bg-[#FFFBEB] p-8 md:p-12 shadow-sm space-y-8">
@@ -601,7 +626,7 @@ export default function CheeseCornerLandingPage() {
         </div>
       </footer>
 
-      {/* ─── MILESTONE 3: REDESIGNED ORDER NOW MODAL ─── */}
+      {/* ─── ORDER NOW INFORMATION MODAL ─── */}
       {isOrderNowModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
