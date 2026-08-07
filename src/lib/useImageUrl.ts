@@ -29,34 +29,15 @@ export function useImageUrl(source: string | null | undefined): string | null {
       setUrl(cached);
       return;
     }
-    const bucketName = "menu-images";
     const path = source.slice("menu-images/".length);
     void supabase.storage
-      .from(bucketName)
+      .from("menu-images")
       .createSignedUrl(path, SIGNED_TTL)
-      .then((response) => {
-        console.log("[INSTRUMENTATION useImageUrl]", JSON.stringify({
-          originalDatabaseValue: source,
-          pathAfterSlice: path,
-          bucketNameUsed: bucketName,
-          exactPathPassedToCreateSignedUrl: path,
-          completeSupabaseResponse: {
-            data: response.data,
-            error: response.error ? {
-              message: response.error.message,
-              name: response.error.name,
-              statusCode: (response.error as any).statusCode || (response.error as any).status || 400,
-              error: (response.error as any).error || "not_found",
-              code: (response.error as any).code || "NoSuchKey"
-            } : null
-          },
-          finalUrlGenerated: response.data?.signedUrl ?? null
-        }, null, 2));
-
+      .then(({ data }) => {
         if (cancelled) return;
-        if (response.data?.signedUrl) {
-          cache.set(source, response.data.signedUrl);
-          setUrl(response.data.signedUrl);
+        if (data?.signedUrl) {
+          cache.set(source, data.signedUrl);
+          setUrl(data.signedUrl);
         }
       });
     return () => {

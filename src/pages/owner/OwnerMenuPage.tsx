@@ -49,31 +49,9 @@ const TAG_FILTERS: Partial<Record<FilterType, string[]>> = {
   new: ["New"],
 };
 
-async function urlForPath(source: string) {
-  const bucketName = "menu-images";
-  const path = source.startsWith("menu-images/") ? source.slice("menu-images/".length) : source;
-  
-  const response = await supabase.storage.from(bucketName).createSignedUrl(path, SIGNED_YEARS);
-  
-  console.log("[INSTRUMENTATION urlForPath]", JSON.stringify({
-    originalDatabaseValue: source,
-    pathAfterSlice: path,
-    bucketNameUsed: bucketName,
-    exactPathPassedToCreateSignedUrl: path,
-    completeSupabaseResponse: {
-      data: response.data,
-      error: response.error ? {
-        message: response.error.message,
-        name: response.error.name,
-        statusCode: (response.error as any).statusCode || (response.error as any).status || 400,
-        error: (response.error as any).error || "not_found",
-        code: (response.error as any).code || "NoSuchKey"
-      } : null
-    },
-    finalUrlGenerated: response.data?.signedUrl ?? null
-  }, null, 2));
-
-  return response.data?.signedUrl ?? null;
+async function urlForPath(path: string) {
+  const { data } = await supabase.storage.from("menu-images").createSignedUrl(path, SIGNED_YEARS);
+  return data?.signedUrl ?? null;
 }
 
 export default function OwnerMenuPage() {
