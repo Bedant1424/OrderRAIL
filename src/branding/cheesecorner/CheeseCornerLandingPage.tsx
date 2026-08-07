@@ -110,6 +110,7 @@ export default function CheeseCornerLandingPage() {
   const { items, categories, isLoading } = useMenu(cafeId);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [selectedPoster, setSelectedPoster] = useState<string | null>(null);
+  const [heroImageError, setHeroImageError] = useState(false);
 
   // Fetch dining tables for QR demo links
   const { data: tables = [] } = useQuery({
@@ -266,11 +267,31 @@ export default function CheeseCornerLandingPage() {
               className="lg:col-span-5 relative"
             >
               <div className="relative mx-auto max-w-md overflow-hidden rounded-3xl border-4 border-white bg-amber-200 p-2 shadow-2xl">
-                <img
-                  src={CHEESE_CORNER_CONFIG.posters[0].image}
-                  alt="Cheese Corner Gourmet Burger Poster"
-                  className="h-[420px] w-full rounded-2xl object-cover"
-                />
+                {!heroImageError ? (
+                  <img
+                    src={CHEESE_CORNER_CONFIG.posters[0].image}
+                    alt="Cheese Corner Gourmet Burger Poster"
+                    onError={() => setHeroImageError(true)}
+                    className="h-[440px] w-full rounded-2xl object-cover shadow-sm transition-transform duration-500 hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-[440px] w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 p-6 text-center text-white shadow-inner">
+                    <img
+                      src={CHEESE_CORNER_CONFIG.logoUrl}
+                      alt="Cheese Corner Logo"
+                      className="h-20 w-20 object-contain drop-shadow-md mb-4"
+                    />
+                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black uppercase tracking-wider backdrop-blur-md">
+                      {CHEESE_CORNER_CONFIG.posters[0].tag}
+                    </span>
+                    <h3 className="mt-3 font-display text-2xl font-black">
+                      {CHEESE_CORNER_CONFIG.name}
+                    </h3>
+                    <p className="mt-1 text-xs text-amber-100 max-w-xs font-medium">
+                      {CHEESE_CORNER_CONFIG.posters[0].title}
+                    </p>
+                  </div>
+                )}
                 
                 {/* Floating Tag Overlay */}
                 <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-white/40 bg-black/60 p-4 backdrop-blur-md text-white">
