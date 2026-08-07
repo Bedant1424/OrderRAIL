@@ -51,25 +51,20 @@ function HeroPosterCarousel() {
     >
       <div className="relative h-[380px] sm:h-[440px] lg:h-[520px] w-full overflow-hidden rounded-2xl">
         <AnimatePresence mode="wait">
-          <motion.div
+          <motion.img
             key={posters[currentIndex].id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            src={posters[currentIndex].image}
+            alt={posters[currentIndex].title}
+            initial={{ opacity: 0, scale: 1 }}
+            animate={{ opacity: 1, scale: 1.05 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-            className="absolute inset-0 h-full w-full"
-          >
-            {/* Smooth Ken Burns slow scale animation on web-optimized artwork */}
-            <motion.img
-              src={posters[currentIndex].image}
-              alt={posters[currentIndex].title}
-              initial={{ scale: 1 }}
-              animate={{ scale: 1.05 }}
-              transition={{ duration: 6, ease: "linear" }}
-              loading={currentIndex === 0 ? "eager" : "lazy"}
-              className="h-full w-full object-cover rounded-2xl select-none"
-            />
-          </motion.div>
+            transition={{
+              opacity: { duration: 0.6, ease: "easeInOut" },
+              scale: { duration: 6, ease: "linear" }
+            }}
+            loading={currentIndex === 0 ? "eager" : "lazy"}
+            className="absolute inset-0 h-full w-full object-cover rounded-2xl select-none"
+          />
         </AnimatePresence>
 
         {/* Minimal Bottom Gradient to ensure control visibility */}
