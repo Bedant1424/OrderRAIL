@@ -1,32 +1,24 @@
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Coffee, 
-  QrCode, 
   Flame, 
-  Sparkles, 
   MapPin, 
   Phone, 
   Instagram, 
   Clock, 
   ArrowRight, 
-  Check, 
-  ChevronRight, 
   Utensils, 
-  Heart,
-  LayoutDashboard,
   X,
-  Maximize2
+  Maximize2,
+  QrCode,
+  Sparkles,
+  Info
 } from "lucide-react";
 import { CHEESE_CORNER_CONFIG } from "./config";
 import { useCafe } from "@/lib/cafe";
 import { useMenu, type ProductionMenuItem } from "@/hooks/useMenu";
 import { useImageUrl } from "@/lib/useImageUrl";
-import { formatMoney, type TableRow } from "@/lib/db";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/db";
-import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
+import { formatMoney } from "@/lib/db";
 
 function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; currency: string }) {
   const imageUrl = useImageUrl(item.image_url);
@@ -87,7 +79,7 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
         </div>
 
         {item.description && (
-          <p className="mt-1.5 line-clamp-2 text-xs text-amber-800/80 leading-relaxed">
+          <p className="mt-1.5 line-clamp-2 text-xs text-amber-800/80 leading-relaxed font-medium">
             {item.description}
           </p>
         )}
@@ -97,8 +89,8 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
         <span className="text-[11px] font-semibold text-amber-600/90">
           {item.categoryName || "Specialty"}
         </span>
-        <span className="inline-flex items-center gap-1 font-bold text-orange-600 group-hover:translate-x-0.5 transition-transform">
-          Dine-In Ready <ChevronRight className="h-3.5 w-3.5" />
+        <span className="inline-flex items-center gap-1 font-bold text-amber-700">
+          In-House Specialty
         </span>
       </div>
     </motion.div>
@@ -111,22 +103,7 @@ export default function CheeseCornerLandingPage() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [selectedPoster, setSelectedPoster] = useState<string | null>(null);
   const [heroImageError, setHeroImageError] = useState(false);
-
-  // Fetch dining tables for QR demo links
-  const { data: tables = [] } = useQuery({
-    queryKey: ["cheesecorner-landing-tables", cafeId],
-    enabled: !!cafeId,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("tables")
-        .select("*")
-        .eq("cafe_id", cafeId!)
-        .order("label");
-      return sortTablesNatural((data ?? []) as TableRow[]);
-    },
-  });
-
-  const firstTable = tables[0];
+  const [isOrderNowModalOpen, setIsOrderNowModalOpen] = useState(false);
 
   // Filter menu preview items based on active tab
   const filteredPreviewItems = useMemo(() => {
@@ -173,20 +150,12 @@ export default function CheeseCornerLandingPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link
-              to="/staff/login"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-white px-4 py-2 text-xs font-bold text-amber-900 shadow-sm transition hover:bg-amber-50"
+            <button
+              onClick={() => setIsOrderNowModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2 text-xs font-extrabold text-white shadow-md transition hover:from-amber-600 hover:to-orange-600 active:scale-95"
             >
-              <LayoutDashboard className="h-3.5 w-3.5 text-amber-600" /> Staff Portal
-            </Link>
-            {firstTable && (
-              <Link
-                to={`/t/${firstTable.id}`}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2 text-xs font-extrabold text-white shadow-md transition hover:from-amber-600 hover:to-orange-600 active:scale-95"
-              >
-                <QrCode className="h-4 w-4" /> Order Now
-              </Link>
-            )}
+              <QrCode className="h-4 w-4" /> Order Now
+            </button>
           </div>
         </div>
       </header>
@@ -223,15 +192,14 @@ export default function CheeseCornerLandingPage() {
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4 items-center">
-                {firstTable && (
-                  <Link
-                    to={`/t/${firstTable.id}`}
-                    className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-7 py-3.5 text-sm font-extrabold text-white shadow-lg transition hover:shadow-xl hover:from-amber-600 hover:to-orange-600 active:scale-95"
-                  >
-                    <span>Scan Table & Order</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                )}
+                <button
+                  onClick={() => setIsOrderNowModalOpen(true)}
+                  className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-7 py-3.5 text-sm font-extrabold text-white shadow-lg transition hover:shadow-xl hover:from-amber-600 hover:to-orange-600 active:scale-95"
+                >
+                  <QrCode className="h-4 w-4" />
+                  <span>How To Order</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
 
                 <a
                   href="#menu-preview"
@@ -254,7 +222,7 @@ export default function CheeseCornerLandingPage() {
                 </div>
                 <div>
                   <div className="font-display text-2xl font-black text-amber-950">⚡ Fast</div>
-                  <div className="text-xs font-bold text-amber-800/80">QR Table Ordering</div>
+                  <div className="text-xs font-bold text-amber-800/80">Dine-in Experience</div>
                 </div>
               </div>
             </motion.div>
@@ -520,13 +488,13 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── CONTACT & TABLE QR DEMO SECTION ─── */}
+      {/* ─── LOCATION & CONTACT SECTION ─── */}
       <section id="contact" className="border-t border-amber-200/60 bg-white py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid gap-10 lg:grid-cols-12 lg:items-start">
+          <div className="grid gap-8 md:grid-cols-2">
             
-            {/* Left Contact Card */}
-            <div className="lg:col-span-6 rounded-3xl border border-amber-200 bg-[#FFFBEB] p-8 shadow-sm space-y-6">
+            {/* Location & Contact Details */}
+            <div className="rounded-3xl border border-amber-200 bg-[#FFFBEB] p-8 shadow-sm space-y-6">
               <div>
                 <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
                   Visit Cheese Corner
@@ -555,7 +523,7 @@ export default function CheeseCornerLandingPage() {
                     <Phone className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="font-extrabold text-amber-950">Phone & Orders</div>
+                    <div className="font-extrabold text-amber-950">Phone & Inquiries</div>
                     <div className="text-amber-900/80 mt-0.5">{CHEESE_CORNER_CONFIG.contact.phone}</div>
                   </div>
                 </div>
@@ -582,44 +550,37 @@ export default function CheeseCornerLandingPage() {
               </div>
             </div>
 
-            {/* Right Interactive Table QR Demo Cards */}
-            <div className="lg:col-span-6 rounded-3xl border border-amber-200 bg-white p-8 shadow-sm">
-              <div className="mb-6">
-                <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
-                  Customer Dining App
-                </span>
-                <h3 className="mt-1 font-display text-2xl font-black text-amber-950">
-                  Select a Table to Test Ordering
+            {/* In-House Dine-In QR Ordering Information Card */}
+            <div className="flex flex-col justify-between rounded-3xl border-2 border-amber-200 bg-gradient-to-br from-amber-500 via-amber-600 to-orange-600 p-8 text-white shadow-lg">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1 text-xs font-black uppercase tracking-wider backdrop-blur-md">
+                  <QrCode className="h-4 w-4" /> Dine-In Ordering
+                </div>
+                
+                <h3 className="mt-4 font-display text-3xl font-black leading-tight">
+                  How To Order At Cheese Corner
                 </h3>
-                <p className="mt-1 text-xs text-amber-900/80 font-medium">
-                  Tap any dining table card below to open the Cheese Corner QR customer ordering experience.
+                
+                <p className="mt-3 text-sm text-amber-100 leading-relaxed font-medium">
+                  To place a dine-in order, simply scan the QR code available at your table inside Cheese Corner using your smartphone camera.
                 </p>
+
+                <div className="my-6 flex items-center justify-center rounded-2xl bg-white/10 p-4 backdrop-blur-md border border-white/20">
+                  <img
+                    src={CHEESE_CORNER_CONFIG.qrStandUrl}
+                    alt="Cheese Corner QR Stand"
+                    className="h-40 w-auto object-contain drop-shadow-lg"
+                  />
+                </div>
               </div>
 
-              {tables.length === 0 ? (
-                <div className="p-6 text-center text-xs font-bold text-amber-700">Loading tables...</div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {tables.map((t) => (
-                    <Link
-                      key={t.id}
-                      to={`/t/${t.id}`}
-                      className="group flex flex-col items-center rounded-2xl border-2 border-amber-100 bg-[#FFFBEB] p-4 text-center transition-all hover:border-amber-400 hover:shadow-md active:scale-95"
-                    >
-                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white font-black text-lg shadow-sm group-hover:scale-105 transition-transform">
-                        {t.label}
-                      </div>
-                      <span className="mt-2 font-display text-sm font-bold text-amber-950">
-                        Table {t.label}
-                      </span>
-                      <span className="text-[10px] font-extrabold text-orange-600 flex items-center gap-0.5 mt-0.5">
-                        Scan / Tap <ChevronRight className="h-3 w-3" />
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
+              <div className="rounded-2xl bg-black/30 p-4 backdrop-blur-md border border-white/10 text-center">
+                <p className="text-xs font-bold text-amber-200">
+                  Visit us in person to experience contactless table ordering!
+                </p>
+              </div>
             </div>
+
           </div>
         </div>
       </section>
@@ -633,20 +594,79 @@ export default function CheeseCornerLandingPage() {
           </div>
 
           <p className="text-xs text-amber-200/70 text-center font-medium">
-            © {new Date().getFullYear()} Cheese Corner. Powered by OrderRail Digital Dining Platform.
+            © {new Date().getFullYear()} Cheese Corner Café. All rights reserved.
           </p>
 
-          <div className="flex items-center gap-4 text-xs font-bold text-amber-200">
-            <Link to="/staff/login" className="hover:text-amber-400 transition-colors">Staff Login</Link>
-            <Link to="/owner" className="hover:text-amber-400 transition-colors">Owner Console</Link>
+          <div className="text-xs font-bold text-amber-300">
+            Official Gourmet Café Website
           </div>
         </div>
       </footer>
 
+      {/* ─── ORDER NOW INFORMATION MODAL ─── */}
+      {isOrderNowModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+          onClick={() => setIsOrderNowModalOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-md w-full overflow-hidden rounded-3xl border-2 border-white bg-white p-6 shadow-2xl text-[#451A03]"
+          >
+            <button
+              onClick={() => setIsOrderNowModalOpen(false)}
+              className="absolute top-4 right-4 grid h-8 w-8 place-items-center rounded-full bg-amber-100 text-amber-900 hover:bg-amber-200 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="text-center">
+              <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md">
+                <QrCode className="h-7 w-7" />
+              </div>
+
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-900">
+                Dine-In Table Ordering
+              </span>
+
+              <h3 className="mt-3 font-display text-2xl font-black text-amber-950">
+                Scan Your Table QR Code
+              </h3>
+
+              <p className="mt-3 text-sm text-amber-900/80 leading-relaxed font-medium">
+                To place a dine-in order, simply scan the QR code available at your table inside Cheese Corner.
+              </p>
+
+              <div className="my-5 flex items-center justify-center rounded-2xl bg-[#FFFBEB] p-4 border border-amber-200">
+                <img
+                  src={CHEESE_CORNER_CONFIG.qrStandUrl}
+                  alt="Cheese Corner QR Stand"
+                  className="h-36 w-auto object-contain drop-shadow-md"
+                />
+              </div>
+
+              <p className="text-xs font-bold text-amber-700/90 mb-5">
+                Visit us to experience instant QR dining!
+              </p>
+
+              <button
+                onClick={() => setIsOrderNowModalOpen(false)}
+                className="w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-extrabold text-white shadow-md transition hover:from-amber-600 hover:to-orange-600 active:scale-95"
+              >
+                Got It
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* ─── LIGHTBOX MODAL FOR POSTERS ─── */}
       {selectedPoster && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
           onClick={() => setSelectedPoster(null)}
         >
           <div className="relative max-w-3xl max-h-[90vh] overflow-hidden rounded-3xl border-4 border-white">
