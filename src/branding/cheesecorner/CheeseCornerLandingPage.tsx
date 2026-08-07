@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Flame, 
@@ -12,7 +12,8 @@ import {
   Maximize2,
   QrCode,
   Sparkles,
-  Info
+  ChevronRight,
+  Compass
 } from "lucide-react";
 import { CHEESE_CORNER_CONFIG } from "./config";
 import { useCafe } from "@/lib/cafe";
@@ -102,8 +103,17 @@ export default function CheeseCornerLandingPage() {
   const { items, categories, isLoading } = useMenu(cafeId);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [selectedPoster, setSelectedPoster] = useState<string | null>(null);
-  const [heroImageError, setHeroImageError] = useState(false);
   const [isOrderNowModalOpen, setIsOrderNowModalOpen] = useState(false);
+  const [currentPosterIndex, setCurrentPosterIndex] = useState(0);
+  const [posterErrors, setPosterErrors] = useState<Record<string, boolean>>({});
+
+  // Auto-rotate hero posters every 6 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentPosterIndex((prev) => (prev + 1) % CHEESE_CORNER_CONFIG.posters.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Filter menu preview items based on active tab
   const filteredPreviewItems = useMemo(() => {
@@ -118,6 +128,8 @@ export default function CheeseCornerLandingPage() {
       );
     });
   }, [items, categories, activeCategory]);
+
+  const activeHeroPoster = CHEESE_CORNER_CONFIG.posters[currentPosterIndex];
 
   return (
     <div className="min-h-screen bg-[#FFFBEB] text-[#451A03] font-sans antialiased selection:bg-amber-400/40">
@@ -160,15 +172,15 @@ export default function CheeseCornerLandingPage() {
         </div>
       </header>
 
-      {/* ─── HERO SECTION ─── */}
+      {/* ─── HERO SECTION (MILESTONE 1 & 6) ─── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-amber-100/80 via-[#FFFBEB] to-[#FFFBEB] pt-10 pb-16 md:pt-16 md:pb-24">
-        {/* Decorative Cheese Circles */}
         <div className="pointer-events-none absolute top-10 left-[-5%] h-72 w-72 rounded-full bg-amber-300/20 blur-3xl" />
         <div className="pointer-events-none absolute top-40 right-[-5%] h-96 w-96 rounded-full bg-orange-400/20 blur-3xl" />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
-            {/* Left Content */}
+            
+            {/* Left Hero Content */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -191,13 +203,14 @@ export default function CheeseCornerLandingPage() {
                 {CHEESE_CORNER_CONFIG.subtitle}
               </p>
 
+              {/* Milestone 6: Renamed Primary CTA */}
               <div className="mt-8 flex flex-wrap gap-4 items-center">
                 <button
                   onClick={() => setIsOrderNowModalOpen(true)}
                   className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-7 py-3.5 text-sm font-extrabold text-white shadow-lg transition hover:shadow-xl hover:from-amber-600 hover:to-orange-600 active:scale-95"
                 >
                   <QrCode className="h-4 w-4" />
-                  <span>How To Order</span>
+                  <span>Dine-In Ordering</span>
                   <ArrowRight className="h-4 w-4" />
                 </button>
 
@@ -210,7 +223,6 @@ export default function CheeseCornerLandingPage() {
                 </a>
               </div>
 
-              {/* Quick Feature Badges */}
               <div className="mt-10 grid grid-cols-3 gap-3 border-t border-amber-200/80 pt-6">
                 <div>
                   <div className="font-display text-2xl font-black text-amber-950">100%</div>
@@ -227,7 +239,7 @@ export default function CheeseCornerLandingPage() {
               </div>
             </motion.div>
 
-            {/* Right Hero Poster Showcase */}
+            {/* Milestone 1: Rotating Hero Poster Showcase */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -235,49 +247,62 @@ export default function CheeseCornerLandingPage() {
               className="lg:col-span-5 relative"
             >
               <div className="relative mx-auto max-w-md overflow-hidden rounded-3xl border-4 border-white bg-amber-200 p-2 shadow-2xl">
-                {!heroImageError ? (
-                  <img
-                    src={CHEESE_CORNER_CONFIG.posters[0].image}
-                    alt="Cheese Corner Gourmet Burger Poster"
-                    onError={() => setHeroImageError(true)}
-                    className="h-[440px] w-full rounded-2xl object-cover shadow-sm transition-transform duration-500 hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-[440px] w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 p-6 text-center text-white shadow-inner">
-                    <img
-                      src={CHEESE_CORNER_CONFIG.logoUrl}
-                      alt="Cheese Corner Logo"
-                      className="h-20 w-20 object-contain drop-shadow-md mb-4"
-                    />
-                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black uppercase tracking-wider backdrop-blur-md">
-                      {CHEESE_CORNER_CONFIG.posters[0].tag}
-                    </span>
-                    <h3 className="mt-3 font-display text-2xl font-black">
-                      {CHEESE_CORNER_CONFIG.name}
-                    </h3>
-                    <p className="mt-1 text-xs text-amber-100 max-w-xs font-medium">
-                      {CHEESE_CORNER_CONFIG.posters[0].title}
-                    </p>
-                  </div>
-                )}
-                
-                {/* Floating Tag Overlay */}
-                <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-white/40 bg-black/60 p-4 backdrop-blur-md text-white">
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-black">
-                      {CHEESE_CORNER_CONFIG.posters[0].tag}
-                    </span>
-                    <span className="text-xs font-bold text-amber-300">Freshly Grilled</span>
-                  </div>
-                  <h3 className="mt-1 font-display text-lg font-bold">
-                    {CHEESE_CORNER_CONFIG.posters[0].title}
-                  </h3>
-                  <p className="text-xs text-amber-100/80 line-clamp-1">
-                    {CHEESE_CORNER_CONFIG.posters[0].subtitle}
-                  </p>
+                <div className="relative h-[460px] w-full overflow-hidden rounded-2xl">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeHeroPoster.id}
+                      initial={{ opacity: 0, scale: 1.03 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.6 }}
+                      className="h-full w-full"
+                    >
+                      {!posterErrors[activeHeroPoster.id] ? (
+                        <img
+                          src={activeHeroPoster.image}
+                          alt={activeHeroPoster.title}
+                          onError={() => setPosterErrors(prev => ({ ...prev, [activeHeroPoster.id]: true }))}
+                          className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 p-6 text-center text-white">
+                          <img
+                            src={CHEESE_CORNER_CONFIG.logoUrl}
+                            alt="Logo"
+                            className="h-20 w-20 object-contain drop-shadow-md mb-3"
+                          />
+                          <h3 className="font-display text-2xl font-black">{activeHeroPoster.title}</h3>
+                          <p className="mt-1 text-xs text-amber-100 font-medium max-w-xs">{activeHeroPoster.subtitle}</p>
+                        </div>
+                      )}
+
+                      {/* Bottom Gradient Overlay */}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-5 text-white">
+                        <div className="flex items-center justify-between">
+                          <span className="rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-black">
+                            {activeHeroPoster.tag}
+                          </span>
+                          <div className="flex gap-1.5">
+                            {CHEESE_CORNER_CONFIG.posters.map((_, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setCurrentPosterIndex(idx)}
+                                className={`h-2 rounded-full transition-all ${
+                                  idx === currentPosterIndex ? "w-6 bg-amber-400" : "w-2 bg-white/50"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <h3 className="mt-2 font-display text-xl font-bold">{activeHeroPoster.title}</h3>
+                        <p className="text-xs text-amber-100/90 line-clamp-1 mt-0.5">{activeHeroPoster.subtitle}</p>
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
               </div>
             </motion.div>
+
           </div>
         </div>
       </section>
@@ -297,7 +322,6 @@ export default function CheeseCornerLandingPage() {
             </p>
           </div>
 
-          {/* Highlights Grid */}
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {CHEESE_CORNER_CONFIG.about.highlights.map((h, i) => (
               <motion.div
@@ -437,7 +461,7 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── GALLERY SECTION (POSTERS) ─── */}
+      {/* ─── GALLERY SECTION (MILESTONES 4 & 5) ─── */}
       <section id="gallery" className="border-t border-amber-200/60 bg-[#FFFBEB] py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-12">
@@ -448,7 +472,7 @@ export default function CheeseCornerLandingPage() {
               Café Poster Gallery
             </h2>
             <p className="mt-2 text-sm text-amber-900/80 font-medium">
-              High-resolution promotional poster artwork from Cheese Corner.
+              High-resolution promotional artwork from Cheese Corner.
             </p>
           </div>
 
@@ -460,27 +484,37 @@ export default function CheeseCornerLandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.1 }}
-                className="group relative overflow-hidden rounded-3xl border-2 border-white bg-amber-200 shadow-md transition-all hover:shadow-xl"
+                onClick={() => setSelectedPoster(poster.image)}
+                className="group relative cursor-pointer overflow-hidden rounded-3xl border-4 border-white bg-amber-200 shadow-md transition-all duration-300 hover:shadow-2xl"
               >
-                <img
-                  src={poster.image}
-                  alt={poster.title}
-                  className="h-[380px] w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6 flex flex-col justify-end text-white">
+                {!posterErrors[poster.id] ? (
+                  <img
+                    src={poster.image}
+                    alt={poster.title}
+                    onError={() => setPosterErrors(prev => ({ ...prev, [poster.id]: true }))}
+                    className="h-[440px] w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-[440px] w-full flex-col items-center justify-center bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 p-6 text-center text-white">
+                    <img src={CHEESE_CORNER_CONFIG.logoUrl} alt="Logo" className="h-16 w-16 object-contain mb-3" />
+                    <h3 className="font-display text-xl font-bold">{poster.title}</h3>
+                    <p className="text-xs text-amber-100 max-w-xs">{poster.subtitle}</p>
+                  </div>
+                )}
+
+                {/* Promotional Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-6 flex flex-col justify-end text-white">
                   <span className="inline-self-start rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-black w-max mb-2">
                     {poster.tag}
                   </span>
-                  <h3 className="font-display text-xl font-bold">{poster.title}</h3>
-                  <p className="text-xs text-amber-100/90 mt-1 line-clamp-2">{poster.subtitle}</p>
+                  <h3 className="font-display text-xl font-bold text-white group-hover:text-amber-300 transition-colors">
+                    {poster.title}
+                  </h3>
+                  <p className="text-xs text-amber-100/90 mt-1 line-clamp-2 font-medium">{poster.subtitle}</p>
                   
-                  <button
-                    onClick={() => setSelectedPoster(poster.image)}
-                    className="mt-4 flex items-center gap-1.5 text-xs font-extrabold text-amber-300 hover:text-white transition-colors"
-                  >
+                  <div className="mt-4 flex items-center gap-1.5 text-xs font-extrabold text-amber-300 group-hover:translate-x-1 transition-transform">
                     <Maximize2 className="h-3.5 w-3.5" /> View Full Poster
-                  </button>
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -488,99 +522,63 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── LOCATION & CONTACT SECTION ─── */}
+      {/* ─── LOCATION & CONTACT SECTION (MILESTONE 2: CLEAN SINGLE LOCATION BLOCK) ─── */}
       <section id="contact" className="border-t border-amber-200/60 bg-white py-16 md:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid gap-8 md:grid-cols-2">
-            
-            {/* Location & Contact Details */}
-            <div className="rounded-3xl border border-amber-200 bg-[#FFFBEB] p-8 shadow-sm space-y-6">
-              <div>
-                <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
-                  Visit Cheese Corner
-                </span>
-                <h2 className="mt-2 font-display text-3xl font-black text-amber-950">
-                  Location & Contact
-                </h2>
-                <p className="mt-2 text-sm text-amber-900/80 font-medium">
-                  We'd love to serve you fresh melted comfort food at our café.
-                </p>
+        <div className="mx-auto max-w-4xl px-4 sm:px-6">
+          <div className="rounded-3xl border-2 border-amber-200 bg-[#FFFBEB] p-8 md:p-12 shadow-sm space-y-8">
+            <div className="text-center max-w-xl mx-auto">
+              <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
+                Visit Cheese Corner
+              </span>
+              <h2 className="mt-2 font-display text-3xl font-black text-amber-950 sm:text-4xl">
+                Location & Operating Hours
+              </h2>
+              <p className="mt-2 text-sm text-amber-900/80 font-medium">
+                We'd love to serve you fresh melted comfort food at our café.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 text-sm">
+              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-amber-200/70 shadow-sm">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-900">
+                  <MapPin className="h-6 w-6 text-orange-600" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-amber-950 text-base">Café Address</div>
+                  <div className="text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.address}</div>
+                </div>
               </div>
 
-              <div className="space-y-5 text-sm">
-                <div className="flex items-start gap-4">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/80 text-amber-900">
-                    <MapPin className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="font-extrabold text-amber-950">Café Address</div>
-                    <div className="text-amber-900/80 mt-0.5">{CHEESE_CORNER_CONFIG.contact.address}</div>
-                  </div>
+              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-amber-200/70 shadow-sm">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-900">
+                  <Phone className="h-6 w-6 text-orange-600" />
                 </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/80 text-amber-900">
-                    <Phone className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="font-extrabold text-amber-950">Phone & Inquiries</div>
-                    <div className="text-amber-900/80 mt-0.5">{CHEESE_CORNER_CONFIG.contact.phone}</div>
-                  </div>
+                <div>
+                  <div className="font-extrabold text-amber-950 text-base">Phone & Inquiries</div>
+                  <div className="text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.phone}</div>
                 </div>
+              </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/80 text-amber-900">
-                    <Instagram className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="font-extrabold text-amber-950">Instagram</div>
-                    <div className="text-amber-900/80 mt-0.5">{CHEESE_CORNER_CONFIG.contact.instagram}</div>
-                  </div>
+              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-amber-200/70 shadow-sm">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-900">
+                  <Instagram className="h-6 w-6 text-orange-600" />
                 </div>
+                <div>
+                  <div className="font-extrabold text-amber-950 text-base">Instagram</div>
+                  <div className="text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.instagram}</div>
+                </div>
+              </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/80 text-amber-900">
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="font-extrabold text-amber-950">Opening Hours</div>
-                    <div className="text-amber-900/80 mt-0.5">{CHEESE_CORNER_CONFIG.contact.hours}</div>
-                  </div>
+              <div className="flex items-start gap-4 rounded-2xl bg-white p-5 border border-amber-200/70 shadow-sm">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-900">
+                  <Clock className="h-6 w-6 text-orange-600" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-amber-950 text-base">Opening Hours</div>
+                  <div className="text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.hours}</div>
                 </div>
               </div>
             </div>
-
-            {/* In-House Dine-In QR Ordering Information Card */}
-            <div className="flex flex-col justify-between rounded-3xl border-2 border-amber-200 bg-gradient-to-br from-amber-500 via-amber-600 to-orange-600 p-8 text-white shadow-lg">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3.5 py-1 text-xs font-black uppercase tracking-wider backdrop-blur-md">
-                  <QrCode className="h-4 w-4" /> Dine-In Ordering
-                </div>
-                
-                <h3 className="mt-4 font-display text-3xl font-black leading-tight">
-                  How To Order At Cheese Corner
-                </h3>
-                
-                <p className="mt-3 text-sm text-amber-100 leading-relaxed font-medium">
-                  To place a dine-in order, simply scan the QR code available at your table inside Cheese Corner using your smartphone camera.
-                </p>
-
-                <div className="my-6 flex items-center justify-center rounded-2xl bg-white/10 p-4 backdrop-blur-md border border-white/20">
-                  <img
-                    src={CHEESE_CORNER_CONFIG.qrStandUrl}
-                    alt="Cheese Corner QR Stand"
-                    className="h-40 w-auto object-contain drop-shadow-lg"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-black/30 p-4 backdrop-blur-md border border-white/10 text-center">
-                <p className="text-xs font-bold text-amber-200">
-                  Visit us in person to experience contactless table ordering!
-                </p>
-              </div>
-            </div>
-
           </div>
         </div>
       </section>
@@ -603,10 +601,10 @@ export default function CheeseCornerLandingPage() {
         </div>
       </footer>
 
-      {/* ─── ORDER NOW INFORMATION MODAL ─── */}
+      {/* ─── MILESTONE 3: REDESIGNED ORDER NOW MODAL ─── */}
       {isOrderNowModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
           onClick={() => setIsOrderNowModalOpen(false)}
         >
           <motion.div
@@ -624,37 +622,50 @@ export default function CheeseCornerLandingPage() {
             </button>
 
             <div className="text-center">
-              <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md">
-                <QrCode className="h-7 w-7" />
+              <div className="mx-auto mb-3 flex items-center justify-center gap-2">
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                  <QrCode className="h-3.5 w-3.5 text-orange-600" /> Table QR Ordering
+                </span>
               </div>
 
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-900">
-                Dine-In Table Ordering
-              </span>
-
-              <h3 className="mt-3 font-display text-2xl font-black text-amber-950">
-                Scan Your Table QR Code
+              <h3 className="font-display text-2xl font-black text-amber-950">
+                Dine-In At Cheese Corner
               </h3>
 
-              <p className="mt-3 text-sm text-amber-900/80 leading-relaxed font-medium">
-                To place a dine-in order, simply scan the QR code available at your table inside Cheese Corner.
-              </p>
-
-              <div className="my-5 flex items-center justify-center rounded-2xl bg-[#FFFBEB] p-4 border border-amber-200">
-                <img
-                  src={CHEESE_CORNER_CONFIG.qrStandUrl}
-                  alt="Cheese Corner QR Stand"
-                  className="h-36 w-auto object-contain drop-shadow-md"
-                />
+              {/* Substantially Enlarged QR Stand Image */}
+              <div className="my-4 flex justify-center">
+                <div className="rounded-2xl border-2 border-amber-200 bg-[#FFFBEB] p-4 shadow-md">
+                  <img
+                    src={CHEESE_CORNER_CONFIG.qrStandUrl}
+                    alt="Cheese Corner QR Stand"
+                    className="h-56 w-auto object-contain drop-shadow-xl hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
               </div>
 
-              <p className="text-xs font-bold text-amber-700/90 mb-5">
-                Visit us to experience instant QR dining!
-              </p>
+              {/* Clean 4-Step Instructions */}
+              <div className="my-4 grid grid-cols-2 gap-2 text-left text-xs font-medium text-amber-900">
+                <div className="rounded-xl bg-amber-50 p-2.5 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950">1. Visit Café</div>
+                  <div className="text-amber-800/80 text-[11px] mt-0.5">Drop by Cheese Corner.</div>
+                </div>
+                <div className="rounded-xl bg-amber-50 p-2.5 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950">2. Take A Seat</div>
+                  <div className="text-amber-800/80 text-[11px] mt-0.5">Find any dining table.</div>
+                </div>
+                <div className="rounded-xl bg-amber-50 p-2.5 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950">3. Scan QR</div>
+                  <div className="text-amber-800/80 text-[11px] mt-0.5">Scan card on your table.</div>
+                </div>
+                <div className="rounded-xl bg-amber-50 p-2.5 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950">4. Order Live</div>
+                  <div className="text-amber-800/80 text-[11px] mt-0.5">Browse menu & order!</div>
+                </div>
+              </div>
 
               <button
                 onClick={() => setIsOrderNowModalOpen(false)}
-                className="w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-extrabold text-white shadow-md transition hover:from-amber-600 hover:to-orange-600 active:scale-95"
+                className="mt-2 w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-sm font-extrabold text-white shadow-md transition hover:from-amber-600 hover:to-orange-600 active:scale-95"
               >
                 Got It
               </button>
