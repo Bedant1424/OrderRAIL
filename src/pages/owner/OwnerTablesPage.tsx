@@ -16,27 +16,27 @@ import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
-// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11J)
+// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11K)
 const TEMPLATE_LAYOUT = {
   templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
 
   // Reserved Table Number Rounded White Rectangle (under "Table" heading)
   tableArea: {
     x: 511, // Horizontally centered (1023 / 2)
-    y: 445, // Vertically centered inside the white rectangle under "Table"
-    font: "900 48px 'Outfit', 'Inter', sans-serif",
+    y: 508, // Vertically centered inside the white rectangle under "Table" heading
+    font: "900 46px 'Outfit', 'Inter', sans-serif",
     color: "#321300",
   },
 
   // QR Placement Region inside Cream Container Box
   qrArea: {
-    cardX: (1023 - 420) / 2, // 301.5px
-    cardY: 640,
-    cardSize: 420,
-    borderRadius: 28,
-    qrX: (1023 - 360) / 2, // 331.5px
-    qrY: 670,
-    qrSize: 360,
+    cardX: (1023 - 370) / 2, // 326.5px (Modestly reduced white backing card - Issue 5)
+    cardY: 625,               // Optical centered vertically inside cream box
+    cardSize: 370,
+    borderRadius: 24,
+    qrX: (1023 - 310) / 2,   // 356.5px (Modestly reduced QR size - Issue 6)
+    qrY: 655,                 // Optical centered inside white backing card (Issue 4)
+    qrSize: 310,
   },
 };
 
@@ -52,7 +52,7 @@ export const generateQRArtwork = async (
     const templateImg = new Image();
     templateImg.crossOrigin = "anonymous";
     templateImg.onload = () => {
-      // 1. Render Artwork at Native Dimensions (Issue 1)
+      // 1. Draw Artwork Template at Native Dimensions (Issue 1 & 3 Order Step 1)
       const nativeWidth = templateImg.naturalWidth || templateImg.width || 1023;
       const nativeHeight = templateImg.naturalHeight || templateImg.height || 1537;
       canvas.width = nativeWidth;
@@ -63,24 +63,9 @@ export const generateQRArtwork = async (
         return;
       }
 
-      // Draw artwork template without stretching or compressing
       ctx.drawImage(templateImg, 0, 0, nativeWidth, nativeHeight);
 
-      // 2. Render ONLY Numeric Table Number inside White Rounded Rectangle (Issue 4 & 5)
-      const numericOnly = tableLabel.replace(/^[^\d]*/, "") || tableLabel;
-      const fontSize = numericOnly.length > 2 ? 38 : 48;
-
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = TEMPLATE_LAYOUT.tableArea.color;
-      ctx.font = `900 ${fontSize}px 'Outfit', 'Inter', sans-serif`;
-      ctx.fillText(
-        numericOnly,
-        TEMPLATE_LAYOUT.tableArea.x,
-        TEMPLATE_LAYOUT.tableArea.y
-      );
-
-      // 3. Draw White Backing Card inside Cream QR Placeholder (Issue 2)
+      // 2. Draw White QR Backing Card (Issue 3 Order Step 2 & Issue 5)
       const { cardX, cardY, cardSize, borderRadius: r, qrX, qrY, qrSize } = TEMPLATE_LAYOUT.qrArea;
 
       ctx.beginPath();
@@ -104,10 +89,24 @@ export const generateQRArtwork = async (
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
 
-      // 4. Draw Dynamic QR Code (Issue 3 - Slightly reduced size with comfortable padding)
+      // 3. Draw Dynamic QR Code Image (Issue 3 Order Step 3 & Issue 4/6)
       ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
-      // 5. Export High-Res PNG
+      // 4. Render Numeric Table Number (Issue 3 Order Step 4 & Issue 1/2)
+      const numericOnly = tableLabel.replace(/^[^\d]*/, "") || tableLabel;
+      const fontSize = numericOnly.length > 2 ? 36 : 46;
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = TEMPLATE_LAYOUT.tableArea.color;
+      ctx.font = `900 ${fontSize}px 'Outfit', 'Inter', sans-serif`;
+      ctx.fillText(
+        numericOnly,
+        TEMPLATE_LAYOUT.tableArea.x,
+        TEMPLATE_LAYOUT.tableArea.y
+      );
+
+      // 5. Export PNG (Issue 3 Order Step 5)
       resolve(canvas.toDataURL("image/png"));
     };
 
