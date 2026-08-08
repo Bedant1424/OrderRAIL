@@ -16,18 +16,30 @@ import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
-// Layout Configuration Object for High-Res Branded QR Artwork Template
-const QR_ARTWORK_LAYOUT = {
+// Structured Layout Regions for Branded QR Artwork Compositing
+const TEMPLATE_LAYOUT = {
   width: 784,
   height: 1360,
   templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
-  qrSize: 320,
-  qrX: (784 - 320) / 2, // 232px
-  qrY: 480,
-  tableLabelX: 392,
-  tableLabelY: 965,
-  tableLabelFont: "900 44px 'Outfit', 'Inter', sans-serif",
-  tableLabelColor: "#321300",
+
+  // Reserved Title Area between Logo and QR Placeholder
+  tableArea: {
+    x: 392,
+    y: 395,
+    font: "900 48px 'Outfit', 'Inter', sans-serif",
+    color: "#321300",
+  },
+
+  // QR Placement Region inside Cream Placeholder Box
+  qrArea: {
+    cardX: (784 - 340) / 2, // 222px
+    cardY: 515,
+    cardSize: 340,
+    borderRadius: 24,
+    qrX: (784 - 296) / 2, // 244px
+    qrY: 537,
+    qrSize: 296,
+  },
 };
 
 export const generateQRArtwork = async (
@@ -37,8 +49,8 @@ export const generateQRArtwork = async (
 ): Promise<string> => {
   return new Promise((resolve) => {
     const canvas = document.createElement("canvas");
-    canvas.width = QR_ARTWORK_LAYOUT.width;
-    canvas.height = QR_ARTWORK_LAYOUT.height;
+    canvas.width = TEMPLATE_LAYOUT.width;
+    canvas.height = TEMPLATE_LAYOUT.height;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       resolve("");
@@ -51,53 +63,43 @@ export const generateQRArtwork = async (
       // 1. Draw Official Branded Background Artwork Template
       ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
 
-      // 2. Draw Clean White Backing Card for QR Code
-      const qrCardSize = QR_ARTWORK_LAYOUT.qrSize + 28;
-      const qrCardX = (canvas.width - qrCardSize) / 2;
-      const qrCardY = QR_ARTWORK_LAYOUT.qrY - 14;
-      const r = 24;
+      // 2. Draw Table Label in Reserved Upper Title Area (between logo & QR placeholder box)
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = TEMPLATE_LAYOUT.tableArea.color;
+      ctx.font = TEMPLATE_LAYOUT.tableArea.font;
+      ctx.fillText(
+        `TABLE ${tableLabel.toUpperCase()}`,
+        TEMPLATE_LAYOUT.tableArea.x,
+        TEMPLATE_LAYOUT.tableArea.y
+      );
+
+      // 3. Draw Fitted White Backing Card inside Cream QR Placeholder Box
+      const { cardX, cardY, cardSize, borderRadius: r, qrX, qrY, qrSize } = TEMPLATE_LAYOUT.qrArea;
 
       ctx.beginPath();
-      ctx.moveTo(qrCardX + r, qrCardY);
-      ctx.lineTo(qrCardX + qrCardSize - r, qrCardY);
-      ctx.quadraticCurveTo(qrCardX + qrCardSize, qrCardY, qrCardX + qrCardSize, qrCardY + r);
-      ctx.lineTo(qrCardX + qrCardSize, qrCardY + qrCardSize - r);
-      ctx.quadraticCurveTo(qrCardX + qrCardSize, qrCardY + qrCardSize, qrCardX + qrCardSize - r, qrCardY + qrCardSize);
-      ctx.lineTo(qrCardX + r, qrCardY + qrCardSize);
-      ctx.quadraticCurveTo(qrCardX, qrCardY + qrCardSize, qrCardX, qrCardY + qrCardSize - r);
-      ctx.lineTo(qrCardX, qrCardY + r);
-      ctx.quadraticCurveTo(qrCardX, qrCardY, qrCardX + r, qrCardY);
+      ctx.moveTo(cardX + r, cardY);
+      ctx.lineTo(cardX + cardSize - r, cardY);
+      ctx.quadraticCurveTo(cardX + cardSize, cardY, cardX + cardSize, cardY + r);
+      ctx.lineTo(cardX + cardSize, cardY + cardSize - r);
+      ctx.quadraticCurveTo(cardX + cardSize, cardY + cardSize, cardX + cardSize - r, cardY + cardSize);
+      ctx.lineTo(cardX + r, cardY + cardSize);
+      ctx.quadraticCurveTo(cardX, cardY + cardSize, cardX, cardY + cardSize - r);
+      ctx.lineTo(cardX, cardY + r);
+      ctx.quadraticCurveTo(cardX, cardY, cardX + r, cardY);
       ctx.closePath();
 
       ctx.fillStyle = "#FFFFFF";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.12)";
+      ctx.shadowColor = "rgba(50, 19, 0, 0.12)";
       ctx.shadowBlur = 24;
-      ctx.shadowOffsetY = 8;
+      ctx.shadowOffsetY = 6;
       ctx.fill();
 
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
 
-      // 3. Draw Dynamic QR Code
-      ctx.drawImage(
-        qrCanvas,
-        QR_ARTWORK_LAYOUT.qrX,
-        QR_ARTWORK_LAYOUT.qrY,
-        QR_ARTWORK_LAYOUT.qrSize,
-        QR_ARTWORK_LAYOUT.qrSize
-      );
-
-      // 4. Draw Dynamic Table Label
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = QR_ARTWORK_LAYOUT.tableLabelColor;
-      ctx.font = QR_ARTWORK_LAYOUT.tableLabelFont;
-      ctx.fillText(
-        `TABLE ${tableLabel.toUpperCase()}`,
-        QR_ARTWORK_LAYOUT.tableLabelX,
-        QR_ARTWORK_LAYOUT.tableLabelY
-      );
+      // 4. Draw Dynamic QR Code centered inside White Backing Card
+      ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
       resolve(canvas.toDataURL("image/png"));
     };
