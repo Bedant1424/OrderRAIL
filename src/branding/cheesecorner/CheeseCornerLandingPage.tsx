@@ -19,13 +19,39 @@ import {
   ShieldCheck,
   Zap,
   CheckCircle2,
-  ChevronDown
+  ChevronDown,
+  Pizza,
+  ChefHat,
+  CookingPot,
+  GlassWater,
+  CupSoda,
+  IceCream,
+  UtensilsCrossed,
+  Sandwich,
+  ConciergeBell
 } from "lucide-react";
 import { CHEESE_CORNER_CONFIG } from "./config";
 import { useCafe } from "@/lib/cafe";
 import { useMenu, type ProductionMenuItem } from "@/hooks/useMenu";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { formatMoney } from "@/lib/db";
+
+// ─── PREMIUM LUCIDE ICON RENDERER ───
+function CategoryLucideIcon({ icon, className = "h-6 w-6" }: { icon: string; className?: string }) {
+  switch (icon) {
+    case "pizza": return <Pizza className={className} />;
+    case "burger": return <ChefHat className={className} />;
+    case "fries": return <Flame className={className} />;
+    case "maggi": return <CookingPot className={className} />;
+    case "pasta": return <UtensilsCrossed className={className} />;
+    case "sandwich": return <Sandwich className={className} />;
+    case "wrap": return <ConciergeBell className={className} />;
+    case "mojito": return <GlassWater className={className} />;
+    case "shake": return <CupSoda className={className} />;
+    case "dessert": return <IceCream className={className} />;
+    default: return <Utensils className={className} />;
+  }
+}
 
 // ─── HERO POSTER & FOOD SHOWCASE CAROUSEL ───
 function HeroPosterCarousel() {
@@ -432,9 +458,11 @@ export default function CheeseCornerLandingPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.08 }}
                 whileHover={{ y: -6 }}
-                className="rounded-[2rem] bg-[#FFFBEB] p-6 text-center transition-all duration-300 hover:shadow-lg border border-amber-200/50"
+                className="group rounded-[2rem] bg-[#FFFBEB] p-6 text-center transition-all duration-300 hover:shadow-lg border border-amber-200/50"
               >
-                <div className="text-5xl mb-3">{h.icon}</div>
+                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100/80 text-orange-600 mb-4 mx-auto group-hover:scale-110 group-hover:bg-orange-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                  <CategoryLucideIcon icon={h.icon} className="h-7 w-7" />
+                </div>
                 <h3 className="font-display text-lg font-extrabold text-amber-950">{h.name}</h3>
                 <span className="inline-block my-1.5 rounded-full bg-amber-200/80 px-3 py-0.5 text-[11px] font-black text-amber-950">
                   {h.count}
@@ -623,7 +651,9 @@ export default function CheeseCornerLandingPage() {
                 className="cursor-pointer group relative overflow-hidden rounded-[2rem] bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 border border-amber-100"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-4xl transition-transform duration-300 group-hover:scale-110">{cat.icon}</span>
+                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-100/80 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                    <CategoryLucideIcon icon={cat.icon} className="h-6 w-6" />
+                  </div>
                   <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[9px] font-black tracking-widest text-amber-950 uppercase">
                     {cat.badge}
                   </span>
