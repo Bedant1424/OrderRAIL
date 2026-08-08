@@ -306,11 +306,11 @@ export default function CheeseCornerLandingPage() {
           </div>
 
           <nav className="hidden lg:flex items-center gap-8 text-sm font-extrabold text-amber-950/80">
-            <a href="#about" className="hover:text-orange-600 transition-colors">About Us</a>
-            <a href="#recommendations" className="hover:text-orange-600 transition-colors">Chef Specials</a>
-            <a href="#categories" className="hover:text-orange-600 transition-colors">Categories</a>
-            <a href="#menu-preview" className="hover:text-orange-600 transition-colors">Menu</a>
-            <a href="#fresh-kitchen" className="hover:text-orange-600 transition-colors">Signature Dishes</a>
+            <a href="#why-choose" className="hover:text-orange-600 transition-colors">Why Choose Us</a>
+            <a href="#specials" className="hover:text-orange-600 transition-colors">Chef's Specials</a>
+            <a href="#menu" className="hover:text-orange-600 transition-colors">Menu</a>
+            <a href="#qr-ordering" className="hover:text-orange-600 transition-colors">Dine-In QR</a>
+            <a href="#gallery" className="hover:text-orange-600 transition-colors">Gallery</a>
             <a href="#contact" className="hover:text-orange-600 transition-colors">Location</a>
           </nav>
 
@@ -434,22 +434,22 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── ABOUT & CAFE VALUES SECTION ─── */}
-      <section id="about" className="bg-white py-20 md:py-28">
+      {/* ─── WHY CHOOSE CHEESE CORNER ─── */}
+      <section id="why-choose" className="bg-white py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-              Welcome to Cheese Corner
+              Handcrafted Quality
             </span>
-            <h2 className="mt-2 font-display text-3xl sm:text-5xl font-black text-amber-950">
-              {CHEESE_CORNER_CONFIG.about.title}
+            <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+              Why Choose Us
             </h2>
-            <p className="mt-4 text-base sm:text-lg text-amber-900/80 leading-relaxed font-medium">
-              {CHEESE_CORNER_CONFIG.about.description}
+            <p className="mt-2 text-sm text-amber-900/80 font-medium">
+              Real ingredients, signature house sauces & melted cheese in every bite.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {CHEESE_CORNER_CONFIG.about.highlights.map((h, i) => (
               <motion.div
                 key={h.name}
@@ -476,18 +476,18 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── CHEF'S RECOMMENDATIONS (FRESH RESTAURANT CONTENT) ─── */}
-      <section id="recommendations" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-20 md:py-28">
+      {/* ─── CHEF'S SPECIALS ─── */}
+      <section id="specials" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
+          <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-              Chef's Special Selection
+              Kitchen Selection
             </span>
-            <h2 className="mt-2 font-display text-3xl sm:text-5xl font-black text-amber-950">
-              Fresh From The Kitchen
+            <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+              Chef's Specials
             </h2>
-            <p className="mt-3 text-sm sm:text-base text-amber-900/80 font-medium">
-              Hand-picked customer favorites prepared to order with pure melted cheese & artisanal ingredients.
+            <p className="mt-2 text-sm text-amber-900/80 font-medium">
+              Hand-picked customer favorites prepared fresh to order.
             </p>
           </div>
 
@@ -619,78 +619,24 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── FEATURED CATEGORIES SECTION ─── */}
-      <section id="categories" className="bg-[#FFFBEB] py-20 md:py-28">
+      {/* ─── MENU ─── */}
+      <section id="menu" className="bg-white py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-              Explore Our Menu Categories
-            </span>
-            <h2 className="mt-2 font-display text-3xl sm:text-5xl font-black text-amber-950">
-              10 Signature Categories
-            </h2>
-            <p className="mt-3 text-sm sm:text-base text-amber-900/80 font-medium">
-              From overflowing cheesy pizzas to icy mojitos, find your favorite comfort craving.
-            </p>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-            {CHEESE_CORNER_CONFIG.categories.map((cat, i) => (
-              <motion.div
-                key={cat.id}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.35, delay: i * 0.05 }}
-                whileHover={{ scale: 1.03, y: -4 }}
-                onClick={() => {
-                  setActiveCategory(cat.id);
-                  const el = document.getElementById("menu-preview");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="cursor-pointer group relative overflow-hidden rounded-[2rem] bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 border border-amber-100"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-100/80 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-all duration-300 shadow-sm">
-                    <CategoryLucideIcon icon={cat.icon} className="h-6 w-6" />
-                  </div>
-                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[9px] font-black tracking-widest text-amber-950 uppercase">
-                    {cat.badge}
-                  </span>
-                </div>
-                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
-                  {cat.name}
-                </h3>
-                <span className="text-xs font-black text-orange-600 block mt-1">
-                  {cat.count}
-                </span>
-                <p className="mt-2 text-xs text-amber-900/70 line-clamp-2 leading-relaxed font-medium">
-                  {cat.desc}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── MENU PREVIEW SECTION (PHASE 2: REDESIGNED CARDS) ─── */}
-      <section id="menu-preview" className="bg-white py-20 md:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
             <div>
               <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-                Live Kitchen Menu
+                Live Kitchen
               </span>
-              <h2 className="mt-1 font-display text-3xl sm:text-5xl font-black text-amber-950">
-                Menu Preview & Specialties
+              <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+                Menu
               </h2>
-              <p className="mt-2 text-sm text-amber-900/80 font-medium max-w-lg">
-                Explore real prices and dishes from Cheese Corner's live digital kitchen menu.
+              <p className="mt-1.5 text-sm text-amber-900/80 font-medium max-w-lg">
+                Explore real prices and dishes from our live digital kitchen menu.
               </p>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-2">
+            {/* Filter Chips */}
+            <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
               {[
                 { id: "all", label: "All Dishes" },
                 { id: "pizza", label: "Pizzas" },
@@ -702,7 +648,7 @@ export default function CheeseCornerLandingPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveCategory(tab.id)}
-                  className={`shrink-0 rounded-full px-5 py-2.5 text-xs font-black transition-all active:scale-95 ${
+                  className={`shrink-0 rounded-full px-5 py-2 text-xs font-black transition-all active:scale-95 ${
                     activeCategory === tab.id
                       ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20"
                       : "bg-amber-100/70 text-amber-950 hover:bg-amber-200/80"
@@ -735,18 +681,98 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── SIGNATURE FOOD SHOWCASE (FRESH KITCHEN CONTENT) ─── */}
-      <section id="fresh-kitchen" className="bg-[#FFFBEB] py-20 md:py-28">
+      {/* ─── DINE-IN QR ORDERING EXPERIENCE ─── */}
+      <section id="qr-ordering" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
+          <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
+            {/* Left: Branded QR Stand Artwork */}
+            <div className="lg:col-span-5 flex justify-center">
+              <div className="relative group overflow-hidden rounded-[2.5rem] border-4 border-white bg-white p-6 shadow-xl transition-all duration-500 hover:shadow-amber-500/10">
+                <img
+                  src={CHEESE_CORNER_CONFIG.qrStandUrl}
+                  alt="Cheese Corner Table QR Stand"
+                  className="h-80 sm:h-96 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+            </div>
+
+            {/* Right: 4-Step Process */}
+            <div className="lg:col-span-7">
+              <span className="text-xs font-black uppercase tracking-widest text-orange-600">
+                Dine-In QR Service
+              </span>
+              <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+                Order in 4 Easy Steps
+              </h2>
+              <p className="mt-2 text-sm text-amber-900/80 font-medium max-w-lg">
+                No waiting for paper menus. Scan the QR stand on your table to browse prices and order directly to your seat.
+              </p>
+
+              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-amber-100/80">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs">1</span>
+                    <h3 className="font-display font-extrabold text-amber-950 text-base">Visit Café</h3>
+                  </div>
+                  <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
+                    Drop by Cheese Corner on University Road & find your table.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-amber-100/80">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs">2</span>
+                    <h3 className="font-display font-extrabold text-amber-950 text-base">Take A Seat</h3>
+                  </div>
+                  <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
+                    Settle into your dining table with friends & family.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-amber-100/80">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs">3</span>
+                    <h3 className="font-display font-extrabold text-amber-950 text-base">Scan QR Stand</h3>
+                  </div>
+                  <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
+                    Point your camera at the acrylic QR card on your table.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-amber-100/80">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs">4</span>
+                    <h3 className="font-display font-extrabold text-amber-950 text-base">Order Live</h3>
+                  </div>
+                  <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
+                    Browse menu, customize options & send orders straight to kitchen.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsOrderNowModalOpen(true)}
+                className="mt-8 inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-7 py-3.5 text-xs font-black text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl active:scale-95"
+              >
+                <QrCode className="h-4 w-4" /> Scan & Order Live
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── GALLERY ─── */}
+      <section id="gallery" className="bg-[#FFFBEB] py-16 md:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-              Signature Food Showcase
+              Food Photography
             </span>
-            <h2 className="mt-2 font-display text-3xl sm:text-5xl font-black text-amber-950">
-              Customer Favorites & Specialties
+            <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+              Gallery
             </h2>
-            <p className="mt-3 text-sm sm:text-base text-amber-900/80 font-medium">
-              Handcrafted gourmet sourdough pizzas, double cheese burgers, loaded sides & ice-cold coolers.
+            <p className="mt-2 text-sm text-amber-900/80 font-medium">
+              A glimpse of gourmet pizzas, burgers & refreshing drinks prepared daily.
             </p>
           </div>
 
@@ -790,19 +816,19 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── LOCATION & CONTACT SECTION ─── */}
-      <section id="contact" className="bg-white py-20 md:py-28">
+      {/* ─── LOCATION & HOURS ─── */}
+      <section id="contact" className="bg-white py-16 md:py-24">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-[3rem] bg-[#FFFBEB] p-8 sm:p-12 md:p-16 shadow-sm border border-amber-200/60 space-y-10">
             <div className="text-center max-w-xl mx-auto">
               <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-                Visit Cheese Corner
+                Find Us
               </span>
-              <h2 className="mt-2 font-display text-3xl sm:text-4xl font-black text-amber-950">
-                Location & Operating Hours
+              <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+                Location & Hours
               </h2>
               <p className="mt-2 text-sm text-amber-900/80 font-medium">
-                Drop by our café for hot, melted comfort food served fresh daily.
+                Visit our café on University Road.
               </p>
             </div>
 
