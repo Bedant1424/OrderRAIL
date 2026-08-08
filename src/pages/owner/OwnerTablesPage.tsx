@@ -16,17 +16,17 @@ import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
-// Structured Layout Regions for Branded QR Artwork Compositing
+// Structured Layout Regions for Branded QR Artwork Compositing (Sprint 11G)
 const TEMPLATE_LAYOUT = {
   width: 784,
   height: 1360,
   templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
 
-  // Reserved Title Area between Logo and QR Placeholder
+  // Reserved Table Number Placeholder Area (under "Table" heading)
   tableArea: {
     x: 392,
     y: 395,
-    font: "900 48px 'Outfit', 'Inter', sans-serif",
+    font: "900 52px 'Outfit', 'Inter', sans-serif",
     color: "#321300",
   },
 
@@ -60,21 +60,24 @@ export const generateQRArtwork = async (
     const templateImg = new Image();
     templateImg.crossOrigin = "anonymous";
     templateImg.onload = () => {
-      // 1. Draw Official Branded Background Artwork Template
+      // 1. Draw Artwork Template
       ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
 
-      // 2. Draw Table Label in Reserved Upper Title Area (between logo & QR placeholder box)
+      // 2. Render ONLY Numeric Table Number inside Small Rounded White Rectangle (Task 3 & 4)
+      const numericOnly = tableLabel.replace(/^[^\d]*/, "") || tableLabel;
+      const fontSize = numericOnly.length > 2 ? 40 : 52;
+
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = TEMPLATE_LAYOUT.tableArea.color;
-      ctx.font = TEMPLATE_LAYOUT.tableArea.font;
+      ctx.font = `900 ${fontSize}px 'Outfit', 'Inter', sans-serif`;
       ctx.fillText(
-        `TABLE ${tableLabel.toUpperCase()}`,
+        numericOnly,
         TEMPLATE_LAYOUT.tableArea.x,
         TEMPLATE_LAYOUT.tableArea.y
       );
 
-      // 3. Draw Fitted White Backing Card inside Cream QR Placeholder Box
+      // 3. Draw White QR Backing Card inside Cream Placeholder Box
       const { cardX, cardY, cardSize, borderRadius: r, qrX, qrY, qrSize } = TEMPLATE_LAYOUT.qrArea;
 
       ctx.beginPath();
@@ -101,6 +104,7 @@ export const generateQRArtwork = async (
       // 4. Draw Dynamic QR Code centered inside White Backing Card
       ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
+      // 5. Export PNG
       resolve(canvas.toDataURL("image/png"));
     };
 
