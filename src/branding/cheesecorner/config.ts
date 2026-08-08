@@ -10,25 +10,84 @@ export const CHEESE_CORNER_CONFIG = {
 
   posters: [
     {
-      id: "poster-burger",
-      title: "Sizzling Gourmet Burgers",
-      subtitle: "Layered with double cheese, fresh veggies & house secret sauce",
-      image: "/branding/cheesecorner/posters/poster-burger.jpg",
+      id: "hero-burger",
+      title: "Sizzling Gourmet Cheese Burgers",
+      subtitle: "Hand-crafted patties layered with double cheddar, fresh crisp veggies & signature house sauce",
+      image: "/branding/cheesecorner/showcase/paneer-delight-burger.jpg",
       tag: "Chef's Special"
     },
     {
-      id: "poster-fries",
-      title: "Crispy Loaded Cheese Fries",
-      subtitle: "Golden crinkles tossed in piri piri & drenched in warm cheddar",
-      image: "/branding/cheesecorner/posters/poster-fries.jpg",
+      id: "hero-pizza",
+      title: "Artisanal Cheese Burst Pizzas",
+      subtitle: "Freshly tossed dough baked to perfection with rich mozzarella & gourmet herbs",
+      image: "/branding/cheesecorner/showcase/quattro-formaggi.jpg",
+      tag: "Customer Favorite"
+    },
+    {
+      id: "hero-fries",
+      title: "Loaded Piri Piri Cheese Fries",
+      subtitle: "Golden crispy crinkles tossed in zesty piri piri & drenched in warm melted cheese",
+      image: "/branding/cheesecorner/showcase/piri-piri-fries.jpg",
       tag: "Best Seller"
     },
     {
-      id: "poster-mojito",
-      title: "Handcrafted Cool Mojitos",
-      subtitle: "Refreshing mint, zesty lime & exotic fruit infusions",
-      image: "/branding/cheesecorner/posters/poster-mojito.jpg",
-      tag: "Coolers & Shakes"
+      id: "hero-mojito",
+      title: "Handcrafted Fruit & Mint Coolers",
+      subtitle: "Ice-cold refreshing muddled lime, fresh garden mint & exotic berry splashes",
+      image: "/branding/cheesecorner/showcase/strawberry-mojito.jpg",
+      tag: "Signature Drinks"
+    },
+    {
+      id: "hero-dessert",
+      title: "Sizzling Chocolate Brownie Sundae",
+      subtitle: "Warm fudgy brownie served on a hot skillet topped with vanilla bean ice cream & chocolate drip",
+      image: "/branding/cheesecorner/showcase/sizzling-brownie.jpg",
+      tag: "Sweet Indulgence"
+    }
+  ],
+
+  signatureGallery: [
+    {
+      id: "gal-pizza",
+      title: "Quattro Formaggi Pizza",
+      subtitle: "Four-cheese blend of mozzarella, cheddar, gouda & parmesan",
+      image: "/branding/cheesecorner/showcase/quattro-formaggi.jpg",
+      tag: "Gourmet Pizza"
+    },
+    {
+      id: "gal-burger",
+      title: "Double Cheese Burst Burger",
+      subtitle: "Double patty topped with caramelized onions & melted cheddar",
+      image: "/branding/cheesecorner/showcase/paneer-delight-burger.jpg",
+      tag: "Best Seller"
+    },
+    {
+      id: "gal-fries",
+      title: "Loaded Salsa Cheese Fries",
+      subtitle: "Crispy crinkle fries doused in tangy salsa & warm melted cheese",
+      image: "/branding/cheesecorner/showcase/salsa-cheese-fries.jpg",
+      tag: "Loaded Side"
+    },
+    {
+      id: "gal-mojito",
+      title: "Zesty Strawberry Mojito",
+      subtitle: "Chilled sparkling mocktail with crushed ice & fresh strawberries",
+      image: "/branding/cheesecorner/showcase/strawberry-mojito.jpg",
+      tag: "Refreshment"
+    },
+    {
+      id: "gal-dessert",
+      title: "Hot Sizzling Brownie",
+      subtitle: "Decadent dark chocolate brownie with vanilla ice cream",
+      image: "/branding/cheesecorner/showcase/sizzling-brownie.jpg",
+      tag: "Dessert"
+    },
+    {
+      id: "gal-poster",
+      title: "Cheese Corner Wall Poster Artwork",
+      subtitle: "Original promotional artwork from Cheese Corner Café",
+      image: "/branding/cheesecorner/posters/poster-burger.jpg",
+      tag: "Brand Artwork"
     }
   ],
 

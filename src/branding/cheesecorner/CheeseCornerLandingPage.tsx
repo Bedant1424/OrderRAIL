@@ -479,51 +479,51 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── GALLERY SECTION (MILESTONE 2: CLEAN RENDER) ─── */}
+      {/* ─── GALLERY SECTION (MILESTONE 3: SIGNATURE COLLECTION & MIXED MEDIA) ─── */}
       <section id="gallery" className="bg-[#FFFBEB] py-16 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-xs font-extrabold uppercase tracking-widest text-orange-600">
-              Visual Showcase
+              Signature Collection & Moments
             </span>
             <h2 className="mt-2 font-display text-3xl font-black text-amber-950 sm:text-4xl">
-              Café Poster Gallery
+              Inside Cheese Corner
             </h2>
             <p className="mt-2 text-sm text-amber-900/80 font-medium">
-              High-resolution promotional artwork from Cheese Corner.
+              Handcrafted gourmet pizzas, sizzling burgers, loaded sides, refreshing coolers & authentic café artwork.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
-            {CHEESE_CORNER_CONFIG.posters.map((poster, i) => (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {CHEESE_CORNER_CONFIG.signatureGallery.map((item, i) => (
               <motion.div
-                key={poster.id}
+                key={item.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.1 }}
-                onClick={() => setSelectedPoster(poster.image)}
-                className="group relative cursor-pointer overflow-hidden rounded-3xl bg-amber-200 shadow-md transition-all duration-300 hover:shadow-2xl"
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+                onClick={() => setSelectedPoster(item.image)}
+                className="group relative cursor-pointer overflow-hidden rounded-3xl bg-amber-200 shadow-md transition-all duration-300 hover:shadow-2xl h-[380px]"
               >
                 <img
-                  src={poster.image}
-                  alt={poster.title}
+                  src={item.image}
+                  alt={item.title}
                   loading="lazy"
-                  className="h-[440px] w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
 
-                {/* Subtle Overlay on Gallery Posters */}
+                {/* Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-6 flex flex-col justify-end text-white">
-                  <span className="inline-self-start rounded-full bg-amber-500 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-black w-max mb-2">
-                    {poster.tag}
+                  <span className="inline-self-start rounded-full bg-amber-400 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-black w-max mb-2">
+                    {item.tag}
                   </span>
                   <h3 className="font-display text-xl font-bold text-white group-hover:text-amber-300 transition-colors">
-                    {poster.title}
+                    {item.title}
                   </h3>
-                  <p className="text-xs text-amber-100/90 mt-1 line-clamp-2 font-medium">{poster.subtitle}</p>
+                  <p className="text-xs text-amber-100/90 mt-1 line-clamp-2 font-medium">{item.subtitle}</p>
                   
                   <div className="mt-4 flex items-center gap-1.5 text-xs font-extrabold text-amber-300 group-hover:translate-x-1 transition-transform">
-                    <Maximize2 className="h-3.5 w-3.5" /> View Full Poster
+                    <Maximize2 className="h-3.5 w-3.5" /> View High-Res Photo
                   </div>
                 </div>
               </motion.div>
