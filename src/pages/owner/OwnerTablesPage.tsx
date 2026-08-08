@@ -11,8 +11,24 @@ import { getTableStatus } from "@/lib/tables/occupancy";
 import { cn } from "@/lib/utils";
 import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 
+import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
+
 const QR_SIZE = 144;
 const QR_PADDING = 12;
+
+// Layout Configuration Object for High-Res Branded QR Artwork Template
+const QR_ARTWORK_LAYOUT = {
+  width: 784,
+  height: 1360,
+  templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
+  qrSize: 320,
+  qrX: (784 - 320) / 2, // 232px
+  qrY: 480,
+  tableLabelX: 392,
+  tableLabelY: 965,
+  tableLabelFont: "900 44px 'Outfit', 'Inter', sans-serif",
+  tableLabelColor: "#321300",
+};
 
 export const generateQRArtwork = async (
   tableLabel: string,
@@ -21,95 +37,85 @@ export const generateQRArtwork = async (
 ): Promise<string> => {
   return new Promise((resolve) => {
     const canvas = document.createElement("canvas");
-    canvas.width = 600;
-    canvas.height = 900;
+    canvas.width = QR_ARTWORK_LAYOUT.width;
+    canvas.height = QR_ARTWORK_LAYOUT.height;
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       resolve("");
       return;
     }
 
-    // 1. Draw Background
-    ctx.fillStyle = "#FAF8F6";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const templateImg = new Image();
+    templateImg.crossOrigin = "anonymous";
+    templateImg.onload = () => {
+      // 1. Draw Official Branded Background Artwork Template
+      ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
 
-    ctx.strokeStyle = "#E3DDD5";
-    ctx.lineWidth = 16;
-    ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+      // 2. Draw Clean White Backing Card for QR Code
+      const qrCardSize = QR_ARTWORK_LAYOUT.qrSize + 28;
+      const qrCardX = (canvas.width - qrCardSize) / 2;
+      const qrCardY = QR_ARTWORK_LAYOUT.qrY - 14;
+      const r = 24;
 
-    // 2. Draw Cafe Name / Branding
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+      ctx.beginPath();
+      ctx.moveTo(qrCardX + r, qrCardY);
+      ctx.lineTo(qrCardX + qrCardSize - r, qrCardY);
+      ctx.quadraticCurveTo(qrCardX + qrCardSize, qrCardY, qrCardX + qrCardSize, qrCardY + r);
+      ctx.lineTo(qrCardX + qrCardSize, qrCardY + qrCardSize - r);
+      ctx.quadraticCurveTo(qrCardX + qrCardSize, qrCardY + qrCardSize, qrCardX + qrCardSize - r, qrCardY + qrCardSize);
+      ctx.lineTo(qrCardX + r, qrCardY + qrCardSize);
+      ctx.quadraticCurveTo(qrCardX, qrCardY + qrCardSize, qrCardX, qrCardY + qrCardSize - r);
+      ctx.lineTo(qrCardX, qrCardY + r);
+      ctx.quadraticCurveTo(qrCardX, qrCardY, qrCardX + r, qrCardY);
+      ctx.closePath();
 
-    ctx.fillStyle = "#8C8375";
-    ctx.font = "bold 13px sans-serif";
-    ctx.fillText("WELCOME TO", canvas.width / 2, 80);
+      ctx.fillStyle = "#FFFFFF";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.12)";
+      ctx.shadowBlur = 24;
+      ctx.shadowOffsetY = 8;
+      ctx.fill();
 
-    ctx.fillStyle = "#1A1210";
-    ctx.font = "bold 32px Georgia, serif";
-    const displayCafe = cafeName.length > 25 ? cafeName.substring(0, 22) + "..." : cafeName;
-    ctx.fillText(displayCafe, canvas.width / 2, 125);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
 
-    ctx.strokeStyle = "#8C8375";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(canvas.width / 2 - 60, 165);
-    ctx.lineTo(canvas.width / 2 + 60, 165);
-    ctx.stroke();
+      // 3. Draw Dynamic QR Code
+      ctx.drawImage(
+        qrCanvas,
+        QR_ARTWORK_LAYOUT.qrX,
+        QR_ARTWORK_LAYOUT.qrY,
+        QR_ARTWORK_LAYOUT.qrSize,
+        QR_ARTWORK_LAYOUT.qrSize
+      );
 
-    // 3. Draw Table Number
-    ctx.fillStyle = "#E65F2B";
-    ctx.font = "bold 56px sans-serif";
-    ctx.fillText(`TABLE ${tableLabel.toUpperCase()}`, canvas.width / 2, 230);
+      // 4. Draw Dynamic Table Label
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = QR_ARTWORK_LAYOUT.tableLabelColor;
+      ctx.font = QR_ARTWORK_LAYOUT.tableLabelFont;
+      ctx.fillText(
+        `TABLE ${tableLabel.toUpperCase()}`,
+        QR_ARTWORK_LAYOUT.tableLabelX,
+        QR_ARTWORK_LAYOUT.tableLabelY
+      );
 
-    // 4. Draw QR Code card
-    ctx.fillStyle = "#FFFFFF";
-    const qrCardSize = 340;
-    const qrCardX = (canvas.width - qrCardSize) / 2;
-    const qrCardY = 300;
-    
-    const r = 24;
-    ctx.beginPath();
-    ctx.moveTo(qrCardX + r, qrCardY);
-    ctx.lineTo(qrCardX + qrCardSize - r, qrCardY);
-    ctx.quadraticCurveTo(qrCardX + qrCardSize, qrCardY, qrCardX + qrCardSize, qrCardY + r);
-    ctx.lineTo(qrCardX + qrCardSize, qrCardY + qrCardSize - r);
-    ctx.quadraticCurveTo(qrCardX + qrCardSize, qrCardY + qrCardSize, qrCardX + qrCardSize - r, qrCardY + qrCardSize);
-    ctx.lineTo(qrCardX + r, qrCardY + qrCardSize);
-    ctx.quadraticCurveTo(qrCardX, qrCardY + qrCardSize, qrCardX, qrCardY + qrCardSize - r);
-    ctx.lineTo(qrCardX, qrCardY + r);
-    ctx.quadraticCurveTo(qrCardX, qrCardY, qrCardX + r, qrCardY);
-    ctx.closePath();
-    
-    ctx.shadowColor = "rgba(26, 18, 16, 0.08)";
-    ctx.shadowBlur = 30;
-    ctx.shadowOffsetY = 10;
-    ctx.fill();
-    
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
+      resolve(canvas.toDataURL("image/png"));
+    };
 
-    const qrInnerSize = 280;
-    const qrInnerX = (canvas.width - qrInnerSize) / 2;
-    const qrInnerY = qrCardY + (qrCardSize - qrInnerSize) / 2;
-    ctx.drawImage(qrCanvas, qrInnerX, qrInnerY, qrInnerSize, qrInnerSize);
+    templateImg.onerror = () => {
+      // Fallback drawing if template image fails to load
+      ctx.fillStyle = "#FAF8F6";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#1A1210";
+      ctx.font = "bold 32px sans-serif";
+      ctx.fillText(cafeName, canvas.width / 2, 120);
+      ctx.fillText(`TABLE ${tableLabel}`, canvas.width / 2, 220);
+      ctx.drawImage(qrCanvas, (canvas.width - 300) / 2, 300, 300, 300);
+      resolve(canvas.toDataURL("image/png"));
+    };
 
-    // 5. Draw Helper instructions
-    ctx.fillStyle = "#1A1210";
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillText("Scan QR to Order & Pay", canvas.width / 2, 700);
-
-    ctx.fillStyle = "#8C8375";
-    ctx.font = "14px sans-serif";
-    ctx.fillText("No app download required · Pay at table", canvas.width / 2, 740);
-
-    // 6. Draw Footer branding
-    ctx.fillStyle = "#C2BCB2";
-    ctx.font = "11px sans-serif";
-    ctx.fillText("POWERED BY ORDERRAIL", canvas.width / 2, 830);
-
-    resolve(canvas.toDataURL("image/png"));
+    templateImg.src = QR_ARTWORK_LAYOUT.templateUrl;
   });
 };
 

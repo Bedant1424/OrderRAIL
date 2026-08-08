@@ -7,6 +7,7 @@ export const CHEESE_CORNER_CONFIG = {
   
   logoUrl: "/branding/cheesecorner/logo/logo.png",
   qrStandUrl: "/branding/cheesecorner/qr/qr-stand.png",
+  qrArtworkTemplate: "/branding/cheesecorner/qr/qr-stand.png",
 
   posters: [
     {
