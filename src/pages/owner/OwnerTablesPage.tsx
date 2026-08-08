@@ -16,27 +16,27 @@ import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
-// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11K)
+// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11L)
 const TEMPLATE_LAYOUT = {
   templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
 
   // Reserved Table Number Rounded White Rectangle (under "Table" heading)
   tableArea: {
     x: 511, // Horizontally centered (1023 / 2)
-    y: 508, // Vertically centered inside the white rectangle under "Table" heading
-    font: "900 46px 'Outfit', 'Inter', sans-serif",
+    y: 513, // Optically centered vertically inside white rectangle (Issue 4)
+    font: "900 52px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif", // Bold, rounded, playful font matching artwork (Issue 3 & 5)
     color: "#321300",
   },
 
   // QR Placement Region inside Cream Container Box
   qrArea: {
-    cardX: (1023 - 370) / 2, // 326.5px (Modestly reduced white backing card - Issue 5)
-    cardY: 625,               // Optical centered vertically inside cream box
-    cardSize: 370,
-    borderRadius: 24,
-    qrX: (1023 - 310) / 2,   // 356.5px (Modestly reduced QR size - Issue 6)
-    qrY: 655,                 // Optical centered inside white backing card (Issue 4)
-    qrSize: 310,
+    cardX: (1023 - 340) / 2, // 341.5px (Reduced white card size showing cream frame - Issue 7)
+    cardY: 640,               // Visually equal top/bottom cream borders inside cream box - Issue 1
+    cardSize: 340,
+    borderRadius: 18,        // Subtle rounded corners matching artwork - Issue 6
+    qrX: (1023 - 280) / 2,   // 371.5px (Comfortable white margins - Issue 2 & 7)
+    qrY: 670,                 // Optically centered inside white card - Issue 2
+    qrSize: 280,
   },
 };
 
@@ -65,7 +65,7 @@ export const generateQRArtwork = async (
 
       ctx.drawImage(templateImg, 0, 0, nativeWidth, nativeHeight);
 
-      // 2. Draw White QR Backing Card (Issue 3 Order Step 2 & Issue 5)
+      // 2. Draw White QR Backing Card (Issue 1, 6, 7)
       const { cardX, cardY, cardSize, borderRadius: r, qrX, qrY, qrSize } = TEMPLATE_LAYOUT.qrArea;
 
       ctx.beginPath();
@@ -89,24 +89,24 @@ export const generateQRArtwork = async (
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
 
-      // 3. Draw Dynamic QR Code Image (Issue 3 Order Step 3 & Issue 4/6)
+      // 3. Draw Dynamic QR Code Image (Issue 2 & 7 - Optically centered with comfortable white padding)
       ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
-      // 4. Render Numeric Table Number (Issue 3 Order Step 4 & Issue 1/2)
+      // 4. Render Numeric Table Number (Issue 3, 4, 5 - Bold rounded font, optically centered Y=513)
       const numericOnly = tableLabel.replace(/^[^\d]*/, "") || tableLabel;
-      const fontSize = numericOnly.length > 2 ? 36 : 46;
+      const fontSize = numericOnly.length > 2 ? 40 : 52;
 
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = TEMPLATE_LAYOUT.tableArea.color;
-      ctx.font = `900 ${fontSize}px 'Outfit', 'Inter', sans-serif`;
+      ctx.font = `900 ${fontSize}px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif`;
       ctx.fillText(
         numericOnly,
         TEMPLATE_LAYOUT.tableArea.x,
         TEMPLATE_LAYOUT.tableArea.y
       );
 
-      // 5. Export PNG (Issue 3 Order Step 5)
+      // 5. Export High-Res PNG
       resolve(canvas.toDataURL("image/png"));
     };
 
