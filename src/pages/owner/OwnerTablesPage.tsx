@@ -16,7 +16,7 @@ import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
-// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11L)
+// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11M)
 const TEMPLATE_LAYOUT = {
   templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
 
@@ -30,13 +30,13 @@ const TEMPLATE_LAYOUT = {
 
   // QR Placement Region inside Cream Container Box
   qrArea: {
-    cardX: (1023 - 340) / 2, // 341.5px (Reduced white card size showing cream frame - Issue 7)
-    cardY: 640,               // Visually equal top/bottom cream borders inside cream box - Issue 1
-    cardSize: 340,
-    borderRadius: 18,        // Subtle rounded corners matching artwork - Issue 6
-    qrX: (1023 - 280) / 2,   // 371.5px (Comfortable white margins - Issue 2 & 7)
-    qrY: 670,                 // Optically centered inside white card - Issue 2
-    qrSize: 280,
+    cardX: (1023 - 390) / 2, // 316.5px (Enlarged white card filling ~90% of cream placeholder - Sprint 11M)
+    cardY: 615,               // Thin, even cream border on all four sides
+    cardSize: 390,
+    borderRadius: 20,        // Rounded corners matching artwork template
+    qrX: (1023 - 320) / 2,   // 351.5px (Scaled QR size proportionally with comfortable padding)
+    qrY: 650,                 // Perfectly centered inside white card
+    qrSize: 320,
   },
 };
 
