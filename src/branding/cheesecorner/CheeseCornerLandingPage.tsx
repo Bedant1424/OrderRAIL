@@ -281,10 +281,10 @@ export default function CheeseCornerLandingPage() {
 
           <nav className="hidden lg:flex items-center gap-8 text-sm font-extrabold text-amber-950/80">
             <a href="#about" className="hover:text-orange-600 transition-colors">About Us</a>
-            <a href="#experience" className="hover:text-orange-600 transition-colors">Experience</a>
+            <a href="#recommendations" className="hover:text-orange-600 transition-colors">Chef Specials</a>
             <a href="#categories" className="hover:text-orange-600 transition-colors">Categories</a>
             <a href="#menu-preview" className="hover:text-orange-600 transition-colors">Menu</a>
-            <a href="#gallery" className="hover:text-orange-600 transition-colors">Signature Showcase</a>
+            <a href="#fresh-kitchen" className="hover:text-orange-600 transition-colors">Signature Dishes</a>
             <a href="#contact" className="hover:text-orange-600 transition-colors">Location</a>
           </nav>
 
@@ -448,60 +448,144 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── THE CHEESE CORNER EXPERIENCE (PHASE 3: REPLACED GENERIC CARDS) ─── */}
-      <section id="experience" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-20 md:py-28">
+      {/* ─── CHEF'S RECOMMENDATIONS (FRESH RESTAURANT CONTENT) ─── */}
+      <section id="recommendations" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-              Our Culinary Craft
+              Chef's Special Selection
             </span>
             <h2 className="mt-2 font-display text-3xl sm:text-5xl font-black text-amber-950">
-              The Cheese Corner Experience
+              Fresh From The Kitchen
             </h2>
             <p className="mt-3 text-sm sm:text-base text-amber-900/80 font-medium">
-              We focus on four uncompromised pillars to deliver comfort food that keeps you coming back.
+              Hand-picked customer favorites prepared to order with pure melted cheese & artisanal ingredients.
             </p>
           </div>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-[2.5rem] bg-white p-8 shadow-sm border border-amber-100 transition-all hover:shadow-xl hover:shadow-amber-500/10">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-orange-600 mb-6">
-                <Utensils className="h-7 w-7" />
+            {/* Dish 1: Quattro Formaggi */}
+            <div className="group rounded-[2.5rem] bg-white p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
+              <div>
+                <div className="relative mb-4 h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
+                  <img
+                    src="/branding/cheesecorner/showcase/quattro-formaggi.jpg"
+                    alt="Quattro Formaggi Pizza"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <span className="absolute top-3 left-3 rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-950 shadow-md">
+                    Chef's Favorite
+                  </span>
+                  <span className="absolute bottom-3 right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
+                    ₹349
+                  </span>
+                </div>
+                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
+                  Quattro Formaggi Pizza
+                </h3>
+                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                  Artisanal sourdough crust layered with mozzarella, cheddar, gouda & parmesan.
+                </p>
               </div>
-              <h3 className="font-display text-xl font-extrabold text-amber-950">Hand-Tossed Sourdough</h3>
-              <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
-                Fresh dough fermented in-house daily for golden crusts with the perfect cheesy pull.
-              </p>
+              <button
+                onClick={() => setIsOrderNowModalOpen(true)}
+                className="mt-5 w-full rounded-full bg-amber-100/80 py-2.5 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5"
+              >
+                <Utensils className="h-3.5 w-3.5" /> Order Dish
+              </button>
             </div>
 
-            <div className="rounded-[2.5rem] bg-white p-8 shadow-sm border border-amber-100 transition-all hover:shadow-xl hover:shadow-amber-500/10">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-orange-600 mb-6">
-                <ShieldCheck className="h-7 w-7" />
+            {/* Dish 2: Double Cheese Burst Burger */}
+            <div className="group rounded-[2.5rem] bg-white p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
+              <div>
+                <div className="relative mb-4 h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
+                  <img
+                    src="/branding/cheesecorner/showcase/paneer-delight-burger.jpg"
+                    alt="Double Cheese Burst Burger"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <span className="absolute top-3 left-3 rounded-full bg-orange-500 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-md">
+                    Best Seller
+                  </span>
+                  <span className="absolute bottom-3 right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
+                    ₹249
+                  </span>
+                </div>
+                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
+                  Double Cheese Burger
+                </h3>
+                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                  Juicy double patty topped with caramelized onions & melted cheddar in brioche.
+                </p>
               </div>
-              <h3 className="font-display text-xl font-extrabold text-amber-950">100% Real Cheese</h3>
-              <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
-                Zero palm oil or artificial cheese substitutes. Only rich mozzarella & aged cheddar.
-              </p>
+              <button
+                onClick={() => setIsOrderNowModalOpen(true)}
+                className="mt-5 w-full rounded-full bg-amber-100/80 py-2.5 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5"
+              >
+                <Utensils className="h-3.5 w-3.5" /> Order Dish
+              </button>
             </div>
 
-            <div className="rounded-[2.5rem] bg-white p-8 shadow-sm border border-amber-100 transition-all hover:shadow-xl hover:shadow-amber-500/10">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-orange-600 mb-6">
-                <Flame className="h-7 w-7" />
+            {/* Dish 3: Loaded Salsa Cheese Fries */}
+            <div className="group rounded-[2.5rem] bg-white p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
+              <div>
+                <div className="relative mb-4 h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
+                  <img
+                    src="/branding/cheesecorner/showcase/salsa-cheese-fries.jpg"
+                    alt="Loaded Salsa Cheese Fries"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <span className="absolute top-3 left-3 rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-950 shadow-md">
+                    Loaded Side
+                  </span>
+                  <span className="absolute bottom-3 right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
+                    ₹189
+                  </span>
+                </div>
+                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
+                  Loaded Salsa Cheese Fries
+                </h3>
+                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                  Golden crinkle fries doused in warm melted cheese sauce & tangy salsa.
+                </p>
               </div>
-              <h3 className="font-display text-xl font-extrabold text-amber-950">Secret House Sauces</h3>
-              <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
-                Signature piri-piri rubs, smoky BBQ drizzles & creamy secret burger spreads.
-              </p>
+              <button
+                onClick={() => setIsOrderNowModalOpen(true)}
+                className="mt-5 w-full rounded-full bg-amber-100/80 py-2.5 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5"
+              >
+                <Utensils className="h-3.5 w-3.5" /> Order Dish
+              </button>
             </div>
 
-            <div className="rounded-[2.5rem] bg-white p-8 shadow-sm border border-amber-100 transition-all hover:shadow-xl hover:shadow-amber-500/10">
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-orange-600 mb-6">
-                <Sparkles className="h-7 w-7" />
+            {/* Dish 4: Hot Sizzling Brownie */}
+            <div className="group rounded-[2.5rem] bg-white p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
+              <div>
+                <div className="relative mb-4 h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
+                  <img
+                    src="/branding/cheesecorner/showcase/sizzling-brownie.jpg"
+                    alt="Hot Sizzling Chocolate Brownie"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <span className="absolute top-3 left-3 rounded-full bg-orange-500 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-md">
+                    Dessert Special
+                  </span>
+                  <span className="absolute bottom-3 right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
+                    ₹199
+                  </span>
+                </div>
+                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
+                  Sizzling Brownie Sundae
+                </h3>
+                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                  Dark fudgy brownie on a sizzling skillet topped with vanilla bean ice cream.
+                </p>
               </div>
-              <h3 className="font-display text-xl font-extrabold text-amber-950">Chilled Fruit Coolers</h3>
-              <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
-                Muddled garden mint, fresh lime juice & thick ice cream shakes blended to order.
-              </p>
+              <button
+                onClick={() => setIsOrderNowModalOpen(true)}
+                className="mt-5 w-full rounded-full bg-amber-100/80 py-2.5 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5"
+              >
+                <Utensils className="h-3.5 w-3.5" /> Order Dish
+              </button>
             </div>
           </div>
         </div>
@@ -621,18 +705,18 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── SIGNATURE SHOWCASE & PORTFOLIO (PHASE 4: STAGGERED SHOWCASE) ─── */}
-      <section id="gallery" className="bg-[#FFFBEB] py-20 md:py-28">
+      {/* ─── SIGNATURE FOOD SHOWCASE (FRESH KITCHEN CONTENT) ─── */}
+      <section id="fresh-kitchen" className="bg-[#FFFBEB] py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-              Signature Collection & Ambience
+              Signature Food Showcase
             </span>
             <h2 className="mt-2 font-display text-3xl sm:text-5xl font-black text-amber-950">
-              Inside Cheese Corner
+              Customer Favorites & Specialties
             </h2>
             <p className="mt-3 text-sm sm:text-base text-amber-900/80 font-medium">
-              Handcrafted gourmet pizzas, sizzling burgers, loaded sides, refreshing coolers & authentic café artwork.
+              Handcrafted gourmet sourdough pizzas, double cheese burgers, loaded sides & ice-cold coolers.
             </p>
           </div>
 
@@ -667,7 +751,7 @@ export default function CheeseCornerLandingPage() {
                   <p className="text-xs text-amber-100/90 mt-1.5 line-clamp-2 font-medium leading-relaxed">{item.subtitle}</p>
                   
                   <div className="mt-5 flex items-center gap-1.5 text-xs font-black text-amber-300 group-hover:translate-x-1 transition-transform">
-                    <Maximize2 className="h-4 w-4" /> View High-Res Showcase
+                    <Utensils className="h-4 w-4 text-orange-400" /> Savor Signature Dish
                   </div>
                 </div>
               </motion.div>

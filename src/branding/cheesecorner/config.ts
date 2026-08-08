@@ -83,11 +83,11 @@ export const CHEESE_CORNER_CONFIG = {
       tag: "Dessert"
     },
     {
-      id: "gal-poster",
-      title: "Cheese Corner Wall Poster Artwork",
-      subtitle: "Original promotional artwork from Cheese Corner Café",
-      image: "/branding/cheesecorner/posters/poster-burger.jpg",
-      tag: "Brand Artwork"
+      id: "gal-pasta",
+      title: "Creamy Alfredo Pasta",
+      subtitle: "Rich garlic parmesan cream sauce tossed with penne & fresh herbs",
+      image: "/branding/cheesecorner/showcase/alfredo.jpg",
+      tag: "Chef's Special"
     }
   ],
 
