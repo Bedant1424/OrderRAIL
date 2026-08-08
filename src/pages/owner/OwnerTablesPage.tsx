@@ -16,27 +16,27 @@ import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
-// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11M)
+// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11O)
 const TEMPLATE_LAYOUT = {
   templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
 
   // Reserved Table Number Rounded White Rectangle (under "Table" heading)
   tableArea: {
     x: 511, // Horizontally centered (1023 / 2)
-    y: 513, // Optically centered vertically inside white rectangle (Issue 4)
-    font: "900 52px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif", // Bold, rounded, playful font matching artwork (Issue 3 & 5)
+    y: 513, // Optically centered vertically inside white rectangle
+    font: "900 54px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif", // Heavy, rounded typography matching artwork (Task 5)
     color: "#321300",
   },
 
   // QR Placement Region inside Cream Container Box
   qrArea: {
-    cardX: (1023 - 390) / 2, // 316.5px (Enlarged white card filling ~90% of cream placeholder - Sprint 11M)
-    cardY: 615,               // Thin, even cream border on all four sides
-    cardSize: 390,
-    borderRadius: 20,        // Rounded corners matching artwork template
-    qrX: (1023 - 320) / 2,   // 351.5px (Scaled QR size proportionally with comfortable padding)
-    qrY: 650,                 // Perfectly centered inside white card
-    qrSize: 320,
+    cardX: (1023 - 402) / 2, // 310.5px (Enlarged white card naturally filling cream placeholder - Task 3)
+    cardY: 628,               // Lowered card downward for visually equal top/bottom cream borders (Task 1)
+    cardSize: 402,
+    borderRadius: 22,        // Rounded corners matching artwork template
+    qrX: (1023 - 335) / 2,   // 344px (Scaled QR size proportionally to 335px - Task 4)
+    qrY: 661,                 // Lowered QR downward inside card for equal white padding (Task 2)
+    qrSize: 335,
   },
 };
 
@@ -52,7 +52,7 @@ export const generateQRArtwork = async (
     const templateImg = new Image();
     templateImg.crossOrigin = "anonymous";
     templateImg.onload = () => {
-      // 1. Draw Artwork Template at Native Dimensions (Issue 1 & 3 Order Step 1)
+      // 1. Draw Artwork Template at Native Dimensions (1023x1537)
       const nativeWidth = templateImg.naturalWidth || templateImg.width || 1023;
       const nativeHeight = templateImg.naturalHeight || templateImg.height || 1537;
       canvas.width = nativeWidth;
@@ -65,7 +65,7 @@ export const generateQRArtwork = async (
 
       ctx.drawImage(templateImg, 0, 0, nativeWidth, nativeHeight);
 
-      // 2. Draw White QR Backing Card (Issue 1, 6, 7)
+      // 2. Draw White QR Backing Card (Task 1, 3)
       const { cardX, cardY, cardSize, borderRadius: r, qrX, qrY, qrSize } = TEMPLATE_LAYOUT.qrArea;
 
       ctx.beginPath();
@@ -89,12 +89,12 @@ export const generateQRArtwork = async (
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
 
-      // 3. Draw Dynamic QR Code Image (Issue 2 & 7 - Optically centered with comfortable white padding)
+      // 3. Draw Dynamic QR Code Image (Task 2, 4 - Optically centered with equal white padding)
       ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
-      // 4. Render Numeric Table Number (Issue 3, 4, 5 - Bold rounded font, optically centered Y=513)
+      // 4. Render Numeric Table Number (Task 5 - Heavy rounded font matching artwork)
       const numericOnly = tableLabel.replace(/^[^\d]*/, "") || tableLabel;
-      const fontSize = numericOnly.length > 2 ? 40 : 52;
+      const fontSize = numericOnly.length > 2 ? 42 : 54;
 
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
