@@ -31,6 +31,10 @@ dist-ssr
 RC1_*_Certification_Report.md
 about_cafe_sheet.jpg
 *.jpg
+!public/branding/**/*.jpg
+!public/branding/**/*.png
+!branding/**/*.jpg
+!branding/**/*.png
 customer_menu.png
 about_cafe_drawer_live.png
 owner_settings_configured.png
