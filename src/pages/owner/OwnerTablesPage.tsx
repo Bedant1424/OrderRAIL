@@ -16,29 +16,27 @@ import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
-// Structured Layout Regions for Branded QR Artwork Compositing (Sprint 11G)
+// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11J)
 const TEMPLATE_LAYOUT = {
-  width: 784,
-  height: 1360,
   templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
 
-  // Reserved Table Number Placeholder Area (under "Table" heading)
+  // Reserved Table Number Rounded White Rectangle (under "Table" heading)
   tableArea: {
-    x: 392,
-    y: 395,
-    font: "900 52px 'Outfit', 'Inter', sans-serif",
+    x: 511, // Horizontally centered (1023 / 2)
+    y: 445, // Vertically centered inside the white rectangle under "Table"
+    font: "900 48px 'Outfit', 'Inter', sans-serif",
     color: "#321300",
   },
 
-  // QR Placement Region inside Cream Placeholder Box
+  // QR Placement Region inside Cream Container Box
   qrArea: {
-    cardX: (784 - 340) / 2, // 222px
-    cardY: 515,
-    cardSize: 340,
-    borderRadius: 24,
-    qrX: (784 - 296) / 2, // 244px
-    qrY: 537,
-    qrSize: 296,
+    cardX: (1023 - 420) / 2, // 301.5px
+    cardY: 640,
+    cardSize: 420,
+    borderRadius: 28,
+    qrX: (1023 - 360) / 2, // 331.5px
+    qrY: 670,
+    qrSize: 360,
   },
 };
 
@@ -49,23 +47,28 @@ export const generateQRArtwork = async (
 ): Promise<string> => {
   return new Promise((resolve) => {
     const canvas = document.createElement("canvas");
-    canvas.width = TEMPLATE_LAYOUT.width;
-    canvas.height = TEMPLATE_LAYOUT.height;
     const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      resolve("");
-      return;
-    }
 
     const templateImg = new Image();
     templateImg.crossOrigin = "anonymous";
     templateImg.onload = () => {
-      // 1. Draw Artwork Template
-      ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+      // 1. Render Artwork at Native Dimensions (Issue 1)
+      const nativeWidth = templateImg.naturalWidth || templateImg.width || 1023;
+      const nativeHeight = templateImg.naturalHeight || templateImg.height || 1537;
+      canvas.width = nativeWidth;
+      canvas.height = nativeHeight;
 
-      // 2. Render ONLY Numeric Table Number inside Small Rounded White Rectangle (Task 3 & 4)
+      if (!ctx) {
+        resolve("");
+        return;
+      }
+
+      // Draw artwork template without stretching or compressing
+      ctx.drawImage(templateImg, 0, 0, nativeWidth, nativeHeight);
+
+      // 2. Render ONLY Numeric Table Number inside White Rounded Rectangle (Issue 4 & 5)
       const numericOnly = tableLabel.replace(/^[^\d]*/, "") || tableLabel;
-      const fontSize = numericOnly.length > 2 ? 40 : 52;
+      const fontSize = numericOnly.length > 2 ? 38 : 48;
 
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -77,7 +80,7 @@ export const generateQRArtwork = async (
         TEMPLATE_LAYOUT.tableArea.y
       );
 
-      // 3. Draw White QR Backing Card inside Cream Placeholder Box
+      // 3. Draw White Backing Card inside Cream QR Placeholder (Issue 2)
       const { cardX, cardY, cardSize, borderRadius: r, qrX, qrY, qrSize } = TEMPLATE_LAYOUT.qrArea;
 
       ctx.beginPath();
@@ -101,10 +104,10 @@ export const generateQRArtwork = async (
       ctx.shadowColor = "transparent";
       ctx.shadowBlur = 0;
 
-      // 4. Draw Dynamic QR Code centered inside White Backing Card
+      // 4. Draw Dynamic QR Code (Issue 3 - Slightly reduced size with comfortable padding)
       ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
 
-      // 5. Export PNG
+      // 5. Export High-Res PNG
       resolve(canvas.toDataURL("image/png"));
     };
 
