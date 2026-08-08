@@ -117,7 +117,12 @@ export const generateQRArtwork = async (
       resolve(canvas.toDataURL("image/png"));
     };
 
-    templateImg.src = QR_ARTWORK_LAYOUT.templateUrl;
+    try {
+      templateImg.src = TEMPLATE_LAYOUT.templateUrl;
+    } catch (e) {
+      console.error("Failed to load QR artwork template:", e);
+      templateImg.onerror(e as any);
+    }
   });
 };
 
