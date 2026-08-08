@@ -743,91 +743,83 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── DINE-IN QR ORDERING EXPERIENCE (MOBILE OPTIMIZED FLOW) ─── */}
+      {/* ─── DINE-IN QR ORDERING EXPERIENCE (SPRINT 11A BRANDED ARTWORK) ─── */}
       <section id="qr-ordering" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-12 sm:py-20 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:gap-12 lg:grid-cols-12 lg:items-center">
             
-            {/* Left: Branded QR Stand Artwork */}
-            <div className="lg:col-span-5 flex flex-col items-center justify-center">
-              <div className="relative group overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-4 border-white bg-white p-5 sm:p-6 shadow-xl transition-all duration-500 hover:shadow-amber-500/10">
+            {/* Left: Large Branded QR Stand Artwork (55% width on desktop) */}
+            <div className="lg:col-span-7 flex flex-col items-center justify-center">
+              <div className="relative group w-full overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-4 border-white bg-white p-4 sm:p-6 shadow-xl transition-all duration-500 hover:shadow-amber-500/10 flex items-center justify-center">
                 <img
                   src={CHEESE_CORNER_CONFIG.qrStandUrl}
-                  alt="Cheese Corner Table QR Stand"
-                  className="h-64 xs:h-72 sm:h-96 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
+                  alt="Cheese Corner table QR stand"
+                  className="h-72 xs:h-80 sm:h-[440px] lg:h-[480px] w-auto max-w-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
                 />
               </div>
 
-              {/* Mobile Quick Action */}
-              <button
-                onClick={() => setIsOrderNowModalOpen(true)}
+              {/* Mobile Quick Action Button */}
+              <a
+                href="#contact"
                 className="mt-5 lg:hidden inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-7 py-3.5 text-xs font-black text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl active:scale-95 min-h-[48px] w-full max-w-xs"
               >
-                <QrCode className="h-4 w-4" /> Scan & Order Live
-              </button>
+                <MapPin className="h-4 w-4" /> Visit Cheese Corner
+              </a>
             </div>
 
-            {/* Right: 4-Step Process */}
-            <div className="lg:col-span-7">
+            {/* Right: Steps & Info (45% width on desktop) */}
+            <div className="lg:col-span-5">
               <span className="text-xs font-black uppercase tracking-widest text-orange-600">
                 Dine-In QR Service
               </span>
-              <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
-                Order in 4 Easy Steps
+              <h2 className="mt-1 font-display text-3xl sm:text-5xl font-black text-amber-950 leading-tight">
+                Scan. Order. Enjoy.
               </h2>
-              <p className="mt-1.5 text-xs sm:text-sm text-amber-900/80 font-medium max-w-lg">
-                No waiting for paper menus. Scan the QR stand on your table to browse prices and order directly to your seat.
+              <p className="mt-2 text-xs sm:text-sm text-amber-900/80 font-medium leading-relaxed">
+                No waiting for paper menus. Point your phone camera at the QR stand on your table to browse live prices & order straight to your seat.
               </p>
 
-              <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-amber-100/80">
-                  <div className="flex items-center gap-3 mb-1.5">
-                    <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">1</span>
-                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Visit Café</h3>
+              <div className="mt-6 sm:mt-8 grid grid-cols-1 gap-3 sm:gap-3.5">
+                <div className="rounded-2xl bg-white p-4 sm:p-4.5 shadow-sm border border-amber-100/80 flex items-start gap-3.5">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">1</span>
+                  <div>
+                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Take a seat</h3>
+                    <p className="text-xs text-amber-900/75 font-medium mt-0.5">Drop by Cheese Corner on University Road & settle into your dining table.</p>
                   </div>
-                  <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
-                    Drop by Cheese Corner on University Road & find your table.
-                  </p>
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-amber-100/80">
-                  <div className="flex items-center gap-3 mb-1.5">
-                    <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">2</span>
-                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Take A Seat</h3>
+                <div className="rounded-2xl bg-white p-4 sm:p-4.5 shadow-sm border border-amber-100/80 flex items-start gap-3.5">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">2</span>
+                  <div>
+                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Scan the QR on your table</h3>
+                    <p className="text-xs text-amber-900/75 font-medium mt-0.5">Point your phone camera at the acrylic QR stand on your table.</p>
                   </div>
-                  <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
-                    Settle into your dining table with friends & family.
-                  </p>
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-amber-100/80">
-                  <div className="flex items-center gap-3 mb-1.5">
-                    <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">3</span>
-                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Scan QR Stand</h3>
+                <div className="rounded-2xl bg-white p-4 sm:p-4.5 shadow-sm border border-amber-100/80 flex items-start gap-3.5">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">3</span>
+                  <div>
+                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Browse the live menu</h3>
+                    <p className="text-xs text-amber-900/75 font-medium mt-0.5">Explore real-time dishes, prices & dietary customization.</p>
                   </div>
-                  <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
-                    Point your camera at the acrylic QR card on your table.
-                  </p>
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-amber-100/80">
-                  <div className="flex items-center gap-3 mb-1.5">
-                    <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">4</span>
-                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Order Live</h3>
+                <div className="rounded-2xl bg-white p-4 sm:p-4.5 shadow-sm border border-amber-100/80 flex items-start gap-3.5">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">4</span>
+                  <div>
+                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Place your order instantly</h3>
+                    <p className="text-xs text-amber-900/75 font-medium mt-0.5">Send orders directly to the kitchen with instant updates.</p>
                   </div>
-                  <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
-                    Browse menu, customize options & send orders straight to kitchen.
-                  </p>
                 </div>
               </div>
 
               {/* Desktop CTA */}
-              <button
-                onClick={() => setIsOrderNowModalOpen(true)}
-                className="mt-8 hidden lg:inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-7 py-3.5 text-xs font-black text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl active:scale-95 min-h-[48px]"
+              <a
+                href="#contact"
+                className="mt-8 hidden lg:inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-8 py-4 text-xs sm:text-sm font-black text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl active:scale-95 min-h-[48px]"
               >
-                <QrCode className="h-4 w-4" /> Scan & Order Live
-              </button>
+                <MapPin className="h-4 w-4" /> Visit Cheese Corner
+              </a>
             </div>
           </div>
         </div>
@@ -981,7 +973,7 @@ export default function CheeseCornerLandingPage() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative max-w-md w-full overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-2 border-white bg-white p-5 sm:p-7 shadow-2xl text-[#321300]"
+            className="relative max-w-lg w-full overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-2 border-white bg-white p-6 sm:p-8 shadow-2xl text-[#321300]"
           >
             <button
               onClick={() => setIsOrderNowModalOpen(false)}
@@ -991,42 +983,40 @@ export default function CheeseCornerLandingPage() {
             </button>
 
             <div className="text-center">
-              <div className="mx-auto mb-3 flex items-center justify-center gap-2">
-                <span className="rounded-full bg-amber-100 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-                  <QrCode className="h-4 w-4 text-orange-600" /> Table QR Ordering
-                </span>
-              </div>
-
-              <h3 className="font-display text-xl sm:text-2xl font-black text-amber-950">
-                Dine-In At Cheese Corner
-              </h3>
-
-              <div className="my-4 sm:my-5 flex justify-center">
-                <div className="rounded-2xl sm:rounded-3xl border-2 border-amber-200 bg-[#FFFBEB] p-3 sm:p-4 shadow-md">
+              {/* Large Branded Artwork Presentation */}
+              <div className="my-2 flex justify-center">
+                <div className="rounded-2xl sm:rounded-3xl border-2 border-amber-200 bg-[#FFFBEB] p-3 sm:p-4 shadow-md w-full flex items-center justify-center">
                   <img
                     src={CHEESE_CORNER_CONFIG.qrStandUrl}
-                    alt="Cheese Corner QR Stand"
-                    className="h-44 xs:h-52 sm:h-56 w-auto object-contain drop-shadow-xl hover:scale-105 transition-transform duration-300"
+                    alt="Cheese Corner table QR stand"
+                    className="h-60 xs:h-72 sm:h-80 w-auto max-w-full object-contain drop-shadow-xl hover:scale-[1.02] transition-transform duration-300"
                   />
                 </div>
               </div>
 
+              <h3 className="mt-4 font-display text-2xl sm:text-3xl font-black text-amber-950">
+                Scan. Order. Enjoy.
+              </h3>
+              <p className="mt-1 text-xs text-amber-900/80 font-medium">
+                Dine-In QR Table Ordering at Cheese Corner
+              </p>
+
               <div className="my-4 grid grid-cols-2 gap-2 sm:gap-2.5 text-left text-xs font-medium text-amber-950">
                 <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
-                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">1. Visit Café</div>
-                  <div className="text-amber-900/80 text-[10px] sm:text-[11px] mt-0.5">Drop by Cheese Corner.</div>
-                </div>
-                <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
-                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">2. Take A Seat</div>
+                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">1. Take a seat</div>
                   <div className="text-amber-900/80 text-[10px] sm:text-[11px] mt-0.5">Find any dining table.</div>
                 </div>
                 <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
-                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">3. Scan QR</div>
-                  <div className="text-amber-800/80 text-[10px] sm:text-[11px] mt-0.5">Scan card on table.</div>
+                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">2. Scan the QR on your table</div>
+                  <div className="text-amber-900/80 text-[10px] sm:text-[11px] mt-0.5">Point phone camera at QR card.</div>
                 </div>
                 <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
-                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">4. Order Live</div>
-                  <div className="text-amber-800/80 text-[10px] sm:text-[11px] mt-0.5">Browse menu & order!</div>
+                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">3. Browse the live menu</div>
+                  <div className="text-amber-800/80 text-[10px] sm:text-[11px] mt-0.5">View real prices & dishes.</div>
+                </div>
+                <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">4. Place your order instantly</div>
+                  <div className="text-amber-800/80 text-[10px] sm:text-[11px] mt-0.5">Send order straight to kitchen.</div>
                 </div>
               </div>
 
