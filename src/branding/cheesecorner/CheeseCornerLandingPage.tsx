@@ -28,7 +28,8 @@ import {
   IceCream,
   UtensilsCrossed,
   Sandwich,
-  ConciergeBell
+  ConciergeBell,
+  Menu as MenuIcon
 } from "lucide-react";
 import { CHEESE_CORNER_CONFIG } from "./config";
 import { useCafe } from "@/lib/cafe";
@@ -79,11 +80,11 @@ function HeroPosterCarousel() {
 
   return (
     <div
-      className="group relative mx-auto w-full max-w-xl lg:max-w-2xl overflow-hidden rounded-[2.5rem] border-4 border-white/80 bg-black/10 p-2 shadow-2xl transition-all duration-500 hover:shadow-amber-500/10"
+      className="group relative mx-auto w-full max-w-xl lg:max-w-2xl overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-2 sm:border-4 border-white/80 bg-black/10 p-1.5 sm:p-2 shadow-2xl transition-all duration-500 hover:shadow-amber-500/10"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative h-[400px] sm:h-[480px] lg:h-[540px] w-full overflow-hidden rounded-[2rem] bg-amber-950">
+      <div className="relative h-[290px] xs:h-[340px] sm:h-[440px] lg:h-[540px] w-full overflow-hidden rounded-[1.5rem] sm:rounded-[2rem] bg-amber-950">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentItem.id}
@@ -97,30 +98,30 @@ function HeroPosterCarousel() {
               src={currentItem.image}
               alt={currentItem.title}
               loading={currentIndex === 0 ? "eager" : "lazy"}
-              className="h-full w-full object-cover rounded-[2rem] select-none"
+              className="h-full w-full object-cover object-center rounded-[1.5rem] sm:rounded-[2rem] select-none"
             />
 
             {/* Premium Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent rounded-[2rem]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent rounded-[1.5rem] sm:rounded-[2rem]" />
           </motion.div>
         </AnimatePresence>
 
         {/* Floating Tag Badge */}
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3.5 py-1 text-xs font-black uppercase tracking-wider text-amber-950 shadow-lg backdrop-blur-md">
-            <Sparkles className="h-3.5 w-3.5" />
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1 text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-950 shadow-lg backdrop-blur-md">
+            <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             {currentItem.tag}
           </span>
         </div>
 
         {/* Content Info Overlay */}
-        <div className="absolute bottom-14 inset-x-0 p-6 sm:p-8 z-10 text-white pointer-events-none">
+        <div className="absolute bottom-10 sm:bottom-14 inset-x-0 p-4 sm:p-8 z-10 text-white pointer-events-none">
           <motion.h3
             key={`title-${currentItem.id}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="font-display text-2xl sm:text-3xl font-black text-white drop-shadow-md"
+            className="font-display text-lg sm:text-2xl lg:text-3xl font-black text-white drop-shadow-md"
           >
             {currentItem.title}
           </motion.h3>
@@ -129,17 +130,17 @@ function HeroPosterCarousel() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.2 }}
-            className="mt-1.5 text-xs sm:text-sm text-amber-100/90 font-medium line-clamp-2 max-w-lg leading-relaxed"
+            className="mt-1 text-[11px] sm:text-sm text-amber-100/90 font-medium line-clamp-2 max-w-lg leading-relaxed"
           >
             {currentItem.subtitle}
           </motion.p>
         </div>
 
-        {/* Navigation Arrows */}
+        {/* Touch-Friendly Navigation Arrows */}
         <button
           onClick={handlePrev}
           aria-label="Previous slide"
-          className="absolute left-4 top-1/2 -translate-y-1/2 grid h-11 w-11 place-items-center rounded-full bg-black/40 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-amber-500 hover:text-amber-950 active:scale-95 z-20"
+          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-full bg-black/50 text-white backdrop-blur-md opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 hover:bg-amber-500 hover:text-amber-950 active:scale-95 z-20 min-h-[44px] min-w-[44px]"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -147,24 +148,28 @@ function HeroPosterCarousel() {
         <button
           onClick={handleNext}
           aria-label="Next slide"
-          className="absolute right-4 top-1/2 -translate-y-1/2 grid h-11 w-11 place-items-center rounded-full bg-black/40 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-amber-500 hover:text-amber-950 active:scale-95 z-20"
+          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-full bg-black/50 text-white backdrop-blur-md opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 hover:bg-amber-500 hover:text-amber-950 active:scale-95 z-20 min-h-[44px] min-w-[44px]"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
 
-        {/* Indicators */}
-        <div className="absolute bottom-5 inset-x-0 flex items-center justify-center gap-2 z-20">
+        {/* Touch Indicators */}
+        <div className="absolute bottom-3 sm:bottom-5 inset-x-0 flex items-center justify-center gap-1.5 sm:gap-2 z-20">
           {posters.map((_, idx) => (
             <button
               key={idx}
               onClick={() => setCurrentIndex(idx)}
               aria-label={`Go to slide ${idx + 1}`}
-              className={`h-2 rounded-full transition-all duration-500 ${
-                idx === currentIndex
-                  ? "w-8 bg-amber-400 shadow-md"
-                  : "w-2 bg-white/50 hover:bg-white/80"
-              }`}
-            />
+              className={`h-2 sm:h-2.5 rounded-full transition-all duration-500 min-h-[24px] min-w-[24px] flex items-center justify-center`}
+            >
+              <span
+                className={`h-2 rounded-full transition-all duration-500 ${
+                  idx === currentIndex
+                    ? "w-7 sm:w-8 bg-amber-400 shadow-md"
+                    : "w-2 bg-white/50 hover:bg-white/80"
+                }`}
+              />
+            </button>
           ))}
         </div>
       </div>
@@ -187,13 +192,13 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
     >
       <div>
         {/* Large Food Image Container */}
-        <div className="relative mb-3.5 h-48 sm:h-52 w-full overflow-hidden rounded-2xl bg-amber-100/30">
+        <div className="relative mb-3.5 h-44 sm:h-52 w-full overflow-hidden rounded-2xl bg-amber-100/30">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={item.name}
               loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+              className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700 font-medium text-sm">
@@ -233,16 +238,16 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
 
         {/* Item Content */}
         <div className="px-1">
-          <h4 className="font-display text-lg font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors line-clamp-1">
+          <h4 className="font-display text-base sm:text-lg font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors line-clamp-1">
             {item.name}
           </h4>
 
           {item.description ? (
-            <p className="mt-1.5 line-clamp-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+            <p className="mt-1 text-xs text-amber-900/75 line-clamp-2 leading-relaxed font-medium">
               {item.description}
             </p>
           ) : (
-            <p className="mt-1.5 text-xs text-amber-900/50 italic font-medium">
+            <p className="mt-1 text-xs text-amber-900/50 italic font-medium">
               Freshly prepared with artisanal ingredients & signature house cheese.
             </p>
           )}
@@ -250,11 +255,11 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
       </div>
 
       {/* Footer Details */}
-      <div className="mt-4 flex items-center justify-between border-t border-amber-100/80 pt-3 px-1 text-xs">
+      <div className="mt-4 flex items-center justify-between border-t border-amber-100/80 pt-3 px-1 text-xs min-h-[44px]">
         <span className="text-[11px] font-extrabold text-amber-700/90 tracking-wide uppercase">
           {item.categoryName || "Specialty"}
         </span>
-        <span className="inline-flex items-center gap-1 font-extrabold text-orange-600 group-hover:translate-x-1 transition-transform">
+        <span className="inline-flex items-center gap-1 font-extrabold text-orange-600 group-hover:translate-x-1 transition-transform text-xs">
           Crafted Fresh <ArrowRight className="h-3 w-3" />
         </span>
       </div>
@@ -268,6 +273,7 @@ export default function CheeseCornerLandingPage() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [selectedPoster, setSelectedPoster] = useState<string | null>(null);
   const [isOrderNowModalOpen, setIsOrderNowModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Filter menu preview items based on active tab
   const filteredPreviewItems = useMemo(() => {
@@ -286,25 +292,26 @@ export default function CheeseCornerLandingPage() {
   return (
     <div className="min-h-screen bg-[#FFFBEB] text-[#321300] font-sans antialiased selection:bg-amber-400/40">
       
-      {/* ─── HEADER ─── */}
-      <header className="sticky top-0 z-50 border-b border-amber-200/60 bg-[#FFFBEB]/90 backdrop-blur-xl transition-all">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3.5">
+      {/* ─── STICKY HEADER ─── */}
+      <header className="sticky top-0 z-50 border-b border-amber-200/60 bg-[#FFFBEB]/95 backdrop-blur-xl transition-all">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
             <img
               src={CHEESE_CORNER_CONFIG.logoUrl}
               alt="Cheese Corner Logo"
-              className="h-12 w-12 object-contain drop-shadow-md transition-transform hover:scale-105"
+              className="h-10 w-10 sm:h-12 sm:w-12 object-contain drop-shadow-md transition-transform hover:scale-105"
             />
             <div>
-              <span className="font-display text-2xl font-black tracking-tight text-amber-950 block leading-none">
+              <span className="font-display text-xl sm:text-2xl font-black tracking-tight text-amber-950 block leading-none">
                 {CHEESE_CORNER_CONFIG.name}
               </span>
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-600 block mt-0.5">
+              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest text-orange-600 block mt-0.5">
                 Gourmet Comfort Café
               </span>
             </div>
           </div>
 
+          {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8 text-sm font-extrabold text-amber-950/80">
             <a href="#why-choose" className="hover:text-orange-600 transition-colors">Why Choose Us</a>
             <a href="#specials" className="hover:text-orange-600 transition-colors">Chef's Specials</a>
@@ -314,24 +321,79 @@ export default function CheeseCornerLandingPage() {
             <a href="#contact" className="hover:text-orange-600 transition-colors">Location</a>
           </nav>
 
-          <div className="flex items-center gap-3">
+          {/* Desktop CTA & Mobile Toggle */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <button
               onClick={() => setIsOrderNowModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-6 py-2.5 text-xs font-black tracking-wide text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl hover:from-amber-600 hover:to-orange-700 active:scale-95"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-4 sm:px-6 py-2.5 text-xs font-black tracking-wide text-white shadow-md shadow-amber-500/20 transition hover:shadow-xl hover:from-amber-600 hover:to-orange-700 active:scale-95 min-h-[44px]"
             >
-              <QrCode className="h-4 w-4" /> Dine-In QR Ordering
+              <QrCode className="h-4 w-4" />
+              <span className="hidden xs:inline">Dine-In QR Ordering</span>
+              <span className="xs:hidden">Order</span>
+            </button>
+
+            {/* Mobile Hamburger Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle navigation menu"
+              className="lg:hidden grid h-11 w-11 place-items-center rounded-2xl bg-amber-100/80 text-amber-950 hover:bg-amber-200 transition-colors active:scale-95 min-h-[44px] min-w-[44px]"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
             </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="lg:hidden overflow-hidden border-t border-amber-200/60 bg-[#FFFBEB] px-4 py-4 shadow-xl"
+            >
+              <nav className="flex flex-col gap-1 text-sm font-extrabold text-amber-950">
+                {[
+                  { href: "#why-choose", label: "Why Choose Us" },
+                  { href: "#specials", label: "Chef's Specials" },
+                  { href: "#menu", label: "Menu" },
+                  { href: "#qr-ordering", label: "Dine-In QR Service" },
+                  { href: "#gallery", label: "Gallery" },
+                  { href: "#contact", label: "Location & Hours" }
+                ].map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="rounded-2xl px-4 py-3 hover:bg-amber-100/80 hover:text-orange-600 transition-colors min-h-[48px] flex items-center"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsOrderNowModalOpen(true);
+                  }}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white shadow-md active:scale-95 min-h-[48px]"
+                >
+                  <QrCode className="h-4 w-4" /> Scan & Order Live
+                </button>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
-      {/* ─── HERO SECTION (PHASE 1: REFINED HERO) ─── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-amber-200/50 via-[#FFFBEB] to-[#FFFBEB] pt-12 pb-20 md:pt-20 md:pb-32">
-        <div className="pointer-events-none absolute top-10 left-[-10%] h-[420px] w-[420px] rounded-full bg-amber-400/25 blur-3xl" />
-        <div className="pointer-events-none absolute top-32 right-[-10%] h-[500px] w-[500px] rounded-full bg-orange-400/20 blur-3xl" />
+      {/* ─── HERO SECTION ─── */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-amber-200/50 via-[#FFFBEB] to-[#FFFBEB] pt-6 sm:pt-12 pb-16 md:pt-20 md:pb-28">
+        <div className="pointer-events-none absolute top-10 left-[-10%] h-[300px] sm:h-[420px] w-[300px] sm:w-[420px] rounded-full bg-amber-400/25 blur-3xl" />
+        <div className="pointer-events-none absolute top-32 right-[-10%] h-[350px] sm:h-[500px] w-[350px] sm:w-[500px] rounded-full bg-orange-400/20 blur-3xl" />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
+          <div className="grid gap-8 lg:gap-12 lg:grid-cols-12 lg:items-center">
             
             {/* Left Hero Content */}
             <motion.div
@@ -340,27 +402,27 @@ export default function CheeseCornerLandingPage() {
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               className="lg:col-span-6"
             >
-              <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-300/60 px-4 py-1.5 text-xs font-black text-amber-950 shadow-sm">
-                <Flame className="h-4 w-4 text-orange-600 animate-pulse" />
+              <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500/15 to-orange-500/15 border border-amber-300/60 px-3.5 py-1.5 text-[11px] sm:text-xs font-black text-amber-950 shadow-sm">
+                <Flame className="h-3.5 w-3.5 text-orange-600 animate-pulse" />
                 <span>Handcrafted Gourmet Comfort Food</span>
               </div>
 
-              <h1 className="mt-6 font-display text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-amber-950 leading-[1.05]">
+              <h1 className="mt-4 sm:mt-6 font-display text-3xl sm:text-5xl lg:text-7xl font-black tracking-tight text-amber-950 leading-[1.08]">
                 Where Every Bite <br />
                 <span className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 bg-clip-text text-transparent italic">
                   Is Packed With Cheese!
                 </span>
               </h1>
 
-              <p className="mt-6 text-base sm:text-lg lg:text-xl text-amber-900/85 max-w-xl font-medium leading-relaxed">
+              <p className="mt-4 sm:mt-6 text-sm sm:text-lg lg:text-xl text-amber-900/85 max-w-xl font-medium leading-relaxed">
                 Savor artisanal hand-tossed pizzas, double-patty cheese burgers, loaded piri-piri fries & refreshing fruit mojitos prepared fresh daily.
               </p>
 
-              {/* Action Buttons */}
-              <div className="mt-8 flex flex-wrap gap-4 items-center">
+              {/* Mobile Action Buttons */}
+              <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center">
                 <button
                   onClick={() => setIsOrderNowModalOpen(true)}
-                  className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-8 py-4 text-sm font-black text-white shadow-xl shadow-amber-500/25 transition-all hover:shadow-2xl hover:scale-[1.02] active:scale-95"
+                  className="inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-8 py-3.5 sm:py-4 text-xs sm:text-sm font-black text-white shadow-xl shadow-amber-500/25 transition-all hover:shadow-2xl hover:scale-[1.02] active:scale-95 min-h-[48px]"
                 >
                   <QrCode className="h-5 w-5" />
                   <span>Dine-In QR Order</span>
@@ -368,8 +430,8 @@ export default function CheeseCornerLandingPage() {
                 </button>
 
                 <a
-                  href="#menu-preview"
-                  className="inline-flex items-center gap-2.5 rounded-full border-2 border-amber-300/80 bg-white/90 px-8 py-4 text-sm font-black text-amber-950 shadow-sm backdrop-blur-md transition-all hover:bg-amber-50 hover:border-amber-400 active:scale-95"
+                  href="#menu"
+                  className="inline-flex items-center justify-center gap-2.5 rounded-full border-2 border-amber-300/80 bg-white/90 px-8 py-3.5 sm:py-4 text-xs sm:text-sm font-black text-amber-950 shadow-sm backdrop-blur-md transition-all hover:bg-amber-50 hover:border-amber-400 active:scale-95 min-h-[48px]"
                 >
                   <Utensils className="h-4 w-4 text-orange-600" />
                   <span>Explore Menu</span>
@@ -377,44 +439,44 @@ export default function CheeseCornerLandingPage() {
               </div>
 
               {/* Quality & Credibility Pillars */}
-              <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4 border-t border-amber-200/80 pt-8">
+              <div className="mt-8 sm:mt-12 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 border-t border-amber-200/80 pt-6 sm:pt-8">
                 <div className="flex items-center gap-2.5">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/60 text-amber-950">
-                    <ShieldCheck className="h-5 w-5 text-orange-600" />
+                  <div className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/60 text-amber-950">
+                    <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
                   </div>
                   <div>
-                    <div className="font-display text-sm font-black text-amber-950">100% Real</div>
-                    <div className="text-[11px] font-bold text-amber-800/80">Mozzarella & Cheddar</div>
+                    <div className="font-display text-xs sm:text-sm font-black text-amber-950">100% Real</div>
+                    <div className="text-[10px] sm:text-[11px] font-bold text-amber-800/80">Mozzarella & Cheddar</div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/60 text-amber-950">
-                    <Award className="h-5 w-5 text-orange-600" />
+                  <div className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/60 text-amber-950">
+                    <Award className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
                   </div>
                   <div>
-                    <div className="font-display text-sm font-black text-amber-950">92+ Dishes</div>
-                    <div className="text-[11px] font-bold text-amber-800/80">Fresh Crafted</div>
+                    <div className="font-display text-xs sm:text-sm font-black text-amber-950">92+ Dishes</div>
+                    <div className="text-[10px] sm:text-[11px] font-bold text-amber-800/80">Fresh Crafted</div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/60 text-amber-950">
-                    <Zap className="h-5 w-5 text-orange-600" />
+                  <div className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/60 text-amber-950">
+                    <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
                   </div>
                   <div>
-                    <div className="font-display text-sm font-black text-amber-950">Instant QR</div>
-                    <div className="text-[11px] font-bold text-amber-800/80">Table Service</div>
+                    <div className="font-display text-xs sm:text-sm font-black text-amber-950">Instant QR</div>
+                    <div className="text-[10px] sm:text-[11px] font-bold text-amber-800/80">Table Service</div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/60 text-amber-950">
-                    <Heart className="h-5 w-5 text-orange-600" />
+                  <div className="grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-2xl bg-amber-200/60 text-amber-950">
+                    <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
                   </div>
                   <div>
-                    <div className="font-display text-sm font-black text-amber-950">Cozy Ambience</div>
-                    <div className="text-[11px] font-bold text-amber-800/80">Family Friendly</div>
+                    <div className="font-display text-xs sm:text-sm font-black text-amber-950">Cozy Ambience</div>
+                    <div className="text-[10px] sm:text-[11px] font-bold text-amber-800/80">Family Friendly</div>
                   </div>
                 </div>
               </div>
@@ -435,39 +497,39 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── WHY CHOOSE CHEESE CORNER ─── */}
-      <section id="why-choose" className="bg-white py-16 md:py-24">
+      <section id="why-choose" className="bg-white py-12 sm:py-20 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12">
             <span className="text-xs font-black uppercase tracking-widest text-orange-600">
               Handcrafted Quality
             </span>
-            <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+            <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
               Why Choose Us
             </h2>
-            <p className="mt-2 text-sm text-amber-900/80 font-medium">
+            <p className="mt-1.5 text-xs sm:text-sm text-amber-900/80 font-medium">
               Real ingredients, signature house sauces & melted cheese in every bite.
             </p>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
             {CHEESE_CORNER_CONFIG.about.highlights.map((h, i) => (
               <motion.div
                 key={h.name}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.08 }}
                 whileHover={{ y: -6 }}
-                className="group rounded-[2rem] bg-[#FFFBEB] p-6 text-center transition-all duration-300 hover:shadow-lg border border-amber-200/50"
+                className="group rounded-[1.5rem] sm:rounded-[2rem] bg-[#FFFBEB] p-5 sm:p-6 text-center transition-all duration-300 hover:shadow-lg border border-amber-200/50"
               >
-                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100/80 text-orange-600 mb-4 mx-auto group-hover:scale-110 group-hover:bg-orange-600 group-hover:text-white transition-all duration-300 shadow-sm">
-                  <CategoryLucideIcon icon={h.icon} className="h-7 w-7" />
+                <div className="grid h-12 w-12 sm:h-14 sm:w-14 place-items-center rounded-2xl bg-amber-100/80 text-orange-600 mb-3 sm:mb-4 mx-auto group-hover:scale-110 group-hover:bg-orange-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                  <CategoryLucideIcon icon={h.icon} className="h-6 w-6 sm:h-7 sm:w-7" />
                 </div>
-                <h3 className="font-display text-lg font-extrabold text-amber-950">{h.name}</h3>
-                <span className="inline-block my-1.5 rounded-full bg-amber-200/80 px-3 py-0.5 text-[11px] font-black text-amber-950">
+                <h3 className="font-display text-base sm:text-lg font-extrabold text-amber-950">{h.name}</h3>
+                <span className="inline-block my-1 rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-black text-amber-950">
                   {h.count}
                 </span>
-                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                <p className="mt-1.5 text-xs text-amber-900/75 leading-relaxed font-medium">
                   {h.desc}
                 </p>
               </motion.div>
@@ -477,140 +539,140 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── CHEF'S SPECIALS ─── */}
-      <section id="specials" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-16 md:py-24">
+      <section id="specials" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-12 sm:py-20 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12">
             <span className="text-xs font-black uppercase tracking-widest text-orange-600">
               Kitchen Selection
             </span>
-            <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+            <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
               Chef's Specials
             </h2>
-            <p className="mt-2 text-sm text-amber-900/80 font-medium">
+            <p className="mt-1.5 text-xs sm:text-sm text-amber-900/80 font-medium">
               Hand-picked customer favorites prepared fresh to order.
             </p>
           </div>
 
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {/* Dish 1: Quattro Formaggi */}
-            <div className="group rounded-[2.5rem] bg-white p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
+            <div className="group rounded-[1.5rem] sm:rounded-[2.5rem] bg-white p-4 sm:p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
               <div>
-                <div className="relative mb-4 h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
+                <div className="relative mb-3.5 h-44 sm:h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
                   <img
                     src="/branding/cheesecorner/showcase/quattro-formaggi.jpg"
                     alt="Quattro Formaggi Pizza"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   />
-                  <span className="absolute top-3 left-3 rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-950 shadow-md">
+                  <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 rounded-full bg-amber-400 px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-950 shadow-md">
                     Chef's Favorite
                   </span>
-                  <span className="absolute bottom-3 right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
+                  <span className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
                     ₹349
                   </span>
                 </div>
-                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
+                <h3 className="font-display text-lg sm:text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
                   Quattro Formaggi Pizza
                 </h3>
-                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                <p className="mt-1.5 text-xs text-amber-900/75 leading-relaxed font-medium">
                   Artisanal sourdough crust layered with mozzarella, cheddar, gouda & parmesan.
                 </p>
               </div>
               <button
                 onClick={() => setIsOrderNowModalOpen(true)}
-                className="mt-5 w-full rounded-full bg-amber-100/80 py-2.5 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5"
+                className="mt-4 w-full rounded-full bg-amber-100/80 py-3 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5 min-h-[44px]"
               >
                 <Utensils className="h-3.5 w-3.5" /> Order Dish
               </button>
             </div>
 
             {/* Dish 2: Double Cheese Burst Burger */}
-            <div className="group rounded-[2.5rem] bg-white p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
+            <div className="group rounded-[1.5rem] sm:rounded-[2.5rem] bg-white p-4 sm:p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
               <div>
-                <div className="relative mb-4 h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
+                <div className="relative mb-3.5 h-44 sm:h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
                   <img
                     src="/branding/cheesecorner/showcase/paneer-delight-burger.jpg"
                     alt="Double Cheese Burst Burger"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   />
-                  <span className="absolute top-3 left-3 rounded-full bg-orange-500 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-md">
+                  <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 rounded-full bg-orange-500 px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-white shadow-md">
                     Best Seller
                   </span>
-                  <span className="absolute bottom-3 right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
+                  <span className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
                     ₹249
                   </span>
                 </div>
-                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
+                <h3 className="font-display text-lg sm:text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
                   Double Cheese Burger
                 </h3>
-                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                <p className="mt-1.5 text-xs text-amber-900/75 leading-relaxed font-medium">
                   Juicy double patty topped with caramelized onions & melted cheddar in brioche.
                 </p>
               </div>
               <button
                 onClick={() => setIsOrderNowModalOpen(true)}
-                className="mt-5 w-full rounded-full bg-amber-100/80 py-2.5 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5"
+                className="mt-4 w-full rounded-full bg-amber-100/80 py-3 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5 min-h-[44px]"
               >
                 <Utensils className="h-3.5 w-3.5" /> Order Dish
               </button>
             </div>
 
             {/* Dish 3: Loaded Salsa Cheese Fries */}
-            <div className="group rounded-[2.5rem] bg-white p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
+            <div className="group rounded-[1.5rem] sm:rounded-[2.5rem] bg-white p-4 sm:p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
               <div>
-                <div className="relative mb-4 h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
+                <div className="relative mb-3.5 h-44 sm:h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
                   <img
                     src="/branding/cheesecorner/showcase/salsa-cheese-fries.jpg"
                     alt="Loaded Salsa Cheese Fries"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   />
-                  <span className="absolute top-3 left-3 rounded-full bg-amber-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-950 shadow-md">
+                  <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 rounded-full bg-amber-400 px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-950 shadow-md">
                     Loaded Side
                   </span>
-                  <span className="absolute bottom-3 right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
+                  <span className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
                     ₹189
                   </span>
                 </div>
-                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
+                <h3 className="font-display text-lg sm:text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
                   Loaded Salsa Cheese Fries
                 </h3>
-                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                <p className="mt-1.5 text-xs text-amber-900/75 leading-relaxed font-medium">
                   Golden crinkle fries doused in warm melted cheese sauce & tangy salsa.
                 </p>
               </div>
               <button
                 onClick={() => setIsOrderNowModalOpen(true)}
-                className="mt-5 w-full rounded-full bg-amber-100/80 py-2.5 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5"
+                className="mt-4 w-full rounded-full bg-amber-100/80 py-3 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5 min-h-[44px]"
               >
                 <Utensils className="h-3.5 w-3.5" /> Order Dish
               </button>
             </div>
 
             {/* Dish 4: Hot Sizzling Brownie */}
-            <div className="group rounded-[2.5rem] bg-white p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
+            <div className="group rounded-[1.5rem] sm:rounded-[2.5rem] bg-white p-4 sm:p-6 shadow-sm border border-amber-100 transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 flex flex-col justify-between">
               <div>
-                <div className="relative mb-4 h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
+                <div className="relative mb-3.5 h-44 sm:h-48 w-full overflow-hidden rounded-2xl bg-amber-100">
                   <img
                     src="/branding/cheesecorner/showcase/sizzling-brownie.jpg"
                     alt="Hot Sizzling Chocolate Brownie"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   />
-                  <span className="absolute top-3 left-3 rounded-full bg-orange-500 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-md">
+                  <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 rounded-full bg-orange-500 px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-white shadow-md">
                     Dessert Special
                   </span>
-                  <span className="absolute bottom-3 right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
+                  <span className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 rounded-full bg-amber-950/90 px-3 py-1 text-xs font-black text-amber-300 shadow-md">
                     ₹199
                   </span>
                 </div>
-                <h3 className="font-display text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
+                <h3 className="font-display text-lg sm:text-xl font-extrabold text-amber-950 group-hover:text-orange-600 transition-colors">
                   Sizzling Brownie Sundae
                 </h3>
-                <p className="mt-2 text-xs text-amber-900/75 leading-relaxed font-medium">
+                <p className="mt-1.5 text-xs text-amber-900/75 leading-relaxed font-medium">
                   Dark fudgy brownie on a sizzling skillet topped with vanilla bean ice cream.
                 </p>
               </div>
               <button
                 onClick={() => setIsOrderNowModalOpen(true)}
-                className="mt-5 w-full rounded-full bg-amber-100/80 py-2.5 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5"
+                className="mt-4 w-full rounded-full bg-amber-100/80 py-3 text-xs font-black text-amber-950 transition hover:bg-orange-600 hover:text-white flex items-center justify-center gap-1.5 min-h-[44px]"
               >
                 <Utensils className="h-3.5 w-3.5" /> Order Dish
               </button>
@@ -620,23 +682,23 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── MENU ─── */}
-      <section id="menu" className="bg-white py-16 md:py-24">
+      <section id="menu" className="bg-white py-12 sm:py-20 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 mb-8 sm:mb-10">
             <div>
               <span className="text-xs font-black uppercase tracking-widest text-orange-600">
                 Live Kitchen
               </span>
-              <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+              <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
                 Menu
               </h2>
-              <p className="mt-1.5 text-sm text-amber-900/80 font-medium max-w-lg">
+              <p className="mt-1 text-xs sm:text-sm text-amber-900/80 font-medium max-w-lg">
                 Explore real prices and dishes from our live digital kitchen menu.
               </p>
             </div>
 
-            {/* Filter Chips */}
-            <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2">
+            {/* Touch-Optimized Filter Chips */}
+            <div className="no-scrollbar flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
               {[
                 { id: "all", label: "All Dishes" },
                 { id: "pizza", label: "Pizzas" },
@@ -648,7 +710,7 @@ export default function CheeseCornerLandingPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveCategory(tab.id)}
-                  className={`shrink-0 rounded-full px-5 py-2 text-xs font-black transition-all active:scale-95 ${
+                  className={`shrink-0 rounded-full px-5 py-2.5 text-xs font-black transition-all active:scale-95 min-h-[44px] ${
                     activeCategory === tab.id
                       ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20"
                       : "bg-amber-100/70 text-amber-950 hover:bg-amber-200/80"
@@ -661,16 +723,16 @@ export default function CheeseCornerLandingPage() {
           </div>
 
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center p-16 text-amber-800 gap-3">
+            <div className="flex flex-col items-center justify-center p-12 text-amber-800 gap-3">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-300 border-t-amber-600" />
-              <span className="text-sm font-extrabold">Fetching live Cheese Corner menu...</span>
+              <span className="text-xs sm:text-sm font-extrabold">Fetching live Cheese Corner menu...</span>
             </div>
           ) : filteredPreviewItems.length === 0 ? (
-            <div className="rounded-[2.5rem] border-2 border-dashed border-amber-300 bg-amber-50/50 p-16 text-center text-amber-950 font-extrabold">
+            <div className="rounded-[1.5rem] sm:rounded-[2.5rem] border-2 border-dashed border-amber-300 bg-amber-50/50 p-12 text-center text-amber-950 font-extrabold text-sm">
               No menu items found for this filter.
             </div>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <AnimatePresence mode="popLayout">
                 {filteredPreviewItems.map((item) => (
                   <MenuPreviewItemCard key={item.id} item={item} currency={cafe?.currency ?? "INR"} />
@@ -681,19 +743,28 @@ export default function CheeseCornerLandingPage() {
         </div>
       </section>
 
-      {/* ─── DINE-IN QR ORDERING EXPERIENCE ─── */}
-      <section id="qr-ordering" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-16 md:py-24">
+      {/* ─── DINE-IN QR ORDERING EXPERIENCE (MOBILE OPTIMIZED FLOW) ─── */}
+      <section id="qr-ordering" className="bg-gradient-to-b from-[#FFFBEB] to-amber-100/50 py-12 sm:py-20 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-12 lg:grid-cols-12 lg:items-center">
+          <div className="grid gap-8 lg:gap-12 lg:grid-cols-12 lg:items-center">
+            
             {/* Left: Branded QR Stand Artwork */}
-            <div className="lg:col-span-5 flex justify-center">
-              <div className="relative group overflow-hidden rounded-[2.5rem] border-4 border-white bg-white p-6 shadow-xl transition-all duration-500 hover:shadow-amber-500/10">
+            <div className="lg:col-span-5 flex flex-col items-center justify-center">
+              <div className="relative group overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-4 border-white bg-white p-5 sm:p-6 shadow-xl transition-all duration-500 hover:shadow-amber-500/10">
                 <img
                   src={CHEESE_CORNER_CONFIG.qrStandUrl}
                   alt="Cheese Corner Table QR Stand"
-                  className="h-80 sm:h-96 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
+                  className="h-64 xs:h-72 sm:h-96 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
+
+              {/* Mobile Quick Action */}
+              <button
+                onClick={() => setIsOrderNowModalOpen(true)}
+                className="mt-5 lg:hidden inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-7 py-3.5 text-xs font-black text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl active:scale-95 min-h-[48px] w-full max-w-xs"
+              >
+                <QrCode className="h-4 w-4" /> Scan & Order Live
+              </button>
             </div>
 
             {/* Right: 4-Step Process */}
@@ -701,48 +772,48 @@ export default function CheeseCornerLandingPage() {
               <span className="text-xs font-black uppercase tracking-widest text-orange-600">
                 Dine-In QR Service
               </span>
-              <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+              <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
                 Order in 4 Easy Steps
               </h2>
-              <p className="mt-2 text-sm text-amber-900/80 font-medium max-w-lg">
+              <p className="mt-1.5 text-xs sm:text-sm text-amber-900/80 font-medium max-w-lg">
                 No waiting for paper menus. Scan the QR stand on your table to browse prices and order directly to your seat.
               </p>
 
-              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="rounded-2xl bg-white p-5 shadow-sm border border-amber-100/80">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs">1</span>
-                    <h3 className="font-display font-extrabold text-amber-950 text-base">Visit Café</h3>
+              <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-amber-100/80">
+                  <div className="flex items-center gap-3 mb-1.5">
+                    <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">1</span>
+                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Visit Café</h3>
                   </div>
                   <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
                     Drop by Cheese Corner on University Road & find your table.
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white p-5 shadow-sm border border-amber-100/80">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs">2</span>
-                    <h3 className="font-display font-extrabold text-amber-950 text-base">Take A Seat</h3>
+                <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-amber-100/80">
+                  <div className="flex items-center gap-3 mb-1.5">
+                    <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">2</span>
+                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Take A Seat</h3>
                   </div>
                   <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
                     Settle into your dining table with friends & family.
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white p-5 shadow-sm border border-amber-100/80">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs">3</span>
-                    <h3 className="font-display font-extrabold text-amber-950 text-base">Scan QR Stand</h3>
+                <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-amber-100/80">
+                  <div className="flex items-center gap-3 mb-1.5">
+                    <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">3</span>
+                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Scan QR Stand</h3>
                   </div>
                   <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
                     Point your camera at the acrylic QR card on your table.
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white p-5 shadow-sm border border-amber-100/80">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs">4</span>
-                    <h3 className="font-display font-extrabold text-amber-950 text-base">Order Live</h3>
+                <div className="rounded-2xl bg-white p-4 sm:p-5 shadow-sm border border-amber-100/80">
+                  <div className="flex items-center gap-3 mb-1.5">
+                    <span className="grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl bg-orange-600 text-white font-black text-xs shrink-0">4</span>
+                    <h3 className="font-display font-extrabold text-amber-950 text-sm sm:text-base">Order Live</h3>
                   </div>
                   <p className="text-xs text-amber-900/75 font-medium leading-relaxed">
                     Browse menu, customize options & send orders straight to kitchen.
@@ -750,9 +821,10 @@ export default function CheeseCornerLandingPage() {
                 </div>
               </div>
 
+              {/* Desktop CTA */}
               <button
                 onClick={() => setIsOrderNowModalOpen(true)}
-                className="mt-8 inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-7 py-3.5 text-xs font-black text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl active:scale-95"
+                className="mt-8 hidden lg:inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 px-7 py-3.5 text-xs font-black text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl active:scale-95 min-h-[48px]"
               >
                 <QrCode className="h-4 w-4" /> Scan & Order Live
               </button>
@@ -762,21 +834,21 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── GALLERY ─── */}
-      <section id="gallery" className="bg-[#FFFBEB] py-16 md:py-24">
+      <section id="gallery" className="bg-[#FFFBEB] py-12 sm:py-20 md:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12">
             <span className="text-xs font-black uppercase tracking-widest text-orange-600">
               Food Photography
             </span>
-            <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+            <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
               Gallery
             </h2>
-            <p className="mt-2 text-sm text-amber-900/80 font-medium">
+            <p className="mt-1.5 text-xs sm:text-sm text-amber-900/80 font-medium">
               A glimpse of gourmet pizzas, burgers & refreshing drinks prepared daily.
             </p>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {CHEESE_CORNER_CONFIG.signatureGallery.map((item, i) => (
               <motion.div
                 key={item.id}
@@ -785,28 +857,28 @@ export default function CheeseCornerLandingPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.45, delay: i * 0.08 }}
                 onClick={() => setSelectedPoster(item.image)}
-                className={`group relative cursor-pointer overflow-hidden rounded-[2.5rem] bg-amber-950 shadow-md transition-all duration-500 hover:shadow-2xl hover:shadow-amber-500/10 ${
-                  i % 3 === 0 ? "h-[420px]" : i % 3 === 1 ? "h-[360px]" : "h-[460px]"
+                className={`group relative cursor-pointer overflow-hidden rounded-[1.5rem] sm:rounded-[2.5rem] bg-amber-950 shadow-md transition-all duration-500 hover:shadow-2xl hover:shadow-amber-500/10 ${
+                  i % 3 === 0 ? "h-[320px] sm:h-[420px]" : i % 3 === 1 ? "h-[300px] sm:h-[360px]" : "h-[340px] sm:h-[460px]"
                 }`}
               >
                 <img
                   src={item.image}
                   alt={item.title}
                   loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                  className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
                 />
 
                 {/* Dark Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent p-8 flex flex-col justify-end text-white">
-                  <span className="inline-self-start rounded-full bg-amber-400 px-3.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-950 w-max mb-2.5 shadow-md">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent p-5 sm:p-8 flex flex-col justify-end text-white">
+                  <span className="inline-self-start rounded-full bg-amber-400 px-3 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-950 w-max mb-2 shadow-md">
                     {item.tag}
                   </span>
-                  <h3 className="font-display text-2xl font-extrabold text-white group-hover:text-amber-300 transition-colors">
+                  <h3 className="font-display text-xl sm:text-2xl font-extrabold text-white group-hover:text-amber-300 transition-colors">
                     {item.title}
                   </h3>
-                  <p className="text-xs text-amber-100/90 mt-1.5 line-clamp-2 font-medium leading-relaxed">{item.subtitle}</p>
+                  <p className="text-[11px] sm:text-xs text-amber-100/90 mt-1 line-clamp-2 font-medium leading-relaxed">{item.subtitle}</p>
                   
-                  <div className="mt-5 flex items-center gap-1.5 text-xs font-black text-amber-300 group-hover:translate-x-1 transition-transform">
+                  <div className="mt-4 flex items-center gap-1.5 text-xs font-black text-amber-300 group-hover:translate-x-1 transition-transform">
                     <Utensils className="h-4 w-4 text-orange-400" /> Savor Signature Dish
                   </div>
                 </div>
@@ -817,59 +889,59 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── LOCATION & HOURS ─── */}
-      <section id="contact" className="bg-white py-16 md:py-24">
+      <section id="contact" className="bg-white py-12 sm:py-20 md:py-24">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[3rem] bg-[#FFFBEB] p-8 sm:p-12 md:p-16 shadow-sm border border-amber-200/60 space-y-10">
+          <div className="rounded-[2rem] sm:rounded-[3rem] bg-[#FFFBEB] p-6 sm:p-12 md:p-16 shadow-sm border border-amber-200/60 space-y-8 sm:space-y-10">
             <div className="text-center max-w-xl mx-auto">
               <span className="text-xs font-black uppercase tracking-widest text-orange-600">
                 Find Us
               </span>
-              <h2 className="mt-1 font-display text-3xl sm:text-4xl font-black text-amber-950">
+              <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
                 Location & Hours
               </h2>
-              <p className="mt-2 text-sm text-amber-900/80 font-medium">
+              <p className="mt-1.5 text-xs sm:text-sm text-amber-900/80 font-medium">
                 Visit our café on University Road.
               </p>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 text-sm">
-              <div className="flex items-start gap-4 rounded-3xl bg-white p-6 shadow-sm border border-amber-100">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
-                  <MapPin className="h-6 w-6" />
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 text-sm">
+              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
+                <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
+                  <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <div>
-                  <div className="font-extrabold text-amber-950 text-base">Café Address</div>
-                  <div className="text-amber-900/80 mt-1 font-medium leading-relaxed">{CHEESE_CORNER_CONFIG.contact.address}</div>
+                  <div className="font-extrabold text-amber-950 text-sm sm:text-base">Café Address</div>
+                  <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium leading-relaxed">{CHEESE_CORNER_CONFIG.contact.address}</div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 rounded-3xl bg-white p-6 shadow-sm border border-amber-100">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
-                  <Phone className="h-6 w-6" />
+              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
+                <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
+                  <Phone className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <div>
-                  <div className="font-extrabold text-amber-950 text-base">Phone & Inquiries</div>
-                  <div className="text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.phone}</div>
+                  <div className="font-extrabold text-amber-950 text-sm sm:text-base">Phone & Inquiries</div>
+                  <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.phone}</div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 rounded-3xl bg-white p-6 shadow-sm border border-amber-100">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
-                  <Instagram className="h-6 w-6" />
+              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
+                <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
+                  <Instagram className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <div>
-                  <div className="font-extrabold text-amber-950 text-base">Instagram</div>
-                  <div className="text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.instagram}</div>
+                  <div className="font-extrabold text-amber-950 text-sm sm:text-base">Instagram</div>
+                  <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.instagram}</div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 rounded-3xl bg-white p-6 shadow-sm border border-amber-100">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
-                  <Clock className="h-6 w-6" />
+              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
+                <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
+                  <Clock className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <div>
-                  <div className="font-extrabold text-amber-950 text-base">Opening Hours</div>
-                  <div className="text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.hours}</div>
+                  <div className="font-extrabold text-amber-950 text-sm sm:text-base">Opening Hours</div>
+                  <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.hours}</div>
                 </div>
               </div>
             </div>
@@ -878,12 +950,12 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── FOOTER ─── */}
-      <footer className="border-t border-amber-900/50 bg-amber-950 text-amber-100 py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3.5">
-            <img src={CHEESE_CORNER_CONFIG.logoUrl} alt="Logo" className="h-9 w-9 object-contain" />
+      <footer className="border-t border-amber-900/50 bg-amber-950 text-amber-100 py-10 sm:py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-5 sm:gap-6">
+          <div className="flex items-center gap-3">
+            <img src={CHEESE_CORNER_CONFIG.logoUrl} alt="Logo" className="h-8 w-8 sm:h-9 sm:w-9 object-contain" />
             <div>
-              <span className="font-display text-xl font-black text-white block leading-none">Cheese Corner</span>
+              <span className="font-display text-lg sm:text-xl font-black text-white block leading-none">Cheese Corner</span>
               <span className="text-[10px] font-bold text-amber-400">Gourmet Comfort Food</span>
             </div>
           </div>
@@ -909,11 +981,11 @@ export default function CheeseCornerLandingPage() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative max-w-md w-full overflow-hidden rounded-[2.5rem] border-2 border-white bg-white p-7 shadow-2xl text-[#321300]"
+            className="relative max-w-md w-full overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-2 border-white bg-white p-5 sm:p-7 shadow-2xl text-[#321300]"
           >
             <button
               onClick={() => setIsOrderNowModalOpen(false)}
-              className="absolute top-5 right-5 grid h-9 w-9 place-items-center rounded-full bg-amber-100 text-amber-950 hover:bg-amber-200 transition-colors"
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 grid h-9 w-9 place-items-center rounded-full bg-amber-100 text-amber-950 hover:bg-amber-200 transition-colors min-h-[44px] min-w-[44px]"
             >
               <X className="h-5 w-5" />
             </button>
@@ -925,42 +997,42 @@ export default function CheeseCornerLandingPage() {
                 </span>
               </div>
 
-              <h3 className="font-display text-2xl font-black text-amber-950">
+              <h3 className="font-display text-xl sm:text-2xl font-black text-amber-950">
                 Dine-In At Cheese Corner
               </h3>
 
-              <div className="my-5 flex justify-center">
-                <div className="rounded-3xl border-2 border-amber-200 bg-[#FFFBEB] p-4 shadow-md">
+              <div className="my-4 sm:my-5 flex justify-center">
+                <div className="rounded-2xl sm:rounded-3xl border-2 border-amber-200 bg-[#FFFBEB] p-3 sm:p-4 shadow-md">
                   <img
                     src={CHEESE_CORNER_CONFIG.qrStandUrl}
                     alt="Cheese Corner QR Stand"
-                    className="h-56 w-auto object-contain drop-shadow-xl hover:scale-105 transition-transform duration-300"
+                    className="h-44 xs:h-52 sm:h-56 w-auto object-contain drop-shadow-xl hover:scale-105 transition-transform duration-300"
                   />
                 </div>
               </div>
 
-              <div className="my-4 grid grid-cols-2 gap-2.5 text-left text-xs font-medium text-amber-950">
-                <div className="rounded-2xl bg-amber-50 p-3 border border-amber-200/60">
-                  <div className="font-extrabold text-amber-950">1. Visit Café</div>
-                  <div className="text-amber-900/80 text-[11px] mt-0.5">Drop by Cheese Corner.</div>
+              <div className="my-4 grid grid-cols-2 gap-2 sm:gap-2.5 text-left text-xs font-medium text-amber-950">
+                <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">1. Visit Café</div>
+                  <div className="text-amber-900/80 text-[10px] sm:text-[11px] mt-0.5">Drop by Cheese Corner.</div>
                 </div>
-                <div className="rounded-2xl bg-amber-50 p-3 border border-amber-200/60">
-                  <div className="font-extrabold text-amber-950">2. Take A Seat</div>
-                  <div className="text-amber-900/80 text-[11px] mt-0.5">Find any dining table.</div>
+                <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">2. Take A Seat</div>
+                  <div className="text-amber-900/80 text-[10px] sm:text-[11px] mt-0.5">Find any dining table.</div>
                 </div>
-                <div className="rounded-2xl bg-amber-50 p-3 border border-amber-200/60">
-                  <div className="font-extrabold text-amber-950">3. Scan QR</div>
-                  <div className="text-amber-800/80 text-[11px] mt-0.5">Scan card on table.</div>
+                <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">3. Scan QR</div>
+                  <div className="text-amber-800/80 text-[10px] sm:text-[11px] mt-0.5">Scan card on table.</div>
                 </div>
-                <div className="rounded-2xl bg-amber-50 p-3 border border-amber-200/60">
-                  <div className="font-extrabold text-amber-950">4. Order Live</div>
-                  <div className="text-amber-800/80 text-[11px] mt-0.5">Browse menu & order!</div>
+                <div className="rounded-xl sm:rounded-2xl bg-amber-50 p-2.5 sm:p-3 border border-amber-200/60">
+                  <div className="font-extrabold text-amber-950 text-xs sm:text-sm">4. Order Live</div>
+                  <div className="text-amber-800/80 text-[10px] sm:text-[11px] mt-0.5">Browse menu & order!</div>
                 </div>
               </div>
 
               <button
                 onClick={() => setIsOrderNowModalOpen(false)}
-                className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-600 py-3.5 text-sm font-black text-white shadow-lg transition hover:from-amber-600 hover:to-orange-700 active:scale-95"
+                className="mt-3 w-full rounded-full bg-gradient-to-r from-amber-500 to-orange-600 py-3.5 text-xs sm:text-sm font-black text-white shadow-lg transition hover:from-amber-600 hover:to-orange-700 active:scale-95 min-h-[48px]"
               >
                 Got It
               </button>
@@ -975,11 +1047,11 @@ export default function CheeseCornerLandingPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
           onClick={() => setSelectedPoster(null)}
         >
-          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-[2.5rem] border-4 border-white shadow-2xl">
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border-2 sm:border-4 border-white shadow-2xl">
             <img src={selectedPoster} alt="Showcase Lightbox" className="max-h-[85vh] w-auto object-contain" />
             <button
               onClick={() => setSelectedPoster(null)}
-              className="absolute top-4 right-4 grid h-10 w-10 place-items-center rounded-full bg-black/70 text-white hover:bg-black transition-colors"
+              className="absolute top-4 right-4 grid h-10 w-10 place-items-center rounded-full bg-black/70 text-white hover:bg-black transition-colors min-h-[44px] min-w-[44px]"
             >
               <X className="h-5 w-5" />
             </button>
