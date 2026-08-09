@@ -7,9 +7,9 @@ describe("Sprint 12H - QR Artwork Overlay Validation", () => {
     expect(ARTWORK_LAYOUT.template.height).toBe(1660);
   });
 
-  it("places table number correctly inside the white pill", () => {
-    expect(ARTWORK_LAYOUT.tableNumber.centerX).toBe(499);
-    expect(ARTWORK_LAYOUT.tableNumber.centerY).toBe(248);
+  it("places table number correctly inside the white pill (Sprint 12I)", () => {
+    expect(ARTWORK_LAYOUT.tableNumber.centerX).toBe(475);
+    expect(ARTWORK_LAYOUT.tableNumber.centerY).toBe(562);
   });
 
   it("places QR card inside cream container without overlapping SCAN TO ORDER banner", () => {

@@ -12,10 +12,10 @@ export const ARTWORK_LAYOUT = {
     url: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
   },
 
-  // Table Number Rounded Pill Region (under "Table" heading)
+  // Table Number Rounded Pill Region (Sprint 12I Measured Position: X=475, Y=562)
   tableNumber: {
-    centerX: 499, // Centered horizontally inside template white pill (458..541)
-    centerY: 248, // Centered vertically inside template white pill (245..260)
+    centerX: 475, // Centered horizontally inside template white pill (370..580)
+    centerY: 562, // Centered vertically inside template white pill (520..603)
     color: "#321300",
     font: "bold 48px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif",
     fontFamily: "'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif",
