@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/lib/cart";
 import { formatMoney } from "@/lib/db";
@@ -9,6 +9,7 @@ import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP } from "@/lib/constants";
 export function FloatingCart({ currency }: { currency: string }) {
   const { count, subtotalCents, editingOrderId } = useCart();
   const { tableId } = useParams();
+
   return (
     <AnimatePresence>
       {count > 0 && (
@@ -25,20 +26,22 @@ export function FloatingCart({ currency }: { currency: string }) {
           <Link
             to={`/t/${tableId}/cart`}
             className={cn(
-              "pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-4 rounded-full px-5 py-3.5 btn-primary-action"
+              "pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-3 rounded-full px-4 py-3 bg-[#2A1710] text-white shadow-xl border border-white/10 hover:bg-[#2A1710]/95 active:scale-[0.98] transition-all"
             )}
           >
-            <span className="flex items-center gap-3">
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-accent-foreground/15">
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EA580C] text-white shadow-xs">
                 <ShoppingBag className="h-4 w-4" />
               </span>
-              <span className="text-base font-semibold">
+              <span className="text-sm font-bold tracking-tight truncate">
                 {editingOrderId ? "Editing: " : ""}{count} {count === 1 ? "item" : "items"}
               </span>
             </span>
-            <span className="flex items-center gap-2 text-base font-bold tabular-nums">
-              {formatMoney(subtotalCents, currency)}
-              <span aria-hidden>→</span>
+            <span className="flex items-center gap-2 text-sm font-extrabold tabular-nums shrink-0">
+              <span>{formatMoney(subtotalCents, currency)}</span>
+              <span className="rounded-full bg-[#EA580C] px-3 py-1 text-xs font-bold text-white flex items-center gap-1 shadow-xs">
+                View Cart <ArrowRight className="h-3.5 w-3.5" />
+              </span>
             </span>
           </Link>
         </motion.div>

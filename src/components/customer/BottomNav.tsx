@@ -1,5 +1,5 @@
 import { NavLink, useParams } from "react-router-dom";
-import { Coffee, ShoppingBag, BellRing } from "lucide-react";
+import { Utensils, ShoppingBag, ConciergeBell } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 import { useCustomerNavigate } from "@/hooks/useCustomerBack";
@@ -10,17 +10,17 @@ export function BottomNav() {
   const customerNavigate = useCustomerNavigate();
 
   const items = [
-    { to: `/t/${tableId}`, label: "Menu", icon: Coffee, end: true },
+    { to: `/t/${tableId}`, label: "Menu", icon: Utensils, end: true },
     { to: `/t/${tableId}/cart`, label: "My Order", icon: ShoppingBag, badge: count },
-    { to: `/t/${tableId}/call`, label: "Call Staff", icon: BellRing },
+    { to: `/t/${tableId}/call`, label: "Call Staff", icon: ConciergeBell },
   ];
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-40 glass border-t border-border pb-safe"
+      className="fixed bottom-0 inset-x-0 z-40 bg-[#FFF8EA]/95 backdrop-blur-md border-t border-[#E8DCC8] pb-safe shadow-lg"
       aria-label="Primary"
     >
-      <ul className="mx-auto flex max-w-md items-stretch justify-around px-2 pt-2">
+      <ul className="mx-auto flex max-w-md items-stretch justify-around px-3 py-1.5">
         {items.map(({ to, label, icon: Icon, end, badge }) => (
           <li key={to} className="flex-1">
             <NavLink
@@ -32,20 +32,22 @@ export function BottomNav() {
               }}
               className={({ isActive }) =>
                 cn(
-                  "relative flex flex-col items-center gap-1 rounded-2xl py-2 text-xs font-medium transition-colors",
-                  isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground",
+                  "relative flex flex-col items-center gap-1 rounded-2xl py-1.5 text-xs font-semibold transition-all active:scale-95 min-h-[44px] justify-center",
+                  isActive
+                    ? "text-[#EA580C] bg-[#EA580C]/10 font-bold"
+                    : "text-[#75625B] hover:text-[#2A1710] hover:bg-white/60"
                 )
               }
             >
               <span className="relative">
-                <Icon className="h-6 w-6" strokeWidth={2} />
+                <Icon className="h-5 w-5" strokeWidth={2.2} />
                 {badge && badge > 0 ? (
-                  <span className="absolute -right-2 -top-2 grid h-5 min-w-[1.25rem] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-soft">
+                  <span className="absolute -right-2.5 -top-1.5 grid h-4.5 min-w-[1.2rem] place-items-center rounded-full bg-[#EA580C] px-1 text-[10px] font-black text-white shadow-xs">
                     {badge}
                   </span>
                 ) : null}
               </span>
-              {label}
+              <span>{label}</span>
             </NavLink>
           </li>
         ))}
