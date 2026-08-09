@@ -157,9 +157,9 @@ class PrinterAdapterClass {
     }
 
     const settings = getReceiptSettings((payload as any).cafeId);
-    const widthmm: 58 | 80 = settings.receiptWidth === "58mm" ? 58 : 80;
+    const widthmm: 58 | 80 = settings?.receiptWidth === "80mm" ? 80 : 58;
 
-    // Build dedicated customer receipt using ESC/POS ReceiptBuilder with owner configured width (58mm or 80mm)
+    // Build dedicated customer receipt using ESC/POS ReceiptBuilder with owner configured width (safe default: 58mm)
     const receiptBuild = ReceiptBuilder.build(payload, widthmm);
 
     const res = await printService.enqueue(

@@ -20,7 +20,7 @@ describe("Sprint 9.2.9.1 — Receipts & Billing Settings Tests", () => {
     expect(settings.showGst).toBe(true);
     expect(settings.showInvoiceNum).toBe(true);
     expect(settings.invoicePrefix).toBe("INV-");
-    expect(settings.receiptWidth).toBe("80mm");
+    expect(settings.receiptWidth).toBe("58mm");
     expect(settings.printCopies).toBe(1);
   });
 
@@ -29,7 +29,7 @@ describe("Sprint 9.2.9.1 — Receipts & Billing Settings Tests", () => {
       ...DEFAULT_RECEIPT_SETTINGS,
       invoicePrefix: "OR-",
       receiptHeader: "Welcome to Gourmet Cafe",
-      receiptWidth: "58mm",
+      receiptWidth: "80mm",
       printCopies: 2,
       autoPrint: true,
       gstNumber: "29BBBBB1111B2Z6",
@@ -40,7 +40,7 @@ describe("Sprint 9.2.9.1 — Receipts & Billing Settings Tests", () => {
 
     expect(loaded.invoicePrefix).toBe("OR-");
     expect(loaded.receiptHeader).toBe("Welcome to Gourmet Cafe");
-    expect(loaded.receiptWidth).toBe("58mm");
+    expect(loaded.receiptWidth).toBe("80mm");
     expect(loaded.printCopies).toBe(2);
     expect(loaded.autoPrint).toBe(true);
     expect(loaded.gstNumber).toBe("29BBBBB1111B2Z6");
