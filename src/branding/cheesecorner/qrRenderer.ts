@@ -3,6 +3,7 @@ import { CHEESE_CORNER_CONFIG } from "./config";
 /**
  * Centralized Layout Configuration for Cheese Corner Dynamic QR Artwork
  * Template: Native Resolution (948x1660) blank artwork source
+ * Recalibrated for Sprint 12C to eliminate gaps & completely cover placeholder text
  */
 export const ARTWORK_LAYOUT = {
   template: {
@@ -21,13 +22,13 @@ export const ARTWORK_LAYOUT = {
     baseFontSize: 54,
   },
 
-  // QR Placement Region inside Cream Container Box
+  // QR Placement Region inside Cream Container Box (Sprint 12C Recalibrated)
   qr: {
-    centerX: 469, // Centered horizontally inside template cream container (246..692)
-    centerY: 680, // Centered vertically in available space between top graphic & "Scan To Order" (514..845)
-    cardSize: 320, // White card size filling placeholder with even cream border
-    qrSize: 264, // QR code size preserving even 28px white padding on all sides
-    borderRadius: 20, // Rounded corners matching artwork style
+    centerX: 474, // Centered horizontally inside template container
+    centerY: 648, // Centered vertically to fully cover "QR PLACEHOLDER" graphic (y: 428..868)
+    cardSize: 440, // Expanded white card completely covering "QR PLACEHOLDER" text & dashed box
+    qrSize: 350, // Scaled QR code maintaining even 45px white padding on all 4 sides
+    borderRadius: 24, // Rounded corners matching artwork style
     cardShadowColor: "rgba(50, 19, 0, 0.12)",
     cardShadowBlur: 24,
     cardShadowOffsetY: 6,
@@ -50,11 +51,11 @@ export function extractTableNumber(label: string): string {
 /**
  * Generates a dynamic high-resolution QR artwork PNG for a table.
  *
- * Execution Order (Sprint 12B):
+ * Execution Order:
  * 1. Load blank template (`public/branding/cheesecorner/qr/qr-stand.png`)
  * 2. Draw template at native resolution (948x1660)
  * 3. Draw numeric table number (centered inside existing rounded rectangle)
- * 4. Draw QR code (from table UUID, centered inside white card with even cream border & white padding)
+ * 4. Draw QR code (from table UUID, centered inside white card covering placeholder text)
  * 5. Export high-res PNG
  *
  * Never modifies the template source file itself.
@@ -64,6 +65,14 @@ export async function generateArtwork(
   qrCanvas: HTMLCanvasElement,
   templateUrl: string = ARTWORK_LAYOUT.template.url
 ): Promise<string> {
+  if (typeof document !== "undefined" && document.fonts) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      // Ignore font readiness errors
+    }
+  }
+
   return new Promise((resolve) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -87,7 +96,7 @@ export async function generateArtwork(
       // 2. Draw Blank Artwork Template
       ctx.drawImage(templateImg, 0, 0, nativeWidth, nativeHeight);
 
-      // 3. Render Numeric Table Number (Sprint 12B Task 2: Extract numeric portion)
+      // 3. Render Numeric Table Number (Task 2: Extract numeric portion)
       const numericOnly = extractTableNumber(tableLabel);
 
       // Auto scale font size for larger numbers
@@ -108,7 +117,7 @@ export async function generateArtwork(
         ARTWORK_LAYOUT.tableNumber.centerY
       );
 
-      // 4. Render White QR Backing Card & QR Code (Sprint 12B Task 4: Centered, even borders/padding)
+      // 4. Render White QR Backing Card & QR Code (Task 4: Centered, even borders/padding)
       const {
         centerX,
         centerY,
