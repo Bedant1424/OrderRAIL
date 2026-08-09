@@ -12,25 +12,21 @@ describe("Sprint 12H - QR Artwork Overlay Validation", () => {
     expect(ARTWORK_LAYOUT.tableNumber.centerY).toBe(562);
   });
 
-  it("places QR card inside cream container without overlapping SCAN TO ORDER banner", () => {
+  it("places QR card inside cream container at measured Sprint 12I position (centerX: 469, centerY: 870)", () => {
     const { centerX, centerY, cardSize, qrSize } = ARTWORK_LAYOUT.qr;
 
-    expect(centerX).toBe(474);
-    expect(centerY).toBe(741);
+    expect(centerX).toBe(469);
+    expect(centerY).toBe(870);
     expect(cardSize).toBe(360);
     expect(qrSize).toBe(300);
 
-    // Calculate top of white card: centerY - (cardSize / 2)
-    const cardTop = centerY - cardSize / 2; // 561
-    const cardBottom = centerY + cardSize / 2; // 921
+    // Calculate top and bottom of white card: centerY +/- (cardSize / 2)
+    const cardTop = centerY - cardSize / 2; // 690
+    const cardBottom = centerY + cardSize / 2; // 1050
 
-    // SCAN TO ORDER banner on template ends at Y = 515
-    const bannerBottom = 515;
-    expect(cardTop).toBeGreaterThan(bannerBottom);
-
-    // Cream container box Y bounds: 533 to 949
-    expect(cardTop).toBeGreaterThan(533);
-    expect(cardBottom).toBeLessThan(949);
+    // Table pill region ends at Y ~603, card starts at Y = 690 (no overlap)
+    expect(cardTop).toBeGreaterThan(603);
+    expect(cardBottom).toBeLessThan(1100);
   });
 
   it("correctly extracts table numbers from labels", () => {

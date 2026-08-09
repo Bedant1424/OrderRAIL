@@ -22,10 +22,10 @@ export const ARTWORK_LAYOUT = {
     baseFontSize: 48,
   },
 
-  // QR Placement Region inside Cream Container Box (Sprint 12H Overlay Fix)
+  // QR Placement Region inside Cream Container Box (Sprint 12I Measured QR Position)
   qr: {
-    centerX: 474, // Centered horizontally on template artwork (247..691)
-    centerY: 741, // Centered vertically inside cream container box (533..949)
+    centerX: 469, // Centered horizontally on template cream box (240..680)
+    centerY: 870, // Centered vertically inside cream container box (638..1100)
     cardSize: 360, // White card completely covering & filling the intended QR placeholder box
     qrSize: 300, // QR code size preserving even 30px white padding on all 4 sides
     borderRadius: 24, // Rounded corners matching artwork style
