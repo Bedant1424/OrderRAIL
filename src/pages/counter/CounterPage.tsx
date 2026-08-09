@@ -1563,7 +1563,7 @@ const ReceiptModal = ({
         const existingBill = BillingService.getBill(primaryBillId) || BillingService.getBillByOrderId(primaryOrderId) || BillingService.getBill(receipt.orderId);
 
         if (existingBill) {
-          const res = await BillingService.reprintBill(existingBill.billId);
+          const res = await BillingService.printBill(existingBill.billId);
           if (!res.queued) {
             toast.success(`🖨️ Paid Receipt #${existingBill.billNumber} sent to printer.`);
           } else {
@@ -1586,7 +1586,7 @@ const ReceiptModal = ({
           });
           createdBill.bill.paymentStatus = 'paid';
           createdBill.bill.status = 'Paid';
-          const res = await BillingService.reprintBill(createdBill.bill.billId);
+          const res = await BillingService.printBill(createdBill.bill.billId);
           if (!res.queued) {
             toast.success('🖨️ Paid Receipt sent to printer.');
           } else {
