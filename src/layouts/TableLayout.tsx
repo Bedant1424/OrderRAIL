@@ -215,10 +215,10 @@ export default function TableLayout() {
 
   if (loadingTable || (loadingCafe && !cafe)) {
     return (
-      <div className="grid min-h-screen place-items-center bg-[#FFF8EA] text-[#75625B] font-medium">
+      <div className="grid min-h-screen place-items-center bg-cc-background text-cc-text-muted font-medium">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#EA580C]/20 border-t-[#EA580C]" />
-          <span className="text-sm">Loading Cheese Corner…</span>
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-cc-primary/20 border-t-cc-primary" />
+          <span className="text-xs font-medium">Loading Cheese Corner…</span>
         </div>
       </div>
     );
@@ -226,13 +226,13 @@ export default function TableLayout() {
 
   if (tableError || cafeError || !table || !cafe) {
     return (
-      <div className="grid min-h-screen place-items-center bg-[#FFF8EA] px-6 text-center text-[#2A1710]">
+      <div className="grid min-h-screen place-items-center bg-cc-background px-6 text-center text-cc-text">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Table not found</h1>
-          <p className="mt-2 text-sm text-[#75625B]">
+          <h1 className="font-display text-2xl font-black text-cc-text tracking-tight">Table not found</h1>
+          <p className="mt-2 text-xs font-medium text-cc-text-muted">
             This QR code doesn't match an active table. Please ask a staff member.
           </p>
-          <Link to="/" className="mt-6 inline-block rounded-full bg-[#EA580C] px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-[#EA580C]/90 transition">
+          <Link to="/" className="mt-6 inline-block rounded-full bg-cc-primary px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-cc-primary-hover transition">
             Go home
           </Link>
         </div>
@@ -245,9 +245,9 @@ export default function TableLayout() {
 
   return (
     <CartProvider key={activeSessionId || "no-session"} tableId={tableId!}>
-      <div className="min-h-screen bg-[#FFF8EA] text-[#2A1710] selection:bg-[#F59E0B]/30">
+      <div className="min-h-screen bg-cc-background text-cc-text selection:bg-cc-accent/30">
         {/* Redesigned Cheese Corner Header */}
-        <header className="sticky top-0 z-30 border-b border-[#E8DCC8] bg-[#FFF8EA]/95 backdrop-blur-md shadow-xs">
+        <header className="sticky top-0 z-30 border-b border-cc-border bg-cc-background/95 backdrop-blur-md shadow-xs">
           <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">
             <Link
               to={`/t/${tableId}`}
@@ -257,32 +257,32 @@ export default function TableLayout() {
               }}
               className="flex items-center gap-2.5 active:opacity-90 transition-opacity"
             >
-              <div className="relative h-9 w-9 rounded-full overflow-hidden shrink-0 border border-[#E8DCC8] bg-white shadow-xs flex items-center justify-center p-0.5">
+              <div className="relative h-9 w-9 rounded-full overflow-hidden shrink-0 border border-cc-border bg-cc-surface shadow-xs flex items-center justify-center p-0.5">
                 <img
                   src={effectiveLogoUrl}
                   alt={cafe.name}
                   className="h-full w-full object-contain rounded-full"
                 />
               </div>
-              <span className="font-display text-base font-bold leading-tight text-[#2A1710] tracking-tight">
+              <span className="font-display text-base font-bold leading-tight text-cc-text tracking-tight">
                 {cafe.name}
               </span>
             </Link>
 
             <div className="flex items-center gap-2">
               {!online && (
-                <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-500/30">
+                <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 border border-amber-500/30">
                   <WifiOff className="h-3 w-3" /> Offline
                 </span>
               )}
               {/* Branded Table Pill */}
-              <div className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-bold text-[#2A1710] border border-[#E8DCC8] shadow-xs">
+              <div className="inline-flex items-center rounded-full bg-cc-surface px-3 py-1 text-xs font-bold text-cc-text border border-cc-border shadow-xs">
                 Table {table.label}
               </div>
               {/* Restyled Info Button */}
               <button
                 onClick={() => setIsAboutOpen(true)}
-                className="grid h-8 w-8 place-items-center rounded-full bg-white text-[#2A1710] border border-[#E8DCC8] hover:bg-[#FFF8EA] active:scale-95 transition-all shadow-xs"
+                className="grid h-8 w-8 place-items-center rounded-full bg-cc-surface text-cc-text border border-cc-border hover:bg-cc-surface-soft active:scale-95 transition-all shadow-xs"
                 aria-label="About Café"
               >
                 <Info className="h-4 w-4" />
@@ -297,8 +297,8 @@ export default function TableLayout() {
               <div className="mx-auto mb-2.5 grid h-10 w-10 place-items-center rounded-full bg-amber-500/20 text-amber-800">
                 <AlertCircle className="h-5 w-5" />
               </div>
-              <h3 className="font-display text-base font-bold text-[#2A1710]">Table Currently Inactive</h3>
-              <p className="mt-1 text-xs text-[#75625B] leading-relaxed">
+              <h3 className="font-display text-base font-bold text-cc-text">Table Currently Inactive</h3>
+              <p className="mt-1 text-xs font-medium text-cc-text-muted leading-relaxed">
                 This table is currently inactive. Please ask the staff to activate your table.
               </p>
             </div>
@@ -310,16 +310,16 @@ export default function TableLayout() {
 
         {isAboutOpen && (
           <Drawer open={isAboutOpen} onOpenChange={setIsAboutOpen}>
-            <DrawerContent className="max-w-md mx-auto p-6 flex flex-col focus:outline-none bg-[#FFF8EA] border-t border-[#E8DCC8]">
+            <DrawerContent className="max-w-md mx-auto p-6 flex flex-col focus:outline-none bg-cc-background border-t border-cc-border">
               <div className="flex flex-col items-center text-center space-y-3">
-                <div className="relative w-16 h-16 rounded-full overflow-hidden border border-[#E8DCC8] shadow-sm bg-white p-1 flex items-center justify-center">
+                <div className="relative w-16 h-16 rounded-full overflow-hidden border border-cc-border shadow-sm bg-cc-surface p-1 flex items-center justify-center">
                   <img src={effectiveLogoUrl} alt={cafe.name} className="h-full w-full object-contain rounded-full" />
                 </div>
                 
                 <div>
-                  <h2 className="font-display text-lg font-bold text-[#2A1710] leading-tight break-words">{cafe.name}</h2>
+                  <h2 className="font-display text-xl font-extrabold text-cc-text leading-tight break-words">{cafe.name}</h2>
                   {cafe.tagline && (
-                    <p className="mt-1 text-xs text-[#75625B] italic leading-relaxed break-words">{cafe.tagline}</p>
+                    <p className="mt-1 text-xs font-medium text-cc-text-muted italic leading-relaxed break-words">{cafe.tagline}</p>
                   )}
                 </div>
               </div>
@@ -327,20 +327,20 @@ export default function TableLayout() {
               <div className="mt-6 flex-1 overflow-y-auto space-y-4 pr-1 py-1">
                 {cafe.address && (
                   <div className="flex gap-3 text-sm">
-                    <MapPin className="h-4.5 w-4.5 text-[#75625B] shrink-0 mt-0.5" />
+                    <MapPin className="h-4.5 w-4.5 text-cc-text-muted shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-semibold text-[#2A1710] text-xs uppercase tracking-wider">Address</div>
-                      <div className="mt-0.5 text-[#75625B] break-words">{cafe.address}</div>
+                      <div className="font-bold text-cc-text text-[10px] uppercase tracking-wider">Address</div>
+                      <div className="mt-0.5 text-xs font-medium text-cc-text-muted break-words">{cafe.address}</div>
                     </div>
                   </div>
                 )}
 
                 {cafe.phone && (
                   <div className="flex gap-3 text-sm">
-                    <Phone className="h-4.5 w-4.5 text-[#75625B] shrink-0 mt-0.5" />
+                    <Phone className="h-4.5 w-4.5 text-cc-text-muted shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-semibold text-[#2A1710] text-xs uppercase tracking-wider">Phone</div>
-                      <a href={`tel:${cafe.phone}`} className="mt-0.5 block text-[#EA580C] hover:underline font-medium break-all">
+                      <div className="font-bold text-cc-text text-[10px] uppercase tracking-wider">Phone</div>
+                      <a href={`tel:${cafe.phone}`} className="mt-0.5 block text-xs text-cc-primary hover:underline font-bold break-all">
                         {cafe.phone}
                       </a>
                     </div>
@@ -349,10 +349,10 @@ export default function TableLayout() {
 
                 {cafe.operating_hours && (
                   <div className="flex gap-3 text-sm">
-                    <Clock className="h-4.5 w-4.5 text-[#75625B] shrink-0 mt-0.5" />
+                    <Clock className="h-4.5 w-4.5 text-cc-text-muted shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-semibold text-[#2A1710] text-xs uppercase tracking-wider">Operating Hours</div>
-                      <div className="mt-0.5 text-[#75625B] whitespace-pre-line break-words">{cafe.operating_hours}</div>
+                      <div className="font-bold text-cc-text text-[10px] uppercase tracking-wider">Operating Hours</div>
+                      <div className="mt-0.5 text-xs font-medium text-cc-text-muted whitespace-pre-line break-words">{cafe.operating_hours}</div>
                     </div>
                   </div>
                 )}
@@ -365,7 +365,7 @@ export default function TableLayout() {
                         href={cafe.website}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center gap-1.5 rounded-full bg-white border border-[#E8DCC8] hover:bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#2A1710] transition"
+                        className="flex items-center gap-1.5 rounded-full bg-cc-surface border border-cc-border hover:bg-cc-surface/80 px-3 py-1.5 text-xs font-semibold text-cc-text transition"
                       >
                         <Globe className="h-3.5 w-3.5" /> Website
                       </a>
@@ -375,7 +375,7 @@ export default function TableLayout() {
                         href={cafe.instagram}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center gap-1.5 rounded-full bg-white border border-[#E8DCC8] hover:bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#2A1710] transition"
+                        className="flex items-center gap-1.5 rounded-full bg-cc-surface border border-cc-border hover:bg-cc-surface/80 px-3 py-1.5 text-xs font-semibold text-cc-text transition"
                       >
                         <Instagram className="h-3.5 w-3.5" /> Instagram
                       </a>
@@ -400,7 +400,7 @@ export default function TableLayout() {
                       href={cafe.google_maps_review_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="w-full rounded-full bg-[#EA580C] text-white py-3 text-xs font-semibold flex items-center justify-center gap-2 shadow-md hover:bg-[#EA580C]/90 transition"
+                      className="w-full rounded-full bg-cc-primary text-white py-3 text-xs font-bold flex items-center justify-center gap-2 shadow-md hover:bg-cc-primary-hover transition"
                     >
                       <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
                       Leave a Google Review
@@ -412,7 +412,7 @@ export default function TableLayout() {
               <DrawerFooter className="pt-6 px-0 pb-0">
                 <button
                   onClick={() => setIsAboutOpen(false)}
-                  className="w-full rounded-full bg-white border border-[#E8DCC8] py-3 text-xs font-semibold text-[#2A1710] hover:bg-white/80 transition"
+                  className="w-full rounded-full bg-cc-surface border border-cc-border py-3 text-xs font-bold text-cc-text hover:bg-cc-surface/80 transition"
                 >
                   Close
                 </button>

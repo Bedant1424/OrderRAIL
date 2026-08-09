@@ -44,8 +44,8 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     <div className="pb-28">
       {/* Screen Header */}
       <div className="px-4 pt-3 pb-1">
-        <h1 className="font-display text-2xl font-black text-[#2A1710] tracking-tight">Need Anything?</h1>
-        <p className="mt-0.5 text-xs text-[#75625B] font-medium">
+        <h1 className="font-display text-2xl font-black text-cc-text tracking-tight">Need Anything?</h1>
+        <p className="mt-0.5 text-xs text-cc-text-muted font-medium">
           Let us know and we'll come to your table.
         </p>
       </div>
@@ -63,13 +63,13 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
               whileTap={{ scale: 0.98 }}
               onClick={() => send(type)}
               disabled={isSending || remaining > 0}
-              className="group relative flex items-start gap-4 overflow-hidden rounded-2xl bg-white p-4 text-left shadow-xs border border-[#E8DCC8] hover:border-[#EA580C]/40 transition disabled:opacity-75 min-h-[80px]"
+              className="group relative flex items-start gap-4 overflow-hidden rounded-2xl bg-cc-surface p-4 text-left shadow-xs border border-cc-border hover:border-cc-primary/40 transition disabled:opacity-75 min-h-[80px]"
             >
               <span
                 className={
                   isPending
                     ? "grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-300 shadow-xs"
-                    : "grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#FFF8EA] text-[#EA580C] border border-[#E8DCC8] shadow-xs group-hover:bg-[#EA580C] group-hover:text-white transition-colors"
+                    : "grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-cc-surface-soft text-cc-primary border border-cc-border shadow-xs group-hover:bg-cc-primary group-hover:text-white transition-colors"
                 }
               >
                 {isSending ? (
@@ -82,8 +82,8 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
               </span>
 
               <span className="min-w-0 flex-1 pt-0.5">
-                <span className="block font-display text-base font-bold text-[#2A1710]">{label}</span>
-                <span className="mt-0.5 block text-xs text-[#75625B] leading-relaxed">
+                <span className="block font-display text-base font-bold text-cc-text">{label}</span>
+                <span className="mt-0.5 block text-xs font-medium text-cc-text-muted leading-relaxed">
                   {remaining > 0
                     ? `Staff notified — please wait ${Math.ceil(remaining / 1000)}s`
                     : isPending

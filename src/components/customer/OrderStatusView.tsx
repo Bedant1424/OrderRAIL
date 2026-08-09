@@ -70,9 +70,9 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
 
   if (!order) {
     return (
-      <div className="grid min-h-[60vh] place-items-center px-6 text-center text-[#75625B]">
+      <div className="grid min-h-[60vh] place-items-center px-6 text-center text-cc-text-muted">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#EA580C]/20 border-t-[#EA580C]" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-cc-primary/20 border-t-cc-primary" />
           <p className="text-xs font-semibold">Loading your order details…</p>
         </div>
       </div>
@@ -135,14 +135,14 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
       {/* Header Banner */}
       <div className="px-4 pt-3 pb-1">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="font-display text-2xl font-black text-[#2A1710] tracking-tight">Order Status</h1>
-          <span className="inline-block rounded-full bg-white border border-[#E8DCC8] px-3 py-1 text-xs font-black text-[#2A1710] shadow-xs">
+          <h1 className="font-display text-2xl font-black text-cc-text tracking-tight">Order Status</h1>
+          <span className="inline-block rounded-full bg-cc-surface border border-cc-border px-3 py-1 text-xs font-black text-cc-text shadow-xs">
             {order.order_number || (order as any).daily_order_number
               ? formatOrderLabel(order.order_number || (order as any).daily_order_number)
               : "Order pending…"}
           </span>
         </div>
-        <p className="mt-1 text-xs text-[#75625B] font-medium leading-relaxed">
+        <p className="mt-1 text-xs text-cc-text-muted font-medium leading-relaxed">
           {getStatusSubtitle(order.status)}
         </p>
       </div>
@@ -167,20 +167,20 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
                 className={cn(
                   "flex items-center gap-3.5 rounded-2xl border p-3.5 transition-all shadow-xs",
                   active
-                    ? "border-[#EA580C] bg-[#EA580C]/10 text-[#2A1710] font-bold"
+                    ? "border-cc-primary bg-cc-primary/10 text-cc-text font-bold"
                     : done
                     ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                    : "border-[#E8DCC8] bg-white text-[#75625B]",
+                    : "border-cc-border bg-cc-surface text-cc-text-muted",
                 )}
               >
                 <span
                   className={cn(
                     "grid h-10 w-10 shrink-0 place-items-center rounded-xl font-bold transition-all shadow-xs",
                     active
-                      ? "bg-[#EA580C] text-white animate-pulse"
+                      ? "bg-cc-primary text-white animate-pulse"
                       : done
                       ? "bg-emerald-600 text-white"
-                      : "bg-[#FFF8EA] text-[#75625B] border border-[#E8DCC8]",
+                      : "bg-cc-surface-soft text-cc-text-muted border border-cc-border",
                   )}
                 >
                   <Icon className="h-5 w-5" />
@@ -193,33 +193,33 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
       )}
 
       {/* Order Items Summary Card */}
-      <section className="mx-4 mt-5 rounded-2xl bg-white p-4 shadow-xs border border-[#E8DCC8]">
-        <h2 className="mb-3 font-display text-base font-bold text-[#2A1710]">Ordered Items</h2>
-        <ul className="divide-y divide-[#E8DCC8]">
+      <section className="mx-4 mt-5 rounded-2xl bg-cc-surface p-4 shadow-xs border border-cc-border">
+        <h2 className="mb-3 font-display text-base font-bold text-cc-text">Ordered Items</h2>
+        <ul className="divide-y divide-cc-border">
           {items.map((i) => (
             <li key={i.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <div className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden border border-[#E8DCC8] bg-[#FFF8EA]">
+              <div className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden border border-cc-border bg-cc-surface-soft">
                 <MenuImage src={i.menu_items?.image_url} alt={i.name} size="sm" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="break-anywhere font-display text-xs font-bold text-[#2A1710]">{i.name}</p>
-                <p className="text-[11px] text-[#75625B] font-semibold">Qty: {i.qty}</p>
+                <p className="break-anywhere font-display text-xs font-bold text-cc-text">{i.name}</p>
+                <p className="text-[11px] text-cc-text-muted font-semibold">Qty: {i.qty}</p>
               </div>
-              <span className="shrink-0 tabular-nums text-xs font-extrabold text-[#2A1710]">
+              <span className="shrink-0 font-sans tabular-nums text-xs font-extrabold text-cc-text">
                 {formatMoney(i.price_cents * i.qty, cafe.currency)}
               </span>
             </li>
           ))}
         </ul>
-        <div className="mt-3 flex justify-between border-t border-[#E8DCC8] pt-3 text-sm">
-          <span className="text-xs font-bold text-[#75625B] uppercase tracking-wider">Total</span>
-          <span className="font-display text-lg font-black text-[#2A1710] tabular-nums">
+        <div className="mt-3 flex justify-between border-t border-cc-border pt-3 text-sm">
+          <span className="text-[10px] font-bold text-cc-text-muted uppercase tracking-wider">Total</span>
+          <span className="font-sans text-lg font-black text-cc-text tabular-nums">
             {formatMoney(order.total_cents, cafe.currency)}
           </span>
         </div>
         {order.note && (
-          <p className="break-anywhere mt-3 rounded-xl bg-[#FFF8EA] p-2.5 text-xs text-[#75625B] border border-[#E8DCC8]">
-            <span className="font-bold text-[#2A1710]">Note:</span> {order.note}
+          <p className="break-anywhere mt-3 rounded-xl bg-cc-surface-soft p-2.5 text-xs text-cc-text-muted border border-cc-border">
+            <span className="font-bold text-cc-text">Note:</span> {order.note}
           </p>
         )}
       </section>
@@ -229,7 +229,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         <div className="mx-4 mt-4 space-y-2">
           <button
             onClick={handleStartEdit}
-            className="w-full rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 py-3.5 text-sm font-bold text-white shadow-md active:scale-[0.99] transition min-h-[48px]"
+            className="w-full rounded-full bg-cc-primary hover:bg-cc-primary-hover py-3.5 text-sm font-bold text-white shadow-md active:scale-[0.99] transition min-h-[48px]"
           >
             Edit Order
           </button>
@@ -258,7 +258,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
       <div className="mt-5 px-4">
         <button
           onClick={() => customerNavigate(`/t/${tableId}`)}
-          className="w-full rounded-full bg-white border border-[#E8DCC8] px-6 py-3 text-xs font-bold text-[#2A1710] hover:bg-white/80 transition shadow-xs"
+          className="w-full rounded-full bg-cc-surface border border-cc-border px-6 py-3 text-xs font-bold text-cc-text hover:bg-cc-surface/80 transition shadow-xs"
         >
           Back to menu
         </button>
