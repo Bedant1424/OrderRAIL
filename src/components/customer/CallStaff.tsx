@@ -1,19 +1,18 @@
 import { useState } from "react";
-import { Droplet, Hand, Receipt, HelpCircle, Check } from "lucide-react";
+import { Droplet, Hand, Receipt, HelpCircle, Check, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase, type Cafe, type TableRow, type ServiceRequestType } from "@/lib/db";
 import { getSessionId } from "@/lib/session";
 import { toast } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app";
 import { useServiceRequestCooldown } from "@/hooks/useServiceRequestCooldown";
-
 import { createServiceRequestInDb } from "@/lib/serviceRequests";
 
 const actions: { type: ServiceRequestType; label: string; sub: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { type: "water", label: "Need Water", sub: "Refill or a fresh glass", icon: Droplet },
   { type: "waiter", label: "Call Waiter", sub: "A team member will be right over", icon: Hand },
   { type: "bill", label: "Need Bill", sub: "Request your check", icon: Receipt },
-  { type: "help", label: "Need Help", sub: "Anything else — we're here", icon: HelpCircle },
+  { type: "help", label: "Need Help", sub: "Anything else — we're here to help", icon: HelpCircle },
 ];
 
 export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
@@ -32,7 +31,7 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         type,
       });
       cooldown.markSent(type);
-      toast.success("Staff notified");
+      toast.success("Staff notified — someone will be with you shortly! ☕");
     } catch (e) {
       console.error(e);
       toast.error("Couldn't reach staff — please try again.");
@@ -42,37 +41,53 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   };
 
   return (
-    <div className="pb-32">
-      <div className="px-4 pt-4">
-        <h1 className="font-display text-3xl font-semibold">Call Staff</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Table {table.label} · {cafe.name}
+    <div className="pb-28">
+      {/* Screen Header */}
+      <div className="px-4 pt-3 pb-1">
+        <h1 className="font-display text-2xl font-black text-[#2A1710] tracking-tight">Need Anything?</h1>
+        <p className="mt-0.5 text-xs text-[#75625B] font-medium">
+          Let us know and we'll come to your table.
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-3 px-4 sm:grid-cols-2">
+      {/* Service Action Cards Grid */}
+      <div className="mt-4 grid grid-cols-1 gap-3 px-4 sm:grid-cols-2">
         {actions.map(({ type, label, sub, icon: Icon }) => {
           const isSending = sending === type;
           const isPending = cooldown.isPending(type);
           const remaining = cooldown.remainingCooldownMs(type);
+
           return (
             <motion.button
               key={type}
               whileTap={{ scale: 0.98 }}
               onClick={() => send(type)}
               disabled={isSending || remaining > 0}
-              className="group relative flex items-start gap-4 overflow-hidden rounded-3xl bg-card p-5 text-left shadow-soft ring-1 ring-border/60 transition hover:ring-accent/40 disabled:opacity-70"
+              className="group relative flex items-start gap-4 overflow-hidden rounded-2xl bg-white p-4 text-left shadow-xs border border-[#E8DCC8] hover:border-[#EA580C]/40 transition disabled:opacity-75 min-h-[80px]"
             >
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-accent text-accent-foreground">
-                {isPending ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
+              <span
+                className={
+                  isPending
+                    ? "grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-300 shadow-xs"
+                    : "grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#FFF8EA] text-[#EA580C] border border-[#E8DCC8] shadow-xs group-hover:bg-[#EA580C] group-hover:text-white transition-colors"
+                }
+              >
+                {isSending ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : isPending ? (
+                  <Check className="h-5 w-5 stroke-[2.5]" />
+                ) : (
+                  <Icon className="h-5 w-5" />
+                )}
               </span>
-              <span className="min-w-0">
-                <span className="block font-display text-lg font-semibold">{label}</span>
-                <span className="mt-0.5 block text-sm text-muted-foreground">
+
+              <span className="min-w-0 flex-1 pt-0.5">
+                <span className="block font-display text-base font-bold text-[#2A1710]">{label}</span>
+                <span className="mt-0.5 block text-xs text-[#75625B] leading-relaxed">
                   {remaining > 0
-                    ? `Sent — you can ask again in ${Math.ceil(remaining / 1000)}s`
+                    ? `Staff notified — please wait ${Math.ceil(remaining / 1000)}s`
                     : isPending
-                    ? "Sent — staff is on the way"
+                    ? "Staff has been notified — on the way"
                     : sub}
                 </span>
               </span>
@@ -83,4 +98,3 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     </div>
   );
 }
-
