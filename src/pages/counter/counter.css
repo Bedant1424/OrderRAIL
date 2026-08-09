@@ -794,7 +794,8 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
+    width: 58mm;
+    max-width: 58mm;
   }
 }
 
@@ -845,13 +846,13 @@
   background-color: #ffffff;
   color: #000000;
   font-family: 'JetBrains Mono', monospace, sans-serif;
-  width: 320px;
+  width: 270px;
   max-width: 100%;
-  padding: 16px;
+  padding: 12px;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 @media print {
@@ -866,7 +867,8 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
+    width: 58mm;
+    max-width: 58mm;
   }
   .v8-kot-printable-container {
     display: block !important;
@@ -875,7 +877,8 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
+    width: 58mm;
+    max-width: 58mm;
     background: #ffffff;
     color: #000000;
   }
