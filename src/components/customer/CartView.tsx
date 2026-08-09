@@ -48,35 +48,20 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     const browserSessionId = getSessionId();
 
     try {
-      // 1. Raw Supabase response for table orders
       const rawRes = await supabase
         .from("orders")
         .select("*, order_items(*)")
         .eq("table_id", table.id);
 
-      console.log("[INSTRUMENTATION 1] Raw Supabase response:", {
-        data: rawRes.data,
-        error: rawRes.error,
-        rowCount: rawRes.data?.length ?? 0,
-      });
-
-      // 2. Value returned from fetchCustomerOrders()
       const ords = await fetchCustomerOrders(table.id, table.active_session_id, localIds, currentGuestSessionId);
-      console.log("[INSTRUMENTATION 2] Value returned from fetchCustomerOrders():", {
-        returnedValue: ords,
-        count: ords.length,
-      });
-
       setHistoryOrders(ords as any);
     } catch (err) {
-      console.error("[INSTRUMENTATION ERROR] loadHistory failed:", err);
+      console.error("loadHistory failed:", err);
     } finally {
       setLoadingHistory(false);
     }
   };
 
-  // Reset scroll to top when entering the Cart page so the customer
-  // always sees the current cart / checkout section first.
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -85,7 +70,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     void loadHistory();
   }, [table?.id, table?.active_session_id, currentGuestSessionId]);
 
-  // Realtime subscription: sync orders (INSERT, UPDATE, DELETE) for table without refresh
   useEffect(() => {
     if (!table?.id) return;
     const channel = supabase
@@ -108,7 +92,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     if (!lines.length || !isSessionActive) return;
     setPlacing(true);
     try {
-      // Revalidate every item before placing an order
       const itemIds = lines.map((l) => l.item.id);
       const { data: dbItems, error: fetchError } = await supabase
         .from("menu_items")
@@ -141,7 +124,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         return;
       }
 
-      // Check runtime Operations Settings
       const opsSettings = getOperationsSettings(cafe.id);
       const todayStatus = getTodayOpenStatus(opsSettings);
 
@@ -239,7 +221,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     }
   };
 
-
   const handleCancelOrder = async (orderId: string) => {
     setCancelingId(orderId);
     try {
@@ -256,7 +237,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     }
   };
 
-  // 3. Transformations/filter/map applied before rendering
   const sortedHistory = [...historyOrders].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
@@ -271,34 +251,6 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     return s === "served" || s === "cancelled";
   });
 
-  // 4. Final state variable passed to the component
-  console.log("[INSTRUMENTATION 3 & 4] Transformations, Filters & Final State:", {
-    historyOrdersState: historyOrders,
-    historyOrdersCount: historyOrders.length,
-    sortedHistoryCount: sortedHistory.length,
-    activeOrdersCount: activeOrders.length,
-    previousOrdersCount: previousOrders.length,
-    draftCartLinesCount: lines.length,
-    loadingHistory,
-  });
-
-  // 5. The exact condition that causes the empty / "no orders" UI to render
-  const isCartEmpty = !lines.length;
-  const isHistoryEmpty = activeOrders.length === 0 && previousOrders.length === 0;
-  const rendersEmptyBasketUI = isCartEmpty && isHistoryEmpty;
-
-  console.log("[INSTRUMENTATION 5] Exact Render Condition:", {
-    file: "CartView.tsx",
-    function: "CartView",
-    conditionLineNumber: 394,
-    conditionExpression: "!lines.length && activeOrders.length === 0 && previousOrders.length === 0",
-    isCartEmpty,
-    isHistoryEmpty,
-    rendersEmptyBasketUI,
-    renderedBranch: rendersEmptyBasketUI ? "EMPTY BASKET VIEW ('Your basket is empty')" : "MY ORDER LIST VIEW",
-  });
-
-  // Renders a single history order card
   const renderOrderCard = (o: Order & { order_items: OrderItem[]; isOwner?: boolean }) => {
     const isServed = o.status === "served";
     const isOwner = o.isOwner !== false;
@@ -308,34 +260,34 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       if (s === "pending" || s === "received") {
         return {
           label: "Received",
-          colorClass: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border-blue-200/50 dark:border-blue-900/30",
+          colorClass: "text-blue-700 bg-blue-50 border-blue-200",
           icon: Clock
         };
       }
       if (s === "preparing") {
         return {
           label: "Preparing",
-          colorClass: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200/50 dark:border-amber-900/30",
+          colorClass: "text-amber-800 bg-amber-50 border-amber-200",
           icon: Sparkles
         };
       }
       if (s === "ready") {
         return {
           label: "Ready",
-          colorClass: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/50 dark:border-emerald-900/30",
+          colorClass: "text-emerald-800 bg-emerald-50 border-emerald-200",
           icon: CheckCircle2
         };
       }
       if (s === "served") {
         return {
           label: "Served",
-          colorClass: "text-muted-foreground bg-secondary/40 border-border/50",
+          colorClass: "text-[#75625B] bg-white border-[#E8DCC8]",
           icon: History
         };
       }
       return {
         label: status.charAt(0).toUpperCase() + status.slice(1),
-        colorClass: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-200/50 dark:border-rose-900/30",
+        colorClass: "text-rose-700 bg-rose-50 border-rose-200",
         icon: ChevronRight
       };
     };
@@ -347,38 +299,38 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       <div
         key={o.id}
         onClick={() => customerNavigate(`/t/${tableId}/order/${o.id}`)}
-        className="group flex flex-col gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition hover:ring-accent/40 cursor-pointer"
+        className="group flex flex-col gap-2 rounded-2xl bg-white p-4 shadow-xs border border-[#E8DCC8] hover:border-[#EA580C]/40 cursor-pointer transition"
       >
-        <div className="flex items-center justify-between border-b border-border/60 pb-2 text-xs font-semibold text-muted-foreground">
+        <div className="flex items-center justify-between border-b border-[#E8DCC8] pb-2 text-xs font-bold text-[#75625B]">
           <span className="flex items-center gap-1.5">
-            <span>{formatOrderLabel(o.order_number)}</span>
+            <span className="text-[#2A1710] font-black">{formatOrderLabel(o.order_number)}</span>
             {!isOwner && (
-              <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground font-normal">Table Guest</span>
+              <span className="rounded bg-[#FFF8EA] px-1.5 py-0.5 text-[10px] text-[#75625B] font-medium border border-[#E8DCC8]">Table Guest</span>
             )}
           </span>
           <span className="flex items-center gap-1.5">
-            <span className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium", details.colorClass)}>
+            <span className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold", details.colorClass)}>
               <StatusIcon className="h-3 w-3 shrink-0" />
               <span>{details.label}</span>
             </span>
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-3.5 w-3.5 text-[#75625B]" />
           </span>
         </div>
-        <div className="space-y-1 text-sm text-foreground">
+        <div className="space-y-1 text-sm text-[#2A1710]">
           {o.order_items?.map((it) => (
             <div key={it.id} className="flex justify-between gap-2">
-              <span className="break-anywhere flex-1">{it.qty}× {it.name}</span>
-              <span className="shrink-0 text-muted-foreground tabular-nums">{formatMoney(it.price_cents * it.qty, cafe.currency)}</span>
+              <span className="break-anywhere flex-1 font-medium">{it.qty}× {it.name}</span>
+              <span className="shrink-0 text-[#75625B] tabular-nums font-semibold">{formatMoney(it.price_cents * it.qty, cafe.currency)}</span>
             </div>
           ))}
         </div>
         {o.note && (
-          <p className="break-anywhere mt-2 rounded-xl bg-muted/50 p-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Note:</span> {o.note}
+          <p className="break-anywhere mt-1.5 rounded-xl bg-[#FFF8EA] p-2 text-xs text-[#75625B] border border-[#E8DCC8]">
+            <span className="font-bold text-[#2A1710]">Note:</span> {o.note}
           </p>
         )}
-        <div className="flex items-center justify-between border-t border-border/40 pt-2 text-xs text-muted-foreground">
-          <span>Total: <strong className="text-foreground text-sm tabular-nums">{formatMoney(o.total_cents, cafe.currency)}</strong></span>
+        <div className="flex items-center justify-between border-t border-[#E8DCC8] pt-2 text-xs text-[#75625B]">
+          <span>Total: <strong className="text-[#2A1710] text-sm tabular-nums font-black">{formatMoney(o.total_cents, cafe.currency)}</strong></span>
           {isServed && (
             <span>
               Served at {new Date(o.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -392,7 +344,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
               void handleCancelOrder(o.id);
             }}
             disabled={cancelingId === o.id}
-            className="mt-1 w-full rounded-full border border-destructive/40 px-3 py-2 text-xs font-semibold text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+            className="mt-1 w-full rounded-full border border-rose-300 px-3 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
           >
             {cancelingId === o.id ? "Cancelling…" : "Cancel order"}
           </button>
@@ -430,21 +382,20 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
     ? `calc(${BOTTOM_NAV_HEIGHT} + ${FLOATING_CART_GAP} + ${STICKY_FOOTER_HEIGHT} + ${STICKY_FOOTER_GAP} + env(safe-area-inset-bottom))`
     : `calc(${BOTTOM_NAV_HEIGHT} + 1.5rem + env(safe-area-inset-bottom))`;
 
-  // 1. EMPTY BASKET VIEW
+  // 1. EMPTY CART VIEW
   if (!lines.length) {
     return (
-      <div style={{ paddingBottom: pagePaddingBottom }} className="px-4 pt-4 space-y-6">
-        {/* If no active orders AND no previous orders exist, show empty state */}
+      <div style={{ paddingBottom: pagePaddingBottom }} className="px-4 pt-3 space-y-6">
         {activeOrders.length === 0 && previousOrders.length === 0 ? (
-          <div className="py-24 text-center">
-            <div className="mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full bg-secondary">
+          <div className="py-20 text-center">
+            <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-white border border-[#E8DCC8] shadow-xs">
               <span aria-hidden className="text-3xl">🥐</span>
             </div>
-            <h2 className="font-display text-2xl font-semibold">Your basket is empty</h2>
-            <p className="mt-2 text-muted-foreground text-sm">Add something delicious from the menu.</p>
+            <h2 className="font-display text-2xl font-black text-[#2A1710]">Your order is empty</h2>
+            <p className="mt-1.5 text-[#75625B] text-xs font-medium">Add something delicious from the menu.</p>
             <button
               onClick={() => customerNavigate(`/t/${tableId}`)}
-              className="mt-6 rounded-full btn-primary-action px-6 py-3 text-sm font-semibold"
+              className="mt-6 rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 px-6 py-3 text-sm font-bold text-white shadow-md transition"
             >
               Browse menu
             </button>
@@ -452,15 +403,15 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         ) : (
           <div className="space-y-6">
             <div>
-              <h1 className="font-display text-3xl font-semibold">My Order</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Table {table.label} · {cafe.name}</p>
+              <h1 className="font-display text-2xl font-black text-[#2A1710]">My Order</h1>
+              <p className="mt-0.5 text-xs text-[#75625B] font-medium">Your selected dishes</p>
             </div>
 
             {/* Active Orders Section */}
             {activeOrders.length > 0 && (
               <div>
-                <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold">
-                  <ShoppingBag className="h-5 w-5 text-accent animate-pulse" /> Active Orders
+                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-black text-[#2A1710]">
+                  <ShoppingBag className="h-4.5 w-4.5 text-[#EA580C] animate-pulse" /> Active Orders
                 </h2>
                 <div className="space-y-3">
                   {activeOrders.map(renderOrderCard)}
@@ -471,8 +422,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             {/* Previous Orders Section */}
             {previousOrders.length > 0 && (
               <div>
-                <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold">
-                  <History className="h-5 w-5 text-muted-foreground" /> Previous Orders
+                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-black text-[#2A1710]">
+                  <History className="h-4.5 w-4.5 text-[#75625B]" /> Previous Orders
                 </h2>
                 <div className="space-y-3">
                   {previousOrders.map(renderOrderCard)}
@@ -480,35 +431,35 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
               </div>
             )}
 
-            {/* Quick Actions (Avoiding Empty States) */}
-            <div className="rounded-3xl bg-secondary/35 p-5 border border-border/50 space-y-4">
-              <h3 className="font-display text-base font-semibold flex items-center gap-1.5 text-foreground">
-                <Sparkles className="h-4 w-4 text-accent" /> Quick Actions
+            {/* Quick Actions */}
+            <div className="rounded-2xl bg-white p-4 border border-[#E8DCC8] shadow-xs space-y-3">
+              <h3 className="font-display text-sm font-bold flex items-center gap-1.5 text-[#2A1710]">
+                <Sparkles className="h-4 w-4 text-[#F59E0B]" /> Quick Actions
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() => customerNavigate(`/t/${tableId}`)}
-                  className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40"
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-[#FFF8EA] p-3 border border-[#E8DCC8] hover:border-[#EA580C]/40 transition"
                 >
-                  <Plus className="h-5 w-5 text-primary" />
-                  <span className="text-xs font-semibold text-foreground">Order Again</span>
+                  <Plus className="h-4.5 w-4.5 text-[#EA580C]" />
+                  <span className="text-xs font-bold text-[#2A1710]">Order Again</span>
                 </button>
                 <button
                   onClick={() => void handleGiveReview()}
-                  className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40"
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-[#FFF8EA] p-3 border border-[#E8DCC8] hover:border-[#EA580C]/40 transition"
                 >
-                  <Star className="h-5 w-5 text-accent" />
-                  <span className="text-xs font-semibold text-foreground">Leave Review</span>
+                  <Star className="h-4.5 w-4.5 text-[#F59E0B]" />
+                  <span className="text-xs font-bold text-[#2A1710]">Leave Review</span>
                 </button>
                 <button
                   disabled={callingType === "waiter" || !cooldown.canSend("waiter")}
                   onClick={() => void handleCallStaff("waiter", "Call Staff")}
-                  className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40 disabled:opacity-60"
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-[#FFF8EA] p-3 border border-[#E8DCC8] hover:border-[#EA580C]/40 disabled:opacity-60 transition"
                 >
-                  <PhoneCall className="h-5 w-5 text-success" />
-                  <span className="text-xs font-semibold text-foreground">Call Staff</span>
+                  <PhoneCall className="h-4.5 w-4.5 text-emerald-600" />
+                  <span className="text-xs font-bold text-[#2A1710]">Call Staff</span>
                   {cooldown.remainingCooldownMs("waiter") > 0 && (
-                    <span className="text-[10px] tabular-nums text-muted-foreground">
+                    <span className="text-[10px] tabular-nums text-[#75625B]">
                       {Math.ceil(cooldown.remainingCooldownMs("waiter") / 1000)}s
                     </span>
                   )}
@@ -516,12 +467,12 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                 <button
                   disabled={callingType === "bill" || !cooldown.canSend("bill")}
                   onClick={() => void handleCallStaff("bill", "Request Bill")}
-                  className="flex flex-col items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 hover:ring-accent/40 disabled:opacity-60"
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-[#FFF8EA] p-3 border border-[#E8DCC8] hover:border-[#EA580C]/40 disabled:opacity-60 transition"
                 >
-                  <Receipt className="h-5 w-5 text-accent" />
-                  <span className="text-xs font-semibold text-foreground">Request Bill</span>
+                  <Receipt className="h-4.5 w-4.5 text-[#EA580C]" />
+                  <span className="text-xs font-bold text-[#2A1710]">Request Bill</span>
                   {cooldown.remainingCooldownMs("bill") > 0 && (
-                    <span className="text-[10px] tabular-nums text-muted-foreground">
+                    <span className="text-[10px] tabular-nums text-[#75625B]">
                       {Math.ceil(cooldown.remainingCooldownMs("bill") / 1000)}s
                     </span>
                   )}
@@ -536,87 +487,91 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
   // 2. ACTIVE CART/BASKET VIEW
   return (
-    <div style={{ paddingBottom: pagePaddingBottom }} className="px-4 pt-4 space-y-6">
+    <div style={{ paddingBottom: pagePaddingBottom }} className="px-4 pt-3 space-y-5">
       <div>
-        <h1 className="font-display text-3xl font-semibold">Your Order</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Table {table.label} · {cafe.name}</p>
+        <h1 className="font-display text-2xl font-black text-[#2A1710]">My Order</h1>
+        <p className="mt-0.5 text-xs text-[#75625B] font-medium">Your selected dishes</p>
       </div>
 
       {editingOrderId && (
-        <div className="rounded-2xl bg-accent/15 border border-accent/30 p-4 flex items-center justify-between shadow-soft">
-          <div className="text-sm font-medium">
-            <span className="block text-accent font-semibold">Editing Order #{editingOrderId.slice(0, 8).toUpperCase()}</span>
-            <span className="text-xs text-muted-foreground">You are modifying an existing order.</span>
+        <div className="rounded-2xl bg-[#EA580C]/10 border border-[#EA580C]/30 p-3.5 flex items-center justify-between shadow-xs">
+          <div className="text-xs font-medium">
+            <span className="block text-[#EA580C] font-bold">Editing Order #{editingOrderId.slice(0, 8).toUpperCase()}</span>
+            <span className="text-[#75625B]">You are modifying an existing order.</span>
           </div>
           <button
             onClick={() => {
               cancelEditing();
               toast.info("Editing cancelled. Cart cleared.");
             }}
-            className="rounded-full bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
+            className="rounded-full bg-white border border-[#E8DCC8] px-3 py-1 text-xs font-bold text-[#2A1710] hover:bg-white/80 transition"
           >
             Cancel Edit
           </button>
         </div>
       )}
 
-      <ul className="mt-6 space-y-3">
+      {/* Cart Item Cards */}
+      <ul className="space-y-3">
         {lines.map((l) => (
           <motion.li
             layout
             key={l.item.id}
-            className="flex items-center gap-3 rounded-2xl bg-card p-3 shadow-soft ring-1 ring-border/60"
+            className="flex items-center gap-3.5 rounded-2xl bg-white p-3 border border-[#E8DCC8] shadow-xs"
           >
-            <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
+            <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden border border-[#E8DCC8] bg-[#FFF8EA]">
+              <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
+            </div>
             <div className="min-w-0 flex-1">
-              <p className="break-anywhere font-medium">{l.item.name}</p>
-              <p className="text-sm text-muted-foreground tabular-nums">
+              <p className="break-anywhere font-display text-sm font-bold text-[#2A1710]">{l.item.name}</p>
+              <p className="text-xs font-extrabold text-[#2A1710] tabular-nums mt-0.5">
                 {formatMoney(l.item.price_cents, cafe.currency)}
               </p>
             </div>
-            <div className="flex items-center gap-1 rounded-full bg-secondary p-1">
+            <div className="flex items-center gap-1 rounded-full bg-[#FFF8EA] border border-[#E8DCC8] p-0.5 h-8">
               <button
                 aria-label="Decrease"
                 onClick={() => setQty(l.item.id, l.qty - 1)}
-                className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                className="grid h-7 w-7 place-items-center rounded-full bg-white text-[#2A1710] border border-[#E8DCC8] hover:bg-[#EA580C] hover:text-white transition active:scale-90"
               >
-                {l.qty === 1 ? <Trash2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+                {l.qty === 1 ? <Trash2 className="h-3.5 w-3.5 text-rose-600" /> : <Minus className="h-3.5 w-3.5" />}
               </button>
-              <span className="w-6 text-center text-sm font-semibold tabular-nums">{l.qty}</span>
+              <span className="w-5 text-center text-xs font-black text-[#2A1710] tabular-nums">{l.qty}</span>
               <button
                 aria-label="Increase"
                 onClick={() => setQty(l.item.id, l.qty + 1)}
-                className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition hover:bg-background"
+                className="grid h-7 w-7 place-items-center rounded-full bg-[#EA580C] text-white hover:bg-[#EA580C]/90 transition active:scale-90"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
           </motion.li>
         ))}
       </ul>
 
-      <div className="mt-6">
-        <div className="flex items-center justify-between mb-1">
-          <label className="block text-sm font-medium">Note for staff (optional)</label>
-          <span className={`text-xs tabular-nums ${note.length >= ORDER_NOTE_MAX ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+      {/* Note for Staff */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-bold text-[#2A1710]">Note for staff (optional)</label>
+          <span className={`text-[10px] tabular-nums ${note.length >= ORDER_NOTE_MAX ? 'text-rose-600 font-bold' : 'text-[#75625B]'}`}>
             {note.length} / {ORDER_NOTE_MAX}
           </span>
         </div>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value.slice(0, ORDER_NOTE_MAX))}
-          placeholder="Any allergies or special requests?"
-          rows={3}
+          placeholder="Any allergies or special instructions?"
+          rows={2}
           maxLength={ORDER_NOTE_MAX}
-          className="mt-1 w-full resize-none rounded-2xl border border-border bg-card p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+          className="w-full resize-none rounded-xl border border-[#E8DCC8] bg-white p-3 text-xs text-[#2A1710] placeholder:text-[#75625B] outline-none shadow-xs transition focus:border-[#EA580C] focus:ring-2 focus:ring-[#EA580C]/20"
         />
       </div>
 
       {/* Active Orders Section */}
       {activeOrders.length > 0 && (
-        <div className="pt-6 border-t border-border/60">
-          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-muted-foreground">
-            <ShoppingBag className="h-5 w-5 text-accent animate-pulse" /> Active Orders
+        <div className="pt-4 border-t border-[#E8DCC8]">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-black text-[#2A1710]">
+            <ShoppingBag className="h-4 w-4 text-[#EA580C] animate-pulse" /> Active Orders
           </h2>
           <div className="space-y-3">
             {activeOrders.map(renderOrderCard)}
@@ -626,9 +581,9 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
       {/* Previous Orders Section */}
       {previousOrders.length > 0 && (
-        <div className="pt-6 border-t border-border/60">
-          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-muted-foreground">
-            <History className="h-5 w-5 text-muted-foreground" /> Previous Orders
+        <div className="pt-4 border-t border-[#E8DCC8]">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-black text-[#75625B]">
+            <History className="h-4 w-4 text-[#75625B]" /> Previous Orders
           </h2>
           <div className="space-y-3">
             {previousOrders.map(renderOrderCard)}
@@ -636,28 +591,28 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         </div>
       )}
 
-      {/* Floating Place Order Card */}
+      {/* Sticky Order Summary & Checkout Card */}
       <div
         style={{
           bottom: `calc(${BOTTOM_NAV_HEIGHT} + ${FLOATING_CART_GAP} + env(safe-area-inset-bottom))`
         }}
         className="fixed inset-x-0 z-30 px-4"
       >
-        <div className="mx-auto w-full max-w-[420px] rounded-3xl border border-border bg-card/95 backdrop-blur-sm p-3.5 shadow-none ring-1 ring-border/60">
+        <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-[#E8DCC8] bg-[#FFF8EA]/95 backdrop-blur-md p-3.5 shadow-xl">
           <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-sm font-medium text-muted-foreground">Subtotal</span>
-            <span className="font-display text-xl font-bold tabular-nums">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#75625B]">Subtotal</span>
+            <span className="font-display text-xl font-black text-[#2A1710] tabular-nums">
               {formatMoney(subtotalCents, cafe.currency)}
             </span>
           </div>
           <button
             onClick={editingOrderId ? updateExistingOrder : placeOrder}
             disabled={placing}
-            className="w-full rounded-full bg-gradient-accent py-2.5 text-base font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99] disabled:opacity-60"
+            className="w-full rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 py-3.5 text-base font-bold text-white shadow-md transition active:scale-[0.99] disabled:opacity-60 min-h-[48px] flex items-center justify-center gap-2"
           >
             {placing ? "Sending…" : editingOrderId ? "Update Order" : "Place Order"}
           </button>
-          <p className="mt-1 text-center text-xs text-muted-foreground leading-none">
+          <p className="mt-1.5 text-center text-[11px] font-medium text-[#75625B] leading-none">
             Pay at the counter when you're ready.
           </p>
         </div>
