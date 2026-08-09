@@ -441,7 +441,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                   onClick={() => customerNavigate(`/t/${tableId}`)}
                   className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 transition"
                 >
-                  <Plus className="h-4.5 w-4.5 text-cc-primary" />
+                  <Plus className="h-4.5 w-4.5 text-cc-text" />
                   <span className="text-xs font-bold text-cc-text">Order Again</span>
                 </button>
                 <button
@@ -469,7 +469,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                   onClick={() => void handleCallStaff("bill", "Request Bill")}
                   className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 disabled:opacity-60 transition"
                 >
-                  <Receipt className="h-4.5 w-4.5 text-cc-primary" />
+                  <Receipt className="h-4.5 w-4.5 text-cc-text" />
                   <span className="text-xs font-bold text-cc-text">Request Bill</span>
                   {cooldown.remainingCooldownMs("bill") > 0 && (
                     <span className="text-[10px] tabular-nums text-cc-text-muted">

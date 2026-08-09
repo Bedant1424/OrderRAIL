@@ -194,7 +194,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search delicious dishes..."
-            className="w-full rounded-full border border-cc-border bg-cc-surface py-2.5 pl-11 pr-4 text-sm text-cc-text placeholder:text-cc-text-muted outline-none shadow-xs transition focus:border-cc-primary focus:ring-2 focus:ring-cc-primary/20"
+            className="w-full rounded-2xl border border-cc-border bg-cc-surface pl-10 pr-10 py-3 text-sm text-cc-text placeholder:text-cc-text-muted outline-none shadow-xs transition-all focus:border-cc-border focus:ring-2 focus:ring-cc-accent/20 font-sans"
           />
         </label>
       </div>

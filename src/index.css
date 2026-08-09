@@ -67,17 +67,17 @@
     --sidebar-ring: 32 90% 55%;
 
     /* Cheese Corner Customer UI Design Tokens */
-    --cc-background: 38 70% 96%;        /* #FFF8EA Warm Cream */
-    --cc-surface: 0 0% 100%;            /* #FFFFFF Crisp White */
-    --cc-surface-soft: 38 70% 96%;      /* #FFF8EA Soft Cream Surface */
-    --cc-text: 16 45% 11%;              /* #2A1710 Deep Espresso Text */
-    --cc-text-muted: 16 13% 41%;        /* #75625B Muted Warm Brown Text */
-    --cc-border: 37 36% 85%;            /* #E8DCC8 Soft Sand Cream Border */
-    --cc-primary: 21 86% 48%;           /* #EA580C Warm Primary Orange */
-    --cc-primary-hover: 19 88% 40%;     /* #C2410C Primary Orange Hover */
-    --cc-accent: 38 92% 50%;            /* #F59E0B Warm Amber Accent */
-    --cc-success: 160 84% 39%;          /* #059669 Emerald Green Success */
-    --cc-danger: 347 77% 50%;           /* #E11D48 Rose Danger */
+    --cc-background: 38 70% 96%;        /* Warm Cream Background (#FFF8EA) */
+    --cc-surface: 0 0% 100%;            /* Crisp White Card Surface (#FFFFFF) */
+    --cc-surface-soft: 38 70% 96%;      /* Soft Cream Container Fill (#FFF8EA) */
+    --cc-text: 16 45% 11%;              /* Deep Espresso Text (#2A1710) */
+    --cc-text-muted: 16 13% 41%;        /* Muted Warm Brown Text (#75625B) */
+    --cc-border: 37 36% 85%;            /* Soft Sand Cream Border (#E8DCC8) */
+    --cc-primary: 21 88% 42%;           /* Warm Primary Action Orange - WCAG AA compliant 4.58:1 contrast (#CC4908) */
+    --cc-primary-hover: 19 90% 36%;     /* Primary Orange Hover (#B13907) */
+    --cc-accent: 38 92% 50%;            /* Warm Amber Accent (#F59E0B) */
+    --cc-success: 160 84% 39%;          /* Emerald Green Success (#059669) */
+    --cc-danger: 347 77% 50%;           /* Rose Danger (#E11D48) */
   }
 
   .dark {
