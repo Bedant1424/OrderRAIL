@@ -347,7 +347,9 @@ export class ReceiptBuilder {
     parts.push("Please visit again\n");
     parts.push(doubleDivider);
 
-    // Hardware Cut (clean single feed and cut without redundant line feeds)
+    // Feed paper past thermal print head to cutter blade before cutting
+    parts.push(ESC_POS.LINE_FEED);
+    parts.push(ESC_POS.LINE_FEED);
     parts.push(ESC_POS.FEED_AND_CUT);
 
     return parts.join("");
