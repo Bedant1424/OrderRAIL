@@ -189,7 +189,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
       <div className="px-4 pt-2">
         <label className="relative block">
           <span className="sr-only">Search menu</span>
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cc-text-muted" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cc-text-muted" strokeWidth={2.2} />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}

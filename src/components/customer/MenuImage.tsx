@@ -2,12 +2,57 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useImageUrl } from "@/lib/useImageUrl";
 
-interface MenuImageProps {
+export interface MenuImageProps {
   src: string | null | undefined;
   alt: string;
   className?: string;
-  size?: "sm" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "full";
 }
+
+const getSizeClasses = (size: MenuImageProps["size"]) => {
+  switch (size) {
+    case "xs":
+      return "h-12 w-12 rounded-xl border border-cc-border";
+    case "sm":
+      return "h-16 w-16 rounded-xl border border-cc-border";
+    case "full":
+      return "h-full w-full rounded-none border-0";
+    case "md":
+    case "lg":
+    default:
+      return "h-24 w-24 rounded-2xl border border-cc-border";
+  }
+};
+
+const getEmojiSizeClass = (size: MenuImageProps["size"]) => {
+  switch (size) {
+    case "xs":
+      return "text-base";
+    case "sm":
+      return "text-lg";
+    case "full":
+      return "text-4xl";
+    case "md":
+    case "lg":
+    default:
+      return "text-2xl";
+  }
+};
+
+const getLabelSizeClass = (size: MenuImageProps["size"]) => {
+  switch (size) {
+    case "xs":
+      return "text-[8px] mt-0.5";
+    case "sm":
+      return "text-[9px] mt-0.5";
+    case "full":
+      return "text-xs mt-1.5 font-semibold";
+    case "md":
+    case "lg":
+    default:
+      return "text-[10px] mt-1";
+  }
+};
 
 export function MenuImage({ src, alt, className, size = "lg" }: MenuImageProps) {
   const imageUrl = useImageUrl(src);
@@ -17,17 +62,18 @@ export function MenuImage({ src, alt, className, size = "lg" }: MenuImageProps) 
   const isInvalid = !imageUrl || imageUrl === "null" || imageUrl === "undefined" || imageUrl.trim() === "";
 
   if (isInvalid || error) {
-    const isSmall = size === "sm";
     return (
       <div
         className={cn(
-          "shrink-0 rounded-2xl bg-cc-surface-soft border border-cc-border flex flex-col items-center justify-center font-semibold text-cc-text-muted",
-          isSmall ? "h-14 w-14 text-xs" : "h-24 w-24 text-sm",
+          "relative shrink-0 overflow-hidden bg-cc-surface-soft flex flex-col items-center justify-center font-medium text-cc-text-muted select-none",
+          getSizeClasses(size),
           className
         )}
       >
-        <span className={isSmall ? "text-lg" : "text-2xl"}>☕</span>
-        {!isSmall && <span className="text-[9px] mt-1 font-medium text-cc-text-muted/80">No Image</span>}
+        <span className={getEmojiSizeClass(size)} aria-hidden>☕</span>
+        <span className={cn("font-medium text-cc-text-muted/70 leading-none", getLabelSizeClass(size))}>
+          No Image
+        </span>
       </div>
     );
   }
@@ -35,8 +81,8 @@ export function MenuImage({ src, alt, className, size = "lg" }: MenuImageProps) 
   return (
     <div
       className={cn(
-        "relative shrink-0 overflow-hidden rounded-2xl bg-cc-surface-soft border border-cc-border",
-        size === "sm" ? "h-14 w-14" : "h-24 w-24",
+        "relative shrink-0 overflow-hidden bg-cc-surface-soft",
+        getSizeClasses(size),
         className
       )}
     >

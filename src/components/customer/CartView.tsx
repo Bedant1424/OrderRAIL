@@ -310,10 +310,10 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           </span>
           <span className="flex items-center gap-1.5">
             <span className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold", details.colorClass)}>
-              <StatusIcon className="h-3 w-3 shrink-0" />
+              <StatusIcon className="h-3 w-3 shrink-0" strokeWidth={2.2} />
               <span>{details.label}</span>
             </span>
-            <ChevronRight className="h-3.5 w-3.5 text-cc-text-muted" />
+            <ChevronRight className="h-3.5 w-3.5 text-cc-text-muted" strokeWidth={2.2} />
           </span>
         </div>
         <div className="space-y-1 text-sm text-cc-text">
@@ -410,8 +410,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             {/* Active Orders Section */}
             {activeOrders.length > 0 && (
               <div>
-                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-black text-cc-text">
-                  <ShoppingBag className="h-4.5 w-4.5 text-cc-primary animate-pulse" /> Active Orders
+                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-bold text-cc-text">
+                  <ShoppingBag className="h-4 w-4 text-cc-primary animate-pulse" strokeWidth={2.2} /> Active Orders
                 </h2>
                 <div className="space-y-3">
                   {activeOrders.map(renderOrderCard)}
@@ -422,8 +422,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             {/* Previous Orders Section */}
             {previousOrders.length > 0 && (
               <div>
-                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-black text-cc-text">
-                  <History className="h-4.5 w-4.5 text-cc-text-muted" /> Previous Orders
+                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-bold text-cc-text">
+                  <History className="h-4 w-4 text-cc-text-muted" strokeWidth={2.2} /> Previous Orders
                 </h2>
                 <div className="space-y-3">
                   {previousOrders.map(renderOrderCard)}
@@ -434,21 +434,21 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             {/* Quick Actions */}
             <div className="rounded-2xl bg-cc-surface p-4 border border-cc-border shadow-xs space-y-3">
               <h3 className="font-display text-sm font-bold flex items-center gap-1.5 text-cc-text">
-                <Sparkles className="h-4 w-4 text-cc-accent" /> Quick Actions
+                <Sparkles className="h-4 w-4 text-cc-accent" strokeWidth={2.2} /> Quick Actions
               </h3>
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() => customerNavigate(`/t/${tableId}`)}
                   className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 transition"
                 >
-                  <Plus className="h-4.5 w-4.5 text-cc-text" />
+                  <Plus className="h-4 w-4 text-cc-text" strokeWidth={2.2} />
                   <span className="text-xs font-bold text-cc-text">Order Again</span>
                 </button>
                 <button
                   onClick={() => void handleGiveReview()}
                   className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 transition"
                 >
-                  <Star className="h-4.5 w-4.5 text-cc-accent" />
+                  <Star className="h-4 w-4 text-cc-accent" strokeWidth={2.2} />
                   <span className="text-xs font-bold text-cc-text">Leave Review</span>
                 </button>
                 <button
@@ -456,7 +456,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                   onClick={() => void handleCallStaff("waiter", "Call Staff")}
                   className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 disabled:opacity-60 transition"
                 >
-                  <PhoneCall className="h-4.5 w-4.5 text-emerald-600" />
+                  <PhoneCall className="h-4 w-4 text-emerald-600" strokeWidth={2.2} />
                   <span className="text-xs font-bold text-cc-text">Call Staff</span>
                   {cooldown.remainingCooldownMs("waiter") > 0 && (
                     <span className="text-[10px] tabular-nums text-cc-text-muted">
@@ -469,7 +469,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                   onClick={() => void handleCallStaff("bill", "Request Bill")}
                   className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 disabled:opacity-60 transition"
                 >
-                  <Receipt className="h-4.5 w-4.5 text-cc-text" />
+                  <Receipt className="h-4 w-4 text-cc-text" strokeWidth={2.2} />
                   <span className="text-xs font-bold text-cc-text">Request Bill</span>
                   {cooldown.remainingCooldownMs("bill") > 0 && (
                     <span className="text-[10px] tabular-nums text-cc-text-muted">
@@ -519,9 +519,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             key={l.item.id}
             className="flex items-center gap-3.5 rounded-2xl bg-cc-surface p-3 border border-cc-border shadow-xs"
           >
-            <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden border border-cc-border bg-cc-surface-soft">
-              <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
-            </div>
+            <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="break-anywhere font-sans text-sm font-bold text-cc-text">{l.item.name}</p>
               <p className="font-sans text-xs font-extrabold text-cc-text tabular-nums mt-0.5">
@@ -534,7 +532,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                 onClick={() => setQty(l.item.id, l.qty - 1)}
                 className="grid h-7 w-7 place-items-center rounded-full bg-cc-surface text-cc-text border border-cc-border hover:bg-cc-primary hover:text-white transition active:scale-90"
               >
-                {l.qty === 1 ? <Trash2 className="h-3.5 w-3.5 text-rose-600" /> : <Minus className="h-3.5 w-3.5" />}
+                {l.qty === 1 ? <Trash2 className="h-3.5 w-3.5 text-rose-600" strokeWidth={2.2} /> : <Minus className="h-3.5 w-3.5" strokeWidth={2.2} />}
               </button>
               <span className="w-5 text-center font-sans text-xs font-black text-cc-text tabular-nums">{l.qty}</span>
               <button
@@ -542,7 +540,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                 onClick={() => setQty(l.item.id, l.qty + 1)}
                 className="grid h-7 w-7 place-items-center rounded-full bg-cc-primary text-white hover:bg-cc-primary-hover transition active:scale-90"
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
               </button>
             </div>
           </motion.li>
@@ -571,7 +569,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       {activeOrders.length > 0 && (
         <div className="pt-4 border-t border-cc-border">
           <h2 className="mb-3 flex items-center gap-2 font-display text-base font-bold text-cc-text">
-            <ShoppingBag className="h-4 w-4 text-cc-primary animate-pulse" /> Active Orders
+            <ShoppingBag className="h-4 w-4 text-cc-primary animate-pulse" strokeWidth={2.2} /> Active Orders
           </h2>
           <div className="space-y-3">
             {activeOrders.map(renderOrderCard)}
@@ -583,7 +581,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       {previousOrders.length > 0 && (
         <div className="pt-4 border-t border-cc-border">
           <h2 className="mb-3 flex items-center gap-2 font-display text-base font-bold text-cc-text-muted">
-            <History className="h-4 w-4 text-cc-text-muted" /> Previous Orders
+            <History className="h-4 w-4 text-cc-text-muted" strokeWidth={2.2} /> Previous Orders
           </h2>
           <div className="space-y-3">
             {previousOrders.map(renderOrderCard)}

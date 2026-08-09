@@ -183,7 +183,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
                       : "bg-cc-surface-soft text-cc-text-muted border border-cc-border",
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-5 w-5" strokeWidth={2.2} />
                 </span>
                 <span className="font-display text-sm">{step.label}</span>
               </motion.li>
@@ -198,9 +198,7 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         <ul className="divide-y divide-cc-border">
           {items.map((i) => (
             <li key={i.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <div className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden border border-cc-border bg-cc-surface-soft">
-                <MenuImage src={i.menu_items?.image_url} alt={i.name} size="sm" />
-              </div>
+              <MenuImage src={i.menu_items?.image_url} alt={i.name} size="xs" />
               <div className="min-w-0 flex-1">
                 <p className="break-anywhere font-display text-xs font-bold text-cc-text">{i.name}</p>
                 <p className="text-[11px] text-cc-text-muted font-semibold">Qty: {i.qty}</p>

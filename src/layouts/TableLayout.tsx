@@ -272,7 +272,7 @@ export default function TableLayout() {
             <div className="flex items-center gap-2">
               {!online && (
                 <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 border border-amber-500/30">
-                  <WifiOff className="h-3 w-3" /> Offline
+                  <WifiOff className="h-3 w-3" strokeWidth={2.2} /> Offline
                 </span>
               )}
               {/* Branded Table Pill */}
@@ -285,7 +285,7 @@ export default function TableLayout() {
                 className="grid h-8 w-8 place-items-center rounded-full bg-cc-surface text-cc-text border border-cc-border hover:bg-cc-surface-soft active:scale-95 transition-all shadow-xs"
                 aria-label="About Café"
               >
-                <Info className="h-4 w-4" />
+                <Info className="h-4 w-4" strokeWidth={2.2} />
               </button>
             </div>
           </div>
@@ -295,7 +295,7 @@ export default function TableLayout() {
           {!isSessionActive && (
             <div className="m-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 text-center shadow-xs">
               <div className="mx-auto mb-2.5 grid h-10 w-10 place-items-center rounded-full bg-amber-500/20 text-amber-800">
-                <AlertCircle className="h-5 w-5" />
+                <AlertCircle className="h-5 w-5" strokeWidth={2.2} />
               </div>
               <h3 className="font-display text-base font-bold text-cc-text">Table Currently Inactive</h3>
               <p className="mt-1 text-xs font-medium text-cc-text-muted leading-relaxed">
@@ -327,7 +327,7 @@ export default function TableLayout() {
               <div className="mt-6 flex-1 overflow-y-auto space-y-4 pr-1 py-1">
                 {cafe.address && (
                   <div className="flex gap-3 text-sm">
-                    <MapPin className="h-4.5 w-4.5 text-cc-text-muted shrink-0 mt-0.5" />
+                    <MapPin className="h-4 w-4 text-cc-text-muted shrink-0 mt-0.5" strokeWidth={2.2} />
                     <div>
                       <div className="font-bold text-cc-text text-[10px] uppercase tracking-wider">Address</div>
                       <div className="mt-0.5 text-xs font-medium text-cc-text-muted break-words">{cafe.address}</div>
@@ -337,7 +337,7 @@ export default function TableLayout() {
 
                 {cafe.phone && (
                   <div className="flex gap-3 text-sm">
-                    <Phone className="h-4.5 w-4.5 text-cc-text-muted shrink-0 mt-0.5" />
+                    <Phone className="h-4 w-4 text-cc-text-muted shrink-0 mt-0.5" strokeWidth={2.2} />
                     <div>
                       <div className="font-bold text-cc-text text-[10px] uppercase tracking-wider">Phone</div>
                       <a href={`tel:${cafe.phone}`} className="mt-0.5 block text-xs text-cc-primary hover:underline font-bold break-all">
@@ -349,7 +349,7 @@ export default function TableLayout() {
 
                 {cafe.operating_hours && (
                   <div className="flex gap-3 text-sm">
-                    <Clock className="h-4.5 w-4.5 text-cc-text-muted shrink-0 mt-0.5" />
+                    <Clock className="h-4 w-4 text-cc-text-muted shrink-0 mt-0.5" strokeWidth={2.2} />
                     <div>
                       <div className="font-bold text-cc-text text-[10px] uppercase tracking-wider">Operating Hours</div>
                       <div className="mt-0.5 text-xs font-medium text-cc-text-muted whitespace-pre-line break-words">{cafe.operating_hours}</div>
@@ -367,7 +367,7 @@ export default function TableLayout() {
                         rel="noreferrer"
                         className="flex items-center gap-1.5 rounded-full bg-cc-surface border border-cc-border hover:bg-cc-surface/80 px-3 py-1.5 text-xs font-semibold text-cc-text transition"
                       >
-                        <Globe className="h-3.5 w-3.5" /> Website
+                        <Globe className="h-3.5 w-3.5" strokeWidth={2.2} /> Website
                       </a>
                     )}
                     {cafe.instagram && (
@@ -377,7 +377,7 @@ export default function TableLayout() {
                         rel="noreferrer"
                         className="flex items-center gap-1.5 rounded-full bg-cc-surface border border-cc-border hover:bg-cc-surface/80 px-3 py-1.5 text-xs font-semibold text-cc-text transition"
                       >
-                        <Instagram className="h-3.5 w-3.5" /> Instagram
+                        <Instagram className="h-3.5 w-3.5" strokeWidth={2.2} /> Instagram
                       </a>
                     )}
                     {cafe.whatsapp && (
@@ -387,7 +387,7 @@ export default function TableLayout() {
                         rel="noreferrer"
                         className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition"
                       >
-                        <MessageSquare className="h-3.5 w-3.5" /> WhatsApp
+                        <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.2} /> WhatsApp
                       </a>
                     )}
                   </div>
@@ -402,7 +402,7 @@ export default function TableLayout() {
                       rel="noreferrer"
                       className="w-full rounded-full bg-cc-primary text-white py-3 text-xs font-bold flex items-center justify-center gap-2 shadow-md hover:bg-cc-primary-hover transition"
                     >
-                      <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
+                      <Star className="h-4 w-4 fill-amber-300 text-amber-300" strokeWidth={2.2} />
                       Leave a Google Review
                     </a>
                   </div>

@@ -95,15 +95,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
         onClick={handleCardClick}
         className="group relative flex gap-3.5 rounded-2xl bg-cc-surface p-3 shadow-xs border border-cc-border cursor-pointer transition hover:border-cc-primary/40 hover:shadow-sm"
       >
-        <div className="relative h-24 w-24 shrink-0 rounded-xl overflow-hidden border border-cc-border bg-cc-surface-soft">
-          {imgUrl ? (
-            <MenuImage src={imgUrl} alt={item.name} />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-xl bg-cc-surface-soft" aria-hidden>
-              ☕
-            </div>
-          )}
-        </div>
+        <MenuImage src={item.image_url} alt={item.name} size="lg" />
 
         <div className="flex min-w-0 flex-1 flex-col justify-between">
           <div>
@@ -143,7 +135,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                   }}
                   className="inline-flex items-center justify-center gap-1 rounded-full bg-cc-primary hover:bg-cc-primary-hover text-white px-3 py-1.5 text-xs font-bold shadow-xs active:scale-95 transition-all min-h-[36px] min-w-[64px]"
                 >
-                  ADD <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  ADD <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
                 </motion.button>
               ) : (
                 <motion.div
@@ -163,7 +155,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     }}
                     className="grid h-7 w-7 place-items-center rounded-full bg-cc-surface text-cc-text border border-cc-border hover:bg-cc-primary hover:text-white transition-all active:scale-90"
                   >
-                    <Minus className="h-3.5 w-3.5" />
+                    <Minus className="h-3.5 w-3.5" strokeWidth={2.2} />
                   </button>
                   <span
                     className="w-5 text-center font-sans text-xs font-black text-cc-text tabular-nums select-none"
@@ -180,7 +172,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     }}
                     className="grid h-7 w-7 place-items-center rounded-full bg-cc-primary text-white hover:bg-cc-primary-hover transition-all active:scale-90"
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
                   </button>
                 </motion.div>
               )}
@@ -191,15 +183,9 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
 
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
         <DrawerContent className="max-w-md mx-auto bg-cc-background border-t border-cc-border">
-          {imgUrl ? (
-            <div className="relative w-full aspect-[16/10] overflow-hidden rounded-t-[10px] bg-cc-surface-soft border-b border-cc-border -mt-6">
-              <img src={imgUrl} alt={item.name} className="h-full w-full object-cover" />
-            </div>
-          ) : (
-            <div className="w-full aspect-[16/10] bg-cc-surface-soft border-b border-cc-border flex items-center justify-center rounded-t-[10px] -mt-6" aria-hidden>
-              <span className="text-4xl">☕</span>
-            </div>
-          )}
+          <div className="relative w-full aspect-[16/10] overflow-hidden rounded-t-2xl border-b border-cc-border -mt-6">
+            <MenuImage src={item.image_url} alt={item.name} size="full" />
+          </div>
 
           <div className="p-5 flex-1 overflow-y-auto max-h-[45vh]">
             {tagsToRender.length > 0 && (
@@ -254,7 +240,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                       onClick={() => setQuantity((q) => Math.max(0, q - 1))}
                       className="grid h-8 w-8 place-items-center rounded-full bg-cc-surface-soft text-cc-text border border-cc-border hover:bg-cc-primary hover:text-white transition-all active:scale-90"
                     >
-                      <Minus className="h-4 w-4" />
+                      <Minus className="h-4 w-4" strokeWidth={2.2} />
                     </button>
                     <span className="w-8 text-center font-sans text-xs font-black text-cc-text tabular-nums select-none">{displayQty}</span>
                     <button
@@ -262,7 +248,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                       onClick={() => setQuantity((q) => q + 1)}
                       className="grid h-8 w-8 place-items-center rounded-full bg-cc-primary text-white hover:bg-cc-primary-hover transition-all active:scale-90"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-4 w-4" strokeWidth={2.2} />
                     </button>
                   </motion.div>
                 )}

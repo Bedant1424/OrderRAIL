@@ -54,7 +54,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-full bg-cc-success text-white">
-              <Check className="h-5 w-5" />
+              <Check className="h-5 w-5" strokeWidth={2.2} />
             </span>
             <div>
               <div className="font-display text-base font-semibold text-cc-text">Thanks for the review</div>
@@ -70,7 +70,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 rounded-full border border-cc-border bg-cc-surface px-4 py-2.5 text-xs font-semibold text-cc-text transition hover:bg-cc-surface-soft"
               >
-                <ExternalLink className="h-3.5 w-3.5" /> Write a Google Review
+                <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.2} /> Write a Google Review
               </a>
             </div>
           )}
@@ -82,7 +82,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
   return (
     <section className="mx-4 mt-6 rounded-3xl bg-cc-surface p-5 shadow-xs border border-cc-border">
       <div className="mb-4 flex items-center gap-2 rounded-2xl bg-cc-surface-soft p-3.5 text-xs text-cc-text font-medium">
-        <Sparkles className="h-4 w-4 shrink-0 text-cc-accent animate-pulse" />
+        <Sparkles className="h-4 w-4 shrink-0 text-cc-accent animate-pulse" strokeWidth={2.2} />
         <span>Thank you for dining with us! We hope you enjoyed your meal.</span>
       </div>
 
@@ -107,6 +107,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
                   "h-8 w-8 transition-colors",
                   filled ? "fill-cc-accent text-cc-accent" : "text-cc-text-muted/40",
                 )}
+                strokeWidth={2.2}
               />
             </motion.button>
           );
@@ -151,7 +152,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
             rel="noopener noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-full border border-cc-border bg-cc-surface px-6 py-3 text-sm font-semibold text-cc-text transition hover:bg-cc-surface-soft"
           >
-            <ExternalLink className="h-4 w-4" /> Write a Google Review
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.2} /> Write a Google Review
           </a>
         )}
       </div>

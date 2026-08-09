@@ -73,11 +73,11 @@ export function CallStaff({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                 }
               >
                 {isSending ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.2} />
                 ) : isPending ? (
-                  <Check className="h-5 w-5 stroke-[2.5]" />
+                  <Check className="h-5 w-5" strokeWidth={2.2} />
                 ) : (
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-5 w-5" strokeWidth={2.2} />
                 )}
               </span>
 

@@ -31,7 +31,7 @@ export function FloatingCart({ currency }: { currency: string }) {
           >
             <span className="flex items-center gap-2.5 min-w-0">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-cc-primary text-white shadow-xs">
-                <ShoppingBag className="h-4 w-4" />
+                <ShoppingBag className="h-4 w-4" strokeWidth={2.2} />
               </span>
               <span className="font-sans text-sm font-bold tracking-tight truncate">
                 {editingOrderId ? "Editing: " : ""}{count} {count === 1 ? "item" : "items"}
@@ -40,7 +40,7 @@ export function FloatingCart({ currency }: { currency: string }) {
             <span className="flex items-center gap-2 font-sans text-sm font-extrabold tabular-nums shrink-0">
               <span>{formatMoney(subtotalCents, currency)}</span>
               <span className="rounded-full bg-cc-primary px-3 py-1 text-xs font-bold text-white flex items-center gap-1 shadow-xs">
-                View Cart <ArrowRight className="h-3.5 w-3.5" />
+                View Cart <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.2} />
               </span>
             </span>
           </Link>
