@@ -3,7 +3,7 @@ import { CHEESE_CORNER_CONFIG } from "./config";
 /**
  * Centralized Layout Configuration for Cheese Corner Dynamic QR Artwork
  * Template: Native Resolution (948x1660) blank artwork source
- * Recalibrated for Sprint 12D based on empirical pixel zone analysis of public/branding/cheesecorner/qr/qr-stand.png
+ * Recalibrated for Sprint 12E based on empirical pixel analysis of generated PNG output & public/branding/cheesecorner/qr/qr-stand.png
  */
 export const ARTWORK_LAYOUT = {
   template: {
@@ -17,17 +17,17 @@ export const ARTWORK_LAYOUT = {
     centerX: 499, // Centered horizontally inside template white pill (433..565)
     centerY: 241, // Centered vertically inside template white pill (211..271)
     color: "#321300",
-    font: "900 46px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif",
+    font: "bold 44px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif",
     fontFamily: "'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif",
-    baseFontSize: 46,
+    baseFontSize: 44,
   },
 
-  // QR Placement Region inside Cream Container Box (Sprint 12D Recalibrated)
+  // QR Placement Region inside Cream Container Box (Sprint 12E Recalibrated)
   qr: {
-    centerX: 474, // Centered horizontally inside template cream container box
-    centerY: 720, // Centered vertically in the clean cream region between top graphic (y<600) and "SCAN TO ORDER" (y>845)
-    cardSize: 240, // White card size fitting naturally inside cream placeholder box with even margins
-    qrSize: 200, // QR code size preserving even 20px white padding on all 4 sides
+    centerX: 469, // Centered horizontally inside template cream container box (246..693)
+    centerY: 737, // Centered vertically inside clean cream container box (630..845)
+    cardSize: 200, // White card size fitting naturally inside cream placeholder box with even margins
+    qrSize: 170, // QR code size preserving even 15px white padding on all 4 sides
     borderRadius: 16, // Rounded corners matching artwork style
     cardShadowColor: "rgba(50, 19, 0, 0.10)",
     cardShadowBlur: 16,
@@ -51,11 +51,11 @@ export function extractTableNumber(label: string): string {
 /**
  * Generates a dynamic high-resolution QR artwork PNG for a table.
  *
- * Execution Order (Sprint 12D):
+ * Execution Order (Sprint 12E):
  * 1. Load blank template (`public/branding/cheesecorner/qr/qr-stand.png`)
  * 2. Draw template at native resolution (948x1660)
  * 3. Draw numeric table number (centered inside white rounded pill at cx: 499, cy: 241)
- * 4. Draw QR code (from table UUID, centered inside white card at cx: 474, cy: 720)
+ * 4. Draw QR code (from table UUID, centered inside white card at cx: 469, cy: 737)
  * 5. Export high-res PNG
  *
  * Never modifies the template source file itself.
@@ -104,20 +104,20 @@ export async function generateArtwork(
       if (numericOnly.length === 3) {
         fontSize = 36;
       } else if (numericOnly.length >= 4) {
-        fontSize = 30;
+        fontSize = 28;
       }
 
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = ARTWORK_LAYOUT.tableNumber.color;
-      ctx.font = `900 ${fontSize}px ${ARTWORK_LAYOUT.tableNumber.fontFamily}`;
+      ctx.font = `bold ${fontSize}px ${ARTWORK_LAYOUT.tableNumber.fontFamily}`;
       ctx.fillText(
         numericOnly,
         ARTWORK_LAYOUT.tableNumber.centerX,
         ARTWORK_LAYOUT.tableNumber.centerY
       );
 
-      // 4. Render White QR Backing Card & QR Code (Sprint 12D: Centered, even borders/padding)
+      // 4. Render White QR Backing Card & QR Code (Sprint 12E: Centered, even borders/padding)
       const {
         centerX,
         centerY,
