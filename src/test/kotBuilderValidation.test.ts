@@ -27,17 +27,20 @@ describe("Kitchen Order Ticket (KOT) Builder (58mm) & Integration Validation Tes
 
     // Text assertions
     expect(result.text).toContain("ORDERRAIL GOURMET CAFE");
-    expect(result.text).toContain("*** KITCHEN ORDER TICKET ***");
+    expect(result.text).not.toContain("KITCHEN KOT");
+    expect(result.text).not.toContain("KITCHEN ORDER TICKET");
+    expect(result.text).toContain("TABLE 4");
     expect(result.text).toContain("KOT #: 101");
     expect(result.text).toContain("Order #: 1001");
-    expect(result.text).toContain("Table 4");
     expect(result.text).toContain("10:30 AM");
     expect(result.text).toContain("1x   Artisan Cappuccino");
     expect(result.text).toContain("TOTAL ITEMS: 1");
 
     // ESC/POS assertions
     expect(result.escpos).toContain("\x1B\x40"); // ESC/POS INIT
-    expect(result.escpos).toContain("KITCHEN ORDER TICKET");
+    expect(result.escpos).not.toContain("KITCHEN KOT");
+    expect(result.escpos).not.toContain("KITCHEN ORDER TICKET");
+    expect(result.escpos).toContain("TABLE 4");
     expect(result.escpos).toContain("\x1D\x56\x41\x03"); // FEED & CUT
   });
 
@@ -85,7 +88,9 @@ describe("Kitchen Order Ticket (KOT) Builder (58mm) & Integration Validation Tes
     const result = KotBuilder.build(payload, 58);
 
     // Modifiers & notes assertions
-    expect(result.text).toContain("* Modifiers: Extra Cheese, Gluten-Free Bread, Cut into triangles");
+    expect(result.text).toContain("> Extra Cheese");
+    expect(result.text).toContain("> Gluten-Free Bread");
+    expect(result.text).toContain("> Cut into triangles");
     expect(result.text).toContain("SPECIAL INSTRUCTIONS:");
     expect(result.text).toContain("Make it extra spicy, deliver");
     expect(result.text).toContain("immediately to table.");
