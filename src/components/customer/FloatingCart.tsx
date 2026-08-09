@@ -26,20 +26,20 @@ export function FloatingCart({ currency }: { currency: string }) {
           <Link
             to={`/t/${tableId}/cart`}
             className={cn(
-              "pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-3 rounded-full px-4 py-3 bg-[#2A1710] text-white shadow-xl border border-white/10 hover:bg-[#2A1710]/95 active:scale-[0.98] transition-all"
+              "pointer-events-auto mx-auto flex w-full max-w-[420px] items-center justify-between gap-3 rounded-full px-4 py-3 bg-cc-text text-white shadow-xl border border-white/10 hover:bg-cc-text/95 active:scale-[0.98] transition-all"
             )}
           >
             <span className="flex items-center gap-2.5 min-w-0">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EA580C] text-white shadow-xs">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-cc-primary text-white shadow-xs">
                 <ShoppingBag className="h-4 w-4" />
               </span>
-              <span className="text-sm font-bold tracking-tight truncate">
+              <span className="font-sans text-sm font-bold tracking-tight truncate">
                 {editingOrderId ? "Editing: " : ""}{count} {count === 1 ? "item" : "items"}
               </span>
             </span>
-            <span className="flex items-center gap-2 text-sm font-extrabold tabular-nums shrink-0">
+            <span className="flex items-center gap-2 font-sans text-sm font-extrabold tabular-nums shrink-0">
               <span>{formatMoney(subtotalCents, currency)}</span>
-              <span className="rounded-full bg-[#EA580C] px-3 py-1 text-xs font-bold text-white flex items-center gap-1 shadow-xs">
+              <span className="rounded-full bg-cc-primary px-3 py-1 text-xs font-bold text-white flex items-center gap-1 shadow-xs">
                 View Cart <ArrowRight className="h-3.5 w-3.5" />
               </span>
             </span>

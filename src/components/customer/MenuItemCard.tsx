@@ -14,7 +14,7 @@ const getTagColorClass = (tag: string): string => {
   switch (tag) {
     case "Best Seller":
     case "Bestseller":
-      return "bg-[#F59E0B]/15 text-[#2A1710] border border-[#F59E0B]/40 font-bold";
+      return "bg-cc-accent/15 text-cc-text border border-cc-accent/40 font-bold";
     case "New":
       return "bg-blue-50 text-blue-800 border border-blue-200 font-bold";
     case "Popular":
@@ -30,7 +30,7 @@ const getTagColorClass = (tag: string): string => {
     case "Non-Veg":
       return "bg-rose-50 text-rose-800 border border-rose-300 font-bold";
     default:
-      return "bg-[#FFF8EA] text-[#75625B] border border-[#E8DCC8] font-medium";
+      return "bg-cc-surface-soft text-cc-text-muted border border-cc-border font-medium";
   }
 };
 
@@ -93,13 +93,13 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         onClick={handleCardClick}
-        className="group relative flex gap-3.5 rounded-2xl bg-white p-3 shadow-xs border border-[#E8DCC8] cursor-pointer transition hover:border-[#EA580C]/40 hover:shadow-sm"
+        className="group relative flex gap-3.5 rounded-2xl bg-cc-surface p-3 shadow-xs border border-cc-border cursor-pointer transition hover:border-cc-primary/40 hover:shadow-sm"
       >
-        <div className="relative h-24 w-24 shrink-0 rounded-xl overflow-hidden border border-[#E8DCC8] bg-[#FFF8EA]">
+        <div className="relative h-24 w-24 shrink-0 rounded-xl overflow-hidden border border-cc-border bg-cc-surface-soft">
           {imgUrl ? (
             <MenuImage src={imgUrl} alt={item.name} />
           ) : (
-            <div className="h-full w-full flex items-center justify-center text-xl bg-[#FFF8EA]" aria-hidden>
+            <div className="h-full w-full flex items-center justify-center text-xl bg-cc-surface-soft" aria-hidden>
               ☕
             </div>
           )}
@@ -119,14 +119,14 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                 ))}
               </div>
             )}
-            <h3 className="break-anywhere font-display text-base font-bold leading-tight text-[#2A1710]">{item.name}</h3>
+            <h3 className="break-anywhere font-sans text-[15px] font-bold leading-tight text-cc-text">{item.name}</h3>
             {item.description && (
-              <p className="mt-0.5 line-clamp-2 text-xs text-[#75625B] leading-relaxed">{item.description}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs font-medium text-cc-text-muted leading-relaxed">{item.description}</p>
             )}
           </div>
 
           <div className="mt-2 flex items-center justify-between pt-1">
-            <span className="text-sm font-black text-[#2A1710] tabular-nums">{formatMoney(item.price_cents, currency)}</span>
+            <span className="font-sans text-sm font-black text-cc-text tabular-nums">{formatMoney(item.price_cents, currency)}</span>
             <AnimatePresence mode="wait">
               {cartQty === 0 ? (
                 <motion.button
@@ -141,9 +141,9 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     e.stopPropagation();
                     add({ id: item.id, name: item.name, price_cents: item.price_cents, image_url: item.image_url });
                   }}
-                  className="inline-flex items-center justify-center gap-1 rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 text-white px-3 py-1.5 text-xs font-bold shadow-xs active:scale-95 transition-all min-h-[36px] min-w-[64px]"
+                  className="inline-flex items-center justify-center gap-1 rounded-full bg-cc-primary hover:bg-cc-primary-hover text-white px-3 py-1.5 text-xs font-bold shadow-xs active:scale-95 transition-all min-h-[36px] min-w-[64px]"
                 >
-                  ADD <Plus className="h-3.5 w-3.5" strokeWidth={3} />
+                  ADD <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
                 </motion.button>
               ) : (
                 <motion.div
@@ -152,7 +152,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.8, opacity: 0 }}
                   transition={{ duration: 0.1 }}
-                  className="flex items-center gap-1 rounded-full bg-[#FFF8EA] border border-[#E8DCC8] p-0.5 h-9"
+                  className="flex items-center gap-1 rounded-full bg-cc-surface-soft border border-cc-border p-0.5 h-9"
                 >
                   <button
                     type="button"
@@ -161,12 +161,12 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                       e.stopPropagation();
                       setQty(item.id, cartQty - 1);
                     }}
-                    className="grid h-7 w-7 place-items-center rounded-full bg-white text-[#2A1710] border border-[#E8DCC8] hover:bg-[#EA580C] hover:text-white transition-all active:scale-90"
+                    className="grid h-7 w-7 place-items-center rounded-full bg-cc-surface text-cc-text border border-cc-border hover:bg-cc-primary hover:text-white transition-all active:scale-90"
                   >
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                   <span
-                    className="w-5 text-center text-xs font-black text-[#2A1710] tabular-nums select-none"
+                    className="w-5 text-center font-sans text-xs font-black text-cc-text tabular-nums select-none"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {cartQty}
@@ -178,7 +178,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                       e.stopPropagation();
                       setQty(item.id, cartQty + 1);
                     }}
-                    className="grid h-7 w-7 place-items-center rounded-full bg-[#EA580C] text-white hover:bg-[#EA580C]/90 transition-all active:scale-90"
+                    className="grid h-7 w-7 place-items-center rounded-full bg-cc-primary text-white hover:bg-cc-primary-hover transition-all active:scale-90"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -190,13 +190,13 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
       </motion.article>
 
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
-        <DrawerContent className="max-w-md mx-auto bg-[#FFF8EA] border-t border-[#E8DCC8]">
+        <DrawerContent className="max-w-md mx-auto bg-cc-background border-t border-cc-border">
           {imgUrl ? (
-            <div className="relative w-full aspect-[16/10] overflow-hidden rounded-t-[10px] bg-[#FFF8EA] border-b border-[#E8DCC8] -mt-6">
+            <div className="relative w-full aspect-[16/10] overflow-hidden rounded-t-[10px] bg-cc-surface-soft border-b border-cc-border -mt-6">
               <img src={imgUrl} alt={item.name} className="h-full w-full object-cover" />
             </div>
           ) : (
-            <div className="w-full aspect-[16/10] bg-[#FFF8EA] border-b border-[#E8DCC8] flex items-center justify-center rounded-t-[10px] -mt-6" aria-hidden>
+            <div className="w-full aspect-[16/10] bg-cc-surface-soft border-b border-cc-border flex items-center justify-center rounded-t-[10px] -mt-6" aria-hidden>
               <span className="text-4xl">☕</span>
             </div>
           )}
@@ -215,14 +215,14 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               </div>
             )}
 
-            <h2 className="font-display text-2xl font-extrabold text-[#2A1710] leading-tight">{item.name}</h2>
+            <h2 className="font-display text-xl font-extrabold text-cc-text leading-tight">{item.name}</h2>
 
-            <p className="mt-2 text-sm text-[#75625B] leading-relaxed">
+            <p className="mt-2 text-xs font-medium text-cc-text-muted leading-relaxed">
               {item.description || "Freshly prepared with premium ingredients by our experienced chefs."}
             </p>
 
-            <div className="mt-6 flex items-center justify-between border-t border-[#E8DCC8] pt-4">
-              <span className="text-xl font-black text-[#2A1710] tabular-nums">
+            <div className="mt-6 flex items-center justify-between border-t border-cc-border pt-4">
+              <span className="font-sans text-lg font-black text-cc-text tabular-nums">
                 {formatMoney(item.price_cents, currency)}
               </span>
 
@@ -236,7 +236,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     transition={{ duration: 0.15 }}
                     type="button"
                     onClick={() => setQuantity(1)}
-                    className="rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 px-6 py-2 text-sm font-bold text-white shadow-xs"
+                    className="rounded-full bg-cc-primary hover:bg-cc-primary-hover px-6 py-2 text-sm font-bold text-white shadow-xs"
                   >
                     ADD
                   </motion.button>
@@ -247,20 +247,20 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.85, opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="flex items-center gap-3 rounded-full bg-white border border-[#E8DCC8] p-1"
+                    className="flex items-center gap-3 rounded-full bg-cc-surface border border-cc-border p-1"
                   >
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(0, q - 1))}
-                      className="grid h-8 w-8 place-items-center rounded-full bg-[#FFF8EA] text-[#2A1710] border border-[#E8DCC8] hover:bg-[#EA580C] hover:text-white transition-all active:scale-90"
+                      className="grid h-8 w-8 place-items-center rounded-full bg-cc-surface-soft text-cc-text border border-cc-border hover:bg-cc-primary hover:text-white transition-all active:scale-90"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="w-8 text-center text-sm font-black text-[#2A1710] tabular-nums select-none">{displayQty}</span>
+                    <span className="w-8 text-center font-sans text-xs font-black text-cc-text tabular-nums select-none">{displayQty}</span>
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => q + 1)}
-                      className="grid h-8 w-8 place-items-center rounded-full bg-[#EA580C] text-white hover:bg-[#EA580C]/90 transition-all active:scale-90"
+                      className="grid h-8 w-8 place-items-center rounded-full bg-cc-primary text-white hover:bg-cc-primary-hover transition-all active:scale-90"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -270,16 +270,16 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
             </div>
           </div>
 
-          <DrawerFooter className="border-t border-[#E8DCC8] bg-white p-4">
+          <DrawerFooter className="border-t border-cc-border bg-cc-surface p-4">
             <button
               type="button"
               onClick={handleAddToCart}
               disabled={displayQty === 0}
-              className="w-full rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 py-3.5 text-sm font-bold text-white shadow-md flex items-center justify-center gap-2 disabled:opacity-50 transition"
+              className="w-full rounded-full bg-cc-primary hover:bg-cc-primary-hover py-3.5 text-sm font-bold text-white shadow-md flex items-center justify-center gap-2 disabled:opacity-50 transition"
             >
               <span>{isEditing ? "Update Order" : "Add to Cart"}</span>
               <span>·</span>
-              <span className="tabular-nums">{formatMoney(totalPrice, currency)}</span>
+              <span className="font-sans tabular-nums">{formatMoney(totalPrice, currency)}</span>
             </button>
           </DrawerFooter>
         </DrawerContent>

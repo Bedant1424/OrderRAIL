@@ -281,7 +281,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       if (s === "served") {
         return {
           label: "Served",
-          colorClass: "text-[#75625B] bg-white border-[#E8DCC8]",
+          colorClass: "text-cc-text-muted bg-cc-surface border-cc-border",
           icon: History
         };
       }
@@ -299,13 +299,13 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       <div
         key={o.id}
         onClick={() => customerNavigate(`/t/${tableId}/order/${o.id}`)}
-        className="group flex flex-col gap-2 rounded-2xl bg-white p-4 shadow-xs border border-[#E8DCC8] hover:border-[#EA580C]/40 cursor-pointer transition"
+        className="group flex flex-col gap-2 rounded-2xl bg-cc-surface p-4 shadow-xs border border-cc-border hover:border-cc-primary/40 cursor-pointer transition"
       >
-        <div className="flex items-center justify-between border-b border-[#E8DCC8] pb-2 text-xs font-bold text-[#75625B]">
+        <div className="flex items-center justify-between border-b border-cc-border pb-2 text-xs font-bold text-cc-text-muted">
           <span className="flex items-center gap-1.5">
-            <span className="text-[#2A1710] font-black">{formatOrderLabel(o.order_number)}</span>
+            <span className="text-cc-text font-black">{formatOrderLabel(o.order_number)}</span>
             {!isOwner && (
-              <span className="rounded bg-[#FFF8EA] px-1.5 py-0.5 text-[10px] text-[#75625B] font-medium border border-[#E8DCC8]">Table Guest</span>
+              <span className="rounded bg-cc-surface-soft px-1.5 py-0.5 text-[10px] text-cc-text-muted font-medium border border-cc-border">Table Guest</span>
             )}
           </span>
           <span className="flex items-center gap-1.5">
@@ -313,24 +313,24 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
               <StatusIcon className="h-3 w-3 shrink-0" />
               <span>{details.label}</span>
             </span>
-            <ChevronRight className="h-3.5 w-3.5 text-[#75625B]" />
+            <ChevronRight className="h-3.5 w-3.5 text-cc-text-muted" />
           </span>
         </div>
-        <div className="space-y-1 text-sm text-[#2A1710]">
+        <div className="space-y-1 text-sm text-cc-text">
           {o.order_items?.map((it) => (
             <div key={it.id} className="flex justify-between gap-2">
               <span className="break-anywhere flex-1 font-medium">{it.qty}× {it.name}</span>
-              <span className="shrink-0 text-[#75625B] tabular-nums font-semibold">{formatMoney(it.price_cents * it.qty, cafe.currency)}</span>
+              <span className="shrink-0 font-sans text-xs text-cc-text-muted tabular-nums font-semibold">{formatMoney(it.price_cents * it.qty, cafe.currency)}</span>
             </div>
           ))}
         </div>
         {o.note && (
-          <p className="break-anywhere mt-1.5 rounded-xl bg-[#FFF8EA] p-2 text-xs text-[#75625B] border border-[#E8DCC8]">
-            <span className="font-bold text-[#2A1710]">Note:</span> {o.note}
+          <p className="break-anywhere mt-1.5 rounded-xl bg-cc-surface-soft p-2 text-xs font-medium text-cc-text-muted border border-cc-border">
+            <span className="font-bold text-cc-text">Note:</span> {o.note}
           </p>
         )}
-        <div className="flex items-center justify-between border-t border-[#E8DCC8] pt-2 text-xs text-[#75625B]">
-          <span>Total: <strong className="text-[#2A1710] text-sm tabular-nums font-black">{formatMoney(o.total_cents, cafe.currency)}</strong></span>
+        <div className="flex items-center justify-between border-t border-cc-border pt-2 text-xs text-cc-text-muted">
+          <span>Total: <strong className="font-sans text-sm text-cc-text tabular-nums font-black">{formatMoney(o.total_cents, cafe.currency)}</strong></span>
           {isServed && (
             <span>
               Served at {new Date(o.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -388,14 +388,14 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       <div style={{ paddingBottom: pagePaddingBottom }} className="px-4 pt-3 space-y-6">
         {activeOrders.length === 0 && previousOrders.length === 0 ? (
           <div className="py-20 text-center">
-            <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-white border border-[#E8DCC8] shadow-xs">
+            <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-cc-surface border border-cc-border shadow-xs">
               <span aria-hidden className="text-3xl">🥐</span>
             </div>
-            <h2 className="font-display text-2xl font-black text-[#2A1710]">Your order is empty</h2>
-            <p className="mt-1.5 text-[#75625B] text-xs font-medium">Add something delicious from the menu.</p>
+            <h2 className="font-display text-2xl font-black text-cc-text">Your order is empty</h2>
+            <p className="mt-1.5 text-cc-text-muted text-xs font-medium">Add something delicious from the menu.</p>
             <button
               onClick={() => customerNavigate(`/t/${tableId}`)}
-              className="mt-6 rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 px-6 py-3 text-sm font-bold text-white shadow-md transition"
+              className="mt-6 rounded-full bg-cc-primary hover:bg-cc-primary-hover px-6 py-3 text-sm font-bold text-white shadow-md transition"
             >
               Browse menu
             </button>
@@ -403,15 +403,15 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         ) : (
           <div className="space-y-6">
             <div>
-              <h1 className="font-display text-2xl font-black text-[#2A1710]">My Order</h1>
-              <p className="mt-0.5 text-xs text-[#75625B] font-medium">Your selected dishes</p>
+              <h1 className="font-display text-2xl font-black text-cc-text">My Order</h1>
+              <p className="mt-0.5 text-xs text-cc-text-muted font-medium">Your selected dishes</p>
             </div>
 
             {/* Active Orders Section */}
             {activeOrders.length > 0 && (
               <div>
-                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-black text-[#2A1710]">
-                  <ShoppingBag className="h-4.5 w-4.5 text-[#EA580C] animate-pulse" /> Active Orders
+                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-black text-cc-text">
+                  <ShoppingBag className="h-4.5 w-4.5 text-cc-primary animate-pulse" /> Active Orders
                 </h2>
                 <div className="space-y-3">
                   {activeOrders.map(renderOrderCard)}
@@ -422,8 +422,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             {/* Previous Orders Section */}
             {previousOrders.length > 0 && (
               <div>
-                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-black text-[#2A1710]">
-                  <History className="h-4.5 w-4.5 text-[#75625B]" /> Previous Orders
+                <h2 className="mb-3 flex items-center gap-2 font-display text-base font-black text-cc-text">
+                  <History className="h-4.5 w-4.5 text-cc-text-muted" /> Previous Orders
                 </h2>
                 <div className="space-y-3">
                   {previousOrders.map(renderOrderCard)}
@@ -432,34 +432,34 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             )}
 
             {/* Quick Actions */}
-            <div className="rounded-2xl bg-white p-4 border border-[#E8DCC8] shadow-xs space-y-3">
-              <h3 className="font-display text-sm font-bold flex items-center gap-1.5 text-[#2A1710]">
-                <Sparkles className="h-4 w-4 text-[#F59E0B]" /> Quick Actions
+            <div className="rounded-2xl bg-cc-surface p-4 border border-cc-border shadow-xs space-y-3">
+              <h3 className="font-display text-sm font-bold flex items-center gap-1.5 text-cc-text">
+                <Sparkles className="h-4 w-4 text-cc-accent" /> Quick Actions
               </h3>
               <div className="grid grid-cols-2 gap-2.5">
                 <button
                   onClick={() => customerNavigate(`/t/${tableId}`)}
-                  className="flex flex-col items-center gap-1.5 rounded-xl bg-[#FFF8EA] p-3 border border-[#E8DCC8] hover:border-[#EA580C]/40 transition"
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 transition"
                 >
-                  <Plus className="h-4.5 w-4.5 text-[#EA580C]" />
-                  <span className="text-xs font-bold text-[#2A1710]">Order Again</span>
+                  <Plus className="h-4.5 w-4.5 text-cc-primary" />
+                  <span className="text-xs font-bold text-cc-text">Order Again</span>
                 </button>
                 <button
                   onClick={() => void handleGiveReview()}
-                  className="flex flex-col items-center gap-1.5 rounded-xl bg-[#FFF8EA] p-3 border border-[#E8DCC8] hover:border-[#EA580C]/40 transition"
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 transition"
                 >
-                  <Star className="h-4.5 w-4.5 text-[#F59E0B]" />
-                  <span className="text-xs font-bold text-[#2A1710]">Leave Review</span>
+                  <Star className="h-4.5 w-4.5 text-cc-accent" />
+                  <span className="text-xs font-bold text-cc-text">Leave Review</span>
                 </button>
                 <button
                   disabled={callingType === "waiter" || !cooldown.canSend("waiter")}
                   onClick={() => void handleCallStaff("waiter", "Call Staff")}
-                  className="flex flex-col items-center gap-1.5 rounded-xl bg-[#FFF8EA] p-3 border border-[#E8DCC8] hover:border-[#EA580C]/40 disabled:opacity-60 transition"
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 disabled:opacity-60 transition"
                 >
                   <PhoneCall className="h-4.5 w-4.5 text-emerald-600" />
-                  <span className="text-xs font-bold text-[#2A1710]">Call Staff</span>
+                  <span className="text-xs font-bold text-cc-text">Call Staff</span>
                   {cooldown.remainingCooldownMs("waiter") > 0 && (
-                    <span className="text-[10px] tabular-nums text-[#75625B]">
+                    <span className="text-[10px] tabular-nums text-cc-text-muted">
                       {Math.ceil(cooldown.remainingCooldownMs("waiter") / 1000)}s
                     </span>
                   )}
@@ -467,12 +467,12 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
                 <button
                   disabled={callingType === "bill" || !cooldown.canSend("bill")}
                   onClick={() => void handleCallStaff("bill", "Request Bill")}
-                  className="flex flex-col items-center gap-1.5 rounded-xl bg-[#FFF8EA] p-3 border border-[#E8DCC8] hover:border-[#EA580C]/40 disabled:opacity-60 transition"
+                  className="flex flex-col items-center gap-1.5 rounded-xl bg-cc-surface-soft p-3 border border-cc-border hover:border-cc-primary/40 disabled:opacity-60 transition"
                 >
-                  <Receipt className="h-4.5 w-4.5 text-[#EA580C]" />
-                  <span className="text-xs font-bold text-[#2A1710]">Request Bill</span>
+                  <Receipt className="h-4.5 w-4.5 text-cc-primary" />
+                  <span className="text-xs font-bold text-cc-text">Request Bill</span>
                   {cooldown.remainingCooldownMs("bill") > 0 && (
-                    <span className="text-[10px] tabular-nums text-[#75625B]">
+                    <span className="text-[10px] tabular-nums text-cc-text-muted">
                       {Math.ceil(cooldown.remainingCooldownMs("bill") / 1000)}s
                     </span>
                   )}
@@ -489,22 +489,22 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
   return (
     <div style={{ paddingBottom: pagePaddingBottom }} className="px-4 pt-3 space-y-5">
       <div>
-        <h1 className="font-display text-2xl font-black text-[#2A1710]">My Order</h1>
-        <p className="mt-0.5 text-xs text-[#75625B] font-medium">Your selected dishes</p>
+        <h1 className="font-display text-2xl font-black text-cc-text">My Order</h1>
+        <p className="mt-0.5 text-xs text-cc-text-muted font-medium">Your selected dishes</p>
       </div>
 
       {editingOrderId && (
-        <div className="rounded-2xl bg-[#EA580C]/10 border border-[#EA580C]/30 p-3.5 flex items-center justify-between shadow-xs">
+        <div className="rounded-2xl bg-cc-primary/10 border border-cc-primary/30 p-3.5 flex items-center justify-between shadow-xs">
           <div className="text-xs font-medium">
-            <span className="block text-[#EA580C] font-bold">Editing Order #{editingOrderId.slice(0, 8).toUpperCase()}</span>
-            <span className="text-[#75625B]">You are modifying an existing order.</span>
+            <span className="block text-cc-primary font-bold">Editing Order #{editingOrderId.slice(0, 8).toUpperCase()}</span>
+            <span className="text-cc-text-muted">You are modifying an existing order.</span>
           </div>
           <button
             onClick={() => {
               cancelEditing();
               toast.info("Editing cancelled. Cart cleared.");
             }}
-            className="rounded-full bg-white border border-[#E8DCC8] px-3 py-1 text-xs font-bold text-[#2A1710] hover:bg-white/80 transition"
+            className="rounded-full bg-cc-surface border border-cc-border px-3 py-1 text-xs font-bold text-cc-text hover:bg-cc-surface/80 transition"
           >
             Cancel Edit
           </button>
@@ -517,30 +517,30 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           <motion.li
             layout
             key={l.item.id}
-            className="flex items-center gap-3.5 rounded-2xl bg-white p-3 border border-[#E8DCC8] shadow-xs"
+            className="flex items-center gap-3.5 rounded-2xl bg-cc-surface p-3 border border-cc-border shadow-xs"
           >
-            <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden border border-[#E8DCC8] bg-[#FFF8EA]">
+            <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden border border-cc-border bg-cc-surface-soft">
               <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="break-anywhere font-display text-sm font-bold text-[#2A1710]">{l.item.name}</p>
-              <p className="text-xs font-extrabold text-[#2A1710] tabular-nums mt-0.5">
+              <p className="break-anywhere font-sans text-sm font-bold text-cc-text">{l.item.name}</p>
+              <p className="font-sans text-xs font-extrabold text-cc-text tabular-nums mt-0.5">
                 {formatMoney(l.item.price_cents, cafe.currency)}
               </p>
             </div>
-            <div className="flex items-center gap-1 rounded-full bg-[#FFF8EA] border border-[#E8DCC8] p-0.5 h-8">
+            <div className="flex items-center gap-1 rounded-full bg-cc-surface-soft border border-cc-border p-0.5 h-8">
               <button
                 aria-label="Decrease"
                 onClick={() => setQty(l.item.id, l.qty - 1)}
-                className="grid h-7 w-7 place-items-center rounded-full bg-white text-[#2A1710] border border-[#E8DCC8] hover:bg-[#EA580C] hover:text-white transition active:scale-90"
+                className="grid h-7 w-7 place-items-center rounded-full bg-cc-surface text-cc-text border border-cc-border hover:bg-cc-primary hover:text-white transition active:scale-90"
               >
                 {l.qty === 1 ? <Trash2 className="h-3.5 w-3.5 text-rose-600" /> : <Minus className="h-3.5 w-3.5" />}
               </button>
-              <span className="w-5 text-center text-xs font-black text-[#2A1710] tabular-nums">{l.qty}</span>
+              <span className="w-5 text-center font-sans text-xs font-black text-cc-text tabular-nums">{l.qty}</span>
               <button
                 aria-label="Increase"
                 onClick={() => setQty(l.item.id, l.qty + 1)}
-                className="grid h-7 w-7 place-items-center rounded-full bg-[#EA580C] text-white hover:bg-[#EA580C]/90 transition active:scale-90"
+                className="grid h-7 w-7 place-items-center rounded-full bg-cc-primary text-white hover:bg-cc-primary-hover transition active:scale-90"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
@@ -552,8 +552,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       {/* Note for Staff */}
       <div className="mt-4">
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs font-bold text-[#2A1710]">Note for staff (optional)</label>
-          <span className={`text-[10px] tabular-nums ${note.length >= ORDER_NOTE_MAX ? 'text-rose-600 font-bold' : 'text-[#75625B]'}`}>
+          <label className="block text-xs font-bold text-cc-text">Note for staff (optional)</label>
+          <span className={`text-[10px] tabular-nums ${note.length >= ORDER_NOTE_MAX ? 'text-rose-600 font-bold' : 'text-cc-text-muted'}`}>
             {note.length} / {ORDER_NOTE_MAX}
           </span>
         </div>
@@ -563,15 +563,15 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           placeholder="Any allergies or special instructions?"
           rows={2}
           maxLength={ORDER_NOTE_MAX}
-          className="w-full resize-none rounded-xl border border-[#E8DCC8] bg-white p-3 text-xs text-[#2A1710] placeholder:text-[#75625B] outline-none shadow-xs transition focus:border-[#EA580C] focus:ring-2 focus:ring-[#EA580C]/20"
+          className="w-full resize-none rounded-xl border border-cc-border bg-cc-surface p-3 text-xs text-cc-text placeholder:text-cc-text-muted outline-none shadow-xs transition focus:border-cc-primary focus:ring-2 focus:ring-cc-primary/20 font-sans"
         />
       </div>
 
       {/* Active Orders Section */}
       {activeOrders.length > 0 && (
-        <div className="pt-4 border-t border-[#E8DCC8]">
-          <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-black text-[#2A1710]">
-            <ShoppingBag className="h-4 w-4 text-[#EA580C] animate-pulse" /> Active Orders
+        <div className="pt-4 border-t border-cc-border">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-base font-bold text-cc-text">
+            <ShoppingBag className="h-4 w-4 text-cc-primary animate-pulse" /> Active Orders
           </h2>
           <div className="space-y-3">
             {activeOrders.map(renderOrderCard)}
@@ -581,9 +581,9 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
 
       {/* Previous Orders Section */}
       {previousOrders.length > 0 && (
-        <div className="pt-4 border-t border-[#E8DCC8]">
-          <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-black text-[#75625B]">
-            <History className="h-4 w-4 text-[#75625B]" /> Previous Orders
+        <div className="pt-4 border-t border-cc-border">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-base font-bold text-cc-text-muted">
+            <History className="h-4 w-4 text-cc-text-muted" /> Previous Orders
           </h2>
           <div className="space-y-3">
             {previousOrders.map(renderOrderCard)}
@@ -598,21 +598,21 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         }}
         className="fixed inset-x-0 z-30 px-4"
       >
-        <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-[#E8DCC8] bg-[#FFF8EA]/95 backdrop-blur-md p-3.5 shadow-xl">
+        <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-cc-border bg-cc-background/95 backdrop-blur-md p-3.5 shadow-xl">
           <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#75625B]">Subtotal</span>
-            <span className="font-display text-xl font-black text-[#2A1710] tabular-nums">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-cc-text-muted">Subtotal</span>
+            <span className="font-sans text-xl font-black text-cc-text tabular-nums">
               {formatMoney(subtotalCents, cafe.currency)}
             </span>
           </div>
           <button
             onClick={editingOrderId ? updateExistingOrder : placeOrder}
             disabled={placing}
-            className="w-full rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 py-3.5 text-base font-bold text-white shadow-md transition active:scale-[0.99] disabled:opacity-60 min-h-[48px] flex items-center justify-center gap-2"
+            className="w-full rounded-full bg-cc-primary hover:bg-cc-primary-hover py-3.5 text-base font-bold text-white shadow-md transition active:scale-[0.99] disabled:opacity-60 min-h-[48px] flex items-center justify-center gap-2"
           >
             {placing ? "Sending…" : editingOrderId ? "Update Order" : "Place Order"}
           </button>
-          <p className="mt-1.5 text-center text-[11px] font-medium text-[#75625B] leading-none">
+          <p className="mt-1.5 text-center text-[11px] font-medium text-cc-text-muted leading-none">
             Pay at the counter when you're ready.
           </p>
         </div>

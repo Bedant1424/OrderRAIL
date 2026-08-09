@@ -65,6 +65,19 @@
     --sidebar-accent-foreground: 20 25% 15%;
     --sidebar-border: 30 20% 86%;
     --sidebar-ring: 32 90% 55%;
+
+    /* Cheese Corner Customer UI Design Tokens */
+    --cc-background: 38 70% 96%;        /* #FFF8EA Warm Cream */
+    --cc-surface: 0 0% 100%;            /* #FFFFFF Crisp White */
+    --cc-surface-soft: 38 70% 96%;      /* #FFF8EA Soft Cream Surface */
+    --cc-text: 16 45% 11%;              /* #2A1710 Deep Espresso Text */
+    --cc-text-muted: 16 13% 41%;        /* #75625B Muted Warm Brown Text */
+    --cc-border: 37 36% 85%;            /* #E8DCC8 Soft Sand Cream Border */
+    --cc-primary: 21 86% 48%;           /* #EA580C Warm Primary Orange */
+    --cc-primary-hover: 19 88% 40%;     /* #C2410C Primary Orange Hover */
+    --cc-accent: 38 92% 50%;            /* #F59E0B Warm Amber Accent */
+    --cc-success: 160 84% 39%;          /* #059669 Emerald Green Success */
+    --cc-danger: 347 77% 50%;           /* #E11D48 Rose Danger */
   }
 
   .dark {
@@ -118,6 +131,18 @@
     --sidebar-accent-foreground: 36 30% 94%;
     --sidebar-border: 20 15% 20%;
     --sidebar-ring: 32 90% 58%;
+
+    --cc-background: 20 20% 8%;
+    --cc-surface: 20 22% 11%;
+    --cc-surface-soft: 20 20% 12%;
+    --cc-text: 36 30% 94%;
+    --cc-text-muted: 30 15% 65%;
+    --cc-border: 20 15% 20%;
+    --cc-primary: 21 86% 55%;
+    --cc-primary-hover: 21 86% 48%;
+    --cc-accent: 38 92% 55%;
+    --cc-success: 160 70% 45%;
+    --cc-danger: 347 75% 55%;
   }
 }
 

@@ -181,26 +181,26 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
     <div style={{ paddingBottom: bottomPadding }}>
       {/* Menu Header Banner */}
       <div className="px-4 pt-3 pb-1">
-        <h1 className="font-display text-2xl font-black text-[#2A1710] tracking-tight">Our Menu</h1>
-        <p className="text-xs text-[#75625B] font-medium">Freshly prepared & served to your table</p>
+        <h1 className="font-display text-2xl font-black text-cc-text tracking-tight">Our Menu</h1>
+        <p className="text-xs text-cc-text-muted font-medium">Freshly prepared & served to your table</p>
       </div>
 
       {/* Search Input */}
       <div className="px-4 pt-2">
         <label className="relative block">
           <span className="sr-only">Search menu</span>
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#75625B]" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cc-text-muted" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search delicious dishes..."
-            className="w-full rounded-full border border-[#E8DCC8] bg-white py-2.5 pl-11 pr-4 text-sm text-[#2A1710] placeholder:text-[#75625B] outline-none shadow-xs transition focus:border-[#EA580C] focus:ring-2 focus:ring-[#EA580C]/20"
+            className="w-full rounded-full border border-cc-border bg-cc-surface py-2.5 pl-11 pr-4 text-sm text-cc-text placeholder:text-cc-text-muted outline-none shadow-xs transition focus:border-cc-primary focus:ring-2 focus:ring-cc-primary/20"
           />
         </label>
       </div>
 
       {/* Sticky category bar */}
-      <div className="sticky top-14 z-20 mt-3 border-b border-[#E8DCC8] bg-[#FFF8EA]/95 backdrop-blur-md">
+      <div className="sticky top-14 z-20 mt-3 border-b border-cc-border bg-cc-background/95 backdrop-blur-md">
         <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-2.5">
           {categories.map((c) => (
             <button
@@ -210,8 +210,8 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
               className={cn(
                 "shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition-all active:scale-95 focus-visible:outline-none min-h-[36px] flex items-center justify-center shadow-xs",
                 activeCat === c.id
-                  ? "bg-[#EA580C] text-white border border-[#EA580C] shadow-xs"
-                  : "bg-white text-[#75625B] border border-[#E8DCC8] hover:bg-white/80 hover:text-[#2A1710]",
+                  ? "bg-cc-primary text-white border border-cc-primary shadow-xs"
+                  : "bg-cc-surface text-cc-text-muted border border-cc-border hover:bg-cc-surface/80 hover:text-cc-text",
               )}
             >
               {c.name}
@@ -234,25 +234,25 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
               }}
               className="scroll-mt-32"
             >
-              <h2 className="mb-3 font-display text-xl font-extrabold text-[#2A1710] tracking-tight">{c.name}</h2>
+              <h2 className="mb-3 font-display text-xl font-extrabold text-cc-text tracking-tight">{c.name}</h2>
               <div className="space-y-3">
                 {list.map((it) => (
                   <MenuItemCard key={it.id} item={it} currency={currency} />
                 ))}
                 {!list.length && (
-                  <p className="text-xs text-[#75625B] italic py-2">No dishes in this category yet.</p>
+                  <p className="text-xs text-cc-text-muted italic py-2">No dishes in this category yet.</p>
                 )}
               </div>
             </section>
           );
         })}
         {(loadingCats || loadingItems) ? (
-          <div className="flex flex-col items-center justify-center p-12 gap-3 text-[#75625B]">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#EA580C]/20 border-t-[#EA580C]" />
-            <span className="text-xs font-semibold">Preparing menu…</span>
+          <div className="flex flex-col items-center justify-center p-12 gap-3 text-cc-text-muted">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-cc-primary/20 border-t-cc-primary" />
+            <span className="text-xs font-medium">Preparing menu…</span>
           </div>
         ) : !categories.length && (
-          <p className="text-center text-xs text-[#75625B] py-12">Menu is being prepared…</p>
+          <p className="text-center text-xs text-cc-text-muted py-12">Menu is being prepared…</p>
         )}
       </div>
     </div>

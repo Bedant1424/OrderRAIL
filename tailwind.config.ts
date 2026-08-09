@@ -37,6 +37,25 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        cc: {
+          background: "hsl(var(--cc-background) / <alpha-value>)",
+          surface: {
+            DEFAULT: "hsl(var(--cc-surface) / <alpha-value>)",
+            soft: "hsl(var(--cc-surface-soft) / <alpha-value>)",
+          },
+          text: {
+            DEFAULT: "hsl(var(--cc-text) / <alpha-value>)",
+            muted: "hsl(var(--cc-text-muted) / <alpha-value>)",
+          },
+          border: "hsl(var(--cc-border) / <alpha-value>)",
+          primary: {
+            DEFAULT: "hsl(var(--cc-primary) / <alpha-value>)",
+            hover: "hsl(var(--cc-primary-hover) / <alpha-value>)",
+          },
+          accent: "hsl(var(--cc-accent) / <alpha-value>)",
+          success: "hsl(var(--cc-success) / <alpha-value>)",
+          danger: "hsl(var(--cc-danger) / <alpha-value>)",
+        },
       },
       backgroundImage: {
         "gradient-warm": "var(--gradient-warm)",

@@ -50,25 +50,25 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
 
   if (sent) {
     return (
-      <section className="mx-4 mt-6 rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
+      <section className="mx-4 mt-6 rounded-3xl bg-cc-surface p-5 shadow-xs border border-cc-border">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-success text-success-foreground">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-cc-success text-white">
               <Check className="h-5 w-5" />
             </span>
             <div>
-              <div className="font-display text-base font-semibold">Thanks for the review</div>
-              <div className="text-xs text-muted-foreground">We appreciate your feedback.</div>
+              <div className="font-display text-base font-semibold text-cc-text">Thanks for the review</div>
+              <div className="text-xs text-cc-text-muted">We appreciate your feedback.</div>
             </div>
           </div>
           {cafe.google_maps_review_url && (
-            <div className="border-t border-border/60 pt-3">
-              <p className="text-xs text-muted-foreground mb-2">Mind sharing it on Google too?</p>
+            <div className="border-t border-cc-border pt-3">
+              <p className="text-xs text-cc-text-muted mb-2">Mind sharing it on Google too?</p>
               <a
                 href={cafe.google_maps_review_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-xs font-semibold text-foreground transition hover:bg-secondary"
+                className="flex items-center justify-center gap-2 rounded-full border border-cc-border bg-cc-surface px-4 py-2.5 text-xs font-semibold text-cc-text transition hover:bg-cc-surface-soft"
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Write a Google Review
               </a>
@@ -80,14 +80,14 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
   }
 
   return (
-    <section className="mx-4 mt-6 rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
-      <div className="mb-4 flex items-center gap-2 rounded-2xl bg-secondary/40 p-3.5 text-xs text-foreground font-medium">
-        <Sparkles className="h-4 w-4 shrink-0 text-accent animate-pulse" />
+    <section className="mx-4 mt-6 rounded-3xl bg-cc-surface p-5 shadow-xs border border-cc-border">
+      <div className="mb-4 flex items-center gap-2 rounded-2xl bg-cc-surface-soft p-3.5 text-xs text-cc-text font-medium">
+        <Sparkles className="h-4 w-4 shrink-0 text-cc-accent animate-pulse" />
         <span>Thank you for dining with us! We hope you enjoyed your meal.</span>
       </div>
 
-      <h2 className="font-display text-lg font-semibold">How was it?</h2>
-      <p className="mt-1 text-xs text-muted-foreground">A quick tap helps {cafe.name} improve.</p>
+      <h2 className="font-display text-lg font-extrabold text-cc-text">How was it?</h2>
+      <p className="mt-1 text-xs font-medium text-cc-text-muted">A quick tap helps {cafe.name} improve.</p>
 
       <div className="mt-4 flex items-center gap-1" onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map((i) => {
@@ -105,7 +105,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
               <Star
                 className={cn(
                   "h-8 w-8 transition-colors",
-                  filled ? "fill-accent text-accent" : "text-muted-foreground",
+                  filled ? "fill-cc-accent text-cc-accent" : "text-cc-text-muted/40",
                 )}
               />
             </motion.button>
@@ -119,10 +119,10 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
         rows={3}
         placeholder="Tell us more (optional)"
         maxLength={500}
-        className="mt-4 w-full resize-none rounded-2xl border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/60"
+        className="mt-4 w-full resize-none rounded-2xl border border-cc-border bg-cc-surface p-3 text-xs font-medium text-cc-text placeholder:text-cc-text-muted outline-none focus:border-cc-primary focus:ring-2 focus:ring-cc-primary/20 font-sans"
       />
       <div className="mt-1 flex justify-end">
-        <span className={`text-xs tabular-nums ${comment.length >= 500 ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+        <span className={`text-xs tabular-nums ${comment.length >= 500 ? 'text-cc-danger font-semibold' : 'text-cc-text-muted'}`}>
           {comment.length} / 500
         </span>
       </div>
@@ -131,7 +131,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
         <button
           onClick={submit}
           disabled={busy || rating < 1}
-          className="w-full rounded-full btn-primary-action px-6 py-3 text-sm font-semibold"
+          className="w-full rounded-full bg-cc-primary text-white hover:bg-cc-primary-hover px-6 py-3 text-sm font-bold shadow-md transition disabled:opacity-50"
         >
           {busy ? "Sending…" : "Submit review"}
         </button>
@@ -139,7 +139,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
         <button
           type="button"
           onClick={onComplete}
-          className="w-full rounded-full bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground shadow-soft transition hover:bg-secondary/80"
+          className="w-full rounded-full bg-cc-surface-soft border border-cc-border px-6 py-3 text-sm font-semibold text-cc-text transition hover:bg-cc-surface"
         >
           Skip
         </button>
@@ -149,7 +149,7 @@ export function ReviewForm({ cafe, orderId, onComplete }: { cafe: Cafe; orderId:
             href={cafe.google_maps_review_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-border bg-background px-6 py-3 text-sm font-semibold text-foreground transition hover:bg-secondary"
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-cc-border bg-cc-surface px-6 py-3 text-sm font-semibold text-cc-text transition hover:bg-cc-surface-soft"
           >
             <ExternalLink className="h-4 w-4" /> Write a Google Review
           </a>

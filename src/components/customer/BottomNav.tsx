@@ -17,7 +17,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-40 bg-[#FFF8EA]/95 backdrop-blur-md border-t border-[#E8DCC8] pb-safe shadow-lg"
+      className="fixed bottom-0 inset-x-0 z-40 bg-cc-background/95 backdrop-blur-md border-t border-cc-border pb-safe shadow-lg"
       aria-label="Primary"
     >
       <ul className="mx-auto flex max-w-md items-stretch justify-around px-3 py-1.5">
@@ -34,15 +34,15 @@ export function BottomNav() {
                 cn(
                   "relative flex flex-col items-center gap-1 rounded-2xl py-1.5 text-xs font-semibold transition-all active:scale-95 min-h-[44px] justify-center",
                   isActive
-                    ? "text-[#EA580C] bg-[#EA580C]/10 font-bold"
-                    : "text-[#75625B] hover:text-[#2A1710] hover:bg-white/60"
+                    ? "text-cc-primary bg-cc-primary/10 font-bold"
+                    : "text-cc-text-muted hover:text-cc-text hover:bg-cc-surface/60"
                 )
               }
             >
               <span className="relative">
                 <Icon className="h-5 w-5" strokeWidth={2.2} />
                 {badge && badge > 0 ? (
-                  <span className="absolute -right-2.5 -top-1.5 grid h-4.5 min-w-[1.2rem] place-items-center rounded-full bg-[#EA580C] px-1 text-[10px] font-black text-white shadow-xs">
+                  <span className="absolute -right-2.5 -top-1.5 grid h-4.5 min-w-[1.2rem] place-items-center rounded-full bg-cc-primary px-1 text-[10px] font-black text-white shadow-xs">
                     {badge}
                   </span>
                 ) : null}
