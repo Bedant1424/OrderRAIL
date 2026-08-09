@@ -14,18 +14,18 @@ export const ARTWORK_LAYOUT = {
 
   // Table Number Rounded Pill Region (under "Table" heading)
   tableNumber: {
-    centerX: 499, // Centered horizontally inside template white pill (433..565)
-    centerY: 241, // Centered vertically inside template white pill (211..271)
+    centerX: 499, // Centered horizontally inside template white pill (458..541)
+    centerY: 248, // Centered vertically inside template white pill (245..260)
     color: "#321300",
     font: "bold 48px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif",
     fontFamily: "'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif",
     baseFontSize: 48,
   },
 
-  // QR Placement Region inside Cream Container Box (Sprint 12G Overlay)
+  // QR Placement Region inside Cream Container Box (Sprint 12H Overlay Fix)
   qr: {
-    centerX: 474, // Centered horizontally on template artwork
-    centerY: 675, // Centered vertically to fill the QR placeholder area (y: 495..855)
+    centerX: 474, // Centered horizontally on template artwork (247..691)
+    centerY: 741, // Centered vertically inside cream container box (533..949)
     cardSize: 360, // White card completely covering & filling the intended QR placeholder box
     qrSize: 300, // QR code size preserving even 30px white padding on all 4 sides
     borderRadius: 24, // Rounded corners matching artwork style
