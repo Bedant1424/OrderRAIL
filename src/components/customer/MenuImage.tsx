@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useImageUrl } from "@/lib/useImageUrl";
 
 interface MenuImageProps {
   src: string | null | undefined;
@@ -9,10 +10,11 @@ interface MenuImageProps {
 }
 
 export function MenuImage({ src, alt, className, size = "lg" }: MenuImageProps) {
+  const imageUrl = useImageUrl(src);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const isInvalid = !src || src === "null" || src === "undefined" || src.trim() === "";
+  const isInvalid = !imageUrl || imageUrl === "null" || imageUrl === "undefined" || imageUrl.trim() === "";
 
   if (isInvalid || error) {
     const isSmall = size === "sm";
@@ -44,7 +46,7 @@ export function MenuImage({ src, alt, className, size = "lg" }: MenuImageProps) 
         </div>
       )}
       <img
-        src={src!}
+        src={imageUrl!}
         alt={alt}
         loading="lazy"
         onLoad={() => setLoading(false)}
