@@ -82,7 +82,7 @@ export class ReceiptBuilder {
 
     // Header & Cafe Info
     lines.push(doubleDivider);
-    lines.push(center((payload.cafeName || "ORDERRAIL PRO CAFE").toUpperCase()));
+    lines.push(center((payload.cafeName || "CHEESE CORNER").toUpperCase()));
     if (payload.address) {
       const addrLines = this.wrapText(payload.address, cols);
       for (const al of addrLines) {
@@ -94,16 +94,12 @@ export class ReceiptBuilder {
     } else {
       lines.push(center("GSTIN: 27AAAAA0000A1Z5"));
     }
-    lines.push(doubleDivider);
+    lines.push(divider);
 
     const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
     const docTitle = isPaid ? "PAID RECEIPT" : "PRE-PAYMENT BILL";
-    lines.push(center(docTitle));
-
-    if (payload.isReprint) {
-      lines.push(center("REPRINT"));
-    }
-    lines.push(doubleDivider);
+    lines.push(center(payload.isReprint ? `${docTitle} (REPRINT)` : docTitle));
+    lines.push(divider);
 
     // Bill & Order Metadata
     const source = payload.orderSource || "DINE_IN";
@@ -178,9 +174,9 @@ export class ReceiptBuilder {
       lines.push(justify("Discount:", `-Rs.${payload.discountAmt.toFixed(2)}`));
     }
 
-    lines.push(doubleDivider);
+    lines.push(divider);
     lines.push(justify("NET PAYABLE TOTAL:", `Rs.${payload.netTotal.toFixed(2)}`));
-    lines.push(doubleDivider);
+    lines.push(divider);
 
     // Tender / Payment Details
     if (payload.tenders && payload.tenders.length > 0) {
@@ -220,7 +216,7 @@ export class ReceiptBuilder {
 
     // Cafe Name Header
     parts.push(ESC_POS.BOLD_ON);
-    parts.push(`${(payload.cafeName || "ORDERRAIL PRO CAFE").toUpperCase()}\n`);
+    parts.push(`${(payload.cafeName || "CHEESE CORNER").toUpperCase()}\n`);
     parts.push(ESC_POS.BOLD_OFF);
 
     if (payload.address) {
@@ -231,24 +227,18 @@ export class ReceiptBuilder {
     }
 
     parts.push(`GSTIN: ${payload.gstin || "27AAAAA0000A1Z5"}\n`);
-    parts.push(doubleDivider);
+    parts.push(divider);
 
     const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
     const docTitle = isPaid ? "PAID RECEIPT" : "PRE-PAYMENT BILL";
 
     parts.push(ESC_POS.BOLD_ON);
     parts.push("\x1D\x21\x10"); // Double Height Font
-    parts.push(`${docTitle}\n`);
+    parts.push(`${payload.isReprint ? `${docTitle} (REPRINT)` : docTitle}\n`);
     parts.push("\x1D\x21\x00");
     parts.push(ESC_POS.BOLD_OFF);
 
-    if (payload.isReprint) {
-      parts.push(ESC_POS.BOLD_ON);
-      parts.push("REPRINT\n");
-      parts.push(ESC_POS.BOLD_OFF);
-    }
-
-    parts.push(doubleDivider);
+    parts.push(divider);
 
     // Bill & Order Metadata
     parts.push(ESC_POS.ALIGN_LEFT);
@@ -327,14 +317,14 @@ export class ReceiptBuilder {
       parts.push(this.justify("Discount:", `-Rs.${payload.discountAmt.toFixed(2)}`, cols) + "\n");
     }
 
-    parts.push(doubleDivider);
+    parts.push(divider);
 
     // Bold Net Total
     parts.push(ESC_POS.BOLD_ON);
     parts.push(this.justify("NET PAYABLE TOTAL:", `Rs.${payload.netTotal.toFixed(2)}`, cols) + "\n");
     parts.push(ESC_POS.BOLD_OFF);
 
-    parts.push(doubleDivider);
+    parts.push(divider);
 
     // Payment Details
     if (payload.tenders && payload.tenders.length > 0) {
@@ -357,9 +347,7 @@ export class ReceiptBuilder {
     parts.push("Please visit again\n");
     parts.push(doubleDivider);
 
-    // Feed and cut paper
-    parts.push(ESC_POS.LINE_FEED);
-    parts.push(ESC_POS.LINE_FEED);
+    // Hardware Cut (clean single feed and cut without redundant line feeds)
     parts.push(ESC_POS.FEED_AND_CUT);
 
     return parts.join("");

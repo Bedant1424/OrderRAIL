@@ -36,7 +36,7 @@ export const InvoiceViewerModal: React.FC<InvoiceViewerModalProps> = ({
   const handleDownload = () => {
     const textContent = `
 ========================================
-           ${cafe?.name || "ORDERRAIL CAFE"}
+           ${cafe?.name || "CHEESE CORNER"}
            ${cafe?.address || "123 Main Street"}
            Ph: ${cafe?.phone || "+91 98765 43210"}
            GSTIN: ${receiptSettings.gstNumber || "N/A"}
@@ -120,7 +120,7 @@ ${receiptSettings.thankYouMessage || "Thank you for visiting!"}
                 />
               )}
               <h2 className="text-sm font-black uppercase tracking-wider text-black">
-                {cafe?.name || "ORDERRAIL CAFE"}
+                {cafe?.name || "CHEESE CORNER"}
               </h2>
               {receiptSettings.showAddress && cafe?.address && (
                 <p className="text-[10px] text-gray-700 leading-tight">{cafe.address}</p>

@@ -25,7 +25,7 @@ export interface ReceiptProps {
 export const Receipt: React.FC<ReceiptProps> = ({
   bill,
   cafeInfo = {
-    name: 'ORDERRAIL CAFE',
+    name: 'CHEESE CORNER',
     address: '123 Main Street, Food Street City',
     phone: '+91 98765 43210',
     gstin: '27AAAAA0000A1Z5',
@@ -34,8 +34,9 @@ export const Receipt: React.FC<ReceiptProps> = ({
   showFooterButtons = false,
   onPrint,
 }) => {
-  const receiptSettings = getReceiptSettings();
-  const taxSettings = getTaxSettings();
+  const cafeId = (bill as any)?.cafe_id || (bill as any)?.cafeId;
+  const receiptSettings = getReceiptSettings(cafeId);
+  const taxSettings = getTaxSettings(cafeId);
 
   const formattedDate = new Date(bill.created_at).toLocaleDateString('en-IN', {
     day: '2-digit',

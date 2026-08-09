@@ -15,7 +15,7 @@ interface LiveReceiptPreviewProps {
 
 export const LiveReceiptPreview: React.FC<LiveReceiptPreviewProps> = ({
   settings,
-  cafeName = "ORDERRAIL CAFE",
+  cafeName = "CHEESE CORNER",
   cafeAddress = "123 Main Street, Food Street City",
   cafePhone = "+91 98765 43210",
   cafeLogoUrl,
@@ -39,7 +39,7 @@ export const LiveReceiptPreview: React.FC<LiveReceiptPreviewProps> = ({
     tableLabel: "Table #04",
     cashierName: "Counter",
     timestamp: "12:45 PM",
-    cafeName: cafeName || "ORDERRAIL CAFE",
+    cafeName: cafeName || "CHEESE CORNER",
     address: fullAddress || undefined,
     gstin: settings.showGst ? (settings.gstNumber || "27AAAAA0000A1Z5") : undefined,
     customerName: "Rahul Das",
