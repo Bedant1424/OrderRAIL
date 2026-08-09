@@ -1527,6 +1527,8 @@ const ReceiptModal = ({
   bill?: BillWithItems | null;
   onClose: () => void;
 }) => {
+  const { cafe } = useCafe();
+
   const handlePrint = async () => {
     if (bill) {
       try {
@@ -2342,7 +2344,7 @@ StatusBar.displayName = 'StatusBar';
 // --- MAIN WORKSPACE COMPONENT ---
 const CounterLayout = () => {
   const tableEngine = useTableEngine();
-  const { cafeId } = useCafe();
+  const { cafe, cafeId } = useCafe();
   const { user } = useAuth();
   
   // Single shared 1-second interval timer tick for the entire Counter page
@@ -3438,10 +3440,10 @@ const CounterLayout = () => {
       setActiveReceipt(receipt);
     } catch (e: any) {
       console.error("[handlePaymentComplete] Payment completion error:", e);
-      toast.error("Payment recorded, but workspace refresh encountered an issue.");
+      toast.error("Payment could not be completed. Please try again.");
       setIsPaymentOpen(false);
     }
-  }, [activeSessionData, activeTableId, customDiscount, externalOrderRef, loadSessionsFromDb, orderSourceMode, selectedTable, tableEngine, user]);
+  }, [activeSessionData, activeTableId, cafe, customDiscount, externalOrderRef, loadSessionsFromDb, orderSourceMode, selectedTable, tableEngine, user]);
 
   // Keyboard Shortcuts
   useEffect(() => {
