@@ -11,126 +11,11 @@ import { getTableStatus } from "@/lib/tables/occupancy";
 import { cn } from "@/lib/utils";
 import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 
-import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
+import { generateArtwork } from "@/branding/cheesecorner/qrRenderer";
 
 const QR_SIZE = 144;
 const QR_PADDING = 12;
 
-// Layout Regions for Native-Res (1023x1537) Branded QR Artwork Compositing (Sprint 11O)
-const TEMPLATE_LAYOUT = {
-  templateUrl: CHEESE_CORNER_CONFIG.qrArtworkTemplate || "/branding/cheesecorner/qr/qr-stand.png",
-
-  // Reserved Table Number Rounded White Rectangle (under "Table" heading)
-  tableArea: {
-    x: 511, // Horizontally centered (1023 / 2)
-    y: 513, // Optically centered vertically inside white rectangle
-    font: "900 54px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif", // Heavy, rounded typography matching artwork (Task 5)
-    color: "#321300",
-  },
-
-  // QR Placement Region inside Cream Container Box
-  qrArea: {
-    cardX: (1023 - 402) / 2, // 310.5px (Enlarged white card naturally filling cream placeholder - Task 3)
-    cardY: 628,               // Lowered card downward for visually equal top/bottom cream borders (Task 1)
-    cardSize: 402,
-    borderRadius: 22,        // Rounded corners matching artwork template
-    qrX: (1023 - 335) / 2,   // 344px (Scaled QR size proportionally to 335px - Task 4)
-    qrY: 661,                 // Lowered QR downward inside card for equal white padding (Task 2)
-    qrSize: 335,
-  },
-};
-
-export const generateQRArtwork = async (
-  tableLabel: string,
-  cafeName: string,
-  qrCanvas: HTMLCanvasElement
-): Promise<string> => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    const templateImg = new Image();
-    templateImg.crossOrigin = "anonymous";
-    templateImg.onload = () => {
-      // 1. Draw Artwork Template at Native Dimensions (1023x1537)
-      const nativeWidth = templateImg.naturalWidth || templateImg.width || 1023;
-      const nativeHeight = templateImg.naturalHeight || templateImg.height || 1537;
-      canvas.width = nativeWidth;
-      canvas.height = nativeHeight;
-
-      if (!ctx) {
-        resolve("");
-        return;
-      }
-
-      ctx.drawImage(templateImg, 0, 0, nativeWidth, nativeHeight);
-
-      // 2. Draw White QR Backing Card (Task 1, 3)
-      const { cardX, cardY, cardSize, borderRadius: r, qrX, qrY, qrSize } = TEMPLATE_LAYOUT.qrArea;
-
-      ctx.beginPath();
-      ctx.moveTo(cardX + r, cardY);
-      ctx.lineTo(cardX + cardSize - r, cardY);
-      ctx.quadraticCurveTo(cardX + cardSize, cardY, cardX + cardSize, cardY + r);
-      ctx.lineTo(cardX + cardSize, cardY + cardSize - r);
-      ctx.quadraticCurveTo(cardX + cardSize, cardY + cardSize, cardX + cardSize - r, cardY + cardSize);
-      ctx.lineTo(cardX + r, cardY + cardSize);
-      ctx.quadraticCurveTo(cardX, cardY + cardSize, cardX, cardY + cardSize - r);
-      ctx.lineTo(cardX, cardY + r);
-      ctx.quadraticCurveTo(cardX, cardY, cardX + r, cardY);
-      ctx.closePath();
-
-      ctx.fillStyle = "#FFFFFF";
-      ctx.shadowColor = "rgba(50, 19, 0, 0.12)";
-      ctx.shadowBlur = 24;
-      ctx.shadowOffsetY = 6;
-      ctx.fill();
-
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
-
-      // 3. Draw Dynamic QR Code Image (Task 2, 4 - Optically centered with equal white padding)
-      ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
-
-      // 4. Render Numeric Table Number (Task 5 - Heavy rounded font matching artwork)
-      const numericOnly = tableLabel.replace(/^[^\d]*/, "") || tableLabel;
-      const fontSize = numericOnly.length > 2 ? 42 : 54;
-
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = TEMPLATE_LAYOUT.tableArea.color;
-      ctx.font = `900 ${fontSize}px 'Outfit', 'Fredoka', 'Quicksand', 'Nunito', 'Comfortaa', sans-serif`;
-      ctx.fillText(
-        numericOnly,
-        TEMPLATE_LAYOUT.tableArea.x,
-        TEMPLATE_LAYOUT.tableArea.y
-      );
-
-      // 5. Export High-Res PNG
-      resolve(canvas.toDataURL("image/png"));
-    };
-
-    templateImg.onerror = () => {
-      // Fallback drawing if template image fails to load
-      ctx.fillStyle = "#FAF8F6";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#1A1210";
-      ctx.font = "bold 32px sans-serif";
-      ctx.fillText(cafeName, canvas.width / 2, 120);
-      ctx.fillText(`TABLE ${tableLabel}`, canvas.width / 2, 220);
-      ctx.drawImage(qrCanvas, (canvas.width - 300) / 2, 300, 300, 300);
-      resolve(canvas.toDataURL("image/png"));
-    };
-
-    try {
-      templateImg.src = TEMPLATE_LAYOUT.templateUrl;
-    } catch (e) {
-      console.error("Failed to load QR artwork template:", e);
-      templateImg.onerror(e as any);
-    }
-  });
-};
 
 function TableQRCard({ 
   table, 
@@ -309,7 +194,7 @@ export default function OwnerTablesPage() {
     const url = `${window.location.origin}/t/${t.id}`;
     await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
     toast.info(`Generating artwork for Table ${t.label}...`);
-    const dataUrl = await generateQRArtwork(t.label, cafe?.name ?? "Cafe", canvas);
+    const dataUrl = await generateArtwork(t.label, canvas);
     const link = document.createElement("a");
     link.download = `table-${t.label}-artwork.png`;
     link.href = dataUrl;
@@ -335,7 +220,7 @@ export default function OwnerTablesPage() {
         const url = `${window.location.origin}/t/${t.id}`;
         
         await QRCode.toCanvas(canvas, url, { margin: 1, width: 400 });
-        const artworkDataUrl = await generateQRArtwork(t.label, cafe?.name ?? "Cafe", canvas);
+        const artworkDataUrl = await generateArtwork(t.label, canvas);
         
         const base64Data = artworkDataUrl.split(",")[1];
         zip.file(`table-${t.label}-artwork.png`, base64Data, { base64: true });
