@@ -11,6 +11,7 @@ import { cancelOrder } from "@/lib/orders";
 import { ReviewForm } from "./ReviewForm";
 import { useCart } from "@/lib/cart";
 import { useCustomerNavigate } from "@/hooks/useCustomerBack";
+import { MenuImage } from "./MenuImage";
 
 const STEPS: { key: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "pending", label: "Received", icon: Clock },
@@ -69,13 +70,10 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
 
   if (!order) {
     return (
-      <div className="grid min-h-[60vh] place-items-center px-6 text-center">
-        <div>
-          <Coffee className="mx-auto mb-3 h-8 w-8 animate-pulse text-muted-foreground" />
-          <p className="text-muted-foreground">Loading your order…</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            If you're offline, it'll appear once you reconnect.
-          </p>
+      <div className="grid min-h-[60vh] place-items-center px-6 text-center text-[#75625B]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#EA580C]/20 border-t-[#EA580C]" />
+          <p className="text-xs font-semibold">Loading your order details…</p>
         </div>
       </div>
     );
@@ -83,6 +81,23 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
 
   const isOwner = !order.guest_session_id || (guestSessionId && order.guest_session_id === guestSessionId) || order.session_id === getSessionId();
   const currentIdx = Math.max(0, STEPS.findIndex((s) => s.key === order.status));
+
+  const getStatusSubtitle = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "Thanks! Your order has been sent to the kitchen.";
+      case "preparing":
+        return "Our kitchen is freshly preparing your meal.";
+      case "ready":
+        return "Your order is ready to be served!";
+      case "served":
+        return "Served! Enjoy your meal ☕";
+      case "cancelled":
+        return "This order was cancelled.";
+      default:
+        return "Tracking your order progress.";
+    }
+  };
 
   const handleStartEdit = () => {
     if (!order || !isOwner) return;
@@ -116,22 +131,29 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
   };
 
   return (
-    <div className="pb-32">
-      <div className="px-4 pt-4">
-        <h1 className="font-display text-3xl font-semibold">Order status</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {order.order_number || (order as any).daily_order_number
-            ? formatOrderLabel(order.order_number || (order as any).daily_order_number)
-            : "Order pending…"}
+    <div className="pb-28">
+      {/* Header Banner */}
+      <div className="px-4 pt-3 pb-1">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="font-display text-2xl font-black text-[#2A1710] tracking-tight">Order Status</h1>
+          <span className="inline-block rounded-full bg-white border border-[#E8DCC8] px-3 py-1 text-xs font-black text-[#2A1710] shadow-xs">
+            {order.order_number || (order as any).daily_order_number
+              ? formatOrderLabel(order.order_number || (order as any).daily_order_number)
+              : "Order pending…"}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-[#75625B] font-medium leading-relaxed">
+          {getStatusSubtitle(order.status)}
         </p>
       </div>
 
+      {/* Status Stepper Progress */}
       {order.status === "cancelled" ? (
-        <div className="mx-4 mt-6 rounded-3xl border border-destructive/30 bg-destructive/10 p-5 text-destructive">
+        <div className="mx-4 mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs font-semibold text-rose-800">
           This order was cancelled. Please speak to a staff member.
         </div>
       ) : (
-        <ol className="mx-4 mt-6 space-y-3">
+        <ol className="mx-4 mt-4 space-y-2.5">
           {STEPS.map((step, idx) => {
             const done = idx < currentIdx;
             const active = idx === currentIdx;
@@ -143,78 +165,87 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.05 }}
                 className={cn(
-                  "flex items-center gap-4 rounded-2xl border p-4 transition-colors",
+                  "flex items-center gap-3.5 rounded-2xl border p-3.5 transition-all shadow-xs",
                   active
-                    ? "border-accent bg-accent/10"
+                    ? "border-[#EA580C] bg-[#EA580C]/10 text-[#2A1710] font-bold"
                     : done
-                    ? "border-success/40 bg-success/5"
-                    : "border-border bg-card",
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                    : "border-[#E8DCC8] bg-white text-[#75625B]",
                 )}
               >
                 <span
                   className={cn(
-                    "grid h-11 w-11 place-items-center rounded-full",
+                    "grid h-10 w-10 shrink-0 place-items-center rounded-xl font-bold transition-all shadow-xs",
                     active
-                      ? "bg-gradient-accent text-accent-foreground animate-pulse-ring"
+                      ? "bg-[#EA580C] text-white animate-pulse"
                       : done
-                      ? "bg-success text-success-foreground"
-                      : "bg-secondary text-muted-foreground",
+                      ? "bg-emerald-600 text-white"
+                      : "bg-[#FFF8EA] text-[#75625B] border border-[#E8DCC8]",
                   )}
                 >
                   <Icon className="h-5 w-5" />
                 </span>
-                <span className="font-medium">{step.label}</span>
+                <span className="font-display text-sm">{step.label}</span>
               </motion.li>
             );
           })}
         </ol>
       )}
 
-      <section className="mx-4 mt-8 rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-        <h2 className="mb-3 font-display text-lg font-semibold">Items</h2>
-        <ul className="divide-y divide-border/60">
+      {/* Order Items Summary Card */}
+      <section className="mx-4 mt-5 rounded-2xl bg-white p-4 shadow-xs border border-[#E8DCC8]">
+        <h2 className="mb-3 font-display text-base font-bold text-[#2A1710]">Ordered Items</h2>
+        <ul className="divide-y divide-[#E8DCC8]">
           {items.map((i) => (
-            <li key={i.id} className="flex items-baseline justify-between gap-2 py-2 text-sm">
-              <span className="break-anywhere flex-1">
-                <span className="font-medium">{i.qty}×</span> {i.name}
-              </span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
+            <li key={i.id} className="flex items-center gap-3 py-2.5 text-sm">
+              <div className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden border border-[#E8DCC8] bg-[#FFF8EA]">
+                <MenuImage src={i.menu_items?.image_url} alt={i.name} size="sm" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="break-anywhere font-display text-xs font-bold text-[#2A1710]">{i.name}</p>
+                <p className="text-[11px] text-[#75625B] font-semibold">Qty: {i.qty}</p>
+              </div>
+              <span className="shrink-0 tabular-nums text-xs font-extrabold text-[#2A1710]">
                 {formatMoney(i.price_cents * i.qty, cafe.currency)}
               </span>
             </li>
           ))}
         </ul>
-        <div className="mt-3 flex justify-between border-t border-border pt-3 text-sm font-semibold">
-          <span>Total</span>
-          <span className="tabular-nums">{formatMoney(order.total_cents, cafe.currency)}</span>
+        <div className="mt-3 flex justify-between border-t border-[#E8DCC8] pt-3 text-sm">
+          <span className="text-xs font-bold text-[#75625B] uppercase tracking-wider">Total</span>
+          <span className="font-display text-lg font-black text-[#2A1710] tabular-nums">
+            {formatMoney(order.total_cents, cafe.currency)}
+          </span>
         </div>
         {order.note && (
-          <p className="break-anywhere mt-3 rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Note:</span> {order.note}
+          <p className="break-anywhere mt-3 rounded-xl bg-[#FFF8EA] p-2.5 text-xs text-[#75625B] border border-[#E8DCC8]">
+            <span className="font-bold text-[#2A1710]">Note:</span> {order.note}
           </p>
         )}
       </section>
 
+      {/* Order Modification Actions */}
       {order.status === "pending" && isOwner && (
         <div className="mx-4 mt-4 space-y-2">
           <button
             onClick={handleStartEdit}
-            className="w-full rounded-full bg-gradient-accent py-3 text-sm font-semibold text-accent-foreground shadow-soft transition active:scale-[0.99]"
+            className="w-full rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 py-3.5 text-sm font-bold text-white shadow-md active:scale-[0.99] transition min-h-[48px]"
           >
             Edit Order
           </button>
           <button
             onClick={() => void handleCancel()}
             disabled={cancelling}
-            className="w-full rounded-full border border-destructive/40 px-6 py-3 text-sm font-semibold text-destructive transition hover:bg-destructive/10 disabled:opacity-60"
+            className="w-full rounded-full border border-rose-300 px-6 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-50 transition disabled:opacity-60"
           >
             {cancelling ? "Cancelling…" : "Cancel order"}
           </button>
         </div>
       )}
 
+      {/* Review Form on Served */}
       {order.status === "served" && (
-        <div ref={reviewRef}>
+        <div ref={reviewRef} className="mt-4">
           <ReviewForm
             cafe={cafe}
             orderId={order.id}
@@ -223,10 +254,11 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         </div>
       )}
 
-      <div className="mt-6 px-4">
+      {/* Navigation Return Button */}
+      <div className="mt-5 px-4">
         <button
           onClick={() => customerNavigate(`/t/${tableId}`)}
-          className="w-full rounded-full bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground"
+          className="w-full rounded-full bg-white border border-[#E8DCC8] px-6 py-3 text-xs font-bold text-[#2A1710] hover:bg-white/80 transition shadow-xs"
         >
           Back to menu
         </button>
