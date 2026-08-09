@@ -99,7 +99,7 @@ describe("Production End-to-End Printing Audit Suite (58mm Unified Profile)", ()
 
     const history = printService.getJobHistory();
     const lastJob = history[history.length - 1];
-    expect(lastJob.payload.formattedText).toContain("** REPRINT RECEIPT **");
+    expect(lastJob.payload.formattedText).toContain("PAID RECEIPT (REPRINT)");
   });
 
   it("6. Accept Order Auto-Print KOT: Should automatically enqueue KOT print job when autoPrintKot is true", async () => {
