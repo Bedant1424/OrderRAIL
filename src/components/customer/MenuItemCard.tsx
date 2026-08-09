@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Minus, Trash2 } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { MenuItem } from "@/lib/db";
 import { formatMoney } from "@/lib/db";
@@ -8,30 +8,29 @@ import { useImageUrl } from "@/lib/useImageUrl";
 import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
 import { useCustomerOverlay } from "@/hooks/useCustomerBack";
-
 import { MenuImage } from "./MenuImage";
 
 const getTagColorClass = (tag: string): string => {
   switch (tag) {
     case "Best Seller":
     case "Bestseller":
-      return "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300";
+      return "bg-[#F59E0B]/15 text-[#2A1710] border border-[#F59E0B]/40 font-bold";
     case "New":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300";
+      return "bg-blue-50 text-blue-800 border border-blue-200 font-bold";
     case "Popular":
-      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300";
+      return "bg-amber-50 text-amber-900 border border-amber-300 font-bold";
     case "Chef's Choice":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300";
+      return "bg-purple-50 text-purple-900 border border-purple-200 font-bold";
     case "Today's Special":
-      return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
+      return "bg-rose-50 text-rose-900 border border-rose-200 font-bold";
     case "Spicy":
-      return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300";
+      return "bg-red-50 text-red-800 border border-red-200 font-bold";
     case "Veg":
-      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
+      return "bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold";
     case "Non-Veg":
-      return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
+      return "bg-rose-50 text-rose-800 border border-rose-300 font-bold";
     default:
-      return "bg-secondary text-secondary-foreground";
+      return "bg-[#FFF8EA] text-[#75625B] border border-[#E8DCC8] font-medium";
   }
 };
 
@@ -49,7 +48,6 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
     if (target.closest("button") || target.closest("svg")) {
       return;
     }
-    // When opening the modal, start with the cart quantity (0 = show ADD button)
     setQuantity(cartQty);
     setIsOpen(true);
   };
@@ -95,35 +93,40 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         onClick={handleCardClick}
-        className="group relative flex gap-4 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/60 cursor-pointer transition hover:ring-accent/40"
+        className="group relative flex gap-3.5 rounded-2xl bg-white p-3 shadow-xs border border-[#E8DCC8] cursor-pointer transition hover:border-[#EA580C]/40 hover:shadow-sm"
       >
-        {imgUrl ? (
-          <MenuImage src={imgUrl} alt={item.name} />
-        ) : (
-          <div className="h-24 w-24 shrink-0 rounded-2xl bg-gradient-warm flex items-center justify-center ring-1 ring-border/60" aria-hidden>
-            <span className="text-xl">☕</span>
-          </div>
-        )}
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          {tagsToRender.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-1">
-              {tagsToRender.map((tag) => (
-                <span
-                  key={tag}
-                  className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTagColorClass(tag)}`}
-                >
-                  {tag}
-                </span>
-              ))}
+        <div className="relative h-24 w-24 shrink-0 rounded-xl overflow-hidden border border-[#E8DCC8] bg-[#FFF8EA]">
+          {imgUrl ? (
+            <MenuImage src={imgUrl} alt={item.name} />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-xl bg-[#FFF8EA]" aria-hidden>
+              ☕
             </div>
           )}
-          <h3 className="break-anywhere font-display text-lg font-semibold leading-tight">{item.name}</h3>
-          {item.description && (
-            <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
-          )}
-          <div className="mt-auto flex items-end justify-between pt-2">
-            <span className="font-semibold tabular-nums">{formatMoney(item.price_cents, currency)}</span>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col justify-between">
+          <div>
+            {tagsToRender.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-1">
+                {tagsToRender.map((tag) => (
+                  <span
+                    key={tag}
+                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${getTagColorClass(tag)}`}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            <h3 className="break-anywhere font-display text-base font-bold leading-tight text-[#2A1710]">{item.name}</h3>
+            {item.description && (
+              <p className="mt-0.5 line-clamp-2 text-xs text-[#75625B] leading-relaxed">{item.description}</p>
+            )}
+          </div>
+
+          <div className="mt-2 flex items-center justify-between pt-1">
+            <span className="text-sm font-black text-[#2A1710] tabular-nums">{formatMoney(item.price_cents, currency)}</span>
             <AnimatePresence mode="wait">
               {cartQty === 0 ? (
                 <motion.button
@@ -138,9 +141,9 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     e.stopPropagation();
                     add({ id: item.id, name: item.name, price_cents: item.price_cents, image_url: item.image_url });
                   }}
-                  className="grid h-10 w-10 place-items-center rounded-full btn-primary-action focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="inline-flex items-center justify-center gap-1 rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 text-white px-3 py-1.5 text-xs font-bold shadow-xs active:scale-95 transition-all min-h-[36px] min-w-[64px]"
                 >
-                  <Plus className="h-5 w-5" strokeWidth={2.5} />
+                  ADD <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                 </motion.button>
               ) : (
                 <motion.div
@@ -149,7 +152,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.8, opacity: 0 }}
                   transition={{ duration: 0.1 }}
-                  className="flex items-center gap-1.5 rounded-full bg-secondary p-1 h-10"
+                  className="flex items-center gap-1 rounded-full bg-[#FFF8EA] border border-[#E8DCC8] p-0.5 h-9"
                 >
                   <button
                     type="button"
@@ -158,12 +161,12 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                       e.stopPropagation();
                       setQty(item.id, cartQty - 1);
                     }}
-                    className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition-all hover:bg-background active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    className="grid h-7 w-7 place-items-center rounded-full bg-white text-[#2A1710] border border-[#E8DCC8] hover:bg-[#EA580C] hover:text-white transition-all active:scale-90"
                   >
-                    <Minus className="h-4 w-4" />
+                    <Minus className="h-3.5 w-3.5" />
                   </button>
                   <span
-                    className="w-5 text-center text-sm font-semibold tabular-nums select-none"
+                    className="w-5 text-center text-xs font-black text-[#2A1710] tabular-nums select-none"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {cartQty}
@@ -175,9 +178,9 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                       e.stopPropagation();
                       setQty(item.id, cartQty + 1);
                     }}
-                    className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition-all hover:bg-background active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    className="grid h-7 w-7 place-items-center rounded-full bg-[#EA580C] text-white hover:bg-[#EA580C]/90 transition-all active:scale-90"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3.5 w-3.5" />
                   </button>
                 </motion.div>
               )}
@@ -187,14 +190,13 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
       </motion.article>
 
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
-        <DrawerContent className="max-w-md mx-auto">
-          {/* Hero image — flush with modal top via negative margin over the drag handle */}
+        <DrawerContent className="max-w-md mx-auto bg-[#FFF8EA] border-t border-[#E8DCC8]">
           {imgUrl ? (
-            <div className="relative w-full aspect-[4/3] overflow-hidden rounded-t-[10px] bg-muted -mt-6">
+            <div className="relative w-full aspect-[16/10] overflow-hidden rounded-t-[10px] bg-[#FFF8EA] border-b border-[#E8DCC8] -mt-6">
               <img src={imgUrl} alt={item.name} className="h-full w-full object-cover" />
             </div>
           ) : (
-            <div className="w-full aspect-[4/3] bg-gradient-warm flex items-center justify-center rounded-t-[10px] -mt-6" aria-hidden>
+            <div className="w-full aspect-[16/10] bg-[#FFF8EA] border-b border-[#E8DCC8] flex items-center justify-center rounded-t-[10px] -mt-6" aria-hidden>
               <span className="text-4xl">☕</span>
             </div>
           )}
@@ -213,15 +215,14 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               </div>
             )}
 
-            <h2 className="font-display text-2xl font-bold text-foreground leading-tight">{item.name}</h2>
+            <h2 className="font-display text-2xl font-extrabold text-[#2A1710] leading-tight">{item.name}</h2>
 
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            <p className="mt-2 text-sm text-[#75625B] leading-relaxed">
               {item.description || "Freshly prepared with premium ingredients by our experienced chefs."}
             </p>
 
-            {/* Price row with ADD / quantity selector */}
-            <div className="mt-6 flex items-center justify-between">
-              <span className="text-xl font-bold text-foreground tabular-nums">
+            <div className="mt-6 flex items-center justify-between border-t border-[#E8DCC8] pt-4">
+              <span className="text-xl font-black text-[#2A1710] tabular-nums">
                 {formatMoney(item.price_cents, currency)}
               </span>
 
@@ -235,7 +236,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     transition={{ duration: 0.15 }}
                     type="button"
                     onClick={() => setQuantity(1)}
-                    className="rounded-full btn-primary-action px-6 py-2.5 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    className="rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 px-6 py-2 text-sm font-bold text-white shadow-xs"
                   >
                     ADD
                   </motion.button>
@@ -246,20 +247,20 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.85, opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="flex items-center gap-3 rounded-full bg-secondary p-1"
+                    className="flex items-center gap-3 rounded-full bg-white border border-[#E8DCC8] p-1"
                   >
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(0, q - 1))}
-                      className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition-all hover:bg-background active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      className="grid h-8 w-8 place-items-center rounded-full bg-[#FFF8EA] text-[#2A1710] border border-[#E8DCC8] hover:bg-[#EA580C] hover:text-white transition-all active:scale-90"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="w-8 text-center text-sm font-semibold tabular-nums select-none">{displayQty}</span>
+                    <span className="w-8 text-center text-sm font-black text-[#2A1710] tabular-nums select-none">{displayQty}</span>
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => q + 1)}
-                      className="grid h-8 w-8 place-items-center rounded-full text-secondary-foreground transition-all hover:bg-background active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      className="grid h-8 w-8 place-items-center rounded-full bg-[#EA580C] text-white hover:bg-[#EA580C]/90 transition-all active:scale-90"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -269,12 +270,12 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
             </div>
           </div>
 
-          <DrawerFooter className="border-t border-border/60 bg-card p-4">
+          <DrawerFooter className="border-t border-[#E8DCC8] bg-white p-4">
             <button
               type="button"
               onClick={handleAddToCart}
               disabled={displayQty === 0}
-              className="w-full rounded-full btn-primary-action py-3.5 text-sm font-bold flex items-center justify-center gap-2 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="w-full rounded-full bg-[#EA580C] hover:bg-[#EA580C]/90 py-3.5 text-sm font-bold text-white shadow-md flex items-center justify-center gap-2 disabled:opacity-50 transition"
             >
               <span>{isEditing ? "Update Order" : "Add to Cart"}</span>
               <span>·</span>
