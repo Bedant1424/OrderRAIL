@@ -12,10 +12,12 @@ import { useCustomerBackNavigation, useCustomerOverlay, useCustomerNavigate } fr
 import { useImageUrl } from "@/lib/useImageUrl";
 import { clearOrderHistory } from "@/lib/orderHistory";
 import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
+import { useCafe } from "@/lib/cafe";
 
 export default function TableLayout() {
   const { tableId } = useParams();
   const queryClient = useQueryClient();
+  const { cafe: globalCafe } = useCafe();
   useCustomerBackNavigation();
   const customerNavigate = useCustomerNavigate();
   const [online, setOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -34,13 +36,14 @@ export default function TableLayout() {
     };
   }, []);
 
-  const { data, isLoading, error } = useQuery({
+  // 1. Fast Table Resolution Query (Only fetches table row; completes in ~150ms)
+  const { data: table, isLoading: loadingTable, error: tableError } = useQuery({
     queryKey: ["table", tableId],
     queryFn: async () => {
       const isUuid = (val?: string | null): boolean =>
         !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
-      let table: TableRow | null = null;
+      let tableRow: TableRow | null = null;
       let tErr: any = null;
 
       if (isUuid(tableId)) {
@@ -49,11 +52,11 @@ export default function TableLayout() {
           .select("*")
           .eq("id", tableId!)
           .maybeSingle();
-        table = res.data as TableRow | null;
+        tableRow = res.data as TableRow | null;
         tErr = res.error;
       }
 
-      if (!table && !tErr) {
+      if (!tableRow && !tErr) {
         const cleanLabel = tableId!.replace(/^t-/i, "").trim();
         const { data: tableByLabel, error: lErr } = await supabase
           .from("tables")
@@ -61,12 +64,40 @@ export default function TableLayout() {
           .or(`label.eq.${tableId},label.eq.${cleanLabel},label.ilike.Table ${cleanLabel}`)
           .limit(1)
           .maybeSingle();
-        table = tableByLabel as TableRow | null;
+        tableRow = tableByLabel as TableRow | null;
         tErr = lErr;
       }
 
       if (tErr) throw tErr;
-      if (!table) return null;
+      return tableRow;
+    },
+    enabled: !!tableId,
+  });
+
+  // 2. Deduplicated Cafe Query (Reuses globalCafe from CafeProvider if cafe_id matches)
+  const { data: cafe, isLoading: loadingCafe, error: cafeError } = useQuery({
+    queryKey: ["table-cafe", table?.cafe_id],
+    queryFn: async () => {
+      if (globalCafe && globalCafe.id === table?.cafe_id) {
+        return globalCafe;
+      }
+      const { data: cafeData, error: cErr } = await supabase
+        .from("cafes")
+        .select("*")
+        .eq("id", table!.cafe_id)
+        .maybeSingle();
+      if (cErr) throw cErr;
+      return cafeData as Cafe;
+    },
+    enabled: !!table?.cafe_id,
+    initialData: globalCafe && globalCafe.id === table?.cafe_id ? globalCafe : undefined,
+  });
+
+  // 3. Concurrent Dining & Guest Session Resolution Query
+  const { data: sessionData } = useQuery({
+    queryKey: ["table-session", table?.id, table?.status, table?.active_session_id],
+    queryFn: async () => {
+      if (!table) return { activeSessionId: null, isSessionActive: false, guestSessionId: null };
 
       // 1. Resolve or check active dining session
       const activeSess = await getActiveDiningSession(table as TableRow);
@@ -100,40 +131,69 @@ export default function TableLayout() {
         clearGuestSession(tableId!);
       }
 
-      const { data: cafe, error: cErr } = await supabase
-        .from("cafes")
-        .select("*")
-        .eq("id", table.cafe_id)
-        .maybeSingle();
-      if (cErr) throw cErr;
-
       return {
-        cafe: cafe as Cafe,
-        table: { ...table, active_session_id: activeSessionId } as TableRow,
-        guestSessionId,
+        activeSessionId,
         isSessionActive,
+        guestSessionId,
       };
     },
-    enabled: !!tableId,
+    enabled: !!table,
   });
+
+  // 4. Pre-warm menu categories & items queries as soon as cafe_id is resolved
+  useEffect(() => {
+    const targetCafeId = cafe?.id || table?.cafe_id;
+    if (!targetCafeId) return;
+
+    void queryClient.prefetchQuery({
+      queryKey: ["menu_categories", targetCafeId],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("menu_categories")
+          .select("*")
+          .eq("cafe_id", targetCafeId)
+          .order("sort_order");
+        if (error) throw error;
+        return data;
+      },
+    });
+
+    void queryClient.prefetchQuery({
+      queryKey: ["menu_items", targetCafeId],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("menu_items")
+          .select("*")
+          .eq("cafe_id", targetCafeId)
+          .eq("is_available", true)
+          .order("sort_order");
+        if (error) throw error;
+        return data;
+      },
+    });
+  }, [cafe?.id, table?.cafe_id, queryClient]);
 
   // Listen for realtime table resets and session status changes
   useEffect(() => {
-    if (!data?.cafe?.id || !tableId) return;
+    const targetCafeId = cafe?.id || table?.cafe_id;
+    if (!targetCafeId || !tableId) return;
 
     const channel = supabase
-      .channel(`cafe-workstation-${data.cafe.id}`)
+      .channel(`cafe-workstation-${targetCafeId}`)
       .on("broadcast", { event: "*" }, (payload) => {
         const evt = payload.event;
         const payloadTableId = payload.payload?.tableId;
 
         if (evt === "TABLE_RESET" || evt === "SESSION_CLOSED" || evt === "SESSION_OPENED") {
-          if (!payloadTableId || payloadTableId === data.table.id || payloadTableId === tableId) {
+          if (!payloadTableId || payloadTableId === table?.id || payloadTableId === tableId) {
             if (evt === "TABLE_RESET" || evt === "SESSION_CLOSED") {
               clearGuestSession(tableId);
               localStorage.removeItem(`orderrail.cart.${tableId}`);
             }
             queryClient.invalidateQueries({ queryKey: ["table", tableId] });
+            if (table?.id) {
+              queryClient.invalidateQueries({ queryKey: ["table-session", table.id] });
+            }
           }
         }
       })
@@ -142,17 +202,21 @@ export default function TableLayout() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [data?.cafe?.id, tableId, queryClient, data?.table?.id]);
+  }, [cafe?.id, table?.cafe_id, tableId, queryClient, table?.id]);
 
-  useOrderNotifications({ tableId: tableId!, sessionId: data?.table.active_session_id ?? null });
+  const activeSessionId = sessionData?.activeSessionId ?? table?.active_session_id ?? null;
+  const isSessionActive = sessionData?.isSessionActive ?? (table ? table.status !== "free" || !!table.active_session_id : false);
+  const guestSessionId = sessionData?.guestSessionId ?? null;
 
-  const logoSrc = useImageUrl(data?.cafe.logo_url);
+  useOrderNotifications({ tableId: tableId!, sessionId: activeSessionId });
 
-  if (isLoading) {
+  const logoSrc = useImageUrl(cafe?.logo_url);
+
+  if (loadingTable || (loadingCafe && !cafe)) {
     return <div className="grid min-h-screen place-items-center text-muted-foreground">Loading…</div>;
   }
 
-  if (error || !data) {
+  if (tableError || cafeError || !table || !cafe) {
     return (
       <div className="grid min-h-screen place-items-center px-6 text-center">
         <div>
@@ -168,10 +232,10 @@ export default function TableLayout() {
     );
   }
 
-  const { cafe, table, guestSessionId, isSessionActive } = data;
+  const mergedTable = { ...table, active_session_id: activeSessionId };
 
   return (
-    <CartProvider key={table.active_session_id || "no-session"} tableId={tableId!}>
+    <CartProvider key={activeSessionId || "no-session"} tableId={tableId!}>
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-md items-center justify-between px-4">
@@ -226,7 +290,7 @@ export default function TableLayout() {
               </p>
             </div>
           )}
-          <Outlet context={{ cafe, table, guestSessionId, isSessionActive }} />
+          <Outlet context={{ cafe, table: mergedTable, guestSessionId, isSessionActive }} />
         </main>
 
         <BottomNav />
