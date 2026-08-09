@@ -162,7 +162,13 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
   const scrollToCat = (id: string) => {
     const el = sectionRefs.current[id];
     if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 128;
+      const headerEl = document.querySelector("header");
+      const categoryBarEl = document.getElementById(`chip-${id}`)?.closest(".sticky");
+      const headerHeight = headerEl?.getBoundingClientRect().height || 56;
+      const catBarHeight = categoryBarEl?.getBoundingClientRect().height || 52;
+      const totalOffset = headerHeight + catBarHeight + 12; // 12px breathing room
+
+      const y = el.getBoundingClientRect().top + window.scrollY - totalOffset;
       window.scrollTo({ top: y, behavior: "smooth" });
     }
   };
