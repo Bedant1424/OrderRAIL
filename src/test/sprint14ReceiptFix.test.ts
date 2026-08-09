@@ -79,8 +79,8 @@ describe("Cheese Corner — 58mm Thermal Receipt Standardization & Zero-Waste La
     // Total lines should be compact (<= 25 lines for a single item bill)
     expect(lines.length).toBeLessThanOrEqual(25);
 
-    // ESC/POS commands should not contain redundant \x0A\x0A before cut
-    expect(result.escpos).not.toContain("\x0A\x0A\x1D\x56\x41\x03");
+    // ESC/POS commands should contain 2 line feeds before cut to advance past thermal head to cutter blade
+    expect(result.escpos).toContain("\x0A\x0A\x1D\x56\x41\x03");
     expect(result.escpos).toContain("\x1D\x56\x41\x03"); // Hardware FEED_AND_CUT present
   });
 
@@ -135,5 +135,58 @@ describe("Cheese Corner — 58mm Thermal Receipt Standardization & Zero-Waste La
 
     // 80mm line width uses 48 columns
     expect(lastJob.payload.formattedText).toContain("=".repeat(48));
+  });
+
+  it("6. Fresh Receipt Title vs Reprint: Fresh receipt does NOT contain (REPRINT), explicit reprint DOES contain (REPRINT)", () => {
+    const basePayload: ReceiptBuilderPayload = {
+      billNumber: "INV-2001",
+      tableLabel: "Table 1",
+      items: [{ id: "1", name: "Cheese Garlic Bread", qty: 1, price: 160 }],
+      subtotal: 160,
+      tax: 8,
+      netTotal: 168,
+      paymentStatus: "paid",
+    };
+
+    // Fresh print (isReprint: false or undefined)
+    const freshRes = ReceiptBuilder.build({ ...basePayload, isReprint: false }, 58);
+    expect(freshRes.text).toContain("PAID RECEIPT");
+    expect(freshRes.text).not.toContain("PAID RECEIPT (REPRINT)");
+    expect(freshRes.escpos).toContain("PAID RECEIPT\n");
+    expect(freshRes.escpos).not.toContain("PAID RECEIPT (REPRINT)");
+
+    // Explicit reprint (isReprint: true)
+    const reprintRes = ReceiptBuilder.build({ ...basePayload, isReprint: true }, 58);
+    expect(reprintRes.text).toContain("PAID RECEIPT (REPRINT)");
+    expect(reprintRes.escpos).toContain("PAID RECEIPT (REPRINT)\n");
+  });
+
+  it("7. Zero-Bleed Footer Sequence: ESC/POS places full footer before line feeds and cutter", () => {
+    const payload: ReceiptBuilderPayload = {
+      billNumber: "INV-2002",
+      tableLabel: "Table 2",
+      items: [{ id: "1", name: "Cold Coffee", qty: 1, price: 66.75 }],
+      subtotal: 66.75,
+      tax: 3.34,
+      netTotal: 70.09,
+      paymentStatus: "paid",
+    };
+
+    const res = ReceiptBuilder.build(payload, 58);
+    
+    // Verify exact sequence at end of ESC/POS stream:
+    // "Thank you for dining with us!\n" -> "Please visit again\n" -> "================================\n" -> "\x0A\x0A" -> "\x1D\x56\x41\x03"
+    const footerIdx = res.escpos.indexOf("Thank you for dining with us!\n");
+    const visitIdx = res.escpos.indexOf("Please visit again\n");
+    const dividerIdx = res.escpos.lastIndexOf("================================\n");
+    const cutIdx = res.escpos.indexOf("\x1D\x56\x41\x03");
+
+    expect(footerIdx).toBeGreaterThan(0);
+    expect(visitIdx).toBeGreaterThan(footerIdx);
+    expect(dividerIdx).toBeGreaterThan(visitIdx);
+    expect(cutIdx).toBeGreaterThan(dividerIdx);
+
+    // Confirm that 2 line feeds immediately precede the cut command
+    expect(res.escpos.endsWith("\x0A\x0A\x1D\x56\x41\x03")).toBe(true);
   });
 });
