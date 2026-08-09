@@ -38,6 +38,8 @@ import { calculateOccupiedTables, getTableStatus } from "@/lib/tables/occupancy"
 import { markTableFreeInDb, fetchCafeTables } from "@/lib/tables/tableRepository";
 import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
 import { updateOrderStatusInDb, cancelOrderInDb, fetchCafeOrders } from "@/lib/orders/repository";
+import { getOperationsSettings } from "@/lib/billing/operationsSettings";
+import { PrinterAdapter } from "@/lib/printing/printerAdapter";
 import { computeDailyOrderNumbers, sortOrdersByLane } from "@/lib/orders/orderUtils";
 import {
   fetchActiveServiceRequests,
@@ -814,7 +816,7 @@ export default function StaffDashboardPage() {
       await updateOrderStatusInDb(o.id, next, "staff");
 
       if (o.status === "pending" && next === "preparing") {
-        const opsSettings = getOperationsSettings();
+        const opsSettings = getOperationsSettings(cafeId);
         if (opsSettings.autoPrintKot && o.order_items?.length) {
           const rawLabel = o.table_number ? `Table ${o.table_number}` : (o.order_type || "Express");
           void PrinterAdapter.printKot({
