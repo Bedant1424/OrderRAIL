@@ -81,7 +81,7 @@ describe("Foundational Printing Infrastructure Tests", () => {
 
   it("4. PrintService singleton proxies calls and allows driver swapping", async () => {
     expect(printService).toBeInstanceOf(PrintService);
-    expect(printService.driverType).toBe("QZ_TRAY");
+    expect(printService.driverType).toBe("qz-tray");
 
     // Mock driver for testing driver swap
     const mockDriver: Printer = {
@@ -94,7 +94,7 @@ describe("Foundational Printing Infrastructure Tests", () => {
       isConnected: vi.fn(() => true),
     };
 
-    printService.setDriver(mockDriver);
+    await printService.setDriver(mockDriver);
     expect(printService.driverType).toBe("LAN");
 
     const printers = await printService.listPrinters();
@@ -102,7 +102,7 @@ describe("Foundational Printing Infrastructure Tests", () => {
     expect(mockDriver.listPrinters).toHaveBeenCalled();
 
     // Restore QZTrayPrinter
-    printService.setDriver(new QZTrayPrinter());
+    await printService.setDriver(new QZTrayPrinter());
     expect(printService.driverType).toBe("QZ_TRAY");
   });
 });

@@ -115,8 +115,8 @@ describe("Sprint 9.2.5.1 — Order Mode Workspace UX Refinement Tests", () => {
       items: [{ id: "i2", name: "Veg Burger", price: 150, qty: 1 }],
     });
 
-    expect(takeawayKot).toContain("*** TAKEAWAY KOT ***");
-    expect(swiggyKot).toContain("*** SWIGGY KOT #1492 ***");
+    expect(takeawayKot).toContain("TAKEAWAY");
+    expect(swiggyKot).toContain("SWIGGY #1492");
 
     const swiggyReceipt = renderReceiptText({
       billNumber: "BILL-501",

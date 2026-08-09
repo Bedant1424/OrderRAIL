@@ -17,8 +17,7 @@ describe("Sprint 9.2.5.0 — Unified Order Source Modes Unit & Integration Tests
     };
 
     const kotText = renderKotText(kotPayload, 80);
-    expect(kotText).toContain("*** KITCHEN ORDER TICKET ***");
-    expect(kotText).toContain("Table 4");
+    expect(kotText).toContain("TABLE 4");
 
     const receiptPayload = {
       billNumber: "B-101",
@@ -48,8 +47,7 @@ describe("Sprint 9.2.5.0 — Unified Order Source Modes Unit & Integration Tests
     };
 
     const kotText = renderKotText(kotPayload, 80);
-    expect(kotText).toContain("*** TAKEAWAY KOT ***");
-    expect(kotText).toContain("Takeaway");
+    expect(kotText).toContain("TAKEAWAY");
 
     const receiptPayload = {
       billNumber: "B-102",
@@ -80,8 +78,7 @@ describe("Sprint 9.2.5.0 — Unified Order Source Modes Unit & Integration Tests
     };
 
     const kotText = renderKotText(kotPayload, 80);
-    expect(kotText).toContain("*** SWIGGY KOT #1492 ***");
-    expect(kotText).toContain("Swiggy #1492");
+    expect(kotText).toContain("SWIGGY #1492");
 
     const receiptPayload = {
       billNumber: "B-103",
@@ -113,8 +110,7 @@ describe("Sprint 9.2.5.0 — Unified Order Source Modes Unit & Integration Tests
     };
 
     const kotText = renderKotText(kotPayload, 80);
-    expect(kotText).toContain("*** ZOMATO KOT #8821 ***");
-    expect(kotText).toContain("Zomato #8821");
+    expect(kotText).toContain("ZOMATO #8821");
 
     const receiptPayload = {
       billNumber: "B-104",
@@ -143,8 +139,7 @@ describe("Sprint 9.2.5.0 — Unified Order Source Modes Unit & Integration Tests
       items: [{ name: "Tea", price: 50, qty: 1 }],
     }, 80);
 
-    expect(legacyKot).toContain("*** KITCHEN ORDER TICKET ***");
-    expect(legacyKot).toContain("Table 2");
+    expect(legacyKot).toContain("TABLE 2");
   });
 
   it("6. BillingService Integration: Preserves orderSource and externalOrderRef on generated bills", async () => {

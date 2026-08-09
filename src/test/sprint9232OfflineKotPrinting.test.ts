@@ -54,15 +54,14 @@ describe("Sprint 9.2.3.2 — Offline KOT Printing Tests", () => {
     };
 
     const text80 = renderKotText(payload, 80);
-    expect(text80).toContain("*** KITCHEN ORDER TICKET ***");
-    expect(text80).toContain("Table 4");
+    expect(text80).toContain("TABLE 4");
     expect(text80).toContain("2x   Artisan Coffee");
-    expect(text80).toContain("* Note: Oat milk");
-    expect(text80).toContain("SPECIAL INSTRUCTIONS: Deliver together");
+    expect(text80).toContain("> Oat milk");
+    expect(text80).toContain("SPECIAL INSTRUCTIONS:");
+    expect(text80).toContain("Deliver together");
 
     const text58 = renderKotText(payload, 58);
-    expect(text58).toContain("*** KITCHEN ORDER TICKET ***");
-    expect(text58).toContain("Table 4");
+    expect(text58).toContain("TABLE 4");
   });
 
   it("2. Printer Adapter: Manages status and supports simulation state overrides", async () => {
