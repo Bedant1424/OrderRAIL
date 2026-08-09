@@ -60,29 +60,18 @@ export class KotBuilder {
 
     const lines: string[] = [];
 
-    // Header & Title
+    // Header & Table Visibility
     lines.push(doubleDivider);
     if (payload.restaurantName) {
       lines.push(center(payload.restaurantName.toUpperCase()));
     }
 
-    const source = payload.orderSource || "DINE_IN";
-    const refStr = payload.externalOrderRef ? `#${payload.externalOrderRef}` : "";
-
-    if (source === "TAKEAWAY") {
-      lines.push(center("*** TAKEAWAY KOT ***"));
-    } else if (source === "SWIGGY") {
-      lines.push(center(`*** SWIGGY KOT ${refStr} ***`.trim()));
-    } else if (source === "ZOMATO") {
-      lines.push(center(`*** ZOMATO KOT ${refStr} ***`.trim()));
-    } else {
-      lines.push(center("*** KITCHEN KOT ***"));
-    }
-
     if (payload.isReprint) {
       lines.push(center("** REPRINT **"));
     }
-    lines.push(doubleDivider);
+
+    const source = payload.orderSource || "DINE_IN";
+    const refStr = payload.externalOrderRef ? `#${payload.externalOrderRef}` : "";
 
     // Table Visibility (Prominent Header Section)
     const rawLabel = payload.tableLabel || "Express";
@@ -195,26 +184,6 @@ export class KotBuilder {
       parts.push(ESC_POS.BOLD_OFF);
     }
 
-    // Double-size Title Header
-    parts.push(ESC_POS.BOLD_ON);
-    parts.push("\x1D\x21\x11"); // GS ! 0x11 (Double Width & Double Height)
-
-    const source = payload.orderSource || "DINE_IN";
-    const refStr = payload.externalOrderRef ? `#${payload.externalOrderRef}` : "";
-
-    if (source === "TAKEAWAY") {
-      parts.push("TAKEAWAY KOT\n");
-    } else if (source === "SWIGGY") {
-      parts.push(`SWIGGY KOT ${refStr}\n`.trim() + "\n");
-    } else if (source === "ZOMATO") {
-      parts.push(`ZOMATO KOT ${refStr}\n`.trim() + "\n");
-    } else {
-      parts.push("KITCHEN KOT\n");
-    }
-
-    parts.push("\x1D\x21\x00"); // Reset font size
-    parts.push(ESC_POS.BOLD_OFF);
-
     // Reprint Tag
     if (payload.isReprint) {
       parts.push(ESC_POS.BOLD_ON);
@@ -222,7 +191,8 @@ export class KotBuilder {
       parts.push(ESC_POS.BOLD_OFF);
     }
 
-    parts.push(doubleDivider);
+    const source = payload.orderSource || "DINE_IN";
+    const refStr = payload.externalOrderRef ? `#${payload.externalOrderRef}` : "";
 
     // Prominent Table Banner (Double Height & Width)
     const rawLabel = payload.tableLabel || "Express";
