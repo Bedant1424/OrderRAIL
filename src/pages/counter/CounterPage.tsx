@@ -13,7 +13,7 @@ import {
   Search, Plus, Minus, Trash2, Send, CreditCard, DollarSign, 
   QrCode, Printer, CheckCircle, X, ChevronDown, ChevronUp, User, Store, 
   Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck,
-  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt as ReceiptIcon, Smartphone, ChefHat
+  Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt as ReceiptIcon, Smartphone, ChefHat, LogOut
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
@@ -48,6 +48,7 @@ import { SortingPolicy, RestaurantOperationsService, REALTIME_EVENTS } from '@/l
 import { CompactDiscountControl, type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { Receipt } from '@/components/billing/Receipt';
 import { getPaymentSettings } from '@/lib/billing/paymentSettings';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 import './counter.css';
 
@@ -194,8 +195,10 @@ const Header = memo(({
   onOpenSettings: () => void;
 }) => {
   const { cafe } = useCafe();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [time, setTime] = useState(new Date());
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -203,6 +206,19 @@ const Header = memo(({
   }, []);
 
   const cashierName = user?.email ? user.email.split('@')[0] : 'Sarah M.';
+
+  const handleConfirmLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await signOut();
+    } catch (err) {
+      console.error("[CounterHeader] Logout error:", err);
+      toast.error("Failed to log out. Please try again.");
+      setIsLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
+  };
 
   return (
     <header className="v8-header">
@@ -257,10 +273,70 @@ const Header = memo(({
           </button>
         </div>
 
-        <div className="v8-cashier-pill">
-          <User className="w-3.5 h-3.5" />
-          <span className="capitalize">{cashierName}</span>
+        <div className="flex items-center gap-1.5">
+          <div className="v8-cashier-pill flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5" />
+            <span className="capitalize">{cashierName}</span>
+          </div>
+
+          <Popover open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="grid h-8 w-8 place-items-center rounded-md border border-border/80 bg-card/80 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition shadow-soft active:scale-95 cursor-pointer shrink-0"
+                title="Log out"
+                aria-label="Log out"
+                data-testid="counter-logout-button"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-72 p-3.5 text-card-foreground bg-popover border border-border shadow-md rounded-lg z-50"
+              align="end"
+              sideOffset={6}
+              data-testid="logout-popover-content"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <LogOut className="h-4 w-4 text-destructive shrink-0" />
+                  <h4 className="font-semibold text-sm leading-none">Sign out of Counter POS?</h4>
+                </div>
+                <p className="text-xs text-muted-foreground leading-normal">
+                  You'll need to sign in again to access the counter.
+                </p>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 rounded-md border border-border bg-secondary/50 hover:bg-secondary text-xs font-medium text-foreground transition active:scale-95 cursor-pointer"
+                    onClick={() => setShowLogoutConfirm(false)}
+                    disabled={isLoggingOut}
+                    data-testid="logout-cancel-button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-medium transition active:scale-95 cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleConfirmLogout}
+                    disabled={isLoggingOut}
+                    data-testid="logout-confirm-button"
+                  >
+                    {isLoggingOut ? (
+                      <>
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                        <span>Signing out…</span>
+                      </>
+                    ) : (
+                      <span>Logout</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
+
         <div className="v8-sync-badge">
           <div className="v8-sync-dot" />
           <span>SYNC 100% OK</span>
