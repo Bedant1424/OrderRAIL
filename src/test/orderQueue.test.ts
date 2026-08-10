@@ -84,38 +84,40 @@ describe("Offline Order Queue & Sync", () => {
       });
 
       chain.select.mockImplementation(() => {
-        const selectChain = {
+        const selectChain: any = {
           eq: vi.fn(),
+          neq: vi.fn(),
+          is: vi.fn(),
+          in: vi.fn(),
         };
+
+        const createQueryChain = (data: any, error: any) => {
+          const queryChain: any = {
+            eq: vi.fn().mockImplementation(() => queryChain),
+            neq: vi.fn().mockImplementation(() => queryChain),
+            is: vi.fn().mockImplementation(() => queryChain),
+            in: vi.fn().mockImplementation(() => queryChain),
+            order: vi.fn().mockImplementation(() => queryChain),
+            limit: vi.fn().mockImplementation(() => queryChain),
+            maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+            then: (onfulfilled: any) => Promise.resolve({ data, error }).then(onfulfilled),
+          };
+          return queryChain;
+        };
+
         selectChain.eq.mockImplementation((eqCol: string, eqVal: string) => {
-          interface EqResult {
-            maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
-            then?: (onfulfilled: (res: { data: unknown; error: unknown }) => unknown) => Promise<unknown>;
+          let data: any = null;
+          let error: any = overrides?.selectOrderError ?? null;
+          if (table === "orders") {
+            data = overrides?.orderExists ? { id: testOrder.id } : { id: testOrder.id, order_items: [] };
+          } else if (table === "order_items") {
+            data = overrides?.itemsExist ? [{ id: "existing-item-1" }] : [];
+          } else if (table === "tables") {
+            data = { active_session_id: "test-dining-session-1" };
+          } else if (table === "dining_sessions") {
+            data = { id: "test-dining-session-1", status: "active" };
           }
-          const eqChain: EqResult = {
-            maybeSingle: vi.fn().mockImplementation(async () => {
-              if (table === "orders") {
-                if (overrides?.orderExists) {
-                  return { data: { id: testOrder.id }, error: null };
-                }
-                return { data: null, error: null };
-              }
-              if (table === "dining_sessions") {
-                return { data: { status: "browsing" }, error: null };
-              }
-              return { data: null, error: null };
-            }),
-          };
-
-          eqChain.then = (onfulfilled: (res: { data: unknown; error: unknown }) => unknown) => {
-            if (table === "order_items") {
-              const data = overrides?.itemsExist ? [{ id: "existing-item-uuid-1" }] : [];
-              return Promise.resolve(onfulfilled({ data, error: null }));
-            }
-            return Promise.resolve(onfulfilled({ data: null, error: null }));
-          };
-
-          return eqChain;
+          return createQueryChain(data, error);
         });
         return selectChain;
       });

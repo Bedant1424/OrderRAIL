@@ -100,7 +100,7 @@ export function mapOrderToSessionOrder(ord: any, syncState: SessionOrder['syncSt
       ? it.unit_price
       : 0,
     qty: it.qty || it.quantity || 1,
-    notes: it.notes,
+    notes: it.note || it.notes || undefined,
   }));
 
   return {

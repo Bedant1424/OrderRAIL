@@ -156,6 +156,11 @@ export class ReceiptBuilder {
       for (let i = 1; i < nameLines.length; i++) {
         lines.push(`    ${nameLines[i]}`);
       }
+
+      const itemNote = item.notes || (item as any).note;
+      if (itemNote && itemNote.trim()) {
+        lines.push(`     + ${itemNote.trim()}`);
+      }
     }
 
     lines.push(divider);

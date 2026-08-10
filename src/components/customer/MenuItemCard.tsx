@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { MenuItem } from "@/lib/db";
 import { formatMoney } from "@/lib/db";
@@ -9,6 +9,7 @@ import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
 import { useCustomerOverlay } from "@/hooks/useCustomerBack";
 import { MenuImage } from "./MenuImage";
+import { getEligibleAddons, calculateCombinedUnitPrice, formatAddonNotes } from "@/lib/addons";
 
 const getTagColorClass = (tag: string): string => {
   switch (tag) {
@@ -40,44 +41,59 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
   const [isOpen, setIsOpen] = useState(false);
   useCustomerOverlay(isOpen, setIsOpen, `item-details-${item.id}`);
   const [quantity, setQuantity] = useState(0);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const cartLine = lines.find((l) => l.item.id === item.id);
   const cartQty = cartLine ? cartLine.qty : 0;
+
+  const eligibleAddons = getEligibleAddons(item);
+  const basePriceRupees = item.price_cents / 100;
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest("button") || target.closest("svg")) {
       return;
     }
-    setQuantity(cartQty);
+    setQuantity(cartQty > 0 ? cartQty : 1);
+    setSelectedAddonIds([]);
     setIsOpen(true);
   };
 
+  const handleToggleAddon = (addonId: string) => {
+    setSelectedAddonIds((prev) =>
+      prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId]
+    );
+  };
+
+  const combinedUnitPriceRupees = calculateCombinedUnitPrice(basePriceRupees, selectedAddonIds);
+  const combinedUnitPriceCents = Math.round(combinedUnitPriceRupees * 100);
+  const formattedNote = formatAddonNotes(selectedAddonIds);
+
   const handleAddToCart = () => {
-    if (quantity <= 0) return;
-
-    const existingLine = lines.find((l) => l.item.id === item.id);
-    const existingQty = existingLine ? existingLine.qty : 0;
-
-    if (existingQty === 0) {
-      add({
+    const qtyToAdd = quantity > 0 ? quantity : 1;
+    add(
+      {
         id: item.id,
         name: item.name,
-        price_cents: item.price_cents,
+        price_cents: combinedUnitPriceCents,
         image_url: item.image_url,
-      });
-      if (quantity > 1) {
-        setQty(item.id, quantity);
-      }
-    } else {
-      setQty(item.id, quantity);
+      },
+      selectedAddonIds,
+      formattedNote,
+      combinedUnitPriceCents
+    );
+    if (qtyToAdd > 1) {
+      const sortedAddons = [...selectedAddonIds].sort();
+      const lineKey = sortedAddons.length > 0 ? `${item.id}:${sortedAddons.join(",")}` : item.id;
+      setQty(lineKey, qtyToAdd);
     }
+
     setIsOpen(false);
-    toast.success(`Added ${quantity} × ${item.name} to cart`);
+    toast.success(`Added ${qtyToAdd} × ${item.name}${formattedNote ? ` (${formattedNote})` : ""} to cart`);
   };
 
   const isEditing = !!editingOrderId;
   const displayQty = quantity;
-  const totalPrice = item.price_cents * (displayQty > 0 ? displayQty : 1);
+  const totalPriceCents = combinedUnitPriceCents * (displayQty > 0 ? displayQty : 1);
 
   const tagsToRender = (item.tags || []).filter((t) => t !== "Veg" && t !== "Non-Veg");
   if (item.veg_type === "veg") {
@@ -207,9 +223,45 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
               {item.description || "Freshly prepared with premium ingredients by our experienced chefs."}
             </p>
 
+            {eligibleAddons.length > 0 && (
+              <div className="mt-5 space-y-2 border-t border-cc-border pt-3">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-cc-text-muted block">
+                  Add-ons / Extras
+                </label>
+                <div className="space-y-1.5">
+                  {eligibleAddons.map((addon) => {
+                    const isChecked = selectedAddonIds.includes(addon.id);
+                    return (
+                      <div
+                        key={addon.id}
+                        onClick={() => handleToggleAddon(addon.id)}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                          isChecked
+                            ? "border-amber-500 bg-amber-500/10 text-cc-text font-semibold"
+                            : "border-cc-border hover:bg-cc-surface-soft text-cc-text-muted"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`h-4 w-4 rounded border flex items-center justify-center transition-all ${
+                              isChecked ? "bg-amber-500 border-amber-500 text-white" : "border-cc-border"
+                            }`}
+                          >
+                            {isChecked && <Check className="h-3 w-3" strokeWidth={3} />}
+                          </div>
+                          <span>{addon.name}</span>
+                        </div>
+                        <span className="font-bold text-amber-600 dark:text-amber-400">+₹{addon.price}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex items-center justify-between border-t border-cc-border pt-4">
               <span className="font-sans text-lg font-black text-cc-text tabular-nums">
-                {formatMoney(item.price_cents, currency)}
+                {formatMoney(combinedUnitPriceCents, currency)}
               </span>
 
               <AnimatePresence mode="wait">
@@ -265,7 +317,7 @@ export function MenuItemCard({ item, currency }: { item: MenuItem; currency: str
             >
               <span>{isEditing ? "Update Order" : "Add to Cart"}</span>
               <span>·</span>
-              <span className="font-sans tabular-nums">{formatMoney(totalPrice, currency)}</span>
+              <span className="font-sans tabular-nums">{formatMoney(totalPriceCents, currency)}</span>
             </button>
           </DrawerFooter>
         </DrawerContent>

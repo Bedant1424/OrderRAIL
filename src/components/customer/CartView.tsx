@@ -151,6 +151,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           name: l.item.name,
           price_cents: l.item.price_cents,
           qty: l.qty,
+          note: l.note || null,
         })),
       });
 
@@ -182,6 +183,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
           name: l.item.name,
           price_cents: l.item.price_cents,
           qty: l.qty,
+          note: l.note || null,
         })),
         notes: note.trim() || null,
         updatedBy: "customer",
@@ -522,6 +524,11 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="break-anywhere font-sans text-sm font-bold text-cc-text">{l.item.name}</p>
+              {l.note && (
+                <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
+                  + {l.note}
+                </p>
+              )}
               <p className="font-sans text-xs font-extrabold text-cc-text tabular-nums mt-0.5">
                 {formatMoney(l.item.price_cents, cafe.currency)}
               </p>
@@ -529,7 +536,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
             <div className="flex items-center gap-1 rounded-full bg-cc-surface-soft border border-cc-border p-0.5 h-8">
               <button
                 aria-label="Decrease"
-                onClick={() => setQty(l.item.id, l.qty - 1)}
+                onClick={() => setQty(l.lineId || l.item.id, l.qty - 1)}
                 className="grid h-7 w-7 place-items-center rounded-full bg-cc-surface text-cc-text border border-cc-border hover:bg-cc-primary hover:text-white transition active:scale-90"
               >
                 {l.qty === 1 ? <Trash2 className="h-3.5 w-3.5 text-rose-600" strokeWidth={2.2} /> : <Minus className="h-3.5 w-3.5" strokeWidth={2.2} />}
@@ -537,7 +544,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
               <span className="w-5 text-center font-sans text-xs font-black text-cc-text tabular-nums">{l.qty}</span>
               <button
                 aria-label="Increase"
-                onClick={() => setQty(l.item.id, l.qty + 1)}
+                onClick={() => setQty(l.lineId || l.item.id, l.qty + 1)}
                 className="grid h-7 w-7 place-items-center rounded-full bg-cc-primary text-white hover:bg-cc-primary-hover transition active:scale-90"
               >
                 <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />

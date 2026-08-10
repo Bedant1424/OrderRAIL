@@ -430,6 +430,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
       name: i.name,
       price_cents: i.price_cents,
       qty: i.qty,
+      note: i.note ?? null,
     }));
 
     const { error: itemsErr } = await supabase.from("order_items").insert(itemsPayload);

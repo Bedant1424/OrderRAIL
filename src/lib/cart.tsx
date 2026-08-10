@@ -2,15 +2,18 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { MenuItem } from "@/lib/db";
 
 export interface CartLine {
+  lineId?: string;
   item: Pick<MenuItem, "id" | "name" | "price_cents" | "image_url">;
   qty: number;
+  selectedAddonIds?: string[];
+  note?: string;
 }
 
 interface CartCtx {
   lines: CartLine[];
-  add: (item: CartLine["item"]) => void;
-  remove: (id: string) => void;
-  setQty: (id: string, qty: number) => void;
+  add: (item: CartLine["item"], selectedAddonIds?: string[], note?: string, customUnitPriceCents?: number) => void;
+  remove: (lineId: string) => void;
+  setQty: (lineId: string, qty: number) => void;
   clear: () => void;
   count: number;
   subtotalCents: number;
@@ -93,16 +96,37 @@ export function CartProvider({ tableId, children }: { tableId: string; children:
     setNote: setNoteState,
     editingOrderId,
     editingOrderVersion,
-    add: (item) =>
+    add: (item, selectedAddonIds = [], noteStr = "", customUnitPriceCents) =>
       setLines((prev) => {
-        const existing = prev.find((l) => l.item.id === item.id);
-        if (existing) return prev.map((l) => (l.item.id === item.id ? { ...l, qty: l.qty + 1 } : l));
-        return [...prev, { item, qty: 1 }];
+        const sortedAddons = [...selectedAddonIds].sort();
+        const targetLineId = sortedAddons.length > 0 ? `${item.id}:${sortedAddons.join(",")}` : item.id;
+        const linePrice = customUnitPriceCents !== undefined ? customUnitPriceCents : item.price_cents;
+        const lineItem = { ...item, price_cents: linePrice };
+
+        const existingIndex = prev.findIndex((l) => (l.lineId || l.item.id) === targetLineId);
+
+        if (existingIndex !== -1) {
+          return prev.map((l, idx) => (idx === existingIndex ? { ...l, qty: l.qty + 1 } : l));
+        }
+
+        return [
+          ...prev,
+          {
+            lineId: targetLineId,
+            item: lineItem,
+            qty: 1,
+            selectedAddonIds: sortedAddons,
+            note: noteStr || undefined,
+          },
+        ];
       }),
-    remove: (id) => setLines((prev) => prev.filter((l) => l.item.id !== id)),
-    setQty: (id, qty) =>
+    remove: (targetKey) =>
+      setLines((prev) => prev.filter((l) => (l.lineId || l.item.id) !== targetKey && l.item.id !== targetKey)),
+    setQty: (targetKey, qty) =>
       setLines((prev) =>
-        qty <= 0 ? prev.filter((l) => l.item.id !== id) : prev.map((l) => (l.item.id === id ? { ...l, qty } : l)),
+        qty <= 0
+          ? prev.filter((l) => (l.lineId || l.item.id) !== targetKey && l.item.id !== targetKey)
+          : prev.map((l) => ((l.lineId || l.item.id) === targetKey || l.item.id === targetKey ? { ...l, qty } : l))
       ),
     clear: () => {
       setLines([]);

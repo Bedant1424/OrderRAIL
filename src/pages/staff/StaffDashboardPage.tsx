@@ -2277,13 +2277,18 @@ function OrderColumn({
                   </div>
                 </div>
 
-                {/* Order items list — no per-item notes, names wrap */}
-                <ul className="mt-3 space-y-1 text-sm">
+                {/* Order items list — names wrap, add-on notes highlighted */}
+                <ul className="mt-3 space-y-1.5 text-sm">
                   {o.order_items?.map((it) => (
-                    <li key={it.id} className="flex items-baseline gap-2">
+                    <li key={it.id} className="flex flex-col gap-0.5">
                       <span className="break-anywhere flex-1">
                         <span className="font-medium tabular-nums">{it.qty}×</span> {it.name}
                       </span>
+                      {it.note && (
+                        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 pl-4">
+                          + {it.note}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
