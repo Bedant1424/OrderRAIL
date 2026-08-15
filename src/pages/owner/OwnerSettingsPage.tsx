@@ -295,8 +295,12 @@ export default function OwnerSettingsPage() {
       setIsCropOpen(false);
       void refreshCafe();
     } catch (e: any) {
-      console.error(e);
-      toast.error("Unable to save logo.");
+      console.error("[handleSaveLogo] Upload error:", e);
+      toast.error(
+        e?.message ||
+        e?.error_description ||
+        "Unable to save logo."
+      );
     } finally {
       setUploading(false);
     }
