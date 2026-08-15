@@ -3223,13 +3223,25 @@ const CounterLayout = () => {
         draftCart: []
       };
 
-      const existing = cur.draftCart.find((i) => i.name === item.name);
+      const targetLineId = getLineIdentityKey(item.id, []);
+      const existingIndex = cur.draftCart.findIndex((i) => i.id === targetLineId);
       let updatedDraft: CartLineItem[];
 
-      if (existing) {
-        updatedDraft = cur.draftCart.map((i) => (i.name === item.name ? { ...i, qty: i.qty + 1 } : i));
+      if (existingIndex !== -1) {
+        updatedDraft = cur.draftCart.map((i, idx) => (idx === existingIndex ? { ...i, qty: i.qty + 1 } : i));
       } else {
-        updatedDraft = [...cur.draftCart, { id: item.id || `c-${Date.now()}`, menuItemId: item.id, name: item.name, price: item.price, basePrice: item.price, qty: 1 }];
+        updatedDraft = [
+          ...cur.draftCart,
+          {
+            id: targetLineId,
+            menuItemId: item.id,
+            name: item.name,
+            price: item.price,
+            basePrice: item.price,
+            qty: 1,
+            selectedAddonIds: [],
+          },
+        ];
       }
 
       return {

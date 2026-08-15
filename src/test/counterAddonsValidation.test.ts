@@ -152,4 +152,190 @@ describe("Part D: Counter POS Add-ons Validation Suite", () => {
     const eligible = getEligibleAddons({ categoryId: menuItemId, name: nullIdItem.name });
     expect(eligible.length).toBe(1);
   });
+
+  it("15. Draft cart preserves separate lines for customized Burger vs plain Quick Add Burger", () => {
+    const burgerId = "garden-fresh-burger";
+    const customizedKey = getLineIdentityKey(burgerId, ["cheese-slice"]);
+    const plainKey = getLineIdentityKey(burgerId, []);
+
+    expect(customizedKey).toBe("garden-fresh-burger:cheese-slice");
+    expect(plainKey).toBe("garden-fresh-burger");
+
+    // Simulate draftCart state
+    let draftCart: any[] = [
+      {
+        id: customizedKey,
+        menuItemId: burgerId,
+        name: "Garden Fresh Burger",
+        price: 79,
+        basePrice: 59,
+        qty: 1,
+        selectedAddonIds: ["cheese-slice"],
+        notes: "Cheese Slice (+₹20)",
+      },
+    ];
+
+    // Quick Add plain Burger
+    const existingIndex = draftCart.findIndex((i) => i.id === plainKey);
+    if (existingIndex !== -1) {
+      draftCart = draftCart.map((i, idx) => (idx === existingIndex ? { ...i, qty: i.qty + 1 } : i));
+    } else {
+      draftCart = [
+        ...draftCart,
+        {
+          id: plainKey,
+          menuItemId: burgerId,
+          name: "Garden Fresh Burger",
+          price: 59,
+          basePrice: 59,
+          qty: 1,
+          selectedAddonIds: [],
+        },
+      ];
+    }
+
+    expect(draftCart.length).toBe(2);
+    expect(draftCart[0].id).toBe("garden-fresh-burger:cheese-slice");
+    expect(draftCart[0].qty).toBe(1);
+    expect(draftCart[1].id).toBe("garden-fresh-burger");
+    expect(draftCart[1].qty).toBe(1);
+  });
+
+  it("16. Draft cart preserves separate lines for customized Shake vs plain Quick Add Shake", () => {
+    const shakeId = "kit-kat-shake";
+    const customizedKey = getLineIdentityKey(shakeId, ["ice-cream-scoop"]);
+    const plainKey = getLineIdentityKey(shakeId, []);
+
+    expect(customizedKey).toBe("kit-kat-shake:ice-cream-scoop");
+    expect(plainKey).toBe("kit-kat-shake");
+
+    let draftCart: any[] = [
+      {
+        id: customizedKey,
+        menuItemId: shakeId,
+        name: "Kit Kat Shake",
+        price: 149,
+        basePrice: 119,
+        qty: 1,
+        selectedAddonIds: ["ice-cream-scoop"],
+        notes: "Ice Cream Scoop (+₹30)",
+      },
+    ];
+
+    const existingIndex = draftCart.findIndex((i) => i.id === plainKey);
+    if (existingIndex !== -1) {
+      draftCart = draftCart.map((i, idx) => (idx === existingIndex ? { ...i, qty: i.qty + 1 } : i));
+    } else {
+      draftCart = [
+        ...draftCart,
+        {
+          id: plainKey,
+          menuItemId: shakeId,
+          name: "Kit Kat Shake",
+          price: 119,
+          basePrice: 119,
+          qty: 1,
+          selectedAddonIds: [],
+        },
+      ];
+    }
+
+    expect(draftCart.length).toBe(2);
+    expect(draftCart[0].id).toBe("kit-kat-shake:ice-cream-scoop");
+    expect(draftCart[0].qty).toBe(1);
+    expect(draftCart[1].id).toBe("kit-kat-shake");
+    expect(draftCart[1].qty).toBe(1);
+  });
+
+  it("17. Identical add-on combinations merge quantity into 1 line (qty 2)", () => {
+    const burgerId = "garden-fresh-burger";
+    const key = getLineIdentityKey(burgerId, ["cheese-slice"]);
+
+    let draftCart: any[] = [
+      {
+        id: key,
+        menuItemId: burgerId,
+        name: "Garden Fresh Burger",
+        price: 79,
+        basePrice: 59,
+        qty: 1,
+        selectedAddonIds: ["cheese-slice"],
+      },
+    ];
+
+    const existingIndex = draftCart.findIndex((i) => i.id === key);
+    if (existingIndex !== -1) {
+      draftCart = draftCart.map((i, idx) => (idx === existingIndex ? { ...i, qty: i.qty + 1 } : i));
+    }
+
+    expect(draftCart.length).toBe(1);
+    expect(draftCart[0].id).toBe("garden-fresh-burger:cheese-slice");
+    expect(draftCart[0].qty).toBe(2);
+  });
+
+  it("18. Plain items added twice merge quantity into 1 line (qty 2)", () => {
+    const burgerId = "garden-fresh-burger";
+    const key = getLineIdentityKey(burgerId, []);
+
+    let draftCart: any[] = [
+      {
+        id: key,
+        menuItemId: burgerId,
+        name: "Garden Fresh Burger",
+        price: 59,
+        basePrice: 59,
+        qty: 1,
+        selectedAddonIds: [],
+      },
+    ];
+
+    const existingIndex = draftCart.findIndex((i) => i.id === key);
+    if (existingIndex !== -1) {
+      draftCart = draftCart.map((i, idx) => (idx === existingIndex ? { ...i, qty: i.qty + 1 } : i));
+    }
+
+    expect(draftCart.length).toBe(1);
+    expect(draftCart[0].id).toBe("garden-fresh-burger");
+    expect(draftCart[0].qty).toBe(2);
+  });
+
+  it("19. Different add-on combinations create separate lines", () => {
+    const burgerId = "garden-fresh-burger";
+    const key1 = getLineIdentityKey(burgerId, ["cheese-slice"]);
+    const key2 = getLineIdentityKey(burgerId, ["cheese-injector"]);
+
+    let draftCart: any[] = [
+      {
+        id: key1,
+        menuItemId: burgerId,
+        name: "Garden Fresh Burger",
+        price: 79,
+        basePrice: 59,
+        qty: 1,
+        selectedAddonIds: ["cheese-slice"],
+      },
+    ];
+
+    const existingIndex = draftCart.findIndex((i) => i.id === key2);
+    if (existingIndex !== -1) {
+      draftCart = draftCart.map((i, idx) => (idx === existingIndex ? { ...i, qty: i.qty + 1 } : i));
+    } else {
+      draftCart = [
+        ...draftCart,
+        {
+          id: key2,
+          menuItemId: burgerId,
+          name: "Garden Fresh Burger",
+          price: 89,
+          basePrice: 59,
+          qty: 1,
+          selectedAddonIds: ["cheese-injector"],
+        },
+      ];
+    }
+
+    expect(draftCart.length).toBe(2);
+    expect(draftCart[0].id).toBe("garden-fresh-burger:cheese-slice");
+    expect(draftCart[1].id).toBe("garden-fresh-burger:cheese-injector");
+  });
 });
