@@ -122,4 +122,34 @@ describe("Part D: Counter POS Add-ons Validation Suite", () => {
     expect(sessionOrd.items[0].price).toBe(59);
     expect(sessionOrd.items[0].notes).toBeUndefined();
   });
+
+  it("12. Handles numeric IDs safely without throwing on string operations", () => {
+    const numericItem: any = { id: 101, name: "Garden Fresh Burger", price: 59, qty: 1 };
+    const rawId = typeof numericItem.id === "string" ? numericItem.id : String(numericItem.id || "");
+    const menuItemId = numericItem.menuItemId || (rawId.includes(":") ? rawId.split(":")[0] : rawId);
+    expect(menuItemId).toBe("101");
+
+    const eligible = getEligibleAddons({ categoryId: menuItemId, name: numericItem.name });
+    expect(eligible.length).toBe(2);
+  });
+
+  it("13. Handles line identities containing ':' delimiter safely", () => {
+    const lineItem: any = { id: "garden-fresh-burger:cheese-slice", name: "Garden Fresh Burger", price: 79, qty: 1 };
+    const rawId = typeof lineItem.id === "string" ? lineItem.id : String(lineItem.id || "");
+    const menuItemId = lineItem.menuItemId || (rawId.includes(":") ? rawId.split(":")[0] : rawId);
+    expect(menuItemId).toBe("garden-fresh-burger");
+
+    const eligible = getEligibleAddons({ categoryId: menuItemId, name: lineItem.name });
+    expect(eligible.length).toBe(2);
+  });
+
+  it("14. Handles undefined or null item IDs safely without throwing", () => {
+    const nullIdItem: any = { id: null, name: "Kit Kat Shake", price: 119, qty: 1 };
+    const rawId = typeof nullIdItem.id === "string" ? nullIdItem.id : String(nullIdItem.id || "");
+    const menuItemId = nullIdItem.menuItemId || (rawId.includes(":") ? rawId.split(":")[0] : rawId);
+    expect(menuItemId).toBe("");
+
+    const eligible = getEligibleAddons({ categoryId: menuItemId, name: nullIdItem.name });
+    expect(eligible.length).toBe(1);
+  });
 });
