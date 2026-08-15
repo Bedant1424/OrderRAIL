@@ -32,7 +32,7 @@ describe('Owner Settings Email & Storage RLS Authorization Coverage', () => {
     };
   };
 
-  // Helper simulating Storage RLS path permission check
+  // Helper simulating Storage RLS path permission check (owner-only per specification)
   const isStoragePathAllowed = (
     path: string,
     userCafeId: string | null,
@@ -42,9 +42,7 @@ describe('Owner Settings Email & Storage RLS Authorization Coverage', () => {
     const parts = path.split('/');
     if (parts.length < 2) return false;
     const folderCafeId = parts[0];
-    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-    if (!uuidRegex.test(folderCafeId)) return false;
-    return folderCafeId === userCafeId && ['owner', 'staff', 'counter'].includes(userRole);
+    return folderCafeId === userCafeId && userRole === 'owner';
   };
 
   it('1. saveBusinessProfile payload includes email property when populated or trimmed', () => {
@@ -102,5 +100,11 @@ describe('Owner Settings Email & Storage RLS Authorization Coverage', () => {
     const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
     const path = `${cafeA}/logo_12345.png`;
     expect(isStoragePathAllowed(path, null, null)).toBe(false);
+  });
+
+  it('6. Staff role CANNOT upload to owner storage path (owner-only storage policy enforced)', () => {
+    const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
+    const path = `${cafeA}/logo_12345.png`;
+    expect(isStoragePathAllowed(path, cafeA, 'staff')).toBe(false);
   });
 });
