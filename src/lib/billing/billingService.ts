@@ -24,6 +24,8 @@ export interface BillItemPayload {
   name: string;
   price: number; // in main currency unit (e.g. INR)
   qty: number;
+  notes?: string;
+  note?: string;
 }
 
 export interface CreateBillPayload {

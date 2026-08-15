@@ -24,7 +24,8 @@ import { fetchActiveServiceRequests } from '@/lib/serviceRequests/repository';
 import { getSessionId } from '@/lib/session';
 import { sortTablesNatural } from '@/lib/tables/naturalTableSort';
 import { sortCounterOrders } from '@/lib/orders/sortCounterOrders';
-import { OperationsStatusIndicator } from '@/components/offline/OperationsStatusIndicator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getEligibleAddons, calculateCombinedUnitPrice, formatAddonNotes, getLineIdentityKey } from '@/lib/addons';
 import { DemoDevToolsPanel } from '@/components/offline/DemoDevToolsPanel';
 import { NetworkManager } from '@/lib/offline';
 import { formatSessionElapsed } from '@/lib/tables/liveSessionTimer';
@@ -58,6 +59,7 @@ interface CatalogItem {
   name: string;
   price: number;
   category: string;
+  categoryId?: string;
   isVeg: boolean;
   isAvailable: boolean;
   imageUrl?: string | null;
@@ -69,8 +71,10 @@ interface CartLineItem {
   menuItemId?: string;
   name: string;
   price: number;
+  basePrice?: number;
   qty: number;
   notes?: string;
+  selectedAddonIds?: string[];
 }
 
 export interface SessionOrder {
@@ -164,6 +168,8 @@ export interface CompletedOrderReceipt {
 }
 
 const FALLBACK_CATALOG: CatalogItem[] = [
+  { id: 'm-burger-1', name: 'Garden Fresh Burger', price: 69.00, category: 'Burger', categoryId: 'burger', isVeg: true, isAvailable: true },
+  { id: 'm-shake-1', name: 'Kit Kat Shake', price: 119.00, category: 'Shakes', categoryId: 'shakes', isVeg: true, isAvailable: true },
   { id: 'm-1', name: 'Double Espresso', price: 180.00, category: 'Coffee', isVeg: true, isAvailable: true, modifier: 'Double Shot' },
   { id: 'm-2', name: 'Americano', price: 160.00, category: 'Coffee', isVeg: true, isAvailable: true, modifier: 'Hot / Iced' },
   { id: 'm-3', name: 'Iced Vanilla Latte', price: 220.00, category: 'Coffee', isVeg: true, isAvailable: true, modifier: 'Oat Milk' },
@@ -485,32 +491,189 @@ const TableRail = memo(({
 });
 TableRail.displayName = 'TableRail';
 
-// --- 3. PRODUCTION MENU PANEL WITH REALTIME AVAILABILITY ---
-const MenuRow = memo(({ item, onAdd }: { item: CatalogItem; onAdd: (item: CatalogItem) => void }) => {
-  const isSoldOut = !item.isAvailable;
+interface CounterAddonModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  item: {
+    id: string;
+    menuItemId?: string;
+    name: string;
+    price: number;
+    basePrice?: number;
+    categoryId?: string;
+    category?: string;
+    selectedAddonIds?: string[];
+  } | null;
+  onConfirm: (
+    item: { id: string; menuItemId?: string; name: string; price: number; basePrice?: number; categoryId?: string; category?: string },
+    selectedAddonIds: string[]
+  ) => void;
+}
+
+const CounterAddonModal: React.FC<CounterAddonModalProps> = ({
+  isOpen,
+  onClose,
+  item,
+  onConfirm,
+}) => {
+  if (!item) return null;
+
+  const categoryId = item.categoryId || item.category;
+  const eligibleAddons = getEligibleAddons({ categoryId, name: item.name });
+  const basePriceRupees = item.basePrice ?? (item.selectedAddonIds && item.selectedAddonIds.length > 0 ? (item.price - calculateCombinedUnitPrice(0, item.selectedAddonIds)) : item.price);
+
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isOpen && item) {
+      setSelectedAddonIds(item.selectedAddonIds || []);
+    }
+  }, [isOpen, item]);
+
+  const handleToggleAddon = (addonId: string) => {
+    setSelectedAddonIds((prev) =>
+      prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId]
+    );
+  };
+
+  const currentUnitPrice = calculateCombinedUnitPrice(basePriceRupees, selectedAddonIds);
+
+  const handleSave = () => {
+    onConfirm({ ...item, basePrice: basePriceRupees }, selectedAddonIds);
+    onClose();
+  };
 
   return (
-    <button 
-      className={cn('v8-menu-row', isSoldOut && 'opacity-50 cursor-not-allowed bg-muted/20')} 
-      disabled={isSoldOut}
-      onClick={() => onAdd(item)}
-    >
-      <div className={cn('v8-veg-dot', item.isVeg ? 'v8-veg-true' : 'v8-veg-false')} />
-      <span className="v8-menu-row-name">
-        {item.name}
-        {item.modifier && <span className="v8-menu-row-modifier">({item.modifier})</span>}
-      </span>
-      {isSoldOut ? (
-        <span className="text-[10px] font-bold text-destructive uppercase tracking-wider px-1.5 py-0.5 rounded bg-destructive/10">
-          Sold Out
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md rounded-2xl p-5 bg-card border border-border shadow-xl">
+        <DialogHeader>
+          <DialogTitle className="text-base font-bold text-foreground flex items-center justify-between">
+            <span>{item.name}</span>
+            <span className="text-xs font-semibold text-muted-foreground">Base: {formatCurrency(basePriceRupees)}</span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="py-2 space-y-3">
+          <p className="text-xs text-muted-foreground font-medium">
+            Customize add-ons for counter order:
+          </p>
+
+          {eligibleAddons.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">No extra add-ons available for this item.</p>
+          ) : (
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                Select Add-ons
+              </label>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {eligibleAddons.map((addon) => {
+                  const isChecked = selectedAddonIds.includes(addon.id);
+                  return (
+                    <div
+                      key={addon.id}
+                      onClick={() => handleToggleAddon(addon.id)}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all text-xs font-medium",
+                        isChecked
+                          ? "border-amber-500 bg-amber-500/10 text-foreground font-bold"
+                          : "border-border/60 hover:bg-accent/40 text-muted-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={cn(
+                            "h-4 w-4 rounded border flex items-center justify-center transition-all",
+                            isChecked ? "bg-amber-500 border-amber-500 text-white" : "border-border"
+                          )}
+                        >
+                          {isChecked && <Check className="h-3 w-3" strokeWidth={3} />}
+                        </div>
+                        <span>{addon.name}</span>
+                      </div>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">
+                        +₹{addon.price}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-3 flex items-center justify-between border-t border-border/40 gap-3">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">Unit Total</span>
+            <span className="text-base font-extrabold text-foreground tabular-nums">
+              {formatCurrency(currentUnitPrice)}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="rounded-xl px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md transition-all active:scale-95"
+          >
+            Confirm Add-ons — {formatCurrency(currentUnitPrice)}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// --- 3. PRODUCTION MENU PANEL WITH REALTIME AVAILABILITY ---
+const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogItem; onAdd: (item: CatalogItem) => void; onAddWithAddons?: (item: CatalogItem) => void }) => {
+  const isSoldOut = !item.isAvailable;
+  const eligibleAddons = getEligibleAddons({ categoryId: item.categoryId || item.category, name: item.name });
+  const hasAddons = eligibleAddons.length > 0;
+
+  return (
+    <div className={cn('v8-menu-row flex items-center justify-between p-2.5 border-b border-border/40', isSoldOut && 'opacity-50 cursor-not-allowed bg-muted/20')}>
+      <div className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer" onClick={() => !isSoldOut && onAdd(item)}>
+        <div className={cn('v8-veg-dot shrink-0', item.isVeg ? 'v8-veg-true' : 'v8-veg-false')} />
+        <span className="v8-menu-row-name truncate">
+          {item.name}
+          {item.modifier && <span className="v8-menu-row-modifier">({item.modifier})</span>}
         </span>
-      ) : (
-        <span className="v8-menu-row-price v8-font-mono">{formatCurrency(item.price)}</span>
-      )}
-      <div className={cn('v8-menu-add-btn', isSoldOut && 'bg-muted text-muted-foreground')}>
-        <Plus className="w-3.5 h-3.5" />
       </div>
-    </button>
+
+      <div className="flex items-center gap-2 shrink-0">
+        {isSoldOut ? (
+          <span className="text-[10px] font-bold text-destructive uppercase tracking-wider px-1.5 py-0.5 rounded bg-destructive/10">
+            Sold Out
+          </span>
+        ) : (
+          <span className="v8-menu-row-price v8-font-mono cursor-pointer" onClick={() => !isSoldOut && onAdd(item)}>
+            {formatCurrency(item.price)}
+          </span>
+        )}
+
+        {hasAddons && !isSoldOut && onAddWithAddons && (
+          <button
+            type="button"
+            className="text-[10px] font-bold px-2 py-1 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition-all"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddWithAddons(item);
+            }}
+          >
+            + ADD-ONS
+          </button>
+        )}
+
+        <button
+          type="button"
+          disabled={isSoldOut}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isSoldOut) onAdd(item);
+          }}
+          className={cn('v8-menu-add-btn', isSoldOut && 'bg-muted text-muted-foreground')}
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
   );
 });
 MenuRow.displayName = 'MenuRow';
@@ -519,12 +682,14 @@ const MenuPanel = ({
   catalog,
   categoriesList,
   searchRef, 
-  onAdd 
+  onAdd,
+  onAddWithAddons,
 }: { 
   catalog: CatalogItem[];
   categoriesList: string[];
   searchRef: React.RefObject<HTMLInputElement>; 
   onAdd: (item: CatalogItem) => void;
+  onAddWithAddons?: (item: CatalogItem) => void;
 }) => {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -571,7 +736,7 @@ const MenuPanel = ({
 
       <div className="v8-menu-scroll v8-scroll">
         {filteredCatalog.map((item) => (
-          <MenuRow key={item.id} item={item} onAdd={onAdd} />
+          <MenuRow key={item.id} item={item} onAdd={onAdd} onAddWithAddons={onAddWithAddons} />
         ))}
         {filteredCatalog.length === 0 && (
           <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
@@ -727,7 +892,11 @@ const OrderCard = memo(({
 });
 OrderCard.displayName = 'OrderCard';
 
-const OrderItemRow = memo(({ item, onUpdateQty }: { item: CartLineItem; onUpdateQty: (id: string, delta: number) => void }) => {
+const OrderItemRow = memo(({ item, onUpdateQty, onEditAddons }: { item: CartLineItem; onUpdateQty: (id: string, delta: number) => void; onEditAddons?: (item: CartLineItem) => void }) => {
+  const menuItemId = item.menuItemId || (item.id.includes(":") ? item.id.split(":")[0] : item.id);
+  const eligibleAddons = getEligibleAddons({ categoryId: menuItemId, name: item.name });
+  const hasAddons = eligibleAddons.length > 0;
+
   return (
     <div className="v8-order-item-card">
       <div className="v8-item-main">
@@ -742,8 +911,19 @@ const OrderItemRow = memo(({ item, onUpdateQty }: { item: CartLineItem; onUpdate
         </div>
 
         <div className="v8-item-details">
-          <span className="v8-item-name">{item.name}</span>
-          {item.notes && <span className="v8-item-notes">"{item.notes}"</span>}
+          <div className="flex items-center gap-1.5">
+            <span className="v8-item-name">{item.name}</span>
+            {hasAddons && onEditAddons && (
+              <button
+                type="button"
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 transition-all shrink-0"
+                onClick={() => onEditAddons(item)}
+              >
+                Add-ons
+              </button>
+            )}
+          </div>
+          {item.notes && <span className="v8-item-notes">+ {item.notes}</span>}
         </div>
 
         <span className="v8-item-price v8-font-mono">
@@ -771,6 +951,7 @@ const ActiveOrderPanel = ({
   onReleaseTable,
   onRestoreTable,
   onUpdateQty,
+  onEditAddons,
   onAcceptOrder,
   onSendKot,
   onReprintKot
@@ -790,6 +971,7 @@ const ActiveOrderPanel = ({
   onReleaseTable: () => void;
   onRestoreTable: () => void;
   onUpdateQty: (id: string, delta: number) => void;
+  onEditAddons?: (item: CartLineItem) => void;
   onAcceptOrder?: (id: string, num: number) => void;
   onSendKot?: (order: SessionOrder, label: string) => void;
   onReprintKot?: (order: SessionOrder, label: string) => void;
@@ -1024,7 +1206,7 @@ const ActiveOrderPanel = ({
             </div>
           ) : (
             draftCart.map((item) => (
-              <OrderItemRow key={item.id} item={item} onUpdateQty={onUpdateQty} />
+              <OrderItemRow key={item.id} item={item} onUpdateQty={onUpdateQty} onEditAddons={onEditAddons} />
             ))
           )}
         </div>
@@ -2857,6 +3039,8 @@ const CounterLayout = () => {
   const [externalOrderRef, setExternalOrderRef] = useState<string>("");
   const [customerName, setCustomerName] = useState<string>("");
   const [customerPhone, setCustomerPhone] = useState<string>("");
+  const [addonModalItem, setAddonModalItem] = useState<any | null>(null);
+  const [isAddonModalOpen, setIsAddonModalOpen] = useState<boolean>(false);
 
   // Build database-synced tables list using real PostgreSQL table UUIDs with permanent natural sorting
   const syncedTables: TableEntity[] = sortTablesNatural((dbTablesList.length > 0 ? dbTablesList : tableEngine.tables).map((dbT, idx) => {
@@ -3032,7 +3216,7 @@ const CounterLayout = () => {
       if (existing) {
         updatedDraft = cur.draftCart.map((i) => (i.name === item.name ? { ...i, qty: i.qty + 1 } : i));
       } else {
-        updatedDraft = [...cur.draftCart, { id: item.id || `c-${Date.now()}`, menuItemId: item.id, name: item.name, price: item.price, qty: 1 }];
+        updatedDraft = [...cur.draftCart, { id: item.id || `c-${Date.now()}`, menuItemId: item.id, name: item.name, price: item.price, basePrice: item.price, qty: 1 }];
       }
 
       return {
@@ -3045,6 +3229,94 @@ const CounterLayout = () => {
     });
 
     toast.success(`Added ${item.name} to ${selectedTable?.label ?? 'Express'}`);
+  }, [activeTableId, selectedTable]);
+
+  const handleOpenAddonModal = useCallback((item: any) => {
+    setAddonModalItem(item);
+    setIsAddonModalOpen(true);
+  }, []);
+
+  const handleConfirmAddons = useCallback((itemObj: any, selectedAddonIds: string[]) => {
+    setTableSessions((prev) => {
+      const cur = prev[activeTableId] || {
+        sessionId: selectedTable?.currentSessionId || "",
+        sessionCode: `#S-${activeTableId.replace(/[^0-9]/g, '') || '01'}`,
+        startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        startedAtTimestamp: new Date().toISOString(),
+        guestCount: 2,
+        orders: [],
+        draftCart: []
+      };
+
+      const menuItemId = itemObj.menuItemId || (itemObj.id && !itemObj.id.includes(":") && !itemObj.id.startsWith("c-") ? itemObj.id : itemObj.id.split(":")[0]);
+      const basePrice = itemObj.basePrice ?? (itemObj.selectedAddonIds && itemObj.selectedAddonIds.length > 0 ? (itemObj.price - calculateCombinedUnitPrice(0, itemObj.selectedAddonIds)) : itemObj.price);
+      const sortedAddons = [...selectedAddonIds].sort();
+      const newLineId = getLineIdentityKey(menuItemId, sortedAddons);
+      const combinedPrice = calculateCombinedUnitPrice(basePrice, sortedAddons);
+      const formattedNotes = formatAddonNotes(sortedAddons);
+
+      const existingIndex = cur.draftCart.findIndex((i) => i.id === itemObj.id);
+      const isEditingExistingLine = existingIndex !== -1;
+
+      let updatedDraft: CartLineItem[];
+
+      if (isEditingExistingLine) {
+        const originalLine = cur.draftCart[existingIndex];
+        const sameKeyIndex = cur.draftCart.findIndex((i) => i.id === newLineId);
+
+        if (sameKeyIndex !== -1 && sameKeyIndex !== existingIndex) {
+          updatedDraft = cur.draftCart
+            .filter((_, idx) => idx !== existingIndex)
+            .map((i) => (i.id === newLineId ? { ...i, qty: i.qty + originalLine.qty } : i));
+        } else {
+          updatedDraft = cur.draftCart.map((i, idx) =>
+            idx === existingIndex
+              ? {
+                  ...i,
+                  id: newLineId,
+                  menuItemId,
+                  name: itemObj.name,
+                  price: combinedPrice,
+                  basePrice,
+                  notes: formattedNotes || undefined,
+                  selectedAddonIds: sortedAddons,
+                }
+              : i
+          );
+        }
+      } else {
+        const sameKeyIndex = cur.draftCart.findIndex((i) => i.id === newLineId);
+
+        if (sameKeyIndex !== -1) {
+          updatedDraft = cur.draftCart.map((i, idx) =>
+            idx === sameKeyIndex ? { ...i, qty: i.qty + 1 } : i
+          );
+        } else {
+          updatedDraft = [
+            ...cur.draftCart,
+            {
+              id: newLineId,
+              menuItemId,
+              name: itemObj.name,
+              price: combinedPrice,
+              basePrice,
+              qty: 1,
+              selectedAddonIds: sortedAddons,
+              notes: formattedNotes || undefined,
+            },
+          ];
+        }
+      }
+
+      return {
+        ...prev,
+        [activeTableId]: {
+          ...cur,
+          draftCart: updatedDraft,
+        },
+      };
+    });
+    toast.success(`Updated add-ons for ${itemObj.name}`);
   }, [activeTableId, selectedTable]);
 
   const handleUpdateQty = useCallback((id: string, delta: number) => {
@@ -3213,10 +3485,11 @@ const CounterLayout = () => {
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
         items: cur.draftCart.map((i) => ({
-          menu_item_id: i.menuItemId || (i.id.startsWith("c-") ? undefined : i.id),
+          menu_item_id: i.menuItemId || (i.id.includes(":") ? i.id.split(":")[0] : i.id.startsWith("c-") ? undefined : i.id),
           name: i.name,
           price_cents: Math.round(i.price * 100),
           qty: i.qty,
+          note: i.notes || null,
         })),
       });
       createdOrderId = res.orderId;
@@ -3583,6 +3856,7 @@ const CounterLayout = () => {
           categoriesList={categoriesList}
           searchRef={searchRef}
           onAdd={handleAddToCart}
+          onAddWithAddons={handleOpenAddonModal}
         />
         <ActiveOrderPanel 
           table={selectedTable}
@@ -3600,6 +3874,7 @@ const CounterLayout = () => {
           onReleaseTable={handleReleaseTable}
           onRestoreTable={handleRestoreTable}
           onUpdateQty={handleUpdateQty}
+          onEditAddons={handleOpenAddonModal}
           onAcceptOrder={handleAcceptOrder}
           onSendKot={handleSendKotOrder}
           onReprintKot={handleReprintKotOrder}
@@ -3616,6 +3891,12 @@ const CounterLayout = () => {
           onOpenPayment={() => setIsPaymentOpen(true)}
         />
       </div>
+      <CounterAddonModal
+        isOpen={isAddonModalOpen}
+        onClose={() => setIsAddonModalOpen(false)}
+        item={addonModalItem}
+        onConfirm={handleConfirmAddons}
+      />
       <StatusBar />
 
 

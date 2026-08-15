@@ -114,8 +114,8 @@ export const Receipt: React.FC<ReceiptProps> = ({
               </span>
             </div>
             {item.special_instructions && (
-              <span className="text-[10px] italic text-gray-600 pl-1">
-                Note: {item.special_instructions}
+              <span className="text-[10px] italic font-medium text-gray-700 pl-1">
+                + {item.special_instructions}
               </span>
             )}
           </div>

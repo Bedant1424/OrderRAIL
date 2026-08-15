@@ -26,13 +26,6 @@ export const CHEESECORNER_ADDONS: Addon[] = [
     taxIncluded: true,
   },
   {
-    id: "double-cheese",
-    name: "Double Cheese",
-    price: 40,
-    status: "available",
-    taxIncluded: true,
-  },
-  {
     id: "ice-cream-scoop",
     name: "Ice Cream Scoop",
     price: 30,
@@ -41,52 +34,40 @@ export const CHEESECORNER_ADDONS: Addon[] = [
   },
 ];
 
-const SAVORY_CATEGORIES = [
-  "burger",
-  "fries",
-  "sandwich",
-  "wrap",
-  "momos",
-  "maggi",
-  "garlic-bread",
-  "pizza",
-];
-
-const SWEET_CATEGORIES = [
-  "cold-coffee",
-  "shakes",
-  "beverages",
-  "desserts",
-  "coffee",
-];
-
 /**
  * Returns available add-ons for a given item based on its category ID or item name.
+ * STRICT ELIGIBILITY:
+ * - Burger -> Cheese Slice (+₹20), Cheese Injector (+₹30)
+ * - Shakes -> Ice Cream Scoop (+₹30)
+ * - Everything else -> No add-ons ([])
  */
 export function getEligibleAddons(item: { categoryId?: string | null; name?: string }): Addon[] {
   if (!item) return [];
 
-  const catId = (item.categoryId || "").toLowerCase();
-  const name = (item.name || "").toLowerCase();
+  const catId = (item.categoryId || "").toLowerCase().trim();
+  const name = (item.name || "").toLowerCase().trim();
 
-  // Non-customizable exclusions
-  if (name.includes("water") || name.includes("bottle") || name.includes("combo")) {
-    return [];
+  // Strict check for Burger: categoryId is "burger"/"burgers" OR item name contains "burger"
+  const isBurger = catId === "burger" || catId === "burgers" || name.includes("burger");
+
+  // Strict check for Shakes: categoryId is "shakes"/"shake" OR item name contains "shake"
+  // Must NOT match ice cream, coffee, cold coffee, beverages, etc.
+  const isShake = catId === "shakes" || catId === "shake" || name.includes("shake");
+
+  if (isBurger) {
+    return CHEESECORNER_ADDONS.filter(
+      (a) => (a.id === "cheese-slice" || a.id === "cheese-injector") && a.status === "available"
+    );
   }
 
-  const isSavory = SAVORY_CATEGORIES.some((c) => catId.includes(c) || name.includes(c));
-  const isSweet = SWEET_CATEGORIES.some((c) => catId.includes(c) || name.includes(c));
-
-  if (isSavory) {
-    return CHEESECORNER_ADDONS.filter((a) => a.id !== "ice-cream-scoop" && a.status === "available");
+  if (isShake) {
+    return CHEESECORNER_ADDONS.filter(
+      (a) => a.id === "ice-cream-scoop" && a.status === "available"
+    );
   }
 
-  if (isSweet) {
-    return CHEESECORNER_ADDONS.filter((a) => a.id === "ice-cream-scoop" && a.status === "available");
-  }
-
-  // Default fallback for ambiguous items: return savory cheese add-ons if it contains savory keywords
-  return CHEESECORNER_ADDONS.filter((a) => a.status === "available");
+  // Everything else receives no add-ons (no fallbacks!)
+  return [];
 }
 
 /**

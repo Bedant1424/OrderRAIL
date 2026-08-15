@@ -8,6 +8,7 @@ export interface InvoiceRecordItem {
   name: string;
   qty: number;
   priceCents: number;
+  note?: string;
 }
 
 export interface InvoiceRecord {
@@ -78,6 +79,7 @@ export function buildInvoiceRecords(
       name: item.name,
       qty: item.qty,
       priceCents: item.price_cents,
+      note: item.note || undefined,
     }));
 
     // Generate readable invoice serial number

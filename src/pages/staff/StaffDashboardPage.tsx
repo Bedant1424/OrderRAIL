@@ -827,10 +827,10 @@ export default function StaffDashboardPage() {
             timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
             items: o.order_items.map((i) => ({
               id: i.id,
-              name: i.menu_item?.name || "Item",
-              qty: i.quantity || 1,
-              price: i.unit_price || 0,
-              notes: i.notes,
+              name: i.name || i.menu_item?.name || "Item",
+              qty: i.qty || i.quantity || 1,
+              price: i.price_cents ? i.price_cents / 100 : i.unit_price || 0,
+              notes: i.note || undefined,
             })),
           }).catch((err) => {
             console.warn("[StaffDashboard] Auto-print KOT warning:", err);
