@@ -121,12 +121,12 @@ export function CartProvider({ tableId, children }: { tableId: string; children:
         ];
       }),
     remove: (targetKey) =>
-      setLines((prev) => prev.filter((l) => (l.lineId || l.item.id) !== targetKey && l.item.id !== targetKey)),
+      setLines((prev) => prev.filter((l) => (l.lineId || l.item.id) !== targetKey)),
     setQty: (targetKey, qty) =>
       setLines((prev) =>
         qty <= 0
-          ? prev.filter((l) => (l.lineId || l.item.id) !== targetKey && l.item.id !== targetKey)
-          : prev.map((l) => ((l.lineId || l.item.id) === targetKey || l.item.id === targetKey ? { ...l, qty } : l))
+          ? prev.filter((l) => (l.lineId || l.item.id) !== targetKey)
+          : prev.map((l) => ((l.lineId || l.item.id) === targetKey ? { ...l, qty } : l))
       ),
     clear: () => {
       setLines([]);

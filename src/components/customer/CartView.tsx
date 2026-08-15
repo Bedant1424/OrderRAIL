@@ -525,7 +525,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         {lines.map((l) => (
           <motion.li
             layout
-            key={l.item.id}
+            key={l.lineId || l.item.id}
             className="flex items-center gap-3.5 rounded-2xl bg-cc-surface p-3 border border-cc-border shadow-xs"
           >
             <MenuImage src={l.item.image_url} alt={l.item.name} size="sm" />
