@@ -201,6 +201,11 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
               <MenuImage src={i.menu_items?.image_url} alt={i.name} size="xs" />
               <div className="min-w-0 flex-1">
                 <p className="break-anywhere font-display text-xs font-bold text-cc-text">{i.name}</p>
+                {i.note && (
+                  <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
+                    + {i.note}
+                  </p>
+                )}
                 <p className="text-[11px] text-cc-text-muted font-semibold">Qty: {i.qty}</p>
               </div>
               <span className="shrink-0 font-sans tabular-nums text-xs font-extrabold text-cc-text">

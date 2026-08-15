@@ -15,13 +15,6 @@
       "taxIncluded": true
     },
     {
-      "id": "double-cheese",
-      "name": "Double Cheese",
-      "price": 40,
-      "status": "available",
-      "taxIncluded": true
-    },
-    {
       "id": "ice-cream-scoop",
       "name": "Ice Cream Scoop",
       "price": 30,

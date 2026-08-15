@@ -168,7 +168,14 @@ ${receiptSettings.thankYouMessage || "Thank you for visiting!"}
               </div>
               {invoice.items.map((item) => (
                 <div key={item.id} className="grid grid-cols-12 items-baseline text-black py-0.5">
-                  <span className="col-span-6 font-semibold truncate pr-1">{item.name}</span>
+                  <div className="col-span-6 pr-1">
+                    <span className="font-semibold truncate block">{item.name}</span>
+                    {item.note && (
+                      <span className="text-[9px] font-semibold text-gray-700 italic block pl-1">
+                        + {item.note}
+                      </span>
+                    )}
+                  </div>
                   <span className="col-span-2 text-center">{item.qty}</span>
                   <span className="col-span-4 text-right font-bold">
                     {formatMoney(item.priceCents * item.qty, currency)}

@@ -178,8 +178,15 @@ export default function SharedOrderKanban({
                           {/* Items List */}
                           <div className="space-y-1 text-xs text-foreground/80 font-medium border-t border-border/40 pt-2.5">
                             {(order.order_items ?? []).map((it) => (
-                              <div key={it.id} className="flex justify-between items-center">
-                                <span>{it.qty} × {it.name}</span>
+                              <div key={it.id} className="flex flex-col">
+                                <div className="flex justify-between items-center">
+                                  <span>{it.qty} × {it.name}</span>
+                                </div>
+                                {it.note && (
+                                  <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 pl-3">
+                                    + {it.note}
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>

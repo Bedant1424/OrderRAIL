@@ -86,7 +86,11 @@ export default function OrderDetailsModal({ order, onClose }: OrderDetailsModalP
                 <div key={it.id} className="py-2 flex items-center justify-between text-xs">
                   <div>
                     <span className="font-semibold text-foreground">{it.qty}x</span> {it.name}
-                    {it.notes && <p className="text-[11px] text-muted-foreground italic">Note: {it.notes}</p>}
+                    {it.note && (
+                      <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
+                        + {it.note}
+                      </p>
+                    )}
                   </div>
                   <span className="font-semibold tabular-nums text-foreground">
                     {formatMoney(it.qty * it.price_cents, currency)}

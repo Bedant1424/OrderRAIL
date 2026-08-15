@@ -321,7 +321,14 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         <div className="space-y-1 text-sm text-cc-text">
           {o.order_items?.map((it) => (
             <div key={it.id} className="flex justify-between gap-2">
-              <span className="break-anywhere flex-1 font-medium">{it.qty}× {it.name}</span>
+              <div className="min-w-0 flex-1">
+                <span className="break-anywhere font-medium">{it.qty}× {it.name}</span>
+                {it.note && (
+                  <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mt-0.5">
+                    + {it.note}
+                  </p>
+                )}
+              </div>
               <span className="shrink-0 font-sans text-xs text-cc-text-muted tabular-nums font-semibold">{formatMoney(it.price_cents * it.qty, cafe.currency)}</span>
             </div>
           ))}
