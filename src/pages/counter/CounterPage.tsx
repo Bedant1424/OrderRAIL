@@ -636,7 +636,7 @@ const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogItem; onA
           {item.modifier && <span className="v8-menu-row-modifier">({item.modifier})</span>}
         </span>
       </div>
-      
+
       <div className="flex items-center gap-2 shrink-0">
         {isSoldOut ? (
           <span className="text-[10px] font-bold text-destructive uppercase tracking-wider px-1.5 py-0.5 rounded bg-destructive/10">
@@ -661,7 +661,7 @@ const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogItem; onA
           </button>
         )}
 
-        <button 
+        <button
           type="button"
           disabled={isSoldOut}
           onClick={(e) => {
