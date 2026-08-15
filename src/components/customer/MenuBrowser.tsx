@@ -180,21 +180,21 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
 
   return (
     <div style={{ paddingBottom: bottomPadding }}>
-      {/* Customer Hero Banner */}
-      <div className="px-4 pt-3 pb-1">
-        <div className="relative w-full overflow-hidden rounded-2xl border border-cc-border bg-cc-surface shadow-xs aspect-[2.4/1]">
-          <img
-            src={heroImg}
-            alt="Cheese Corner - Craving Something Cheesy?"
-            className="h-full w-full object-cover object-[center_35%]"
-            loading="eager"
-            fetchPriority="high"
-          />
-        </div>
+      {/* Customer Full-Width Visual Hero */}
+      <div className="relative w-full overflow-hidden rounded-b-3xl bg-[#1a1210] h-[290px] sm:h-[315px] md:h-[335px] shadow-sm">
+        <img
+          src={heroImg}
+          alt="Cheese Corner - Craving Something Cheesy?"
+          className="h-full w-full object-cover object-[center_19%]"
+          loading="eager"
+          fetchPriority="high"
+        />
+        {/* Subtle bottom gradient overlay for smooth visual transition to search */}
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
       </div>
 
-      {/* Search Input */}
-      <div className="px-4 pt-2">
+      {/* Overlapping Search Input (Inset within content width) */}
+      <div className="relative z-10 -mt-7 px-4">
         <label className="relative block">
           <span className="sr-only">Search menu</span>
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cc-text-muted" strokeWidth={2.2} />
@@ -202,7 +202,7 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search delicious dishes..."
-            className="w-full rounded-2xl border border-cc-border bg-cc-surface pl-10 pr-10 py-3 text-sm text-cc-text placeholder:text-cc-text-muted outline-none shadow-xs transition-all focus:border-cc-border focus:ring-2 focus:ring-cc-accent/20 font-sans"
+            className="w-full rounded-2xl border border-cc-border bg-cc-surface/95 backdrop-blur-md pl-10 pr-10 py-3.5 text-sm text-cc-text placeholder:text-cc-text-muted outline-none shadow-md transition-all focus:border-cc-primary focus:ring-2 focus:ring-cc-primary/20 font-sans"
           />
         </label>
       </div>
