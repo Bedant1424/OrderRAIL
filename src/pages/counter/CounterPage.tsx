@@ -50,6 +50,7 @@ import { SortingPolicy, RestaurantOperationsService, REALTIME_EVENTS } from '@/l
 import { CompactDiscountControl, type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { Receipt } from '@/components/billing/Receipt';
 import { getPaymentSettings } from '@/lib/billing/paymentSettings';
+import { getTaxSettings } from '@/lib/billing/taxSettings';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 import './counter.css';
@@ -1443,10 +1444,12 @@ const PaymentDialogModal = ({
                   <span>Subtotal</span>
                   <span className="font-mono font-medium">{formatCurrency(subtotal)}</span>
                 </div>
-                <div className="flex justify-between items-center text-muted-foreground">
-                  <span>GST</span>
-                  <span className="font-mono font-medium">{formatCurrency(tax)}</span>
-                </div>
+                {tax > 0 && (
+                  <div className="flex justify-between items-center text-muted-foreground">
+                    <span>GST</span>
+                    <span className="font-mono font-medium">{formatCurrency(tax)}</span>
+                  </div>
+                )}
                 {discountAmt > 0 && (
                   <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
                     <span>Discount ({discountPct}%)</span>
@@ -1481,10 +1484,12 @@ const PaymentDialogModal = ({
                     <span>Subtotal</span>
                     <span className="font-mono font-medium">{formatCurrency(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-muted-foreground">
-                    <span>GST</span>
-                    <span className="font-mono font-medium">{formatCurrency(tax)}</span>
-                  </div>
+                  {tax > 0 && (
+                    <div className="flex justify-between items-center text-muted-foreground">
+                      <span>GST</span>
+                      <span className="font-mono font-medium">{formatCurrency(tax)}</span>
+                    </div>
+                  )}
                   {discountAmt > 0 && (
                     <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
                       <span>Discount ({discountPct}%)</span>
@@ -1975,7 +1980,8 @@ const SummaryPanel = ({
   onClear,
   onKot,
   onPrintBill,
-  onOpenPayment
+  onOpenPayment,
+  cafeId
 }: {
   session: TableSessionData | null;
   draftCart: CartLineItem[];
@@ -1986,14 +1992,17 @@ const SummaryPanel = ({
   onKot: () => void;
   onPrintBill: () => void;
   onOpenPayment: () => void;
+  cafeId?: string;
 }) => {
+  const taxSettings = getTaxSettings(cafeId);
   const summary = useMemo(() => {
     return BillSummaryCalculator.buildBillSummary({
       orders: session?.orders,
       draftCart,
       discount: customDiscount,
+      taxSettings,
     });
-  }, [session?.orders, draftCart, customDiscount]);
+  }, [session?.orders, draftCart, customDiscount, taxSettings.gstEnabled, taxSettings.gstPercentage]);
 
   const hasAnyItems = summary.totalItems > 0;
 
@@ -2025,10 +2034,12 @@ const SummaryPanel = ({
             </div>
           )}
 
-          <div className="v8-receipt-row transition-all duration-200">
-            <span>Tax (GST 8%)</span>
-            <span className="v8-font-mono">{formatCurrency(summary.tax)}</span>
-          </div>
+          {taxSettings.gstEnabled && summary.tax > 0 && (
+            <div className="v8-receipt-row transition-all duration-200">
+              <span>Tax (GST {taxSettings.gstPercentage}%)</span>
+              <span className="v8-font-mono">{formatCurrency(summary.tax)}</span>
+            </div>
+          )}
 
           {summary.discountAmount > 0 && (
             <div className="v8-receipt-row text-success font-semibold transition-all duration-200">
@@ -3668,10 +3679,12 @@ const CounterLayout = () => {
     customerDetails?: { customerName?: string; customerPhone?: string }
   ) => {
     const cur = activeSessionData;
+    const currentTaxSettings = getTaxSettings(cafe?.id);
     const summary = BillSummaryCalculator.buildBillSummary({
       orders: cur.orders,
       draftCart: cur.draftCart,
       discount: customDiscount,
+      taxSettings: currentTaxSettings,
     });
 
     const primaryOrderId = cur.orders[0]?.id || `ord-${Date.now()}`;
@@ -3804,18 +3817,7 @@ const CounterLayout = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-        if (e.key === 'Escape') target.blur();
-        return;
-      }
-
-      if (e.key === 'F2') {
-        e.preventDefault();
-        searchRef.current?.focus();
-      } else if (e.key === 'F5') {
-        e.preventDefault();
-        void handleKot();
-      } else if (e.key === 'F8') {
+      if (e.key === 'F8') {
         e.preventDefault();
         handlePrintBill();
       } else if (e.key === 'F10') {
@@ -3830,13 +3832,15 @@ const CounterLayout = () => {
   }, [handleKot, handlePrintBill, isPaymentOpen]);
 
   // Derived shared bill summary for active dining session
+  const currentTaxSettings = getTaxSettings(cafe?.id);
   const activeBillSummary = useMemo(() => {
     return BillSummaryCalculator.buildBillSummary({
       orders: activeSessionData.orders,
       draftCart: activeSessionData.draftCart,
       discount: customDiscount,
+      taxSettings: currentTaxSettings,
     });
-  }, [activeSessionData.orders, activeSessionData.draftCart, customDiscount]);
+  }, [activeSessionData.orders, activeSessionData.draftCart, customDiscount, currentTaxSettings.gstEnabled, currentTaxSettings.gstPercentage]);
 
   return (
     <div className="v8-counter-root">
@@ -3895,6 +3899,7 @@ const CounterLayout = () => {
           onKot={() => void handleKot()}
           onPrintBill={handlePrintBill}
           onOpenPayment={() => setIsPaymentOpen(true)}
+          cafeId={cafe?.id}
         />
       </div>
       {addonModalItem && (

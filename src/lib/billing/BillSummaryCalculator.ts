@@ -20,7 +20,9 @@ export interface BuildBillSummaryParams {
   orders?: Array<{ items?: RawInputItem[]; subtotal?: number }>;
   draftCart?: RawInputItem[];
   discount?: CustomDiscount;
-  taxRatePct?: number; // Defaults to 8% GST
+  taxRatePct?: number; // Direct tax rate percentage (e.g. 5, 8)
+  taxEnabled?: boolean; // Explicit toggle for tax
+  taxSettings?: { gstEnabled?: boolean; gstPercentage?: number }; // TaxSettings configuration object
 }
 
 export class BillSummaryCalculator {
@@ -31,7 +33,17 @@ export class BillSummaryCalculator {
     const orders = params.orders || [];
     const draftCart = params.draftCart || [];
     const discount = params.discount || { type: 'PERCENTAGE', value: 0 };
-    const taxRate = params.taxRatePct ?? 8;
+
+    let taxRate = 0;
+    if (params.taxSettings) {
+      taxRate = params.taxSettings.gstEnabled !== false ? (params.taxSettings.gstPercentage ?? 0) : 0;
+    } else if (params.taxEnabled === false) {
+      taxRate = 0;
+    } else if (typeof params.taxRatePct === 'number') {
+      taxRate = params.taxRatePct;
+    } else {
+      taxRate = 8;
+    }
 
     // Calculate Submitted Orders Subtotal & Items Count
     let submittedSubtotal = 0;
