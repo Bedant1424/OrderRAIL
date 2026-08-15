@@ -51,6 +51,7 @@ export type Database = {
           updated_at: string
           phone: string | null
           whatsapp: string | null
+          email: string | null
           address: string | null
           google_maps_review_url: string | null
           website: string | null
@@ -70,6 +71,7 @@ export type Database = {
           updated_at?: string
           phone?: string | null
           whatsapp?: string | null
+          email?: string | null
           address?: string | null
           google_maps_review_url?: string | null
           website?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           updated_at?: string
           phone?: string | null
           whatsapp?: string | null
+          email?: string | null
           address?: string | null
           google_maps_review_url?: string | null
           website?: string | null
