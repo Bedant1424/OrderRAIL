@@ -27,6 +27,7 @@ import { sortCounterOrders } from '@/lib/orders/sortCounterOrders';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getEligibleAddons, calculateCombinedUnitPrice, formatAddonNotes, getLineIdentityKey } from '@/lib/addons';
 import { DemoDevToolsPanel } from '@/components/offline/DemoDevToolsPanel';
+import { OperationsStatusIndicator } from '@/components/offline/OperationsStatusIndicator';
 import { NetworkManager } from '@/lib/offline';
 import { formatSessionElapsed } from '@/lib/tables/liveSessionTimer';
 import {
