@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
 import { BOTTOM_NAV_HEIGHT, FLOATING_CART_GAP, FLOATING_CART_HEIGHT } from "@/lib/constants";
 import { toast } from "@/components/ui/sonner";
+import heroImg from "../../../branding/cheesecorner/assets/cheesecorner-hero/Cheesecorner-hero.png";
 
 export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: string }) {
   const { count, lines, setQty } = useCart();
@@ -179,10 +180,17 @@ export function MenuBrowser({ cafeId, currency }: { cafeId: string; currency: st
 
   return (
     <div style={{ paddingBottom: bottomPadding }}>
-      {/* Menu Header Banner */}
+      {/* Customer Hero Banner */}
       <div className="px-4 pt-3 pb-1">
-        <h1 className="font-display text-2xl font-black text-cc-text tracking-tight">Our Menu</h1>
-        <p className="text-xs text-cc-text-muted font-medium">Freshly prepared & served to your table</p>
+        <div className="relative w-full overflow-hidden rounded-2xl border border-cc-border bg-cc-surface shadow-xs aspect-[2.4/1]">
+          <img
+            src={heroImg}
+            alt="Cheese Corner - Craving Something Cheesy?"
+            className="h-full w-full object-cover object-[center_35%]"
+            loading="eager"
+            fetchPriority="high"
+          />
+        </div>
       </div>
 
       {/* Search Input */}
