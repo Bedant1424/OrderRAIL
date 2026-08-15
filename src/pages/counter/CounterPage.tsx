@@ -893,7 +893,8 @@ const OrderCard = memo(({
 OrderCard.displayName = 'OrderCard';
 
 const OrderItemRow = memo(({ item, onUpdateQty, onEditAddons }: { item: CartLineItem; onUpdateQty: (id: string, delta: number) => void; onEditAddons?: (item: CartLineItem) => void }) => {
-  const menuItemId = item.menuItemId || (item.id.includes(":") ? item.id.split(":")[0] : item.id);
+  const rawId = typeof item.id === "string" ? item.id : String(item.id || "");
+  const menuItemId = item.menuItemId || (rawId.includes(":") ? rawId.split(":")[0] : rawId);
   const eligibleAddons = getEligibleAddons({ categoryId: menuItemId, name: item.name });
   const hasAddons = eligibleAddons.length > 0;
 
@@ -3248,7 +3249,8 @@ const CounterLayout = () => {
         draftCart: []
       };
 
-      const menuItemId = itemObj.menuItemId || (itemObj.id && !itemObj.id.includes(":") && !itemObj.id.startsWith("c-") ? itemObj.id : itemObj.id.split(":")[0]);
+      const rawId = typeof itemObj.id === "string" ? itemObj.id : String(itemObj.id || "");
+      const menuItemId = itemObj.menuItemId || (rawId && !rawId.includes(":") && !rawId.startsWith("c-") ? rawId : rawId.split(":")[0]);
       const basePrice = itemObj.basePrice ?? (itemObj.selectedAddonIds && itemObj.selectedAddonIds.length > 0 ? (itemObj.price - calculateCombinedUnitPrice(0, itemObj.selectedAddonIds)) : itemObj.price);
       const sortedAddons = [...selectedAddonIds].sort();
       const newLineId = getLineIdentityKey(menuItemId, sortedAddons);
@@ -3484,13 +3486,16 @@ const CounterLayout = () => {
         order_source: orderSourceMode,
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
-        items: cur.draftCart.map((i) => ({
-          menu_item_id: i.menuItemId || (i.id.includes(":") ? i.id.split(":")[0] : i.id.startsWith("c-") ? undefined : i.id),
-          name: i.name,
-          price_cents: Math.round(i.price * 100),
-          qty: i.qty,
-          note: i.notes || null,
-        })),
+        items: cur.draftCart.map((i) => {
+          const rawId = typeof i.id === "string" ? i.id : String(i.id || "");
+          return {
+            menu_item_id: i.menuItemId || (rawId.includes(":") ? rawId.split(":")[0] : rawId.startsWith("c-") ? undefined : rawId || undefined),
+            name: i.name,
+            price_cents: Math.round(i.price * 100),
+            qty: i.qty,
+            note: i.notes || null,
+          };
+        }),
       });
       createdOrderId = res.orderId;
       isQueuedOffline = res.queued;
