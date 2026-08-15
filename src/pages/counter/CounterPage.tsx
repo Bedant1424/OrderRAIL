@@ -516,12 +516,6 @@ const CounterAddonModal: React.FC<CounterAddonModalProps> = ({
   item,
   onConfirm,
 }) => {
-  if (!item) return null;
-
-  const categoryId = item.categoryId || item.category;
-  const eligibleAddons = getEligibleAddons({ categoryId, name: item.name });
-  const basePriceRupees = item.basePrice ?? (item.selectedAddonIds && item.selectedAddonIds.length > 0 ? (item.price - calculateCombinedUnitPrice(0, item.selectedAddonIds)) : item.price);
-
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -529,6 +523,12 @@ const CounterAddonModal: React.FC<CounterAddonModalProps> = ({
       setSelectedAddonIds(item.selectedAddonIds || []);
     }
   }, [isOpen, item]);
+
+  if (!item) return null;
+
+  const categoryId = item.categoryId || item.category;
+  const eligibleAddons = getEligibleAddons({ categoryId, name: item.name });
+  const basePriceRupees = item.basePrice ?? (item.selectedAddonIds && item.selectedAddonIds.length > 0 ? (item.price - calculateCombinedUnitPrice(0, item.selectedAddonIds)) : item.price);
 
   const handleToggleAddon = (addonId: string) => {
     setSelectedAddonIds((prev) =>
@@ -3891,12 +3891,14 @@ const CounterLayout = () => {
           onOpenPayment={() => setIsPaymentOpen(true)}
         />
       </div>
-      <CounterAddonModal
-        isOpen={isAddonModalOpen}
-        onClose={() => setIsAddonModalOpen(false)}
-        item={addonModalItem}
-        onConfirm={handleConfirmAddons}
-      />
+      {addonModalItem && (
+        <CounterAddonModal
+          isOpen={isAddonModalOpen}
+          onClose={() => setIsAddonModalOpen(false)}
+          item={addonModalItem}
+          onConfirm={handleConfirmAddons}
+        />
+      )}
       <StatusBar />
 
 
