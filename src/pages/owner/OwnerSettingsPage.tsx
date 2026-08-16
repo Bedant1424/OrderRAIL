@@ -356,6 +356,7 @@ export default function OwnerSettingsPage() {
         logo_url: logoUrl.trim() || null,
         phone: phone.trim() || null,
         whatsapp: whatsapp.trim() || null,
+        email: email.trim() || null,
         address: address.trim() || null,
         google_maps_review_url: googleMapsReviewUrl.trim() || null,
         website: website.trim() || null,
