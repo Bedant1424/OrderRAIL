@@ -18,6 +18,7 @@ import {
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
 import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders, OrderService, BillingService, PaymentService, type PaymentMethod, type OrderSource } from '@/lib/orders/repository';
+import { orderIdMapping } from '@/lib/orders/orderService';
 import { getOperationsSettings } from '@/lib/billing/operationsSettings';
 import { computeDailyOrderNumbers } from '@/lib/orders/orderUtils';
 import { fetchActiveServiceRequests } from '@/lib/serviceRequests/repository';
@@ -2666,6 +2667,8 @@ const CounterLayout = () => {
   const knownServedOrderIdsRef = useRef<Set<string>>(new Set());
   const knownServiceRequestIdsRef = useRef<Set<string>>(new Set());
   const notifSettingsRef = useRef<CounterNotificationSettings>(notifSettings);
+  const inFlightAcceptsRef = useRef<Set<string>>(new Set());
+  const printedKotOrderIdsRef = useRef<Set<string>>(new Set());
 
   const handleOpenNotifications = useCallback(() => {
     setDrawerTab('notifications');
@@ -3406,32 +3409,65 @@ const CounterLayout = () => {
 
   // Accept QR / New Order (Transitions status from Pending -> Preparing)
   const handleAcceptOrder = useCallback(async (orderId: string, orderNumber: number, orderObj?: SessionOrder) => {
+    const realId = orderIdMapping.get(orderId) || orderId;
+
+    if (inFlightAcceptsRef.current.has(realId)) {
+      console.warn("[handleAcceptOrder] Accept order request already in flight for order:", realId);
+      return;
+    }
+
+    inFlightAcceptsRef.current.add(realId);
+
     try {
+      // Milestone 2: Attempt DB status mutation first
       await OrderService.updateOrderStatus(orderId, "preparing", "staff");
+
+      // Milestone 2: Update local state immediately so UI changes status away from PENDING
+      setTableSessions((prev) => {
+        const updated = { ...prev };
+        for (const [tableId, sessData] of Object.entries(updated)) {
+          const hasMatchingOrder = sessData.orders.some((o) => o.id === orderId || o.id === realId);
+          if (hasMatchingOrder) {
+            updated[tableId] = {
+              ...sessData,
+              orders: sessData.orders.map((o) =>
+                o.id === orderId || o.id === realId ? { ...o, status: "PREPARING" } : o
+              ),
+            };
+          }
+        }
+        return updated;
+      });
+
       toast.success(`✅ Order #${orderNumber} Accepted!`);
 
+      // Milestone 3: KOT Idempotency — Print KOT only once per order ID
       const opsSettings = getOperationsSettings();
-      if (opsSettings.autoPrintKot && orderObj && orderObj.items?.length) {
+      if (opsSettings.autoPrintKot && orderObj && orderObj.items?.length && !printedKotOrderIdsRef.current.has(realId)) {
+        printedKotOrderIdsRef.current.add(realId);
         const cleanLabel = (selectedTable?.label || 'Express').toLowerCase().startsWith('table')
           ? (selectedTable?.label || 'Express')
           : `Table ${selectedTable?.label || 'Express'}`;
 
-        void OrderService.printKot({
-          orderId: orderId,
-          orderNumber: orderNumber,
-          kotNumber: orderNumber,
-          tableLabel: cleanLabel,
-          timestamp: orderObj.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-          items: orderObj.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
-        }).catch((err) => {
+        try {
+          await OrderService.printKot({
+            orderId: realId,
+            orderNumber: orderNumber,
+            kotNumber: orderNumber,
+            tableLabel: cleanLabel,
+            timestamp: orderObj.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            items: orderObj.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
+          });
+        } catch (err) {
           console.warn("[handleAcceptOrder] Auto-print KOT warning:", err);
-        });
+        }
       }
 
       await loadSessionsFromDb();
-    } catch (e) {
-      console.warn("[handleAcceptOrder] Error:", e);
-      toast.error("Failed to accept order");
+    } catch (e: any) {
+      console.warn("[handleAcceptOrder] Failed to accept order:", e);
+      inFlightAcceptsRef.current.delete(realId);
+      toast.error(e?.message || "Failed to accept order");
     }
   }, [loadSessionsFromDb, selectedTable]);
 

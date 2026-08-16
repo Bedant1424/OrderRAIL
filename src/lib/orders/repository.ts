@@ -60,14 +60,16 @@ export async function updateOrderStatusInDb(
   if (updatedBy !== "customer" && actorRole) {
     assertCapability(actorRole, "UPDATE_ORDER_STATUS", "Update Order Status");
   }
-  const { error } = await supabase
+
+  const { data, error } = await supabase
     .from("orders")
     .update({
       status: nextStatus,
       last_updated_by: updatedBy,
       updated_at: new Date().toISOString()
     })
-    .eq("id", orderId);
+    .eq("id", orderId)
+    .select("id");
 
   if (error) {
     const isPermissionOrDemoError =
@@ -76,11 +78,17 @@ export async function updateOrderStatusInDb(
       error.message?.toLowerCase().includes("row-level security") ||
       error.message?.toLowerCase().includes("demo");
 
-    if (isPermissionOrDemoError) {
-      console.warn("[updateOrderStatusInDb] Order status update restricted (RLS/Demo):", error.message);
+    if (isPermissionOrDemoError && actorRole?.isDemo) {
+      console.warn("[updateOrderStatusInDb] Order status update restricted in Demo Mode:", error.message);
       return;
     }
     throw error;
+  }
+
+  if (!data || data.length === 0) {
+    const err = new Error(`Failed to update order status: Order '${orderId}' was not found or updated in the database.`);
+    (err as any).status = 404;
+    throw err;
   }
 }
 
