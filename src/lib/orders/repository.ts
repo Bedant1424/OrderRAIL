@@ -98,48 +98,74 @@ export async function editOrderInDb(params: {
   notes?: string | null;
   updatedBy?: "customer" | "staff" | "owner";
   guestSessionId?: string | null;
+  sessionId?: string | null;
+  expectedVersion?: number | null;
 }): Promise<void> {
-  const { orderId, items, notes, updatedBy = "staff", guestSessionId } = params;
+  const { orderId, items, notes, updatedBy = "staff", guestSessionId, sessionId, expectedVersion } = params;
 
   if (updatedBy === "customer") {
-    let currentOrder: any = null;
-    try {
-      const { data } = await supabase
-        .from("orders")
-        .select("guest_session_id, dining_session_id, session_id")
-        .eq("id", orderId)
-        .maybeSingle();
-      currentOrder = data;
-    } catch (e) {}
+    const { data: currentOrder, error: fetchErr } = await supabase
+      .from("orders")
+      .select("session_id, guest_session_id, dining_session_id, version, status")
+      .eq("id", orderId)
+      .maybeSingle();
 
-    if (!currentOrder || !currentOrder.dining_session_id) {
-      const mem = inMemoryOrders.get(orderId);
-      if (mem) {
-        currentOrder = {
-          guest_session_id: mem.guest_session_id,
-          dining_session_id: mem.dining_session_id,
-          session_id: mem.session_id,
-        };
-      }
+    if (fetchErr) throw fetchErr;
+
+    if (!currentOrder) {
+      const err = new Error("404 Not Found: Order does not exist.");
+      (err as any).status = 404;
+      throw err;
     }
 
-    if (currentOrder) {
-      const ownerId = currentOrder.guest_session_id || currentOrder.session_id;
-      if (ownerId && guestSessionId && ownerId !== guestSessionId) {
-        const err = new Error("403 Forbidden: Guests may only edit their own orders");
+    if (currentOrder.status !== "pending") {
+      const err = new Error("This order can no longer be updated — preparation has already started.");
+      (err as any).status = 400;
+      throw err;
+    }
+
+    const targetSessionId = currentOrder.session_id || sessionId || getSessionId();
+    const targetVersion = expectedVersion ?? currentOrder.version ?? 1;
+
+    const ownerId = currentOrder.guest_session_id || currentOrder.session_id;
+    if (ownerId && guestSessionId && ownerId !== guestSessionId && currentOrder.session_id !== targetSessionId) {
+      const err = new Error("403 Forbidden: Guests may only edit their own orders");
+      (err as any).status = 403;
+      throw err;
+    }
+
+    if (guestSessionId && currentOrder.dining_session_id) {
+      const val = await validateGuestSession(guestSessionId, currentOrder.dining_session_id);
+      if (!val.valid) {
+        const err = new Error(`403 Forbidden: ${val.reason || "Invalid Guest Session"}`);
         (err as any).status = 403;
         throw err;
       }
-      if (guestSessionId && currentOrder.dining_session_id) {
-        const val = await validateGuestSession(guestSessionId, currentOrder.dining_session_id);
-        if (!val.valid) {
-          const err = new Error(`403 Forbidden: ${val.reason || "Invalid Guest Session"}`);
-          (err as any).status = 403;
-          throw err;
-        }
-        void touchGuestSession(guestSessionId);
-      }
+      void touchGuestSession(guestSessionId);
     }
+
+    const totalCents = items.reduce((sum, it) => sum + it.price_cents * it.qty, 0);
+    const rpcItems = items.map((it) => ({
+      menu_item_id: it.menu_item_id ?? null,
+      name: it.name,
+      price_cents: it.price_cents,
+      qty: it.qty,
+    }));
+
+    const { error: rpcErr } = await supabase.rpc("update_order", {
+      p_order_id: orderId,
+      p_session_id: targetSessionId,
+      p_expected_version: targetVersion,
+      p_note: notes ?? "",
+      p_total_cents: totalCents,
+      p_items: rpcItems as any,
+    });
+
+    if (rpcErr) {
+      throw rpcErr;
+    }
+
+    return;
   }
 
   // 1. Fetch current order items

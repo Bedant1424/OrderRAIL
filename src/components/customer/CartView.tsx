@@ -188,6 +188,8 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         notes: note.trim() || null,
         updatedBy: "customer",
         guestSessionId: currentGuestSessionId,
+        sessionId: getSessionId(),
+        expectedVersion: editingOrderVersion,
       });
 
       toast.success("Order updated successfully! ☕");
