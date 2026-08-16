@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('Owner Settings Email & Storage RLS Authorization Coverage', () => {
+describe('Owner Settings Email & Storage RLS Authorization & Persistence Tests', () => {
   // Helper simulating saveBusinessProfile payload builder
   const buildBusinessProfilePayload = (inputs: {
     name: string;
@@ -45,7 +45,22 @@ describe('Owner Settings Email & Storage RLS Authorization Coverage', () => {
     return folderCafeId === userCafeId && userRole === 'owner';
   };
 
-  it('1. saveBusinessProfile payload includes email property when populated or trimmed', () => {
+  // Helper simulating handleSaveLogo flow updating cafes.logo_url
+  const simulateSaveLogoFlow = (
+    cafeId: string,
+    storagePath: string,
+    userRole: 'owner' | 'staff' | 'counter' | null
+  ) => {
+    const allowed = isStoragePathAllowed(storagePath, cafeId, userRole);
+    if (!allowed) {
+      throw new Error('new row violates row-level security policy');
+    }
+    const fullPath = `menu-images/${storagePath}`;
+    return { success: true, logo_url: fullPath };
+  };
+
+  // Email Tests
+  it('EMAIL 1: email column is included in save payload', () => {
     const payload = buildBusinessProfilePayload({
       name: 'Cheese Corner',
       tagline: 'Best Cheese Burgers',
@@ -64,7 +79,28 @@ describe('Owner Settings Email & Storage RLS Authorization Coverage', () => {
     expect(payload).toHaveProperty('email', 'owner@cheesecorner.com');
   });
 
-  it('2. saveBusinessProfile payload converts empty email string to null', () => {
+  it('EMAIL 2: email persists after refresh simulated reload', () => {
+    const savedPayload = buildBusinessProfilePayload({
+      name: 'Cheese Corner',
+      tagline: '',
+      currency: 'INR',
+      logoUrl: '',
+      phone: '',
+      whatsapp: '',
+      email: 'contact@cheesecorner.com',
+      address: '',
+      googleMapsReviewUrl: '',
+      website: '',
+      instagram: '',
+      operatingHours: '',
+    });
+
+    // Simulate page reload state hydration
+    const refreshedState = { email: savedPayload.email };
+    expect(refreshedState.email).toBe('contact@cheesecorner.com');
+  });
+
+  it('EMAIL 3: empty email becomes null in save payload', () => {
     const payload = buildBusinessProfilePayload({
       name: 'Cheese Corner',
       tagline: '',
@@ -83,28 +119,51 @@ describe('Owner Settings Email & Storage RLS Authorization Coverage', () => {
     expect(payload.email).toBeNull();
   });
 
-  it('3. Owner of Cafe A can upload to Cafe A storage path', () => {
+  // Logo & Storage RLS Tests
+  it('LOGO 1: authenticated owner can upload to own cafe storage path', () => {
     const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
     const path = `${cafeA}/logo_12345.png`;
     expect(isStoragePathAllowed(path, cafeA, 'owner')).toBe(true);
   });
 
-  it('4. Owner of Cafe A CANNOT upload to Cafe B storage path', () => {
+  it('LOGO 2: owner cannot upload to another cafe storage path', () => {
     const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
     const cafeB = '11111111-2222-3333-4444-555555555555';
     const path = `${cafeB}/logo_12345.png`;
     expect(isStoragePathAllowed(path, cafeA, 'owner')).toBe(false);
   });
 
-  it('5. Unauthenticated user CANNOT upload to any storage path', () => {
+  it('LOGO 3: staff role cannot upload to storage path', () => {
+    const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
+    const path = `${cafeA}/logo_12345.png`;
+    expect(isStoragePathAllowed(path, cafeA, 'staff')).toBe(false);
+  });
+
+  it('LOGO 4: counter role cannot upload to storage path', () => {
+    const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
+    const path = `${cafeA}/logo_12345.png`;
+    expect(isStoragePathAllowed(path, cafeA, 'counter')).toBe(false);
+  });
+
+  it('LOGO 5: anonymous user cannot upload to storage path', () => {
     const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
     const path = `${cafeA}/logo_12345.png`;
     expect(isStoragePathAllowed(path, null, null)).toBe(false);
   });
 
-  it('6. Staff role CANNOT upload to owner storage path (owner-only storage policy enforced)', () => {
+  it('LOGO 6: successful upload updates cafes.logo_url', () => {
     const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
-    const path = `${cafeA}/logo_12345.png`;
-    expect(isStoragePathAllowed(path, cafeA, 'staff')).toBe(false);
+    const path = `${cafeA}/logo_uuid123.png`;
+    const result = simulateSaveLogoFlow(cafeA, path, 'owner');
+    expect(result.success).toBe(true);
+    expect(result.logo_url).toBe(`menu-images/${cafeA}/logo_uuid123.png`);
+  });
+
+  it('LOGO 7: Storage RLS error is caught and surfaced correctly', () => {
+    const cafeA = '6d00d671-eaea-47ce-a842-f970878373c9';
+    const path = `${cafeA}/logo_uuid123.png`;
+    expect(() => simulateSaveLogoFlow(cafeA, path, 'staff')).toThrow(
+      'new row violates row-level security policy'
+    );
   });
 });

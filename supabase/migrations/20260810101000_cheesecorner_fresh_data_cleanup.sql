@@ -15,7 +15,7 @@ DECLARE
   v_occupied_tables INT;
 BEGIN
   -- 1. Resolve and verify Cheese Corner Cafe ID exactly once
-  SELECT COUNT(*), MIN(id) INTO v_cafes_count, v_cafe_id
+  SELECT COUNT(*), MIN(id::text)::uuid INTO v_cafes_count, v_cafe_id
   FROM public.cafes
   WHERE slug = 'cheesecorner';
 
