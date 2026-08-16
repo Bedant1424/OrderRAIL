@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useCafe } from "@/lib/cafe";
-import { useMenu } from "@/hooks/useMenu";
+import { supabase, type MenuCategory } from "@/lib/db";
 import { resolveImageUrlSync } from "@/lib/useImageUrl";
 import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 import { APP_CONFIG } from "@/config/app";
@@ -103,12 +104,28 @@ export function parseCityFromAddress(address: string | null | undefined): string
 
 /**
  * Dynamic Browser Title, Meta Tags, Open Graph, Favicon & Schema.org JSON-LD Manager for OrderRail.
- * Completely multi-cafe data-isolated.
+ * Completely multi-cafe data-isolated. Uses read-only TanStack Query for categories without WebSocket side-effects.
  */
 export function SeoHead() {
   const location = useLocation();
   const { cafe } = useCafe();
-  const { categories = [] } = useMenu(cafe?.id);
+
+  // Read-only TanStack query for menu categories (no Supabase Realtime channel side-effects)
+  const { data: categories = [] } = useQuery<MenuCategory[]>({
+    queryKey: ["menu_categories", cafe?.id],
+    enabled: !!cafe?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("menu_categories")
+        .select("*")
+        .eq("cafe_id", cafe!.id)
+        .order("sort_order");
+
+      if (error) throw error;
+      return (data || []) as MenuCategory[];
+    },
+    staleTime: 300_000,
+  });
 
   useEffect(() => {
     const path = location.pathname;
