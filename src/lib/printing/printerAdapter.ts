@@ -159,43 +159,59 @@ class PrinterAdapterClass {
     const settings = getReceiptSettings((payload as any).cafeId);
     const widthmm: 58 | 80 = settings?.receiptWidth === "80mm" ? 80 : 58;
 
-    // Build dedicated customer receipt using ESC/POS ReceiptBuilder with owner configured width (safe default: 58mm)
-    const receiptBuild = ReceiptBuilder.build(payload, widthmm);
+    const mergedPayload: ReceiptRenderPayload = {
+      showAddress: settings.showAddress,
+      showPhone: settings.showPhone,
+      showGst: settings.showGst,
+      showInvoiceNum: settings.showInvoiceNum,
+      receiptHeader: settings.receiptHeader,
+      thankYouMessage: settings.thankYouMessage,
+      footerInfo: settings.footerInfo,
+      gstin: payload.gstin || settings.gstNumber,
+      ...payload,
+    };
 
-    const res = await printService.enqueue(
-      'RECEIPT',
-      (payload.destination as any) || 'BILL_PRINTER',
-      {
-        type: 'RECEIPT',
-        orderId: payload.orderId,
-        billNumber: String(payload.billNumber),
-        tableLabel: payload.tableLabel,
-        cashierName: payload.cashierName || 'Counter',
-        timestamp: payload.timestamp,
-        items: payload.items.map((i) => ({
-          id: i.id || `i-${Date.now()}`,
-          name: i.name,
-          price: i.price,
-          qty: i.qty,
-        })),
-        subtotal: payload.subtotal,
-        tax: payload.tax,
-        discountPct: payload.discountPct || 0,
-        discountAmt: payload.discountAmt || 0,
-        netTotal: payload.netTotal,
-        tenders: payload.tenders || [],
-        escpos: receiptBuild.escpos,
-        formattedText: receiptBuild.text,
-      },
-      { orderId: payload.orderId }
-    );
+    // Build dedicated customer receipt using ESC/POS ReceiptBuilder with owner configured settings & width
+    const receiptBuild = ReceiptBuilder.build(mergedPayload, widthmm);
 
-    if (res.success) {
-      console.log(`[PrinterAdapter] Bill Receipt #${payload.billNumber} printed successfully:\n${receiptBuild.text}`);
-      return { success: true };
+    const copies = typeof settings.printCopies === "number" && settings.printCopies > 0 ? settings.printCopies : 1;
+
+    for (let c = 0; c < copies; c++) {
+      const res = await printService.enqueue(
+        'RECEIPT',
+        (payload.destination as any) || 'BILL_PRINTER',
+        {
+          type: 'RECEIPT',
+          orderId: payload.orderId,
+          billNumber: String(payload.billNumber),
+          tableLabel: payload.tableLabel,
+          cashierName: payload.cashierName || 'Counter',
+          timestamp: payload.timestamp,
+          items: payload.items.map((i) => ({
+            id: i.id || `i-${Date.now()}`,
+            name: i.name,
+            price: i.price,
+            qty: i.qty,
+          })),
+          subtotal: payload.subtotal,
+          tax: payload.tax,
+          discountPct: payload.discountPct || 0,
+          discountAmt: payload.discountAmt || 0,
+          netTotal: payload.netTotal,
+          tenders: payload.tenders || [],
+          escpos: receiptBuild.escpos,
+          formattedText: receiptBuild.text,
+        },
+        { orderId: payload.orderId }
+      );
+
+      if (!res.success) {
+        throw new Error(res.job.errorMessage || 'Receipt Print Failed');
+      }
     }
 
-    throw new Error(res.job.errorMessage || 'Receipt Print Failed');
+    console.log(`[PrinterAdapter] Bill Receipt #${payload.billNumber} printed successfully (${copies} ${copies === 1 ? 'copy' : 'copies'}):\n${receiptBuild.text}`);
+    return { success: true };
   }
 
   public subscribeStatus(listener: PrinterAdapterStatusListener): () => void {
