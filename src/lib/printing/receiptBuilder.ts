@@ -44,6 +44,16 @@ export interface ReceiptBuilderPayload {
   externalOrderRef?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  cafeId?: string;
+
+  // Receipt Display Settings
+  showAddress?: boolean;
+  showPhone?: boolean;
+  showGst?: boolean;
+  showInvoiceNum?: boolean;
+  receiptHeader?: string;
+  thankYouMessage?: string;
+  footerInfo?: string;
 }
 
 export interface ReceiptBuildResult {
@@ -91,17 +101,37 @@ export class ReceiptBuilder {
     // Header & Cafe Info
     lines.push(doubleDivider);
     lines.push(center((payload.cafeName || "CHEESE CORNER").toUpperCase()));
-    if (payload.address) {
-      const addrLines = this.wrapText(payload.address, cols);
+
+    if (payload.receiptHeader && payload.receiptHeader.trim()) {
+      const headerLines = payload.receiptHeader.trim().split("\n");
+      for (const hl of headerLines) {
+        const wrapped = this.wrapText(hl.trim(), cols);
+        for (const wl of wrapped) {
+          lines.push(center(wl));
+        }
+      }
+    }
+
+    if (payload.showAddress !== false && payload.address && payload.address.trim()) {
+      const addrLines = this.wrapText(payload.address.trim(), cols);
       for (const al of addrLines) {
         lines.push(center(al));
       }
     }
+
     const phoneNum = payload.phone || payload.cafePhone;
-    if (phoneNum) {
-      const formattedPhone = phoneNum.startsWith("+") || phoneNum.toLowerCase().startsWith("ph") ? phoneNum : `Ph: ${phoneNum}`;
+    if (payload.showPhone !== false && phoneNum && phoneNum.trim()) {
+      const pStr = phoneNum.trim();
+      const formattedPhone = pStr.startsWith("+") || pStr.toLowerCase().startsWith("ph") ? pStr : `Ph: ${pStr}`;
       lines.push(center(formattedPhone));
     }
+
+    if (payload.showGst !== false && payload.gstin && payload.gstin.trim()) {
+      const gStr = payload.gstin.trim();
+      const formattedGst = gStr.toUpperCase().startsWith("GSTIN") ? gStr : `GSTIN: ${gStr}`;
+      lines.push(center(formattedGst));
+    }
+
     lines.push(divider);
 
     const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
@@ -144,8 +174,17 @@ export class ReceiptBuilder {
       modeStr = isPaid ? "Paid" : "UNPAID";
     }
 
-    const invPrefix = (`INVOICE #: ${payload.billNumber}`.length + `Ref: ${cleanLabel}`.length <= cols) ? "INVOICE #:" : "Inv #:";
-    lines.push(justify(`${invPrefix} ${payload.billNumber}`, `Ref: ${cleanLabel}`));
+    let invLineLeft = "";
+    if (payload.showInvoiceNum !== false) {
+      const invPrefix = (`INVOICE #: ${payload.billNumber}`.length + `Ref: ${cleanLabel}`.length <= cols) ? "INVOICE #:" : "Inv #:";
+      invLineLeft = `${invPrefix} ${payload.billNumber}`;
+    }
+
+    if (invLineLeft) {
+      lines.push(justify(invLineLeft, `Ref: ${cleanLabel}`));
+    } else {
+      lines.push(center(`Ref: ${cleanLabel}`));
+    }
     lines.push(justify(`Date: ${dateOnlyStr}`, `Mode: ${modeStr}`));
 
     if (payload.customerName && payload.customerName.trim()) {
@@ -214,8 +253,28 @@ export class ReceiptBuilder {
     lines.push(divider);
 
     // Footer
-    lines.push(center("Thank you for dining with us!"));
-    lines.push(center("Please visit again"));
+    const thankMsg = payload.thankYouMessage && payload.thankYouMessage.trim()
+      ? payload.thankYouMessage.trim()
+      : "Thank you for dining with us!\nPlease visit again";
+
+    const thankLines = thankMsg.split("\n");
+    for (const tl of thankLines) {
+      const wrapped = this.wrapText(tl.trim(), cols);
+      for (const wl of wrapped) {
+        lines.push(center(wl));
+      }
+    }
+
+    if (payload.footerInfo && payload.footerInfo.trim()) {
+      const footerLines = payload.footerInfo.trim().split("\n");
+      for (const fl of footerLines) {
+        const wrapped = this.wrapText(fl.trim(), cols);
+        for (const wl of wrapped) {
+          lines.push(center(wl));
+        }
+      }
+    }
+
     lines.push(doubleDivider);
 
     return lines.join("\n");
@@ -243,18 +302,36 @@ export class ReceiptBuilder {
     parts.push(`${(payload.cafeName || "CHEESE CORNER").toUpperCase()}\n`);
     parts.push(ESC_POS.BOLD_OFF);
 
-    if (payload.address) {
-      const addrLines = this.wrapText(payload.address, cols);
+    if (payload.receiptHeader && payload.receiptHeader.trim()) {
+      const headerLines = payload.receiptHeader.trim().split("\n");
+      for (const hl of headerLines) {
+        const wrapped = this.wrapText(hl.trim(), cols);
+        for (const wl of wrapped) {
+          parts.push(`${wl}\n`);
+        }
+      }
+    }
+
+    if (payload.showAddress !== false && payload.address && payload.address.trim()) {
+      const addrLines = this.wrapText(payload.address.trim(), cols);
       for (const al of addrLines) {
         parts.push(`${al}\n`);
       }
     }
 
     const phoneNum = payload.phone || payload.cafePhone;
-    if (phoneNum) {
-      const formattedPhone = phoneNum.startsWith("+") || phoneNum.toLowerCase().startsWith("ph") ? phoneNum : `Ph: ${phoneNum}`;
+    if (payload.showPhone !== false && phoneNum && phoneNum.trim()) {
+      const pStr = phoneNum.trim();
+      const formattedPhone = pStr.startsWith("+") || pStr.toLowerCase().startsWith("ph") ? pStr : `Ph: ${pStr}`;
       parts.push(`${formattedPhone}\n`);
     }
+
+    if (payload.showGst !== false && payload.gstin && payload.gstin.trim()) {
+      const gStr = payload.gstin.trim();
+      const formattedGst = gStr.toUpperCase().startsWith("GSTIN") ? gStr : `GSTIN: ${gStr}`;
+      parts.push(`${formattedGst}\n`);
+    }
+
     parts.push(divider);
 
     const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
@@ -303,8 +380,18 @@ export class ReceiptBuilder {
       modeStr = isPaid ? "Paid" : "UNPAID";
     }
 
-    const invPrefixEsc = (`INVOICE #: ${payload.billNumber}`.length + `Ref: ${cleanLabel}`.length <= cols) ? "INVOICE #:" : "Inv #:";
-    parts.push(this.justify(`${invPrefixEsc} ${payload.billNumber}`, `Ref: ${cleanLabel}`, cols) + "\n");
+    let invLineLeftEsc = "";
+    if (payload.showInvoiceNum !== false) {
+      const invPrefixEsc = (`INVOICE #: ${payload.billNumber}`.length + `Ref: ${cleanLabel}`.length <= cols) ? "INVOICE #:" : "Inv #:";
+      invLineLeftEsc = `${invPrefixEsc} ${payload.billNumber}`;
+    }
+
+    if (invLineLeftEsc) {
+      parts.push(this.justify(invLineLeftEsc, `Ref: ${cleanLabel}`, cols) + "\n");
+    } else {
+      parts.push(this.justify("", `Ref: ${cleanLabel}`, cols) + "\n");
+    }
+
     parts.push(this.justify(`Date: ${dateOnlyStr}`, `Mode: ${modeStr}`, cols) + "\n");
 
     if (payload.customerName && payload.customerName.trim()) {
@@ -381,8 +468,29 @@ export class ReceiptBuilder {
 
     // Footer
     parts.push(ESC_POS.ALIGN_CENTER);
-    parts.push("Thank you for dining with us!\n");
-    parts.push("Please visit again\n");
+
+    const thankMsg = payload.thankYouMessage && payload.thankYouMessage.trim()
+      ? payload.thankYouMessage.trim()
+      : "Thank you for dining with us!\nPlease visit again";
+
+    const thankLines = thankMsg.split("\n");
+    for (const tl of thankLines) {
+      const wrapped = this.wrapText(tl.trim(), cols);
+      for (const wl of wrapped) {
+        parts.push(`${wl}\n`);
+      }
+    }
+
+    if (payload.footerInfo && payload.footerInfo.trim()) {
+      const footerLines = payload.footerInfo.trim().split("\n");
+      for (const fl of footerLines) {
+        const wrapped = this.wrapText(fl.trim(), cols);
+        for (const wl of wrapped) {
+          parts.push(`${wl}\n`);
+        }
+      }
+    }
+
     parts.push(doubleDivider);
 
     // Feed paper past print head to cutter blade before cutting (1 feed line)

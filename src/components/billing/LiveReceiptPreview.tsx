@@ -40,8 +40,9 @@ export const LiveReceiptPreview: React.FC<LiveReceiptPreviewProps> = ({
     cashierName: "Counter",
     timestamp: "12:45 PM",
     cafeName: cafeName || "CHEESE CORNER",
-    address: fullAddress || undefined,
-    gstin: settings.showGst ? (settings.gstNumber || "27AAAAA0000A1Z5") : undefined,
+    address: cafeAddress || "123 Main Street, Food Street City",
+    phone: cafePhone || "+91 98765 43210",
+    gstin: settings.gstNumber || "27AAAAA0000A1Z5",
     customerName: "Rahul Das",
     customerPhone: "+91 98765 43210",
     items: [
@@ -53,6 +54,14 @@ export const LiveReceiptPreview: React.FC<LiveReceiptPreviewProps> = ({
     tax: 27,
     netTotal: 567,
     paymentStatus: "paid",
+    paymentMode: "UPI",
+    showAddress: settings.showAddress,
+    showPhone: settings.showPhone,
+    showGst: settings.showGst,
+    showInvoiceNum: settings.showInvoiceNum,
+    receiptHeader: settings.receiptHeader,
+    thankYouMessage: settings.thankYouMessage,
+    footerInfo: settings.footerInfo,
   };
 
   // Generate canonical formatted text using production ReceiptBuilder
