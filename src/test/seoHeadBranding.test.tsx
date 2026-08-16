@@ -3,6 +3,7 @@ import { render, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { SeoHead, parseOperatingHours, parseCityFromAddress } from "../components/SeoHead";
 import { CafeProvider } from "../lib/cafe";
+import { useMenu } from "../hooks/useMenu";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import fs from "fs";
@@ -213,5 +214,33 @@ describe("Milestone 5 — Multi-Cafe SEO Data Isolation & Multi-Tenant Tests", (
 
     expect(robotsContent).toContain("Sitemap: https://cheese-corner.vercel.app/sitemap.xml");
     expect(sitemapContent).toContain("https://cheese-corner.vercel.app/c/cheesecorner");
+  });
+
+  it("6. Concurrent Mounting: SeoHead and useMenu page component render together without Realtime channel collisions", () => {
+    const PageComponent = ({ cafeId }: { cafeId: string }) => {
+      const { categories } = useMenu(cafeId);
+      return <div data-testid="page-content">Categories Count: {categories.length}</div>;
+    };
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    });
+
+    queryClient.setQueryData(["global-cafe"], cafeB_CafeMocha);
+    queryClient.setQueryData(["menu_categories", cafeB_CafeMocha.id], categoriesB);
+
+    const { getByTestId } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/c/cafemocha"]}>
+          <CafeProvider>
+            <SeoHead />
+            <PageComponent cafeId={cafeB_CafeMocha.id} />
+          </CafeProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    expect(getByTestId("page-content").textContent).toContain("Categories Count: 4");
+    expect(document.title).toBe("Cafe Mocha | Bangalore");
   });
 });
