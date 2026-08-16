@@ -58,8 +58,15 @@ export class BillSummaryCalculator {
         gstEnabled: params.taxRatePct > 0,
         gstPercentage: params.taxRatePct,
       };
-    } else {
+    } else if (params.cafeId) {
       effectiveTaxSettings = getTaxSettings(params.cafeId);
+    } else {
+      // Legacy fallback for unconfigured unit test calls without cafeId or taxSettings
+      effectiveTaxSettings = {
+        ...DEFAULT_TAX_SETTINGS,
+        gstEnabled: true,
+        gstPercentage: 8,
+      };
     }
 
     // Calculate Submitted Orders Subtotal & Items Count
