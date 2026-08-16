@@ -887,7 +887,21 @@ function ItemDialog({
         contentType: file.type,
       });
       if (error) throw error;
-      setImagePath(`menu-images/${path}`);
+      const newImagePath = `menu-images/${path}`;
+      setImagePath(newImagePath);
+
+      if (isEdit && initial.id) {
+        const { error: updateErr } = await supabase
+          .from("menu_items")
+          .update({ image_url: newImagePath })
+          .eq("id", initial.id);
+        if (updateErr) {
+          console.error("Failed to auto-update menu item image in DB:", updateErr);
+        } else {
+          onSaved();
+        }
+      }
+
       toast.success("Image uploaded");
       setIsCropOpen(false);
     } catch (e) {
@@ -947,12 +961,7 @@ function ItemDialog({
           <button
             type="button"
             onClick={isDemo ? undefined : () => {
-              if (preview) {
-                setImageSrc(preview);
-                setIsCropOpen(true);
-              } else {
-                fileRef.current?.click();
-              }
+              fileRef.current?.click();
             }}
             disabled={uploading || isDemo}
             className={cn(
