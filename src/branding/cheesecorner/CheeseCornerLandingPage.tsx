@@ -29,10 +29,12 @@ import {
   UtensilsCrossed,
   Sandwich,
   ConciergeBell,
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  ExternalLink
 } from "lucide-react";
 import { CHEESE_CORNER_CONFIG } from "./config";
 import { useCafe } from "@/lib/cafe";
+import { APP_CONFIG } from "@/config/app";
 import { useMenu, type ProductionMenuItem } from "@/hooks/useMenu";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { formatMoney } from "@/lib/db";
@@ -265,6 +267,48 @@ function MenuPreviewItemCard({ item, currency }: { item: ProductionMenuItem; cur
       </div>
     </motion.div>
   );
+}
+
+/** Helper to normalize phone string into a clean tel: link e.g. "+91 9556596091" -> "tel:+919556596091" */
+export function normalizePhoneLink(phone: string | null | undefined): string | null {
+  if (!phone || typeof phone !== "string") return null;
+  const cleaned = phone.replace(/[^0-9+]/g, "").trim();
+  if (!cleaned) return null;
+  return `tel:${cleaned}`;
+}
+
+/** Helper to normalize Instagram link into full https:// URL */
+export function normalizeInstagramHref(instagram: string | null | undefined): string | null {
+  if (!instagram || typeof instagram !== "string") return null;
+  const trimmed = instagram.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  const handle = trimmed.replace(/^@/, "");
+  return `https://instagram.com/${handle}`;
+}
+
+/** Helper to normalize Instagram display handle e.g. "https://www.instagram.com/cheesecorner_berhampur/" -> "@cheesecorner_berhampur" */
+export function normalizeInstagramDisplay(instagram: string | null | undefined): string {
+  if (!instagram || typeof instagram !== "string") return "";
+  const trimmed = instagram.trim();
+  if (trimmed.includes("instagram.com/")) {
+    const handlePart = trimmed.split("instagram.com/")[1].split("/")[0].replace(/\?.*$/, "").replace(/^@/, "");
+    return `@${handlePart}`;
+  }
+  return trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
+}
+
+/** Helper to build Google Maps location URL for address tile */
+export function getAddressMapsHref(googleMapsReviewUrl: string | null | undefined, address: string | null | undefined): string | null {
+  if (googleMapsReviewUrl && googleMapsReviewUrl.trim().length > 0) {
+    return googleMapsReviewUrl.trim();
+  }
+  if (address && address.trim().length > 0) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.trim())}`;
+  }
+  return null;
 }
 
 export default function CheeseCornerLandingPage() {
@@ -881,65 +925,145 @@ export default function CheeseCornerLandingPage() {
       </section>
 
       {/* ─── LOCATION & HOURS ─── */}
-      <section id="contact" className="bg-white py-12 sm:py-20 md:py-24">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[2rem] sm:rounded-[3rem] bg-[#FFFBEB] p-6 sm:p-12 md:p-16 shadow-sm border border-amber-200/60 space-y-8 sm:space-y-10">
-            <div className="text-center max-w-xl mx-auto">
-              <span className="text-xs font-black uppercase tracking-widest text-orange-600">
-                Find Us
-              </span>
-              <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
-                Location & Hours
-              </h2>
-              <p className="mt-1.5 text-xs sm:text-sm text-amber-900/80 font-medium">
-                Visit our café on University Road.
-              </p>
+      {(() => {
+        const isCheeseCornerSlug = cafe?.slug === "cheesecorner" || (!cafe && APP_CONFIG.cafeSlug === "cheesecorner");
+
+        const displayAddress = cafe?.address || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.address : "");
+        const displayPhone = cafe?.phone || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.phone : "");
+        const rawInstagram = cafe?.instagram || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.instagram : "");
+        const displayHours = cafe?.operating_hours || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.hours : "");
+
+        const mapsHref = getAddressMapsHref(cafe?.google_maps_review_url || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.googleReviewUrl : null), displayAddress);
+        const phoneHref = normalizePhoneLink(displayPhone);
+        const instaHref = normalizeInstagramHref(rawInstagram);
+        const instaDisplay = normalizeInstagramDisplay(rawInstagram);
+
+        return (
+          <section id="contact" className="bg-white py-12 sm:py-20 md:py-24">
+            <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+              <div className="rounded-[2rem] sm:rounded-[3rem] bg-[#FFFBEB] p-6 sm:p-12 md:p-16 shadow-sm border border-amber-200/60 space-y-8 sm:space-y-10">
+                <div className="text-center max-w-xl mx-auto">
+                  <span className="text-xs font-black uppercase tracking-widest text-orange-600">
+                    Find Us
+                  </span>
+                  <h2 className="mt-1 font-display text-2xl sm:text-4xl font-black text-amber-950">
+                    Location & Hours
+                  </h2>
+                  <p className="mt-1.5 text-xs sm:text-sm text-amber-900/80 font-medium">
+                    Visit {cafe?.name || "our café"}.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 text-sm">
+                  {/* Address Tile */}
+                  {mapsHref ? (
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Café Address: ${displayAddress}. Open in Google Maps.`}
+                      className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100 hover:border-amber-300 hover:shadow-md transition-all group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none"
+                    >
+                      <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600 group-hover:scale-105 transition-transform">
+                        <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </div>
+                      <div>
+                        <div className="font-extrabold text-amber-950 text-sm sm:text-base flex items-center gap-1.5">
+                          Café Address
+                          <ExternalLink className="h-3.5 w-3.5 text-amber-900/40 group-hover:text-orange-600 transition-colors" />
+                        </div>
+                        <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium leading-relaxed">{displayAddress}</div>
+                      </div>
+                    </a>
+                  ) : (
+                    <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
+                      <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
+                        <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </div>
+                      <div>
+                        <div className="font-extrabold text-amber-950 text-sm sm:text-base">Café Address</div>
+                        <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium leading-relaxed">{displayAddress || "Address unlisted"}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Phone & Inquiries Tile */}
+                  {phoneHref ? (
+                    <a
+                      href={phoneHref}
+                      aria-label={`Call Phone & Inquiries: ${displayPhone}`}
+                      className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100 hover:border-amber-300 hover:shadow-md transition-all group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none"
+                    >
+                      <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600 group-hover:scale-105 transition-transform">
+                        <Phone className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </div>
+                      <div>
+                        <div className="font-extrabold text-amber-950 text-sm sm:text-base">
+                          Phone & Inquiries
+                        </div>
+                        <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{displayPhone}</div>
+                      </div>
+                    </a>
+                  ) : (
+                    <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
+                      <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
+                        <Phone className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </div>
+                      <div>
+                        <div className="font-extrabold text-amber-950 text-sm sm:text-base">Phone & Inquiries</div>
+                        <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{displayPhone || "Phone unlisted"}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Instagram Tile */}
+                  {instaHref ? (
+                    <a
+                      href={instaHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Visit Instagram profile: ${instaDisplay}`}
+                      className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100 hover:border-amber-300 hover:shadow-md transition-all group focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none"
+                    >
+                      <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600 group-hover:scale-105 transition-transform">
+                        <Instagram className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </div>
+                      <div>
+                        <div className="font-extrabold text-amber-950 text-sm sm:text-base flex items-center gap-1.5">
+                          Instagram
+                          <ExternalLink className="h-3.5 w-3.5 text-amber-900/40 group-hover:text-orange-600 transition-colors" />
+                        </div>
+                        <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{instaDisplay}</div>
+                      </div>
+                    </a>
+                  ) : (
+                    <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
+                      <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
+                        <Instagram className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </div>
+                      <div>
+                        <div className="font-extrabold text-amber-950 text-sm sm:text-base">Instagram</div>
+                        <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{instaDisplay || "Instagram unlisted"}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Opening Hours Tile */}
+                  <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
+                    <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
+                      <Clock className="h-5 w-5 sm:h-6 sm:w-6" />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-amber-950 text-sm sm:text-base">Opening Hours</div>
+                      <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{displayHours || "Hours unlisted"}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 text-sm">
-              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
-                <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
-                  <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
-                </div>
-                <div>
-                  <div className="font-extrabold text-amber-950 text-sm sm:text-base">Café Address</div>
-                  <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium leading-relaxed">{CHEESE_CORNER_CONFIG.contact.address}</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
-                <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
-                  <Phone className="h-5 w-5 sm:h-6 sm:w-6" />
-                </div>
-                <div>
-                  <div className="font-extrabold text-amber-950 text-sm sm:text-base">Phone & Inquiries</div>
-                  <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.phone}</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
-                <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
-                  <Instagram className="h-5 w-5 sm:h-6 sm:w-6" />
-                </div>
-                <div>
-                  <div className="font-extrabold text-amber-950 text-sm sm:text-base">Instagram</div>
-                  <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.instagram}</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-6 shadow-sm border border-amber-100">
-                <div className="grid h-10 w-10 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-orange-600">
-                  <Clock className="h-5 w-5 sm:h-6 sm:w-6" />
-                </div>
-                <div>
-                  <div className="font-extrabold text-amber-950 text-sm sm:text-base">Opening Hours</div>
-                  <div className="text-xs sm:text-sm text-amber-900/80 mt-1 font-medium">{CHEESE_CORNER_CONFIG.contact.hours}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        );
+      })()}
 
       {/* ─── FOOTER ─── */}
       <footer className="border-t border-amber-900/50 bg-amber-950 text-amber-100 py-10 sm:py-12">
