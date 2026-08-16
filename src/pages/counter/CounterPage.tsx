@@ -624,14 +624,17 @@ const CounterAddonModal: React.FC<CounterAddonModalProps> = ({
 };
 
 // --- 3. PRODUCTION MENU PANEL WITH REALTIME AVAILABILITY ---
-const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogItem; onAdd: (item: CatalogItem) => void; onAddWithAddons?: (item: CatalogItem) => void }) => {
+export const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogItem; onAdd: (item: CatalogItem) => void; onAddWithAddons?: (item: CatalogItem) => void }) => {
   const isSoldOut = !item.isAvailable;
   const eligibleAddons = getEligibleAddons({ categoryId: item.categoryId || item.category, name: item.name });
   const hasAddons = eligibleAddons.length > 0;
 
   return (
-    <div className={cn('v8-menu-row flex items-center justify-between p-2.5 border-b border-border/40', isSoldOut && 'opacity-50 cursor-not-allowed bg-muted/20')}>
-      <div className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer" onClick={() => !isSoldOut && onAdd(item)}>
+    <div
+      className={cn('v8-menu-row flex items-center justify-between p-2.5 border-b border-border/40', isSoldOut && 'opacity-50 cursor-not-allowed bg-muted/20')}
+      onClick={() => !isSoldOut && onAdd(item)}
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0">
         <div className={cn('v8-veg-dot shrink-0', item.isVeg ? 'v8-veg-true' : 'v8-veg-false')} />
         <span className="v8-menu-row-name truncate">
           {item.name}
@@ -645,7 +648,7 @@ const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogItem; onA
             Sold Out
           </span>
         ) : (
-          <span className="v8-menu-row-price v8-font-mono cursor-pointer" onClick={() => !isSoldOut && onAdd(item)}>
+          <span className="v8-menu-row-price v8-font-mono">
             {formatCurrency(item.price)}
           </span>
         )}
