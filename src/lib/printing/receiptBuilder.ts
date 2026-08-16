@@ -26,6 +26,10 @@ export interface ReceiptBuilderPayload {
   items: ReceiptItemInput[];
   subtotal: number;
   tax: number;
+  cgst?: number;
+  sgst?: number;
+  serviceCharge?: number;
+  gstPercentage?: number;
   discountPct?: number;
   discountAmt?: number;
   netTotal: number;
@@ -168,11 +172,23 @@ export class ReceiptBuilder {
     // Totals Section
     lines.push(justify("Subtotal:", `Rs.${payload.subtotal.toFixed(2)}`));
 
-    if (payload.tax > 0) {
-      const cgst = payload.tax / 2;
-      const sgst = payload.tax / 2;
-      lines.push(justify("CGST (2.5%):", `Rs.${cgst.toFixed(2)}`));
-      lines.push(justify("SGST (2.5%):", `Rs.${sgst.toFixed(2)}`));
+    const totalTax = (typeof payload.cgst === 'number' && typeof payload.sgst === 'number')
+      ? payload.cgst + payload.sgst
+      : payload.tax;
+
+    if (totalTax > 0) {
+      const cgstVal = typeof payload.cgst === 'number' ? payload.cgst : totalTax / 2;
+      const sgstVal = typeof payload.sgst === 'number' ? payload.sgst : totalTax / 2;
+      const taxableBase = Math.max(1, payload.subtotal - (payload.discountAmt || 0));
+      const calcRatePct = payload.gstPercentage ?? Math.round((totalTax / taxableBase) * 100);
+      const halfRateStr = (calcRatePct / 2).toFixed(1).replace(/\.0$/, "");
+
+      lines.push(justify(`CGST (${halfRateStr}%):`, `Rs.${cgstVal.toFixed(2)}`));
+      lines.push(justify(`SGST (${halfRateStr}%):`, `Rs.${sgstVal.toFixed(2)}`));
+    }
+
+    if (payload.serviceCharge && payload.serviceCharge > 0) {
+      lines.push(justify("Service Charge:", `Rs.${payload.serviceCharge.toFixed(2)}`));
     }
 
     if (payload.discountAmt && payload.discountAmt > 0) {
@@ -311,11 +327,23 @@ export class ReceiptBuilder {
     // Totals Section
     parts.push(this.justify("Subtotal:", `Rs.${payload.subtotal.toFixed(2)}`, cols) + "\n");
 
-    if (payload.tax > 0) {
-      const cgst = payload.tax / 2;
-      const sgst = payload.tax / 2;
-      parts.push(this.justify("CGST (2.5%):", `Rs.${cgst.toFixed(2)}`, cols) + "\n");
-      parts.push(this.justify("SGST (2.5%):", `Rs.${sgst.toFixed(2)}`, cols) + "\n");
+    const totalTaxEsc = (typeof payload.cgst === 'number' && typeof payload.sgst === 'number')
+      ? payload.cgst + payload.sgst
+      : payload.tax;
+
+    if (totalTaxEsc > 0) {
+      const cgstVal = typeof payload.cgst === 'number' ? payload.cgst : totalTaxEsc / 2;
+      const sgstVal = typeof payload.sgst === 'number' ? payload.sgst : totalTaxEsc / 2;
+      const taxableBase = Math.max(1, payload.subtotal - (payload.discountAmt || 0));
+      const calcRatePct = payload.gstPercentage ?? Math.round((totalTaxEsc / taxableBase) * 100);
+      const halfRateStr = (calcRatePct / 2).toFixed(1).replace(/\.0$/, "");
+
+      parts.push(this.justify(`CGST (${halfRateStr}%):`, `Rs.${cgstVal.toFixed(2)}`, cols) + "\n");
+      parts.push(this.justify(`SGST (${halfRateStr}%):`, `Rs.${sgstVal.toFixed(2)}`, cols) + "\n");
+    }
+
+    if (payload.serviceCharge && payload.serviceCharge > 0) {
+      parts.push(this.justify("Service Charge:", `Rs.${payload.serviceCharge.toFixed(2)}`, cols) + "\n");
     }
 
     if (payload.discountAmt && payload.discountAmt > 0) {

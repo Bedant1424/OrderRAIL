@@ -1,5 +1,6 @@
 import { type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { type RawInputItem } from './types';
+import { getTaxSettings, calculateTaxAndTotals, DEFAULT_TAX_SETTINGS, type TaxSettings } from './taxSettings';
 
 export interface SharedBillSummary {
   submittedSubtotal: number;
@@ -11,6 +12,10 @@ export interface SharedBillSummary {
   discountReason?: string;
   taxableSubtotal: number;
   tax: number;
+  cgst?: number;
+  sgst?: number;
+  serviceCharge?: number;
+  roundOff?: number;
   grandTotal: number;
   totalOrders: number;
   totalItems: number;
@@ -20,9 +25,10 @@ export interface BuildBillSummaryParams {
   orders?: Array<{ items?: RawInputItem[]; subtotal?: number }>;
   draftCart?: RawInputItem[];
   discount?: CustomDiscount;
-  taxRatePct?: number; // Direct tax rate percentage (e.g. 5, 8)
+  taxRatePct?: number; // Direct tax rate percentage (e.g. 5, 18)
   taxEnabled?: boolean; // Explicit toggle for tax
-  taxSettings?: { gstEnabled?: boolean; gstPercentage?: number }; // TaxSettings configuration object
+  taxSettings?: TaxSettings | { gstEnabled?: boolean; gstPercentage?: number; serviceChargeEnabled?: boolean; serviceChargePercentage?: number; pricingMode?: any; roundingMode?: any };
+  cafeId?: string;
 }
 
 export class BillSummaryCalculator {
@@ -34,15 +40,26 @@ export class BillSummaryCalculator {
     const draftCart = params.draftCart || [];
     const discount = params.discount || { type: 'PERCENTAGE', value: 0 };
 
-    let taxRate = 0;
-    if (params.taxSettings) {
-      taxRate = params.taxSettings.gstEnabled !== false ? (params.taxSettings.gstPercentage ?? 0) : 0;
+    let effectiveTaxSettings: TaxSettings;
+    if (params.taxSettings && typeof (params.taxSettings as any).pricingMode !== 'undefined') {
+      effectiveTaxSettings = params.taxSettings as TaxSettings;
+    } else if (params.taxSettings) {
+      const ts = params.taxSettings;
+      effectiveTaxSettings = {
+        ...DEFAULT_TAX_SETTINGS,
+        gstEnabled: ts.gstEnabled !== false,
+        gstPercentage: ts.gstPercentage ?? DEFAULT_TAX_SETTINGS.gstPercentage,
+      };
     } else if (params.taxEnabled === false) {
-      taxRate = 0;
+      effectiveTaxSettings = { ...DEFAULT_TAX_SETTINGS, gstEnabled: false };
     } else if (typeof params.taxRatePct === 'number') {
-      taxRate = params.taxRatePct;
+      effectiveTaxSettings = {
+        ...DEFAULT_TAX_SETTINGS,
+        gstEnabled: params.taxRatePct > 0,
+        gstPercentage: params.taxRatePct,
+      };
     } else {
-      taxRate = 8;
+      effectiveTaxSettings = getTaxSettings(params.cafeId);
     }
 
     // Calculate Submitted Orders Subtotal & Items Count
@@ -71,28 +88,30 @@ export class BillSummaryCalculator {
       draftItemsCount += item.qty;
     }
 
-    const subtotal = Math.round((submittedSubtotal + draftSubtotal) * 100) / 100;
+    const rawSubtotal = submittedSubtotal + draftSubtotal;
+    const subtotalCents = Math.round(rawSubtotal * 100);
 
     // Calculate Discount Amount & Equivalent Percentage
     let discountAmount = 0;
     let discountPercent = 0;
 
-    if (discount && discount.value > 0 && subtotal > 0) {
+    if (discount && discount.value > 0 && rawSubtotal > 0) {
       if (discount.type === 'PERCENTAGE') {
         discountPercent = discount.value;
-        discountAmount = (subtotal * discount.value) / 100;
+        discountAmount = (rawSubtotal * discount.value) / 100;
       } else {
-        discountAmount = Math.min(subtotal, discount.value);
-        discountPercent = (discountAmount / subtotal) * 100;
+        discountAmount = Math.min(rawSubtotal, discount.value);
+        discountPercent = (discountAmount / rawSubtotal) * 100;
       }
     }
 
     discountAmount = Math.round(discountAmount * 100) / 100;
     discountPercent = Math.round(discountPercent * 100) / 100;
 
-    const taxableSubtotal = Math.max(0, subtotal - discountAmount);
-    const tax = Math.round((taxableSubtotal * (taxRate / 100)) * 100) / 100;
-    const grandTotal = Math.round((taxableSubtotal + tax) * 100) / 100;
+    const discountCents = Math.round(discountAmount * 100);
+    const taxableSubtotalCents = Math.max(0, subtotalCents - discountCents);
+
+    const calc = calculateTaxAndTotals(taxableSubtotalCents, effectiveTaxSettings);
 
     let totalOrdersCount = orders.length;
     if (draftCart.length > 0) {
@@ -102,16 +121,20 @@ export class BillSummaryCalculator {
     const totalItemsCount = submittedItemsCount + draftItemsCount;
 
     return {
-      submittedSubtotal,
-      draftSubtotal,
-      subtotal,
+      submittedSubtotal: Math.round(submittedSubtotal * 100) / 100,
+      draftSubtotal: Math.round(draftSubtotal * 100) / 100,
+      subtotal: calc.subtotalCents / 100,
       discountAmount,
       discountPercent,
       discountType: discount.type || 'PERCENTAGE',
       discountReason: discount.reason,
-      taxableSubtotal,
-      tax,
-      grandTotal,
+      taxableSubtotal: taxableSubtotalCents / 100,
+      tax: calc.totalGstCents / 100,
+      cgst: calc.cgstCents / 100,
+      sgst: calc.sgstCents / 100,
+      serviceCharge: calc.serviceChargeCents / 100,
+      roundOff: calc.roundingAdjustmentCents / 100,
+      grandTotal: calc.grandTotalCents / 100,
       totalOrders: totalOrdersCount,
       totalItems: totalItemsCount,
     };

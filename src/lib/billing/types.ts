@@ -73,8 +73,10 @@ export interface BillCalculationOptions {
   discountPct?: number;
   serviceChargeAmt?: number;
   serviceChargePct?: number;
-  cgstRatePct?: number; // Default e.g. 2.5%
-  sgstRatePct?: number; // Default e.g. 2.5%
+  cgstRatePct?: number; // Optional explicit rate e.g. 2.5%
+  sgstRatePct?: number; // Optional explicit rate e.g. 2.5%
+  taxSettings?: any;
+  cafeId?: string;
 }
 
 export interface BillCalculationResult {

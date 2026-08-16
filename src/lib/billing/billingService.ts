@@ -16,6 +16,7 @@ import {
 import { PrinterAdapter } from "@/lib/printing/printerAdapter";
 import { renderReceiptText } from "@/lib/printing/receiptRenderer";
 import { getReceiptSettings } from "./receiptSettings";
+import { getTaxSettings, calculateTaxAndTotals, DEFAULT_TAX_SETTINGS, type TaxSettings } from "./taxSettings";
 
 export type BillStatus = 'Draft' | 'Finalized' | 'Printed' | 'Paid' | 'Voided';
 
@@ -38,7 +39,8 @@ export interface CreateBillPayload {
   tableLabel: string;
   items: BillItemPayload[];
   discountPct?: number;
-  taxRatePct?: number; // Defaults to 5 (5% GST)
+  taxRatePct?: number;
+  taxSettings?: TaxSettings;
   cashierName?: string;
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
   externalOrderRef?: string | null;
@@ -60,6 +62,10 @@ export interface BillRecord {
   tableLabel: string;
   subtotal: number;
   tax: number;
+  cgst?: number;
+  sgst?: number;
+  serviceCharge?: number;
+  roundOff?: number;
   discountPct: number;
   discountAmt: number;
   netTotal: number;
@@ -152,6 +158,9 @@ export class BillingServiceClass {
         items: existing.items,
         subtotal: existing.subtotal,
         tax: existing.tax,
+        cgst: existing.cgst,
+        sgst: existing.sgst,
+        serviceCharge: existing.serviceCharge,
         discountPct: existing.discountPct,
         discountAmt: existing.discountAmt,
         netTotal: existing.netTotal,
@@ -207,20 +216,45 @@ export class BillingServiceClass {
   }
 
   /**
-   * Calculate totals (subtotal, GST tax, discount, netTotal)
+   * Calculate totals (subtotal, GST tax, service charge, discount, netTotal) using canonical TaxSettings
    */
   public calculateBillTotals(
     items: BillItemPayload[],
     discountPct: number = 0,
-    taxRatePct: number = 5
+    taxRateOrSettings?: number | TaxSettings,
+    cafeId?: string
   ) {
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const discountAmt = Math.round((subtotal * discountPct) / 100 * 100) / 100;
-    const taxableAmount = Math.max(0, subtotal - discountAmt);
-    const tax = Math.round((taxableAmount * taxRatePct) / 100 * 100) / 100;
-    const netTotal = Math.round((taxableAmount + tax) * 100) / 100;
+    const rawSubtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const subtotalCents = Math.round(rawSubtotal * 100);
+    const discountAmt = Math.round((rawSubtotal * discountPct) / 100 * 100) / 100;
+    const discountCents = Math.round(discountAmt * 100);
+    const taxableBaseCents = Math.max(0, subtotalCents - discountCents);
 
-    return { subtotal, discountAmt, tax, netTotal };
+    let settings: TaxSettings;
+    if (taxRateOrSettings && typeof taxRateOrSettings === "object") {
+      settings = taxRateOrSettings;
+    } else if (typeof taxRateOrSettings === "number") {
+      settings = {
+        ...DEFAULT_TAX_SETTINGS,
+        gstEnabled: taxRateOrSettings > 0,
+        gstPercentage: taxRateOrSettings,
+      };
+    } else {
+      settings = getTaxSettings(cafeId);
+    }
+
+    const calc = calculateTaxAndTotals(taxableBaseCents, settings);
+
+    return {
+      subtotal: calc.subtotalCents / 100,
+      discountAmt,
+      tax: calc.totalGstCents / 100,
+      cgst: calc.cgstCents / 100,
+      sgst: calc.sgstCents / 100,
+      serviceCharge: calc.serviceChargeCents / 100,
+      roundOff: calc.roundingAdjustmentCents / 100,
+      netTotal: calc.grandTotalCents / 100,
+    };
   }
 
   /**
@@ -250,11 +284,17 @@ export class BillingServiceClass {
     const billNumber = payload.billNumber || `B-${billCounter}`;
     const timestamp = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-    const { subtotal, discountAmt, tax, netTotal } = this.calculateBillTotals(
-      payload.items,
-      payload.discountPct || 0,
-      payload.taxRatePct ?? 5
-    );
+    const effectiveSettings = payload.taxSettings || (typeof payload.taxRatePct === 'number'
+      ? { ...DEFAULT_TAX_SETTINGS, gstEnabled: payload.taxRatePct > 0, gstPercentage: payload.taxRatePct }
+      : getTaxSettings(payload.cafeId));
+
+    const { subtotal, discountAmt, tax, cgst, sgst, serviceCharge, roundOff, netTotal } =
+      this.calculateBillTotals(
+        payload.items,
+        payload.discountPct || 0,
+        effectiveSettings,
+        payload.cafeId
+      );
 
     const billRecord: BillRecord = {
       billId,
@@ -267,6 +307,10 @@ export class BillingServiceClass {
       items: payload.items,
       subtotal,
       tax,
+      cgst,
+      sgst,
+      serviceCharge,
+      roundOff,
       discountPct: payload.discountPct || 0,
       discountAmt,
       netTotal,

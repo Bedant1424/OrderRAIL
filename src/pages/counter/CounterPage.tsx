@@ -3653,6 +3653,7 @@ const CounterLayout = () => {
       const primaryOrderId = sessionOrders[0]?.id || `ord-${Date.now()}`;
       const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
+      const currentTaxSettings = getTaxSettings(cafe?.id, cafe);
       const createdBill = await BillingService.createBill({
         billId: primaryBillId,
         orderId: primaryOrderId,
@@ -3666,6 +3667,8 @@ const CounterLayout = () => {
         cashierName: 'Counter',
         items: allItems,
         discountPct: typeof customDiscount === 'object' ? (customDiscount?.value || 0) : (Number(customDiscount) || 0),
+        taxSettings: currentTaxSettings,
+        cafeId: cafe?.id,
       });
 
       const res = await BillingService.printBill(createdBill.bill.billId);
@@ -3691,7 +3694,7 @@ const CounterLayout = () => {
     customerDetails?: { customerName?: string; customerPhone?: string }
   ) => {
     const cur = activeSessionData;
-    const currentTaxSettings = getTaxSettings(cafe?.id);
+    const currentTaxSettings = getTaxSettings(cafe?.id, cafe);
     const summary = BillSummaryCalculator.buildBillSummary({
       orders: cur.orders,
       draftCart: cur.draftCart,
@@ -3844,7 +3847,7 @@ const CounterLayout = () => {
   }, [handleKot, handlePrintBill, isPaymentOpen]);
 
   // Derived shared bill summary for active dining session
-  const currentTaxSettings = getTaxSettings(cafe?.id);
+  const currentTaxSettings = getTaxSettings(cafe?.id, cafe);
   const activeBillSummary = useMemo(() => {
     return BillSummaryCalculator.buildBillSummary({
       orders: activeSessionData.orders,

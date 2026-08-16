@@ -4,18 +4,16 @@ import {
   BillItemSnapshot,
   RawInputItem,
 } from './types';
+import { getTaxSettings, calculateTaxAndTotals, DEFAULT_TAX_SETTINGS, type TaxSettings } from './taxSettings';
 
 export class BillCalculator {
   /**
-   * Calculates financial metrics and produces immutable item snapshots.
+   * Calculates financial metrics and produces immutable item snapshots using canonical TaxSettings.
    */
   public static calculate(
     items: RawInputItem[],
     options: BillCalculationOptions = {}
   ): BillCalculationResult {
-    const cgstRate = options.cgstRatePct ?? 2.5; // Default 2.5% CGST
-    const sgstRate = options.sgstRatePct ?? 2.5; // Default 2.5% SGST
-
     let rawSubtotal = 0;
     let totalQuantity = 0;
 
@@ -54,46 +52,46 @@ export class BillCalculator {
     }
 
     const itemSnapshots = Array.from(aggregatedMap.values());
-    const subtotal = Number(rawSubtotal.toFixed(2));
+    const subtotalCents = Math.round(rawSubtotal * 100);
 
     // Calculate discount
-    let discount = 0;
+    let discountAmt = 0;
     if (options.discountAmt && options.discountAmt > 0) {
-      discount = options.discountAmt;
+      discountAmt = options.discountAmt;
     } else if (options.discountPct && options.discountPct > 0) {
-      discount = (subtotal * options.discountPct) / 100;
+      discountAmt = (rawSubtotal * options.discountPct) / 100;
     }
-    discount = Math.min(discount, subtotal);
-    discount = Number(discount.toFixed(2));
+    discountAmt = Math.min(discountAmt, rawSubtotal);
+    const discountCents = Math.round(discountAmt * 100);
 
-    const discountedSubtotal = subtotal - discount;
+    const taxableBaseCents = Math.max(0, subtotalCents - discountCents);
 
-    // Calculate service charge
-    let serviceCharge = 0;
-    if (options.serviceChargeAmt && options.serviceChargeAmt > 0) {
-      serviceCharge = options.serviceChargeAmt;
-    } else if (options.serviceChargePct && options.serviceChargePct > 0) {
-      serviceCharge = (discountedSubtotal * options.serviceChargePct) / 100;
+    let effectiveTaxSettings: TaxSettings;
+    if (options.taxSettings) {
+      effectiveTaxSettings = options.taxSettings;
+    } else if (typeof options.cgstRatePct === 'number' || typeof options.sgstRatePct === 'number') {
+      const combinedGst = (options.cgstRatePct ?? 0) + (options.sgstRatePct ?? 0);
+      effectiveTaxSettings = {
+        ...DEFAULT_TAX_SETTINGS,
+        gstEnabled: combinedGst > 0,
+        gstPercentage: combinedGst,
+        serviceChargeEnabled: (options.serviceChargeAmt ?? 0) > 0 || (options.serviceChargePct ?? 0) > 0,
+        serviceChargePercentage: options.serviceChargePct ?? DEFAULT_TAX_SETTINGS.serviceChargePercentage,
+      };
+    } else {
+      effectiveTaxSettings = getTaxSettings(options.cafeId);
     }
-    serviceCharge = Number(serviceCharge.toFixed(2));
 
-    // Calculate CGST and SGST on taxable base (discounted subtotal + service charge)
-    const taxableBase = discountedSubtotal + serviceCharge;
-    const cgst = Number(((taxableBase * cgstRate) / 100).toFixed(2));
-    const sgst = Number(((taxableBase * sgstRate) / 100).toFixed(2));
-
-    const unroundedTotal = taxableBase + cgst + sgst;
-    const grandTotal = Math.round(unroundedTotal);
-    const roundOff = Number((grandTotal - unroundedTotal).toFixed(2));
+    const calc = calculateTaxAndTotals(taxableBaseCents, effectiveTaxSettings);
 
     return {
-      subtotal,
-      discount,
-      service_charge: serviceCharge,
-      cgst,
-      sgst,
-      round_off: roundOff,
-      grand_total: grandTotal,
+      subtotal: calc.subtotalCents / 100,
+      discount: Math.round(discountCents) / 100,
+      service_charge: calc.serviceChargeCents / 100,
+      cgst: calc.cgstCents / 100,
+      sgst: calc.sgstCents / 100,
+      round_off: calc.roundingAdjustmentCents / 100,
+      grand_total: calc.grandTotalCents / 100,
       total_items: totalQuantity,
       itemSnapshots,
     };
