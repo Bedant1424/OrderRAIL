@@ -73,25 +73,21 @@ describe("Thermal Receipt Formatting & Feed/Cut Suite", () => {
     expect(escpos).not.toContain("+919876543210");
   });
 
-  it("5. Post-footer feed and cut sequence includes 5 explicit line feeds before FEED_AND_CUT", () => {
+  it("5. Post-footer feed and cut sequence includes exactly 1 explicit line feed before FEED_AND_CUT", () => {
     const escpos = ReceiptBuilder.buildEscPos(basePayload, 58);
-    const footerText = "Please visit again";
+    const lastDividerIdx = escpos.lastIndexOf("================================");
+    expect(lastDividerIdx).toBeGreaterThan(-1);
 
-    const footerIndex = escpos.indexOf(footerText);
-    expect(footerIndex).toBeGreaterThan(-1);
+    const cutIndex = escpos.indexOf(ESC_POS.FEED_AND_CUT);
+    expect(cutIndex).toBeGreaterThan(lastDividerIdx);
 
-    const afterFooter = escpos.substring(footerIndex + footerText.length);
-
-    // Verify 5 LINE_FEED commands occur after footer
-    const lineFeedsCount = (afterFooter.match(new RegExp(ESC_POS.LINE_FEED, "g")) || []).length;
-    expect(lineFeedsCount).toBeGreaterThanOrEqual(5);
-
-    // Verify FEED_AND_CUT is present after the line feeds
-    const cutIndex = afterFooter.indexOf(ESC_POS.FEED_AND_CUT);
-    expect(cutIndex).toBeGreaterThan(-1);
+    const betweenDividerAndCut = escpos.substring(lastDividerIdx + 32, cutIndex);
+    const lineFeedsCount = (betweenDividerAndCut.match(/\n/g) || []).length;
+    // 1 newline from doubleDivider + 1 explicit LINE_FEED = 2 newlines
+    expect(lineFeedsCount).toBe(2);
 
     // Verify no content occurs after FEED_AND_CUT
-    const afterCut = afterFooter.substring(cutIndex + ESC_POS.FEED_AND_CUT.length);
+    const afterCut = escpos.substring(cutIndex + ESC_POS.FEED_AND_CUT.length);
     expect(afterCut.trim()).toBe("");
   });
 
