@@ -196,14 +196,14 @@ export class ReceiptBuilder {
     lines.push(divider);
 
     // Items Header
-    lines.push(justify("QTY  ITEM", "AMOUNT"));
+    lines.push(justify("QTY ITEM", "AMOUNT"));
     lines.push(divider);
 
     // Items List
     for (const item of payload.items) {
       const itemTotal = (item.price || 0) * (item.qty || 1);
-      const priceStr = `Rs.${itemTotal.toFixed(2)}`;
-      const qtyStr = `${item.qty}x`.padEnd(4);
+      const priceStr = itemTotal.toFixed(2);
+      const qtyStr = `${item.qty}x `;
 
       const maxNameLen = cols - qtyStr.length - priceStr.length - 1;
       const nameLines = this.wrapText(item.name, Math.max(10, maxNameLen));
@@ -212,12 +212,12 @@ export class ReceiptBuilder {
       lines.push(justify(firstLine, priceStr));
 
       for (let i = 1; i < nameLines.length; i++) {
-        lines.push(`    ${nameLines[i]}`);
+        lines.push(`   ${nameLines[i]}`);
       }
 
       const itemNote = item.notes || (item as any).note;
       if (itemNote && itemNote.trim()) {
-        lines.push(`     + ${itemNote.trim()}`);
+        lines.push(`   + ${itemNote.trim()}`);
       }
     }
 
@@ -290,9 +290,9 @@ export class ReceiptBuilder {
 
     const parts: string[] = [];
 
-    // Reset printer & set compact 24-dot line spacing
+    // Reset printer & set standard default line spacing (1/6 inch)
     parts.push(ESC_POS.INIT);
-    parts.push(ESC_POS.SET_LINE_SPACING_24);
+    parts.push(ESC_POS.RESET_LINE_SPACING);
     parts.push(ESC_POS.ALIGN_CENTER);
 
     parts.push(doubleDivider);
@@ -404,15 +404,15 @@ export class ReceiptBuilder {
 
     // Items Header
     parts.push(ESC_POS.BOLD_ON);
-    parts.push(this.justify("QTY  ITEM", "AMOUNT", cols) + "\n");
+    parts.push(this.justify("QTY ITEM", "AMOUNT", cols) + "\n");
     parts.push(ESC_POS.BOLD_OFF);
     parts.push(divider);
 
     // Items List
     for (const item of payload.items) {
       const itemTotal = (item.price || 0) * (item.qty || 1);
-      const priceStr = `Rs.${itemTotal.toFixed(2)}`;
-      const qtyStr = `${item.qty}x`.padEnd(4);
+      const priceStr = itemTotal.toFixed(2);
+      const qtyStr = `${item.qty}x `;
 
       const maxNameLen = cols - qtyStr.length - priceStr.length - 1;
       const nameLines = this.wrapText(item.name, Math.max(10, maxNameLen));
@@ -421,12 +421,12 @@ export class ReceiptBuilder {
       parts.push(this.justify(firstLine, priceStr, cols) + "\n");
 
       for (let i = 1; i < nameLines.length; i++) {
-        parts.push(`    ${nameLines[i]}\n`);
+        parts.push(`   ${nameLines[i]}\n`);
       }
 
       const itemNote = item.notes || (item as any).note;
       if (itemNote && itemNote.trim()) {
-        parts.push(`     + ${itemNote.trim()}\n`);
+        parts.push(`   + ${itemNote.trim()}\n`);
       }
     }
 
@@ -493,7 +493,11 @@ export class ReceiptBuilder {
 
     parts.push(doubleDivider);
 
-    // Feed paper past print head to cutter blade before cutting (1 feed line)
+    // Feed paper past print head to cutter blade before cutting (5 explicit line feeds + 3 in FEED_AND_CUT = 8 lines total)
+    parts.push(ESC_POS.LINE_FEED);
+    parts.push(ESC_POS.LINE_FEED);
+    parts.push(ESC_POS.LINE_FEED);
+    parts.push(ESC_POS.LINE_FEED);
     parts.push(ESC_POS.LINE_FEED);
     parts.push(ESC_POS.FEED_AND_CUT);
 
