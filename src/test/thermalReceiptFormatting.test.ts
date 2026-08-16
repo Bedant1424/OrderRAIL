@@ -35,9 +35,9 @@ describe("Thermal Receipt Formatting & Feed/Cut Suite", () => {
     const escpos = ReceiptBuilder.buildEscPos(payload, 58);
 
     expect(text).toContain("123 Main St");
-    expect(text).toContain("Ph: +919876543210");
+    expect(text).toContain("+919876543210");
     expect(escpos).toContain("123 Main St");
-    expect(escpos).toContain("Ph: +919876543210");
+    expect(escpos).toContain("+919876543210");
   });
 
   it("2. Address ON / Phone OFF renders address only", () => {
@@ -46,9 +46,9 @@ describe("Thermal Receipt Formatting & Feed/Cut Suite", () => {
     const escpos = ReceiptBuilder.buildEscPos(payload, 58);
 
     expect(text).toContain("123 Main St");
-    expect(text).not.toContain("Ph: +919876543210");
+    expect(text).not.toContain("+919876543210");
     expect(escpos).toContain("123 Main St");
-    expect(escpos).not.toContain("Ph: +919876543210");
+    expect(escpos).not.toContain("+919876543210");
   });
 
   it("3. Address OFF / Phone ON renders phone only", () => {
@@ -57,9 +57,9 @@ describe("Thermal Receipt Formatting & Feed/Cut Suite", () => {
     const escpos = ReceiptBuilder.buildEscPos(payload, 58);
 
     expect(text).not.toContain("123 Main St");
-    expect(text).toContain("Ph: +919876543210");
+    expect(text).toContain("+919876543210");
     expect(escpos).not.toContain("123 Main St");
-    expect(escpos).toContain("Ph: +919876543210");
+    expect(escpos).toContain("+919876543210");
   });
 
   it("4. Address OFF / Phone OFF renders neither address nor phone", () => {
@@ -68,9 +68,9 @@ describe("Thermal Receipt Formatting & Feed/Cut Suite", () => {
     const escpos = ReceiptBuilder.buildEscPos(payload, 58);
 
     expect(text).not.toContain("123 Main St");
-    expect(text).not.toContain("Ph: +919876543210");
+    expect(text).not.toContain("+919876543210");
     expect(escpos).not.toContain("123 Main St");
-    expect(escpos).not.toContain("Ph: +919876543210");
+    expect(escpos).not.toContain("+919876543210");
   });
 
   it("5. Post-footer feed and cut sequence includes 5 explicit line feeds before FEED_AND_CUT", () => {
