@@ -177,6 +177,7 @@ export class BillingServiceClass {
         footerInfo: settings.footerInfo,
         gstin: settings.showGst ? (settings.gstNumber || undefined) : undefined,
         cafeId: existing.cafeId,
+        cafeRecord: (existing as any).cafeRecord,
       } as any);
       return { billId: existing.billId, status: "Printed", result: printRes };
     });
@@ -204,6 +205,7 @@ export class BillingServiceClass {
         gstin: settings.showGst ? (settings.gstNumber || undefined) : undefined,
         isReprint: true,
         cafeId: existing.cafeId,
+        cafeRecord: (existing as any).cafeRecord,
       } as any);
       return { billId: existing.billId, status: "Reprinted", result: printRes };
     });
@@ -334,7 +336,8 @@ export class BillingServiceClass {
       address: payload.address,
       phone: payload.phone,
       cafeId: payload.cafeId,
-    };
+      cafeRecord: (payload as any).cafeRecord,
+    } as any;
 
     // Store in local memory map immediately for UI reactivity
     billsMap.set(billId, billRecord);
