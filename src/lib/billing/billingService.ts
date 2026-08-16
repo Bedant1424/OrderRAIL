@@ -142,11 +142,6 @@ export class BillingServiceClass {
       const existing = billsMap.get(payload.billId) || payload;
       const settings = getReceiptSettings(existing.cafeId);
 
-      let fullAddr = existing.address;
-      if (settings.showPhone && existing.phone) {
-        fullAddr = fullAddr ? `${fullAddr} | Ph: ${existing.phone}` : `Ph: ${existing.phone}`;
-      }
-
       const printRes = await PrinterAdapter.printReceipt({
         billId: existing.billId,
         billNumber: existing.billNumber,
@@ -171,7 +166,15 @@ export class BillingServiceClass {
         orderSource: existing.orderSource,
         externalOrderRef: existing.externalOrderRef,
         cafeName: existing.cafeName,
-        address: settings.showAddress ? fullAddr : undefined,
+        address: settings.showAddress ? existing.address : undefined,
+        phone: settings.showPhone ? existing.phone : undefined,
+        showAddress: settings.showAddress,
+        showPhone: settings.showPhone,
+        showGst: settings.showGst,
+        showInvoiceNum: settings.showInvoiceNum,
+        receiptHeader: settings.receiptHeader,
+        thankYouMessage: settings.thankYouMessage,
+        footerInfo: settings.footerInfo,
         gstin: settings.showGst ? (settings.gstNumber || undefined) : undefined,
         cafeId: existing.cafeId,
       } as any);
@@ -186,15 +189,18 @@ export class BillingServiceClass {
       }
       const settings = getReceiptSettings(existing.cafeId);
 
-      let fullAddr = existing.address;
-      if (settings.showPhone && existing.phone) {
-        fullAddr = fullAddr ? `${fullAddr} | Ph: ${existing.phone}` : `Ph: ${existing.phone}`;
-      }
-
       const printRes = await PrinterAdapter.printReceipt({
         ...existing,
         cafeName: existing.cafeName,
-        address: settings.showAddress ? fullAddr : undefined,
+        address: settings.showAddress ? existing.address : undefined,
+        phone: settings.showPhone ? existing.phone : undefined,
+        showAddress: settings.showAddress,
+        showPhone: settings.showPhone,
+        showGst: settings.showGst,
+        showInvoiceNum: settings.showInvoiceNum,
+        receiptHeader: settings.receiptHeader,
+        thankYouMessage: settings.thankYouMessage,
+        footerInfo: settings.footerInfo,
         gstin: settings.showGst ? (settings.gstNumber || undefined) : undefined,
         isReprint: true,
         cafeId: existing.cafeId,
