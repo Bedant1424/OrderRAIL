@@ -1,6 +1,6 @@
 /**
  * Production Customer Receipt ESC/POS Builder
- * Formats ESC/POS binary commands & clean text previews for 58mm thermal receipt printers (32 columns).
+ * Formats compact ESC/POS binary commands & clean text previews for 58mm & 80mm thermal receipt printers.
  */
 
 import { ESC_POS } from "./constants";
@@ -10,6 +10,7 @@ export interface ReceiptItemInput {
   name: string;
   price: number;
   qty: number;
+  notes?: string;
 }
 
 export interface ReceiptBuilderPayload {
@@ -23,6 +24,8 @@ export interface ReceiptBuilderPayload {
   cafeName?: string;
   gstin?: string;
   address?: string;
+  phone?: string;
+  cafePhone?: string;
   items: ReceiptItemInput[];
   subtotal: number;
   tax: number;
@@ -35,6 +38,7 @@ export interface ReceiptBuilderPayload {
   netTotal: number;
   tenders?: { method: string; amount: number }[];
   paymentStatus?: "unpaid" | "paid" | "voided" | string;
+  paymentMode?: string;
   isReprint?: boolean;
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO" | string;
   externalOrderRef?: string | null;
@@ -51,7 +55,7 @@ export class ReceiptBuilder {
   private static readonly COLUMN_WIDTH_58MM = 32;
 
   /**
-   * Builds both clean 32-column text preview and raw 58mm ESC/POS command buffer.
+   * Builds both clean 32-column text preview and raw 58mm/80mm ESC/POS command buffer.
    */
   public static build(payload: ReceiptBuilderPayload, widthmm: 58 | 80 = 58): ReceiptBuildResult {
     return {
@@ -61,7 +65,7 @@ export class ReceiptBuilder {
   }
 
   /**
-   * Generates clean formatted text representation (32 columns)
+   * Generates clean formatted text representation (32 columns for 58mm, 48 columns for 80mm)
    */
   public static buildText(payload: ReceiptBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
@@ -93,10 +97,10 @@ export class ReceiptBuilder {
         lines.push(center(al));
       }
     }
-    if (payload.gstin) {
-      lines.push(center(`GSTIN: ${payload.gstin}`));
-    } else {
-      lines.push(center("GSTIN: 27AAAAA0000A1Z5"));
+    const phoneNum = payload.phone || payload.cafePhone;
+    if (phoneNum) {
+      const formattedPhone = phoneNum.startsWith("+") || phoneNum.toLowerCase().startsWith("ph") ? phoneNum : `Ph: ${phoneNum}`;
+      lines.push(center(formattedPhone));
     }
     lines.push(divider);
 
@@ -121,28 +125,39 @@ export class ReceiptBuilder {
       cleanLabel = `Table ${rawLabel}`;
     }
 
-    const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const statusStr = (payload.paymentStatus || "UNPAID").toUpperCase();
-    const isValidOrderNum = payload.orderNumber && !String(payload.orderNumber).startsWith("ord-") && !String(payload.orderNumber).includes("-");
-
-    lines.push(justify(`INVOICE #: ${payload.billNumber}`, `Ref: ${cleanLabel}`));
-    if (isValidOrderNum) {
-      lines.push(justify(`Order #: ${payload.orderNumber}`, `Staff: ${payload.cashierName || "Counter"}`));
-      lines.push(justify(`Date: ${timeStr}`, `Status: ${statusStr}`));
+    const rawDate = payload.timestamp;
+    let dateOnlyStr = "";
+    if (rawDate && /^\d{2}\/\d{2}\/\d{4}/.test(rawDate)) {
+      dateOnlyStr = rawDate.split(",")[0].trim();
+    } else if (rawDate && /^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+      const [y, m, d] = rawDate.substring(0, 10).split("-");
+      dateOnlyStr = `${d}/${m}/${y}`;
     } else {
-      lines.push(justify(`Date: ${timeStr}`, `Staff: ${payload.cashierName || "Counter"}`));
+      dateOnlyStr = new Date().toLocaleDateString("en-GB");
     }
+
+    let modeStr = payload.paymentMode;
+    if (!modeStr && payload.tenders && payload.tenders.length > 0) {
+      modeStr = payload.tenders[0].method.toUpperCase();
+    }
+    if (!modeStr) {
+      modeStr = isPaid ? "Paid" : "UNPAID";
+    }
+
+    const invPrefix = (`INVOICE #: ${payload.billNumber}`.length + `Ref: ${cleanLabel}`.length <= cols) ? "INVOICE #:" : "Inv #:";
+    lines.push(justify(`${invPrefix} ${payload.billNumber}`, `Ref: ${cleanLabel}`));
+    lines.push(justify(`Date: ${dateOnlyStr}`, `Mode: ${modeStr}`));
 
     if (payload.customerName && payload.customerName.trim()) {
       lines.push(`Customer: ${payload.customerName.trim()}`);
     }
     if (payload.customerPhone && payload.customerPhone.trim()) {
-      lines.push(`Phone   : ${payload.customerPhone.trim()}`);
+      lines.push(`Phone: ${payload.customerPhone.trim()}`);
     }
     lines.push(divider);
 
     // Items Header
-    lines.push(justify("QTY  ITEM DESCRIPTION", "AMOUNT"));
+    lines.push(justify("QTY  ITEM", "AMOUNT"));
     lines.push(divider);
 
     // Items List
@@ -198,18 +213,6 @@ export class ReceiptBuilder {
     lines.push(justify("NET PAYABLE TOTAL:", `Rs.${payload.netTotal.toFixed(2)}`));
     lines.push(divider);
 
-    // Tender / Payment Details
-    if (payload.tenders && payload.tenders.length > 0) {
-      lines.push("PAYMENT DETAILS:");
-      for (const t of payload.tenders) {
-        lines.push(justify(`  ${t.method.toUpperCase()}`, `Rs.${t.amount.toFixed(2)}`));
-      }
-      lines.push(divider);
-    } else {
-      lines.push(center(`[ PAYMENT STATUS: ${statusStr} ]`));
-      lines.push(divider);
-    }
-
     // Footer
     lines.push(center("Thank you for dining with us!"));
     lines.push(center("Please visit again"));
@@ -219,7 +222,7 @@ export class ReceiptBuilder {
   }
 
   /**
-   * Generates ESC/POS thermal command stream formatted for 58mm thermal printers (32 columns)
+   * Generates compact ESC/POS thermal command stream formatted for 58mm/80mm thermal printers.
    */
   public static buildEscPos(payload: ReceiptBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
@@ -228,8 +231,9 @@ export class ReceiptBuilder {
 
     const parts: string[] = [];
 
-    // Reset printer
+    // Reset printer & set compact 24-dot line spacing
     parts.push(ESC_POS.INIT);
+    parts.push(ESC_POS.SET_LINE_SPACING_24);
     parts.push(ESC_POS.ALIGN_CENTER);
 
     parts.push(doubleDivider);
@@ -246,16 +250,18 @@ export class ReceiptBuilder {
       }
     }
 
-    parts.push(`GSTIN: ${payload.gstin || "27AAAAA0000A1Z5"}\n`);
+    const phoneNum = payload.phone || payload.cafePhone;
+    if (phoneNum) {
+      const formattedPhone = phoneNum.startsWith("+") || phoneNum.toLowerCase().startsWith("ph") ? phoneNum : `Ph: ${phoneNum}`;
+      parts.push(`${formattedPhone}\n`);
+    }
     parts.push(divider);
 
     const isPaid = (payload.paymentStatus || "").toLowerCase() === "paid";
     const docTitle = isPaid ? "PAID RECEIPT" : "PRE-PAYMENT BILL";
 
     parts.push(ESC_POS.BOLD_ON);
-    parts.push("\x1D\x21\x10"); // Double Height Font
     parts.push(`${payload.isReprint ? `${docTitle} (REPRINT)` : docTitle}\n`);
-    parts.push("\x1D\x21\x00");
     parts.push(ESC_POS.BOLD_OFF);
 
     parts.push(divider);
@@ -278,29 +284,40 @@ export class ReceiptBuilder {
       cleanLabel = `Table ${rawLabel}`;
     }
 
-    const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const statusStr = (payload.paymentStatus || "UNPAID").toUpperCase();
-    const isValidOrderNum = payload.orderNumber && !String(payload.orderNumber).startsWith("ord-") && !String(payload.orderNumber).includes("-");
-
-    parts.push(this.justify(`INVOICE #: ${payload.billNumber}`, `Ref: ${cleanLabel}`, cols) + "\n");
-    if (isValidOrderNum) {
-      parts.push(this.justify(`Order #: ${payload.orderNumber}`, `Staff: ${payload.cashierName || "Counter"}`, cols) + "\n");
-      parts.push(this.justify(`Date: ${timeStr}`, `Status: ${statusStr}`, cols) + "\n");
+    const rawDate = payload.timestamp;
+    let dateOnlyStr = "";
+    if (rawDate && /^\d{2}\/\d{2}\/\d{4}/.test(rawDate)) {
+      dateOnlyStr = rawDate.split(",")[0].trim();
+    } else if (rawDate && /^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+      const [y, m, d] = rawDate.substring(0, 10).split("-");
+      dateOnlyStr = `${d}/${m}/${y}`;
     } else {
-      parts.push(this.justify(`Date: ${timeStr}`, `Staff: ${payload.cashierName || "Counter"}`, cols) + "\n");
+      dateOnlyStr = new Date().toLocaleDateString("en-GB");
     }
+
+    let modeStr = payload.paymentMode;
+    if (!modeStr && payload.tenders && payload.tenders.length > 0) {
+      modeStr = payload.tenders[0].method.toUpperCase();
+    }
+    if (!modeStr) {
+      modeStr = isPaid ? "Paid" : "UNPAID";
+    }
+
+    const invPrefixEsc = (`INVOICE #: ${payload.billNumber}`.length + `Ref: ${cleanLabel}`.length <= cols) ? "INVOICE #:" : "Inv #:";
+    parts.push(this.justify(`${invPrefixEsc} ${payload.billNumber}`, `Ref: ${cleanLabel}`, cols) + "\n");
+    parts.push(this.justify(`Date: ${dateOnlyStr}`, `Mode: ${modeStr}`, cols) + "\n");
 
     if (payload.customerName && payload.customerName.trim()) {
       parts.push(`Customer: ${payload.customerName.trim()}\n`);
     }
     if (payload.customerPhone && payload.customerPhone.trim()) {
-      parts.push(`Phone   : ${payload.customerPhone.trim()}\n`);
+      parts.push(`Phone: ${payload.customerPhone.trim()}\n`);
     }
     parts.push(divider);
 
     // Items Header
     parts.push(ESC_POS.BOLD_ON);
-    parts.push(this.justify("QTY  ITEM DESCRIPTION", "AMOUNT", cols) + "\n");
+    parts.push(this.justify("QTY  ITEM", "AMOUNT", cols) + "\n");
     parts.push(ESC_POS.BOLD_OFF);
     parts.push(divider);
 
@@ -318,6 +335,11 @@ export class ReceiptBuilder {
 
       for (let i = 1; i < nameLines.length; i++) {
         parts.push(`    ${nameLines[i]}\n`);
+      }
+
+      const itemNote = item.notes || (item as any).note;
+      if (itemNote && itemNote.trim()) {
+        parts.push(`     + ${itemNote.trim()}\n`);
       }
     }
 
@@ -357,29 +379,13 @@ export class ReceiptBuilder {
 
     parts.push(divider);
 
-    // Payment Details
-    if (payload.tenders && payload.tenders.length > 0) {
-      parts.push(ESC_POS.BOLD_ON);
-      parts.push("PAYMENT DETAILS:\n");
-      parts.push(ESC_POS.BOLD_OFF);
-      for (const t of payload.tenders) {
-        parts.push(this.justify(`  ${t.method.toUpperCase()}`, `Rs.${t.amount.toFixed(2)}`, cols) + "\n");
-      }
-      parts.push(divider);
-    } else {
-      parts.push(ESC_POS.ALIGN_CENTER);
-      parts.push(`[ PAYMENT STATUS: ${statusStr} ]\n`);
-      parts.push(divider);
-    }
-
     // Footer
     parts.push(ESC_POS.ALIGN_CENTER);
     parts.push("Thank you for dining with us!\n");
     parts.push("Please visit again\n");
     parts.push(doubleDivider);
 
-    // Feed paper past thermal print head to cutter blade before cutting
-    parts.push(ESC_POS.LINE_FEED);
+    // Feed paper past print head to cutter blade before cutting (1 feed line)
     parts.push(ESC_POS.LINE_FEED);
     parts.push(ESC_POS.FEED_AND_CUT);
 
