@@ -493,7 +493,9 @@ export class ReceiptBuilder {
 
     parts.push(doubleDivider);
 
-    // Feed paper past print head to cutter blade before cutting (1 explicit line feed + 3 in FEED_AND_CUT = 4 lines total)
+    // Feed paper past print head to cutter blade before cutting (3 explicit line feeds + 3 in FEED_AND_CUT = 6 lines total)
+    parts.push(ESC_POS.LINE_FEED);
+    parts.push(ESC_POS.LINE_FEED);
     parts.push(ESC_POS.LINE_FEED);
     parts.push(ESC_POS.FEED_AND_CUT);
 

@@ -73,7 +73,7 @@ describe("Thermal Receipt Formatting & Feed/Cut Suite", () => {
     expect(escpos).not.toContain("+919876543210");
   });
 
-  it("5. Post-footer feed and cut sequence includes exactly 1 explicit line feed before FEED_AND_CUT", () => {
+  it("5. Post-footer feed and cut sequence includes exactly 3 explicit line feeds before FEED_AND_CUT", () => {
     const escpos = ReceiptBuilder.buildEscPos(basePayload, 58);
     const lastDividerIdx = escpos.lastIndexOf("================================");
     expect(lastDividerIdx).toBeGreaterThan(-1);
@@ -83,8 +83,8 @@ describe("Thermal Receipt Formatting & Feed/Cut Suite", () => {
 
     const betweenDividerAndCut = escpos.substring(lastDividerIdx + 32, cutIndex);
     const lineFeedsCount = (betweenDividerAndCut.match(/\n/g) || []).length;
-    // 1 newline from doubleDivider + 1 explicit LINE_FEED = 2 newlines
-    expect(lineFeedsCount).toBe(2);
+    // 1 newline from doubleDivider + 3 explicit LINE_FEED = 4 newlines
+    expect(lineFeedsCount).toBe(4);
 
     // Verify no content occurs after FEED_AND_CUT
     const afterCut = escpos.substring(cutIndex + ESC_POS.FEED_AND_CUT.length);
