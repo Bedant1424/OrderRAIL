@@ -109,6 +109,8 @@ export class OrderServiceClass {
         notes?: string | null;
         updatedBy?: "customer" | "staff" | "owner";
         guestSessionId?: string | null;
+        sessionId?: string | null;
+        expectedVersion?: number | null;
       }) => {
         const realOrderId = orderIdMapping.get(params.orderId) || params.orderId;
         await editOrderInDb({ ...params, orderId: realOrderId });
@@ -193,6 +195,8 @@ export class OrderServiceClass {
       notes?: string | null;
       updatedBy?: "customer" | "staff" | "owner";
       guestSessionId?: string | null;
+      sessionId?: string | null;
+      expectedVersion?: number | null;
     },
     options?: { forceQueue?: boolean }
   ): Promise<{ queued: boolean; status: Operation["status"] }> {
