@@ -795,7 +795,25 @@ function CategoryDialog({
   );
 }
 
-function ItemDialog({
+export async function deleteImageFromStorage(imagePath: string | null | undefined, activeCafeId: string) {
+  if (!imagePath || !imagePath.startsWith("menu-images/")) return;
+  const pathWithoutBucket = imagePath.slice("menu-images/".length);
+  // Multi-cafe safety guard: path must start with activeCafeId + "/"
+  if (!pathWithoutBucket.startsWith(`${activeCafeId}/`)) {
+    console.warn(`[Storage Safety] Refusing to delete image path '${pathWithoutBucket}' outside active cafe scope '${activeCafeId}'`);
+    return;
+  }
+  try {
+    const { error } = await supabase.storage.from("menu-images").remove([pathWithoutBucket]);
+    if (error) {
+      console.warn("[Storage Cleanup] Failed to remove image from Storage:", error.message);
+    }
+  } catch (err) {
+    console.warn("[Storage Cleanup] Exception removing image from Storage:", err);
+  }
+}
+
+function ItemModal({
   cafeId,
   initial,
   categories,
@@ -819,6 +837,7 @@ function ItemDialog({
   const [vegType, setVegType] = useState(initial.veg_type ?? "unspecified");
   const [tags, setTags] = useState<string[]>(initial.tags ?? []);
   const [imagePath, setImagePath] = useState<string | null>(initial.image_url ?? null);
+  const [stagedImagePath, setStagedImagePath] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -827,6 +846,13 @@ function ItemDialog({
   // Cropper states
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+
+  const handleCancelModal = () => {
+    if (!isEdit && stagedImagePath) {
+      void deleteImageFromStorage(stagedImagePath, cafeId);
+    }
+    onClose();
+  };
 
   useEffect(() => {
     let stop = false;
@@ -878,6 +904,7 @@ function ItemDialog({
 
   const uploadCropped = async (croppedBlob: Blob) => {
     setUploading(true);
+    const oldImagePath = imagePath;
     try {
       const ext = "png";
       const path = `${cafeId}/${generateUUID()}.${ext}`;
@@ -887,8 +914,33 @@ function ItemDialog({
         contentType: file.type,
       });
       if (error) throw error;
-      setImagePath(`menu-images/${path}`);
-      toast.success("Image uploaded");
+      const newImagePath = `menu-images/${path}`;
+
+      if (isEdit && initial.id) {
+        const { error: updateErr } = await supabase
+          .from("menu_items")
+          .update({ image_url: newImagePath })
+          .eq("id", initial.id);
+
+        if (updateErr) {
+          void deleteImageFromStorage(newImagePath, cafeId);
+          throw new Error(`Failed to update menu item image in database: ${updateErr.message}`);
+        }
+
+        setImagePath(newImagePath);
+        onSaved();
+
+        if (oldImagePath && oldImagePath !== newImagePath) {
+          void deleteImageFromStorage(oldImagePath, cafeId);
+        }
+
+        toast.success("Image uploaded and saved");
+      } else {
+        setStagedImagePath(newImagePath);
+        setImagePath(newImagePath);
+        toast.success("Image added to new item");
+      }
+
       setIsCropOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
@@ -916,7 +968,14 @@ function ItemDialog({
       : supabase.from("menu_items").insert(payload);
     const { error } = await q;
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (!isEdit && stagedImagePath) {
+        void deleteImageFromStorage(stagedImagePath, cafeId);
+        setStagedImagePath(null);
+      }
+      return toast.error(error.message);
+    }
+    setStagedImagePath(null);
     toast.success("Item saved");
     onSaved();
     onClose();
@@ -926,7 +985,7 @@ function ItemDialog({
     <>
       <Dialog
       title={isEdit ? "Edit item" : "New item"}
-      onClose={onClose}
+      onClose={handleCancelModal}
       footer={
         <button
           onClick={isDemo ? undefined : () => void save()}
@@ -947,12 +1006,7 @@ function ItemDialog({
           <button
             type="button"
             onClick={isDemo ? undefined : () => {
-              if (preview) {
-                setImageSrc(preview);
-                setIsCropOpen(true);
-              } else {
-                fileRef.current?.click();
-              }
+              fileRef.current?.click();
             }}
             disabled={uploading || isDemo}
             className={cn(
