@@ -947,12 +947,7 @@ function ItemDialog({
           <button
             type="button"
             onClick={isDemo ? undefined : () => {
-              if (preview) {
-                setImageSrc(preview);
-                setIsCropOpen(true);
-              } else {
-                fileRef.current?.click();
-              }
+              fileRef.current?.click();
             }}
             disabled={uploading || isDemo}
             className={cn(

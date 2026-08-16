@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Cropper from "react-easy-crop";
+import { toast } from "@/components/ui/sonner";
 
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.addEventListener("load", () => resolve(image));
     image.addEventListener("error", (err) => reject(err));
-    image.setAttribute("crossOrigin", "anonymous");
+    if (!url.startsWith("blob:") && !url.startsWith("data:")) {
+      image.setAttribute("crossOrigin", "anonymous");
+    }
     image.src = url;
   });
 }
@@ -141,6 +144,7 @@ export default function ImageCropperModal({
       await onSave(croppedBlob);
     } catch (e) {
       console.error("Failed to crop image on save", e);
+      toast.error("Failed to process image. Please try another file.");
     }
   };
 
