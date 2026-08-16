@@ -59,6 +59,7 @@ export type Database = {
           operating_hours: string | null
           staff_can_manage_specials: boolean
           is_demo_cafe: boolean
+          tax_settings: Json | null
         }
         Insert: {
           created_at?: string
@@ -79,6 +80,7 @@ export type Database = {
           operating_hours?: string | null
           staff_can_manage_specials?: boolean
           is_demo_cafe?: boolean
+          tax_settings?: Json | null
         }
         Update: {
           created_at?: string
@@ -99,6 +101,7 @@ export type Database = {
           operating_hours?: string | null
           staff_can_manage_specials?: boolean
           is_demo_cafe?: boolean
+          tax_settings?: Json | null
         }
         Relationships: []
       }

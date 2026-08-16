@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export type TaxPricingMode = "inclusive" | "exclusive";
 export type RoundingMode = "none" | "nearest_1" | "nearest_0_5";
 
@@ -105,24 +107,96 @@ export function calculateTaxAndTotals(
   };
 }
 
-/**
- * Loads tax settings for a given cafe from localStorage, falling back to default settings.
- */
-export function getTaxSettings(cafeId?: string): TaxSettings {
+export function saveTaxSettingsToLocalStorage(settings: TaxSettings, cafeId?: string): void {
   try {
     const key = `orderrail_tax_settings_${cafeId || "default"}`;
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      return { ...DEFAULT_TAX_SETTINGS, ...JSON.parse(stored) };
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem(key, JSON.stringify(settings));
     }
-  } catch {}
+  } catch (e) {
+    console.warn("[taxSettings] LocalStorage error:", e);
+  }
+}
+
+/**
+ * Loads tax settings for a given cafe.
+ * Prioritizes cafeRecord.tax_settings if passed, then localStorage, then default.
+ */
+export function getTaxSettings(
+  cafeId?: string,
+  cafeRecord?: { tax_settings?: any } | null
+): TaxSettings {
+  if (cafeRecord && cafeRecord.tax_settings) {
+    try {
+      const parsed =
+        typeof cafeRecord.tax_settings === "string"
+          ? JSON.parse(cafeRecord.tax_settings)
+          : cafeRecord.tax_settings;
+      if (parsed && typeof parsed === "object") {
+        const merged: TaxSettings = { ...DEFAULT_TAX_SETTINGS, ...parsed };
+        saveTaxSettingsToLocalStorage(merged, cafeId);
+        return merged;
+      }
+    } catch (e) {
+      console.warn("[taxSettings] Failed to parse cafeRecord.tax_settings:", e);
+    }
+  }
+
+  try {
+    const key = `orderrail_tax_settings_${cafeId || "default"}`;
+    if (typeof window !== "undefined" && window.localStorage) {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        return { ...DEFAULT_TAX_SETTINGS, ...JSON.parse(stored) };
+      }
+    }
+  } catch (e) {
+    console.warn("[taxSettings] Failed to read from localStorage:", e);
+  }
   return DEFAULT_TAX_SETTINGS;
 }
 
 /**
- * Saves tax settings for a given cafe to localStorage.
+ * Saves tax settings for a given cafe to localStorage AND persists to PostgreSQL.
  */
-export function saveTaxSettings(settings: TaxSettings, cafeId?: string): void {
-  const key = `orderrail_tax_settings_${cafeId || "default"}`;
-  localStorage.setItem(key, JSON.stringify(settings));
+export async function saveTaxSettings(settings: TaxSettings, cafeId?: string): Promise<void> {
+  saveTaxSettingsToLocalStorage(settings, cafeId);
+
+  if (cafeId) {
+    const { error } = await supabase
+      .from("cafes")
+      .update({ tax_settings: settings as any })
+      .eq("id", cafeId);
+    if (error) {
+      console.warn("[taxSettings] Failed to persist tax settings to database:", error.message);
+      throw error;
+    }
+  }
+}
+
+/**
+ * Fetches tax settings directly from PostgreSQL database for a cafe.
+ */
+export async function fetchTaxSettingsFromDb(cafeId: string): Promise<TaxSettings> {
+  if (!cafeId) return DEFAULT_TAX_SETTINGS;
+  try {
+    const { data, error } = await supabase
+      .from("cafes")
+      .select("tax_settings")
+      .eq("id", cafeId)
+      .maybeSingle();
+
+    if (!error && data && data.tax_settings) {
+      const parsed =
+        typeof data.tax_settings === "string"
+          ? JSON.parse(data.tax_settings)
+          : data.tax_settings;
+      const settings: TaxSettings = { ...DEFAULT_TAX_SETTINGS, ...parsed };
+      saveTaxSettingsToLocalStorage(settings, cafeId);
+      return settings;
+    }
+  } catch (err) {
+    console.warn("[taxSettings] Error fetching tax settings from DB:", err);
+  }
+  return getTaxSettings(cafeId);
 }

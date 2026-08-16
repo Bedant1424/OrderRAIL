@@ -193,7 +193,7 @@ export default function OwnerSettingsPage() {
   const [receiptForm, setReceiptForm] = useState<ReceiptSettings>(() => getReceiptSettings(cafe?.id));
 
   // Form Fields for Taxes & Pricing
-  const [taxForm, setTaxForm] = useState<TaxSettings>(() => getTaxSettings(cafe?.id));
+  const [taxForm, setTaxForm] = useState<TaxSettings>(() => getTaxSettings(cafe?.id, cafe));
 
   // Form Fields for Payments
   const [paymentForm, setPaymentForm] = useState<PaymentSettings>(() => getPaymentSettings(cafe?.id));
@@ -218,7 +218,7 @@ export default function OwnerSettingsPage() {
 
       // Load settings for cafe
       setReceiptForm(getReceiptSettings(cafe.id));
-      setTaxForm(getTaxSettings(cafe.id));
+      setTaxForm(getTaxSettings(cafe.id, cafe));
       setPaymentForm(getPaymentSettings(cafe.id));
       setOpsForm(getOperationsSettings(cafe.id));
     }
