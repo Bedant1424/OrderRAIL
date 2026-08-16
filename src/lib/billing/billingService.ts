@@ -140,7 +140,7 @@ export class BillingServiceClass {
     // Operation 2: PRINT_BILL
     OperationExecutor.registerHandler("PRINT_BILL", async (payload: BillRecord) => {
       const existing = billsMap.get(payload.billId) || payload;
-      const settings = getReceiptSettings(existing.cafeId);
+      const settings = getReceiptSettings(existing.cafeId, (existing as any).cafeRecord);
 
       const printRes = await PrinterAdapter.printReceipt({
         billId: existing.billId,
@@ -187,7 +187,7 @@ export class BillingServiceClass {
       if (!existing) {
         throw new Error(`Bill ${payload.billId} not found for reprint`);
       }
-      const settings = getReceiptSettings(existing.cafeId);
+      const settings = getReceiptSettings(existing.cafeId, (existing as any).cafeRecord);
 
       const printRes = await PrinterAdapter.printReceipt({
         ...existing,

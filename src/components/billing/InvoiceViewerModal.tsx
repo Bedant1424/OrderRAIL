@@ -22,7 +22,7 @@ export const InvoiceViewerModal: React.FC<InvoiceViewerModalProps> = ({
   const { cafe } = useCafe();
   if (!isOpen || !invoice) return null;
 
-  const receiptSettings = getReceiptSettings(cafe?.id);
+  const receiptSettings = getReceiptSettings(cafe?.id, cafe);
   const taxSettings = getTaxSettings(cafe?.id);
   const currency = cafe?.currency || "INR";
 
