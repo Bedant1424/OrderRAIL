@@ -11,6 +11,7 @@ import { initOfflineSync } from "./lib/orderQueue";
 import ScrollToTop from "./components/ScrollToTop";
 import RouteLoadingFallback from "./components/RouteLoadingFallback";
 import { ProtectedCounterRoute } from "./components/auth/ProtectedCounterRoute";
+import { SeoHead } from "./components/SeoHead";
 
 // Lazy-loaded routes & layouts
 const Index = lazy(() => import("./pages/Index.tsx"));
@@ -61,11 +62,13 @@ const App = () => {
         <BrowserRouter>
           <AuthProvider>
             <CafeProvider>
+              <SeoHead />
               <ScrollToTop />
               <Suspense fallback={<RouteLoadingFallback />}>
                 <Routes>
                   {/* Public Landing & Living Design System */}
                   <Route path="/" element={<Index />} />
+                  <Route path="/c/:slug" element={<Index />} />
                   <Route path="/design-system" element={<DesignSystemShowcasePage />} />
 
                   {/* Public Customer Dining QR App Routes */}
