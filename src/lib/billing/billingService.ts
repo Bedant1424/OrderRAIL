@@ -246,7 +246,7 @@ export class BillingServiceClass {
     const calc = calculateTaxAndTotals(taxableBaseCents, settings);
 
     return {
-      subtotal: calc.subtotalCents / 100,
+      subtotal: rawSubtotal,
       discountAmt,
       tax: calc.totalGstCents / 100,
       cgst: calc.cgstCents / 100,

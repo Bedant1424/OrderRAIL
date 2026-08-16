@@ -179,8 +179,7 @@ export class ReceiptBuilder {
     if (totalTax > 0) {
       const cgstVal = typeof payload.cgst === 'number' ? payload.cgst : totalTax / 2;
       const sgstVal = typeof payload.sgst === 'number' ? payload.sgst : totalTax / 2;
-      const taxableBase = Math.max(1, payload.subtotal - (payload.discountAmt || 0));
-      const calcRatePct = payload.gstPercentage ?? Math.round((totalTax / taxableBase) * 100);
+      const calcRatePct = payload.gstPercentage ?? Math.round((totalTax / Math.max(1, payload.subtotal)) * 100);
       const halfRateStr = (calcRatePct / 2).toFixed(1).replace(/\.0$/, "");
 
       lines.push(justify(`CGST (${halfRateStr}%):`, `Rs.${cgstVal.toFixed(2)}`));
@@ -334,8 +333,7 @@ export class ReceiptBuilder {
     if (totalTaxEsc > 0) {
       const cgstVal = typeof payload.cgst === 'number' ? payload.cgst : totalTaxEsc / 2;
       const sgstVal = typeof payload.sgst === 'number' ? payload.sgst : totalTaxEsc / 2;
-      const taxableBase = Math.max(1, payload.subtotal - (payload.discountAmt || 0));
-      const calcRatePct = payload.gstPercentage ?? Math.round((totalTaxEsc / taxableBase) * 100);
+      const calcRatePct = payload.gstPercentage ?? Math.round((totalTaxEsc / Math.max(1, payload.subtotal)) * 100);
       const halfRateStr = (calcRatePct / 2).toFixed(1).replace(/\.0$/, "");
 
       parts.push(this.justify(`CGST (${halfRateStr}%):`, `Rs.${cgstVal.toFixed(2)}`, cols) + "\n");

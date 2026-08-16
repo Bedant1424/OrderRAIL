@@ -123,7 +123,7 @@ export class BillSummaryCalculator {
     return {
       submittedSubtotal: Math.round(submittedSubtotal * 100) / 100,
       draftSubtotal: Math.round(draftSubtotal * 100) / 100,
-      subtotal: calc.subtotalCents / 100,
+      subtotal: Math.round(rawSubtotal * 100) / 100,
       discountAmount,
       discountPercent,
       discountType: discount.type || 'PERCENTAGE',
