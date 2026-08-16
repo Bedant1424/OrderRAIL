@@ -46,7 +46,7 @@ export function useOrderNotifications({
             console.log("[useOrderNotifications callback] Order is ready! Displaying toast for", order.id);
             notifiedRef.current.add(order.id);
             toast.success("Your order is ready! 🎉", {
-              description: formatOrderLabel(order.order_number),
+              description: formatOrderLabel((order as any).daily_order_number ?? order.order_number),
               duration: 10000,
               action: {
                 label: "View order",
