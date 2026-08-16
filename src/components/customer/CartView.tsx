@@ -307,7 +307,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
       >
         <div className="flex items-center justify-between border-b border-cc-border pb-2 text-xs font-bold text-cc-text-muted">
           <span className="flex items-center gap-1.5">
-            <span className="text-cc-text font-black">{formatOrderLabel(o.order_number)}</span>
+            <span className="text-cc-text font-black">{formatOrderLabel((o as any).daily_order_number ?? o.order_number)}</span>
             {!isOwner && (
               <span className="rounded bg-cc-surface-soft px-1.5 py-0.5 text-[10px] text-cc-text-muted font-medium border border-cc-border">Table Guest</span>
             )}
