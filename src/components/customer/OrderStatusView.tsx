@@ -137,8 +137,8 @@ export function OrderStatusView({ cafe }: { cafe: Cafe }) {
         <div className="flex items-center justify-between gap-2">
           <h1 className="font-display text-2xl font-black text-cc-text tracking-tight">Order Status</h1>
           <span className="inline-block rounded-full bg-cc-surface border border-cc-border px-3 py-1 text-xs font-black text-cc-text shadow-xs">
-            {order.order_number || (order as any).daily_order_number
-              ? formatOrderLabel(order.order_number || (order as any).daily_order_number)
+            {(order as any).daily_order_number ?? order.order_number
+              ? formatOrderLabel((order as any).daily_order_number ?? order.order_number)
               : "Order pending…"}
           </span>
         </div>
