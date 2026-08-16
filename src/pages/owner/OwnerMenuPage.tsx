@@ -415,7 +415,7 @@ export default function OwnerMenuPage() {
         />
       )}
       {editingItem && cafeId && cats.length > 0 && (
-        <ItemDialog
+        <ItemModal
           cafeId={cafeId}
           initial={editingItem}
           categories={cats}
