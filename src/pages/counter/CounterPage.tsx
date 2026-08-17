@@ -97,7 +97,12 @@ export interface SessionOrder {
 
 export function mapOrderToSessionOrder(ord: any, syncState: SessionOrder['syncState'] = 'Synced'): SessionOrder {
   const orderNum = (ord as any).daily_order_number ?? ord.order_number ?? 1;
-  const mappedItems: CartLineItem[] = (ord.order_items || []).map((it: any) => ({
+  const rawItems = (Array.isArray(ord.items) && ord.items.length > 0)
+    ? ord.items
+    : (Array.isArray(ord.order_items) && ord.order_items.length > 0)
+    ? ord.order_items
+    : (ord.items || []);
+  const mappedItems: CartLineItem[] = (rawItems || []).map((it: any) => ({
     id: it.id,
     name: it.name,
     price: (typeof it.price_cents === 'number' && !isNaN(it.price_cents) && it.price_cents > 0)
@@ -1776,27 +1781,61 @@ const IndianRupeeIcon = ({ className }: { className?: string }) => (
 
 // --- 6. DINING SESSION RECEIPT PRINT MODAL ---
 // Helper to aggregate item quantities and total prices across all orders + draft items
-function aggregateReceiptItems(receipt: CompletedOrderReceipt) {
+function aggregateReceiptItems(receipt?: CompletedOrderReceipt | null) {
+  if (!receipt || !Array.isArray(receipt.orders)) {
+    return [];
+  }
+
   const itemMap = new Map<string, { id: string; name: string; qty: number; unitPrice: number; totalPrice: number }>();
 
-  const allItems = [
-    ...receipt.orders.flatMap((o) => o.items),
-    ...receipt.draftItems
-  ];
+  const rawOrders = receipt.orders || [];
+  const rawDraft = receipt.draftItems || [];
+
+  const allItems: any[] = [];
+
+  for (const o of rawOrders) {
+    if (!o) continue;
+    let orderItems: any[] = [];
+    if (Array.isArray(o.items) && o.items.length > 0) {
+      orderItems = o.items;
+    } else if (Array.isArray((o as any).order_items) && (o as any).order_items.length > 0) {
+      orderItems = (o as any).order_items.map((it: any) => ({
+        id: it.id,
+        name: it.name,
+        price: (typeof it.price_cents === 'number' && !isNaN(it.price_cents) && it.price_cents > 0)
+          ? it.price_cents / 100
+          : (typeof it.price === 'number' && !isNaN(it.price))
+          ? it.price
+          : (typeof it.unit_price === 'number' && !isNaN(it.unit_price))
+          ? it.unit_price
+          : 0,
+        qty: it.qty || it.quantity || 1,
+        notes: it.note || it.notes || undefined,
+      }));
+    }
+    allItems.push(...orderItems);
+  }
+
+  allItems.push(...rawDraft);
 
   for (const item of allItems) {
-    const key = `${item.name.trim().toLowerCase()}_${item.price}`;
+    if (!item || typeof item.name !== 'string' || !item.name.trim()) continue;
+    const nameClean = item.name.trim();
+    const itemPrice = typeof item.price === 'number' && !isNaN(item.price) ? item.price : 0;
+    const itemQty = typeof item.qty === 'number' && !isNaN(item.qty) && item.qty > 0 ? item.qty : 1;
+    const key = `${nameClean.toLowerCase()}_${itemPrice}`;
+
     const existing = itemMap.get(key);
     if (existing) {
-      existing.qty += item.qty;
-      existing.totalPrice += item.price * item.qty;
+      existing.qty += itemQty;
+      existing.totalPrice += itemPrice * itemQty;
     } else {
       itemMap.set(key, {
         id: item.id || key,
-        name: item.name,
-        qty: item.qty,
-        unitPrice: item.price,
-        totalPrice: item.price * item.qty
+        name: nameClean,
+        qty: itemQty,
+        unitPrice: itemPrice,
+        totalPrice: itemPrice * itemQty
       });
     }
   }
@@ -3866,7 +3905,11 @@ const CounterLayout = () => {
         };
 
         const sessCreatedOrder = mapOrderToSessionOrder(createdOrder as any);
-        effectiveOrders = [...cur.orders, createdOrder as any];
+        const normalizedCreatedOrder = {
+          ...createdOrder,
+          items: sessCreatedOrder.items.length > 0 ? sessCreatedOrder.items : ((createdOrder as any).items || cur.draftCart)
+        };
+        effectiveOrders = [...cur.orders, normalizedCreatedOrder as any];
 
         // Immediately update tableSessions state to clear draftCart and persist created order locally
         setTableSessions((prev) => {
