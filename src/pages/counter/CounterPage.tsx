@@ -2947,11 +2947,21 @@ const CounterLayout = () => {
 
           const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || sess.startedAtTimestamp;
 
+          const prevDraft = prev[tId]?.draftCart || [];
+          let safeDraftCart = prevDraft;
+          if (sess.orders.length > 0 && prevDraft.length > 0) {
+            const dbItemNames = new Set(sess.orders.flatMap((o) => o.items || []).map((i) => i.name));
+            const isDuplicateDraft = prevDraft.every((d) => dbItemNames.has(d.name));
+            if (isDuplicateDraft) {
+              safeDraftCart = [];
+            }
+          }
+
           merged[tId] = {
             ...sess,
             startedAtTimestamp: sessCreatedAt,
             orders: sess.orders, // Pure PostgreSQL orders
-            draftCart: prev[tId]?.draftCart || []
+            draftCart: safeDraftCart
           };
         }
 
@@ -3793,7 +3803,7 @@ const CounterLayout = () => {
       // Direct Payment Order Resolution / Creation
       let effectiveOrders = [...cur.orders];
 
-      if (effectiveOrders.length === 0 && cur.draftCart.length > 0) {
+      if (cur.draftCart.length > 0) {
         const subtotal = cur.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
 
         let targetSessionId: string | null = (cur.sessionId && cur.sessionId.length > 10 && !cur.sessionId.startsWith("session-"))
@@ -3855,7 +3865,24 @@ const CounterLayout = () => {
           items: cur.draftCart,
         };
 
-        effectiveOrders = [createdOrder as any];
+        const sessCreatedOrder = mapOrderToSessionOrder(createdOrder as any);
+        effectiveOrders = [...cur.orders, createdOrder as any];
+
+        // Immediately update tableSessions state to clear draftCart and persist created order locally
+        setTableSessions((prev) => {
+          const existingSession = prev[activeTableId] || cur;
+          const currentOrders = existingSession.orders || [];
+          const updatedOrders = [...currentOrders.filter((o) => o.id !== sessCreatedOrder.id), sessCreatedOrder];
+          return {
+            ...prev,
+            [activeTableId]: {
+              ...existingSession,
+              sessionId: targetSessionId || existingSession.sessionId,
+              orders: updatedOrders,
+              draftCart: []
+            }
+          };
+        });
       }
 
       const primaryOrderId = effectiveOrders[0]?.id;
