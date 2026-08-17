@@ -125,6 +125,44 @@ export class ExportEngine {
     document.body.removeChild(link);
   }
 
+  /**
+   * Generates CSV for Customer Directory profiles.
+   */
+  public static exportCustomersToCsv(profiles: Array<{
+    name: string;
+    phone?: string | null;
+    visitCount: number;
+    lifetimeSpendCents: number;
+    averageBillCents: number;
+    firstVisit: string;
+    lastVisit: string;
+    preferredChannel: string;
+  }>): string {
+    const headers = [
+      'Customer Name',
+      'Phone',
+      'Visits',
+      'Lifetime Spend (₹)',
+      'Average Bill (₹)',
+      'First Visit',
+      'Last Visit',
+      'Preferred Channel',
+    ];
+
+    const rows = profiles.map((p) => [
+      p.name,
+      p.phone || 'N/A',
+      p.visitCount,
+      (p.lifetimeSpendCents / 100).toFixed(2),
+      (p.averageBillCents / 100).toFixed(2),
+      p.firstVisit ? new Date(p.firstVisit).toLocaleString('en-IN') : 'N/A',
+      p.lastVisit ? new Date(p.lastVisit).toLocaleString('en-IN') : 'N/A',
+      p.preferredChannel,
+    ]);
+
+    return [headers.join(','), ...rows.map((r) => r.map(ExportEngine.escapeCsv).join(','))].join('\n');
+  }
+
   private static escapeCsv(value: string | number): string {
     const str = String(value ?? '');
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
