@@ -17,8 +17,8 @@ import {
 } from "lucide-react";
 import { formatMoney, type Order } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
-import { useOrders } from "@/lib/orders/useOrders";
-import { aggregateCustomerProfiles, type CustomerProfile } from "@/lib/customers/customerService";
+import { useCustomerProfiles } from "@/hooks/useCustomerProfiles";
+import { type CustomerProfile } from "@/lib/customers/customerService";
 import { formatDateDDMMYYYY } from "@/components/ui/OrderRailDateRangePicker";
 import OrderDetailsModal from "@/components/orders/OrderDetailsModal";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
@@ -30,7 +30,7 @@ export default function OwnerCustomersPage() {
   const { cafe, currency } = useCafe();
   const navigate = useNavigate();
 
-  const { orders = [], isLoading } = useOrders({ cafeId: cafe?.id });
+  const { customerProfiles: allProfiles, isLoading } = useCustomerProfiles(cafe?.id);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<CustomerSortOption>("highest");
@@ -38,11 +38,6 @@ export default function OwnerCustomersPage() {
 
   const [selectedProfile, setSelectedProfile] = useState<CustomerProfile | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-
-  // Aggregate profiles from completed orders, excluding anonymous walk-ins
-  const allProfiles = useMemo(() => {
-    return aggregateCustomerProfiles(orders, { excludeWalkins: true });
-  }, [orders]);
 
   // Overall directory statistics
   const stats = useMemo(() => {
