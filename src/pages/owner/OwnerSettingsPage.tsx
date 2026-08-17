@@ -217,7 +217,7 @@ export default function OwnerSettingsPage() {
       setOperatingHours(cafe.operating_hours ?? "");
 
       // Load settings for cafe
-      setReceiptForm(getReceiptSettings(cafe.id));
+      setReceiptForm(getReceiptSettings(cafe.id, cafe));
       setTaxForm(getTaxSettings(cafe.id, cafe));
       setPaymentForm(getPaymentSettings(cafe.id));
       setOpsForm(getOperationsSettings(cafe.id));
@@ -372,7 +372,7 @@ export default function OwnerSettingsPage() {
   };
 
   // Save handler for Receipts & Billing
-  const saveReceiptsBilling = () => {
+  const saveReceiptsBilling = async () => {
     if (receiptForm.receiptHeader.length > 100) {
       return toast.error("Receipt header must be 100 characters or less.");
     }
@@ -384,7 +384,26 @@ export default function OwnerSettingsPage() {
     }
 
     saveReceiptSettings(receiptForm, cafe?.id);
-    toast.success("Receipts & Billing settings saved successfully!");
+
+    if (cafe?.id) {
+      setBusy(true);
+      try {
+        const { error } = await supabase
+          .from("cafes")
+          .update({ receipt_settings: receiptForm as any })
+          .eq("id", cafe.id);
+        if (error) throw error;
+        toast.success("Receipts & Billing settings saved successfully!");
+        void refreshCafe();
+      } catch (e: any) {
+        console.error(e);
+        toast.error(e.message || "Failed to persist receipt settings to database.");
+      } finally {
+        setBusy(false);
+      }
+    } else {
+      toast.success("Receipts & Billing settings saved successfully!");
+    }
   };
 
   // Save handler for Taxes & Pricing

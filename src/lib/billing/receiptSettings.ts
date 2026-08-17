@@ -48,18 +48,62 @@ export const DEFAULT_RECEIPT_SETTINGS: ReceiptSettings = {
 };
 
 /**
- * Loads receipt settings for a given cafe from localStorage, falling back to default settings.
+ * Saves receipt settings to localStorage cache for offline access.
  */
-export function getReceiptSettings(cafeId?: string): ReceiptSettings {
+export function saveReceiptSettingsToLocalStorage(settings: ReceiptSettings, cafeId?: string): void {
   try {
     const key = `orderrail_receipt_settings_${cafeId || "default"}`;
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      return { ...DEFAULT_RECEIPT_SETTINGS, ...JSON.parse(stored) };
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem(key, JSON.stringify(settings));
     }
-  } catch {
-    // Fallback on parse error
+  } catch (e) {
+    console.warn("[receiptSettings] Failed to save to localStorage:", e);
   }
+}
+
+/**
+ * Loads receipt settings for a given cafe.
+ * Prioritizes cafeRecord.receipt_settings if present, then localStorage cache, then default settings.
+ * When DB settings exist, caches them to localStorage for offline access.
+ */
+export function getReceiptSettings(
+  cafeId?: string,
+  cafeRecord?: { receipt_settings?: any } | null
+): ReceiptSettings {
+  // 1. Prioritize DB cafeRecord.receipt_settings if present & non-null
+  if (cafeRecord && cafeRecord.receipt_settings != null) {
+    try {
+      const parsed =
+        typeof cafeRecord.receipt_settings === "string"
+          ? JSON.parse(cafeRecord.receipt_settings)
+          : cafeRecord.receipt_settings;
+      if (parsed && typeof parsed === "object") {
+        const merged: ReceiptSettings = { ...DEFAULT_RECEIPT_SETTINGS, ...parsed };
+        saveReceiptSettingsToLocalStorage(merged, cafeId);
+        return merged;
+      }
+    } catch (e) {
+      console.warn("[receiptSettings] Failed to parse cafeRecord.receipt_settings:", e);
+    }
+  }
+
+  // 2. Secondary fallback to localStorage cache
+  try {
+    const key = `orderrail_receipt_settings_${cafeId || "default"}`;
+    if (typeof window !== "undefined" && window.localStorage) {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === "object") {
+          return { ...DEFAULT_RECEIPT_SETTINGS, ...parsed };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[receiptSettings] Failed to read from localStorage:", e);
+  }
+
+  // 3. Final fallback to DEFAULT_RECEIPT_SETTINGS
   return DEFAULT_RECEIPT_SETTINGS;
 }
 
@@ -67,6 +111,5 @@ export function getReceiptSettings(cafeId?: string): ReceiptSettings {
  * Saves receipt settings for a given cafe to localStorage.
  */
 export function saveReceiptSettings(settings: ReceiptSettings, cafeId?: string): void {
-  const key = `orderrail_receipt_settings_${cafeId || "default"}`;
-  localStorage.setItem(key, JSON.stringify(settings));
+  saveReceiptSettingsToLocalStorage(settings, cafeId);
 }

@@ -38,9 +38,10 @@ export interface InvoiceRecord {
  */
 export function buildInvoiceRecords(
   orders: OrderWithItems[],
-  cafeId?: string
+  cafeId?: string,
+  cafeRecord?: { receipt_settings?: any; tax_settings?: any } | null
 ): InvoiceRecord[] {
-  const receiptSettings = getReceiptSettings(cafeId);
+  const receiptSettings = getReceiptSettings(cafeId, cafeRecord);
   const taxSettings = getTaxSettings(cafeId);
   const paymentSettings = getPaymentSettings(cafeId);
 

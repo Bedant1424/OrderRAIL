@@ -17,6 +17,7 @@ export interface CafeBrandingInfo {
 export interface ReceiptProps {
   bill: BillWithItems;
   cafeInfo?: CafeBrandingInfo;
+  cafeRecord?: { receipt_settings?: any; tax_settings?: any } | null;
   className?: string;
   showFooterButtons?: boolean;
   onPrint?: () => void;
@@ -30,12 +31,13 @@ export const Receipt: React.FC<ReceiptProps> = ({
     phone: '+91 98765 43210',
     gstin: '27AAAAA0000A1Z5',
   },
+  cafeRecord,
   className,
   showFooterButtons = false,
   onPrint,
 }) => {
   const cafeId = (bill as any)?.cafe_id || (bill as any)?.cafeId;
-  const receiptSettings = getReceiptSettings(cafeId);
+  const receiptSettings = getReceiptSettings(cafeId, cafeRecord);
   const taxSettings = getTaxSettings(cafeId);
 
   const formattedDate = new Date(bill.created_at).toLocaleDateString('en-IN', {

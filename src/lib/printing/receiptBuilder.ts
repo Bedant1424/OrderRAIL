@@ -45,6 +45,7 @@ export interface ReceiptBuilderPayload {
   customerName?: string | null;
   customerPhone?: string | null;
   cafeId?: string;
+  cafeRecord?: { receipt_settings?: any; tax_settings?: any } | null;
 
   // Receipt Display Settings
   showAddress?: boolean;

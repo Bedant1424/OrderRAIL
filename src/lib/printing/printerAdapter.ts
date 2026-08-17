@@ -156,7 +156,7 @@ class PrinterAdapterClass {
       throw new Error(`[PrinterAdapter] ${errReason}`);
     }
 
-    const settings = getReceiptSettings((payload as any).cafeId);
+    const settings = getReceiptSettings((payload as any).cafeId, (payload as any).cafeRecord);
     const widthmm: 58 | 80 = settings?.receiptWidth === "80mm" ? 80 : 58;
 
     const mergedPayload: ReceiptRenderPayload = {
