@@ -3803,12 +3803,12 @@ const CounterLayout = () => {
       // Direct Payment Order Resolution / Creation
       let effectiveOrders = [...cur.orders];
 
+      let targetSessionId: string | null = (cur.sessionId && cur.sessionId.length > 10 && !cur.sessionId.startsWith("session-"))
+        ? cur.sessionId
+        : (selectedTable?.currentSessionId || null);
+
       if (cur.draftCart.length > 0) {
         const subtotal = cur.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
-
-        let targetSessionId: string | null = (cur.sessionId && cur.sessionId.length > 10 && !cur.sessionId.startsWith("session-"))
-          ? cur.sessionId
-          : (selectedTable?.currentSessionId || null);
 
         if (selectedTable && !targetSessionId) {
           try {
@@ -3897,7 +3897,7 @@ const CounterLayout = () => {
 
       const receipt: CompletedOrderReceipt = {
         orderId: primaryOrderId,
-        sessionId: cur.sessionId,
+        sessionId: targetSessionId || cur.sessionId,
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
         cashierName: 'Counter',
         timestamp: new Date().toLocaleTimeString('en-IN'),
@@ -3913,12 +3913,16 @@ const CounterLayout = () => {
         customerPhone: effPhone,
       };
 
+      // Check if payment was already recorded (retry scenario)
+      const existingSettlement = PaymentService.getSettlementByBillId(primaryBillId);
+      const isRetryPayment = Boolean(existingSettlement);
+
       // 1. Generate & finalize bill via BillingService
       const billRes = await BillingService.createBill({
         billId: primaryBillId,
         orderId: primaryOrderId,
         orderNumber: (effectiveOrders[0] as any)?.daily_order_number ?? effectiveOrders[0]?.orderNumber,
-        diningSessionId: cur.sessionId,
+        diningSessionId: targetSessionId || cur.sessionId,
         tableId: selectedTable?.id,
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
         orderSource: orderSourceMode,
@@ -3943,12 +3947,12 @@ const CounterLayout = () => {
         } catch (e) {}
       }
 
-      // 2. Record payment & settlement via PaymentService
+      // 2. Record payment & settlement via PaymentService (idempotent)
       const primaryMethod = (tenders[0]?.method || "cash").toLowerCase() as PaymentMethod;
       await PaymentService.recordPayment({
         billId: billRes.bill.billId,
         orderId: primaryOrderId,
-        diningSessionId: cur.sessionId,
+        diningSessionId: targetSessionId || cur.sessionId,
         tableId: selectedTable?.id,
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
         paymentMethod: primaryMethod,
@@ -3971,8 +3975,8 @@ const CounterLayout = () => {
         }
       }
 
-      // 4. Record customer settlement metrics ONLY after successful payment settlement
-      if (resolvedCustomerId && summary.grandTotal > 0) {
+      // 4. Record customer settlement metrics ONLY after successful payment settlement (and not on retry)
+      if (resolvedCustomerId && summary.grandTotal > 0 && !isRetryPayment) {
         try {
           const amountCents = Math.round(summary.grandTotal * 100);
           await recordCustomerSettlement({
@@ -3985,24 +3989,26 @@ const CounterLayout = () => {
         }
       }
 
-      // 5. Update Dine-In table status if applicable
+      // 5. Update Dine-In table status to free if applicable
       if (selectedTable) {
         try {
-          await updateTableStatusInDb(selectedTable.id, "cleaning_required", null);
+          await updateTableStatusInDb(selectedTable.id, "free", null);
         } catch (e: any) {
-          console.warn("[handlePaymentComplete] DB table cleaning update notice:", e?.message || e);
+          console.warn("[handlePaymentComplete] DB table release notice:", e?.message || e);
         }
         try {
-          await tableEngine.markCleaning(selectedTable.id);
+          await tableEngine.releaseTable(selectedTable.id);
         } catch (e: any) {
-          console.warn("[handlePaymentComplete] TableEngine markCleaning notice:", e?.message || e);
+          console.warn("[handlePaymentComplete] TableEngine releaseTable notice:", e?.message || e);
         }
       }
 
-      // 6. Close dining session if applicable
-      if (cur.sessionId && !cur.sessionId.startsWith("session-")) {
+      // 6. Close real dining session if applicable
+      const sessionToClose = targetSessionId || (cur.sessionId && !cur.sessionId.startsWith("session-") ? cur.sessionId : null) || selectedTable?.currentSessionId || (effectiveOrders[0] as any)?.dining_session_id;
+
+      if (sessionToClose && !sessionToClose.startsWith("session-")) {
         try {
-          await closeDiningSessionInDb(cur.sessionId);
+          await closeDiningSessionInDb(sessionToClose);
         } catch (e: any) {
           console.warn("[handlePaymentComplete] DB session closure notice:", e?.message || e);
         }
@@ -4021,7 +4027,7 @@ const CounterLayout = () => {
         return copy;
       });
 
-      toast.success(`💰 Payment Completed! ${selectedTable ? selectedTable.label + ' needs cleaning.' : ''}`);
+      toast.success(`💰 Payment Completed! ${selectedTable ? selectedTable.label + ' is cleared.' : ''}`);
       setIsPaymentOpen(false);
       setActiveReceipt(receipt);
     } catch (e: any) {
