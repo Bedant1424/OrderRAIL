@@ -2670,6 +2670,7 @@ const CounterLayout = () => {
   const notifSettingsRef = useRef<CounterNotificationSettings>(notifSettings);
   const inFlightAcceptsRef = useRef<Set<string>>(new Set());
   const printedKotOrderIdsRef = useRef<Set<string>>(new Set());
+  const isSubmittingPaymentRef = useRef<boolean>(false);
 
   const handleOpenNotifications = useCallback(() => {
     setDrawerTab('notifications');
@@ -3750,7 +3751,19 @@ const CounterLayout = () => {
     tenders: PaymentTenderRecord[],
     customerDetails?: { customerName?: string; customerPhone?: string }
   ) => {
+    if (isSubmittingPaymentRef.current) return;
+    isSubmittingPaymentRef.current = true;
+
     const cur = activeSessionData;
+
+    // Direct Payment Guard: Abort if no orders and no draft cart items exist
+    if (cur.orders.length === 0 && cur.draftCart.length === 0) {
+      toast.error('No active items or orders to collect payment for.');
+      setIsPaymentOpen(false);
+      isSubmittingPaymentRef.current = false;
+      return;
+    }
+
     const currentTaxSettings = getTaxSettings(cafe?.id, cafe);
     const summary = BillSummaryCalculator.buildBillSummary({
       orders: cur.orders,
@@ -3759,43 +3772,7 @@ const CounterLayout = () => {
       taxSettings: currentTaxSettings,
     });
 
-    const primaryOrderId = cur.orders[0]?.id || `ord-${Date.now()}`;
-    const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
-
-    const receipt: CompletedOrderReceipt = {
-      orderId: primaryOrderId,
-      sessionId: cur.sessionId,
-      tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
-      cashierName: 'Counter',
-      timestamp: new Date().toLocaleTimeString('en-IN'),
-      orders: cur.orders,
-      draftItems: cur.draftCart,
-      subtotal: summary.subtotal,
-      tax: summary.tax,
-      discountPct: summary.discountPercent,
-      discountAmt: summary.discountAmount,
-      netTotal: summary.grandTotal,
-      tenders,
-      customerName: customerDetails?.customerName || customerName || null,
-      customerPhone: customerDetails?.customerPhone || customerPhone || null,
-    };
-
-    console.log("[INSTRUMENT_STEP_1]", {
-      sessionId: cur.sessionId,
-      selectedTableId: selectedTable?.id,
-      selectedTableStatus: selectedTable?.status,
-      orderSourceMode
-    });
-
     try {
-      const primaryOrderId = cur.orders[0]?.id || `ord-${Date.now()}`;
-      const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
-
-      const allItems = [
-        ...cur.orders.flatMap((o) => o.items || []),
-        ...cur.draftCart
-      ];
-
       const effName = customerDetails?.customerName || customerName || null;
       const effPhone = customerDetails?.customerPhone || customerPhone || null;
 
@@ -3813,11 +3790,107 @@ const CounterLayout = () => {
         }
       }
 
+      // Direct Payment Order Resolution / Creation
+      let effectiveOrders = [...cur.orders];
+
+      if (effectiveOrders.length === 0 && cur.draftCart.length > 0) {
+        const subtotal = cur.draftCart.reduce((a, i) => a + i.price * i.qty, 0);
+
+        let targetSessionId: string | null = (cur.sessionId && cur.sessionId.length > 10 && !cur.sessionId.startsWith("session-"))
+          ? cur.sessionId
+          : (selectedTable?.currentSessionId || null);
+
+        if (selectedTable && !targetSessionId) {
+          try {
+            const tableRow = {
+              id: selectedTable.id,
+              cafe_id: cafeId || cafe?.id || '',
+              active_session_id: selectedTable.currentSessionId || null,
+              label: selectedTable.label,
+              seats: selectedTable.seats,
+              status: 'free'
+            };
+            targetSessionId = await getOrCreateDiningSession(tableRow as any);
+          } catch (e) {
+            console.warn("[handlePaymentComplete] getOrCreateDiningSession warning:", e);
+          }
+        }
+
+        const orderRes = await OrderService.createOrder({
+          cafe_id: cafe?.id || cafeId || '',
+          table_id: selectedTable?.id || '',
+          session_id: getSessionId(),
+          dining_session_id: targetSessionId,
+          customer_id: resolvedCustomerId || undefined,
+          customer_name: effName,
+          customer_phone: effPhone,
+          total_cents: Math.round(subtotal * 100),
+          status: "preparing",
+          order_source: orderSourceMode,
+          items: cur.draftCart.map((i) => {
+            const rawId = typeof i.id === "string" ? i.id : String(i.id || "");
+            return {
+              menu_item_id: i.menuItemId || (rawId.includes(":") ? rawId.split(":")[0] : rawId.startsWith("c-") ? undefined : rawId || undefined),
+              name: i.name,
+              price_cents: Math.round(i.price * 100),
+              qty: i.qty,
+              note: i.notes || null,
+            };
+          }),
+        });
+
+        if (!orderRes || !orderRes.orderId) {
+          toast.error("Order creation failed. Payment could not be completed.");
+          setIsPaymentOpen(false);
+          return;
+        }
+
+        const createdOrder = orderRes.dbOrder || {
+          id: orderRes.orderId,
+          cafe_id: cafe?.id || cafeId || '',
+          table_id: selectedTable?.id || '',
+          dining_session_id: targetSessionId,
+          order_number: 1,
+          status: "preparing",
+          items: cur.draftCart,
+        };
+
+        effectiveOrders = [createdOrder as any];
+      }
+
+      const primaryOrderId = effectiveOrders[0]?.id;
+      if (!primaryOrderId) {
+        toast.error("Invalid order reference. Payment could not be completed.");
+        setIsPaymentOpen(false);
+        return;
+      }
+
+      const primaryBillId = `bill-${primaryOrderId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+      const allItems = [...effectiveOrders.flatMap((o) => o.items || [])];
+
+      const receipt: CompletedOrderReceipt = {
+        orderId: primaryOrderId,
+        sessionId: cur.sessionId,
+        tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
+        cashierName: 'Counter',
+        timestamp: new Date().toLocaleTimeString('en-IN'),
+        orders: effectiveOrders,
+        draftItems: [],
+        subtotal: summary.subtotal,
+        tax: summary.tax,
+        discountPct: summary.discountPercent,
+        discountAmt: summary.discountAmount,
+        netTotal: summary.grandTotal,
+        tenders,
+        customerName: effName,
+        customerPhone: effPhone,
+      };
+
       // 1. Generate & finalize bill via BillingService
       const billRes = await BillingService.createBill({
         billId: primaryBillId,
         orderId: primaryOrderId,
-        orderNumber: cur.orders[0]?.orderNumber,
+        orderNumber: (effectiveOrders[0] as any)?.daily_order_number ?? effectiveOrders[0]?.orderNumber,
         diningSessionId: cur.sessionId,
         tableId: selectedTable?.id,
         tableLabel: selectedTable ? selectedTable.label : `${orderSourceMode} Order`,
@@ -3857,7 +3930,7 @@ const CounterLayout = () => {
       });
 
       // 3. Update order statuses to served & associate customer_id
-      const orderIds = cur.orders.map((o) => o.id);
+      const orderIds = effectiveOrders.map((o) => o.id);
       for (const orderId of orderIds) {
         try {
           await OrderService.updateOrderStatus(orderId, "served", "staff");
@@ -3885,7 +3958,7 @@ const CounterLayout = () => {
         }
       }
 
-      // 4. Update Dine-In table status if applicable
+      // 5. Update Dine-In table status if applicable
       if (selectedTable) {
         try {
           await updateTableStatusInDb(selectedTable.id, "cleaning_required", null);
@@ -3899,7 +3972,7 @@ const CounterLayout = () => {
         }
       }
 
-      // 5. Close dining session if applicable
+      // 6. Close dining session if applicable
       if (cur.sessionId && !cur.sessionId.startsWith("session-")) {
         try {
           await closeDiningSessionInDb(cur.sessionId);
@@ -3908,7 +3981,7 @@ const CounterLayout = () => {
         }
       }
 
-      // 6. Refresh sessions and clear local session state
+      // 7. Refresh sessions and clear local session state
       try {
         await loadSessionsFromDb();
       } catch (errLoad) {
@@ -3928,8 +4001,10 @@ const CounterLayout = () => {
       console.error("[handlePaymentComplete] Payment completion error:", e);
       toast.error("Payment could not be completed. Please try again.");
       setIsPaymentOpen(false);
+    } finally {
+      isSubmittingPaymentRef.current = false;
     }
-  }, [activeSessionData, activeTableId, cafe, customDiscount, externalOrderRef, loadSessionsFromDb, orderSourceMode, selectedTable, tableEngine, user]);
+  }, [activeSessionData, activeTableId, cafe, cafeId, customDiscount, customerName, customerPhone, externalOrderRef, loadSessionsFromDb, orderSourceMode, selectedTable, tableEngine, user]);
 
   // Keyboard Shortcuts
   useEffect(() => {
