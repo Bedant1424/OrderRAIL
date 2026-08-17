@@ -140,13 +140,31 @@ export class PaymentServiceClass {
   ): Promise<{ settlement: SettlementRecord; queued: boolean; status: Operation["status"] }> {
     this.initHandlers();
 
-    // 1. Validate Bill Exists & Immutability (Idempotency Check)
+    // 1. Validate Bill Exists & Immutability (Idempotency Check across refreshes)
     const bill = billsMap.get(payload.billId);
     const existingSettlement = this.getSettlementByBillId(payload.billId);
-    if (bill && bill.paymentStatus === "paid" && existingSettlement) {
-      console.log(`[PaymentService] Bill ${payload.billId} is already paid. Returning existing settlement.`);
+    if (bill && bill.paymentStatus === "paid") {
+      console.log(`[PaymentService] Bill ${payload.billId} is already paid. Returning settlement.`);
+      const settlement = existingSettlement || {
+        settlementId: `set_${payload.billId.replace(/[^a-zA-Z0-9_-]/g, '')}`,
+        paymentId: payload.paymentId || `pay_${payload.billId.replace(/[^a-zA-Z0-9_-]/g, '')}`,
+        billId: payload.billId,
+        billNumber: bill.billNumber,
+        orderId: payload.orderId,
+        diningSessionId: payload.diningSessionId,
+        tableId: payload.tableId,
+        tableLabel: payload.tableLabel,
+        paymentMethod: payload.paymentMethod,
+        amount: payload.amount,
+        operatorId: payload.operatorId || "Counter Staff",
+        timestamp: payload.timestamp || new Date().toLocaleTimeString("en-IN"),
+        createdAt: new Date().toISOString(),
+        status: "settled",
+        syncState: "Synced",
+      };
+      settlementsMap.set(settlement.settlementId, settlement);
       return {
-        settlement: existingSettlement,
+        settlement,
         queued: false,
         status: "Completed",
       };
