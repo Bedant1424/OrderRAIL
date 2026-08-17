@@ -140,10 +140,16 @@ export class PaymentServiceClass {
   ): Promise<{ settlement: SettlementRecord; queued: boolean; status: Operation["status"] }> {
     this.initHandlers();
 
-    // 1. Validate Bill Exists & Immutability
+    // 1. Validate Bill Exists & Immutability (Idempotency Check)
     const bill = billsMap.get(payload.billId);
-    if (bill && bill.paymentStatus === "paid") {
-      throw new Error(`Bill ${payload.billId} is already paid and locked.`);
+    const existingSettlement = this.getSettlementByBillId(payload.billId);
+    if (bill && bill.paymentStatus === "paid" && existingSettlement) {
+      console.log(`[PaymentService] Bill ${payload.billId} is already paid. Returning existing settlement.`);
+      return {
+        settlement: existingSettlement,
+        queued: false,
+        status: "Completed",
+      };
     }
 
     // 2. Validate Amount
