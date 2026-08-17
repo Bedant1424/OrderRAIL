@@ -3913,9 +3913,10 @@ const CounterLayout = () => {
         customerPhone: effPhone,
       };
 
-      // Check if payment was already recorded (retry scenario)
-      const existingSettlement = PaymentService.getSettlementByBillId(primaryBillId);
-      const isRetryPayment = Boolean(existingSettlement);
+      // Check if bill or payment was already recorded (retry scenario)
+      const existingBill = BillingService.getBill(primaryBillId) || BillingService.getBillByOrderId(primaryOrderId);
+      const isAlreadyPaid = (existingBill?.paymentStatus === 'paid') || (PaymentService.getSettlementByBillId(primaryBillId) !== undefined);
+      const isRetryPayment = isAlreadyPaid;
 
       // 1. Generate & finalize bill via BillingService
       const billRes = await BillingService.createBill({
