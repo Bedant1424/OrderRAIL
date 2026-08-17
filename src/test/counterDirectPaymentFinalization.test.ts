@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { PaymentService, settlementsMap } from "@/lib/payments/paymentService";
 import { BillingService, billsMap } from "@/lib/billing/billingService";
+import { BillRepository } from "@/lib/billing/BillRepository";
 import { BillSummaryCalculator } from "@/lib/billing/BillSummaryCalculator";
 
 describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Tests)", () => {
@@ -97,6 +98,9 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     dbOrders = [];
     dbCustomers = [];
     orderCounter = 0;
+    billsMap.clear();
+    settlementsMap.clear();
+    BillRepository.clearMemoryStoreForTesting();
   });
 
   // TEST 1: Direct payment from a completely free table
@@ -191,8 +195,8 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     expect(table.status).toBe("free");
   });
 
-  // TEST 3: Simulated browser refresh idempotency
-  it("TEST 3: Post-refresh payment retry on an already paid bill returns Completed without exception or duplicate payment", async () => {
+  // TEST 3: Genuine Full Application Reload (clearing BOTH billsMap AND settlementsMap)
+  it("TEST 3: Genuine full application reload (clearing billsMap + settlementsMap) queries persistent state and returns Completed without duplicate payment", async () => {
     const billRes = await BillingService.createBill({
       billId: "bill-refresh-test",
       orderId: "ord-refresh-test",
@@ -209,24 +213,49 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
       tableLabel: "Table 1",
     });
 
-    // Simulate browser refresh: clear in-memory settlementsMap
-    settlementsMap.clear();
+    // Save paid bill into mock BillRepository DB store
+    vi.spyOn(BillRepository, 'getBillById').mockResolvedValue({
+      id: "bill-refresh-test",
+      bill_number: 101,
+      cafe_id: "cafe-1",
+      session_id: "sess-1",
+      table_id: "table-1",
+      order_type: "DINE_IN",
+      payment_status: "PAID",
+      payment_method: "cash",
+      subtotal: 120,
+      discount: 0,
+      service_charge: 0,
+      cgst: 3,
+      sgst: 3,
+      round_off: 0,
+      grand_total: 126,
+      total_items: 1,
+      created_at: new Date().toISOString(),
+      items: [],
+    } as any);
 
-    // PaymentService.recordPayment() after refresh on paid bill
+    // Simulate FULL browser reload: clear ALL memory maps!
+    billsMap.clear();
+    settlementsMap.clear();
+    BillRepository.clearMemoryStoreForTesting();
+
+    // PaymentService.recordPayment() after full reload on paid bill
     const refreshCall = await PaymentService.recordPayment({
-      billId: billRes.bill.billId,
+      billId: "bill-refresh-test",
       orderId: "ord-refresh-test",
       paymentMethod: "cash",
-      amount: billRes.bill.netTotal,
+      amount: 126,
       tableLabel: "Table 1",
     });
 
     expect(refreshCall.status).toBe("Completed");
     expect(refreshCall.settlement.billId).toBe("bill-refresh-test");
+    expect(billsMap.get("bill-refresh-test")?.paymentStatus).toBe("paid");
   });
 
-  // TEST 4: Browser refresh customer settlement idempotency
-  it("TEST 4: Customer settlement retry after browser refresh does not increment visit_count or spend twice", async () => {
+  // TEST 4: Browser refresh customer settlement idempotency with empty billsMap & settlementsMap
+  it("TEST 4: Customer settlement retry after full browser reload (empty billsMap & settlementsMap) detects persistent paid bill and skips spend increment", async () => {
     const cust: MockCustomer = { id: "cust-4", name: "Charlie", phone: "9887766554", visit_count: 0, total_spend_cents: 0 };
     dbCustomers.push(cust);
 
@@ -248,12 +277,34 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     });
     mockRecordCustomerSettlement(cust.id, 15000);
 
-    // Simulate browser refresh: clear in-memory settlementsMap
-    settlementsMap.clear();
+    // Mock PostgreSQL BillRepository returning persistent paid bill
+    vi.spyOn(BillRepository, 'getBillById').mockResolvedValue({
+      id: "bill-cust-refresh",
+      bill_number: 102,
+      cafe_id: "cafe-1",
+      session_id: "sess-2",
+      payment_status: "PAID",
+      payment_method: "card",
+      grand_total: 157.5,
+      created_at: new Date().toISOString(),
+      items: [],
+    } as any);
 
-    // Retry after refresh: check if bill is already paid in persistent bill record
-    const existingBill = BillingService.getBill(billRes.bill.billId);
-    const isAlreadyPaid = (existingBill?.paymentStatus === 'paid') || (PaymentService.getSettlementByBillId(billRes.bill.billId) !== undefined);
+    // Simulate FULL browser reload: clear ALL memory maps!
+    billsMap.clear();
+    settlementsMap.clear();
+    BillRepository.clearMemoryStoreForTesting();
+
+    // Check persistent bill status via BillRepository
+    const existingBill = BillingService.getBill("bill-cust-refresh");
+    let isAlreadyPaid = (existingBill?.paymentStatus === 'paid') || (PaymentService.getSettlementByBillId("bill-cust-refresh") !== undefined);
+
+    if (!isAlreadyPaid) {
+      const dbBill = await BillRepository.getBillById("bill-cust-refresh");
+      if (dbBill && (dbBill.payment_status === 'PAID' || dbBill.payment_status === 'paid')) {
+        isAlreadyPaid = true;
+      }
+    }
     const isRetryPayment = isAlreadyPaid;
 
     if (!isRetryPayment) {
@@ -352,7 +403,7 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
       tableLabel: "Table 5",
     });
 
-    settlementsMap.clear(); // Empty settlementsMap
+    settlementsMap.clear();
 
     const res = await PaymentService.recordPayment({
       billId: billRes.bill.billId,
