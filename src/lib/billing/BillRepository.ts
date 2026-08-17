@@ -66,6 +66,7 @@ export class BillRepository {
           session_id: bill.session_id,
           table_id: bill.table_id || null,
           cashier_id: bill.cashier_id || null,
+          customer_id: bill.customer_id || null,
           customer_name: bill.customer_name || null,
           customer_phone: bill.customer_phone || null,
           order_type: bill.order_type,

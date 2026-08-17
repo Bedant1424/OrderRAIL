@@ -318,6 +318,7 @@ export interface CreateOrderPayload {
   total_cents: number;
   status?: Order["status"];
   order_source?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO" | string;
+  customer_id?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
   items: {
@@ -427,6 +428,9 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
       session_id: payload.session_id || payload.guest_session_id || getSessionId(),
       dining_session_id: diningSessionId,
       guest_session_id: payload.guest_session_id || null,
+      customer_id: payload.customer_id || null,
+      customer_name: payload.customer_name || null,
+      customer_phone: payload.customer_phone || null,
       total_cents: payload.total_cents,
       note: payload.note ?? null,
       status: initialStatus,
@@ -556,6 +560,27 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
       created_at: new Date().toISOString(),
     })),
   } as OrderWithItems);
+}
+
+export async function updateOrderCustomerInDb(
+  orderId: string,
+  customerData: { customer_id?: string | null; customer_name?: string | null; customer_phone?: string | null }
+): Promise<void> {
+  const updatePayload: any = {};
+  if (customerData.customer_id !== undefined) updatePayload.customer_id = customerData.customer_id;
+  if (customerData.customer_name !== undefined) updatePayload.customer_name = customerData.customer_name;
+  if (customerData.customer_phone !== undefined) updatePayload.customer_phone = customerData.customer_phone;
+
+  if (Object.keys(updatePayload).length === 0) return;
+
+  const { error } = await supabase
+    .from("orders")
+    .update(updatePayload)
+    .eq("id", orderId);
+
+  if (error) {
+    console.warn("[updateOrderCustomerInDb] Notice updating order customer info:", error.message);
+  }
 }
 
 export const createOrder = createOrderInDb;

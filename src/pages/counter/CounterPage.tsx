@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
-import { createOrderInDb, updateOrderStatusInDb, fetchActiveDiningSessionOrders, OrderService, BillingService, PaymentService, type PaymentMethod, type OrderSource } from '@/lib/orders/repository';
+import { createOrderInDb, updateOrderStatusInDb, updateOrderCustomerInDb, fetchActiveDiningSessionOrders, OrderService, BillingService, PaymentService, type PaymentMethod, type OrderSource } from '@/lib/orders/repository';
+import { resolveOrCreateCustomerProfile, recordCustomerSettlement } from '@/lib/customers/customerService';
 import { orderIdMapping } from '@/lib/orders/orderService';
 import { getOperationsSettings } from '@/lib/billing/operationsSettings';
 import { computeDailyOrderNumbers } from '@/lib/orders/orderUtils';
@@ -3795,6 +3796,23 @@ const CounterLayout = () => {
         ...cur.draftCart
       ];
 
+      const effName = customerDetails?.customerName || customerName || null;
+      const effPhone = customerDetails?.customerPhone || customerPhone || null;
+
+      // Resolve or create canonical customer profile if phone is provided
+      let resolvedCustomerId: string | null = null;
+      if (cafe?.id && effPhone) {
+        try {
+          resolvedCustomerId = await resolveOrCreateCustomerProfile({
+            cafeId: cafe.id,
+            phone: effPhone,
+            name: effName,
+          });
+        } catch (errCust) {
+          console.warn("[handlePaymentComplete] Customer profile resolution notice:", errCust);
+        }
+      }
+
       // 1. Generate & finalize bill via BillingService
       const billRes = await BillingService.createBill({
         billId: primaryBillId,
@@ -3807,13 +3825,23 @@ const CounterLayout = () => {
         externalOrderRef: externalOrderRef || null,
         items: allItems.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
         discountPct: summary.discountPercent,
-        customerName: customerDetails?.customerName || customerName || null,
-        customerPhone: customerDetails?.customerPhone || customerPhone || null,
+        customerId: resolvedCustomerId || undefined,
+        customerName: effName,
+        customerPhone: effPhone,
         cafeName: cafe?.name,
         address: cafe?.address,
         phone: cafe?.phone,
         cafeId: cafe?.id,
       });
+
+      if (resolvedCustomerId && billRes?.bill?.billId) {
+        try {
+          await supabase
+            .from("bills")
+            .update({ customer_id: resolvedCustomerId, customer_name: effName, customer_phone: effPhone })
+            .eq("id", billRes.bill.billId);
+        } catch (e) {}
+      }
 
       // 2. Record payment & settlement via PaymentService
       const primaryMethod = (tenders[0]?.method || "cash").toLowerCase() as PaymentMethod;
@@ -3828,13 +3856,32 @@ const CounterLayout = () => {
         operatorId: user?.email ? user.email.split('@')[0] : 'Counter Staff',
       });
 
-      // 3. Update order statuses to served
+      // 3. Update order statuses to served & associate customer_id
       const orderIds = cur.orders.map((o) => o.id);
       for (const orderId of orderIds) {
         try {
           await OrderService.updateOrderStatus(orderId, "served", "staff");
+          await updateOrderCustomerInDb(orderId, {
+            customer_id: resolvedCustomerId,
+            customer_name: effName,
+            customer_phone: effPhone,
+          });
         } catch (errOrd) {
           console.warn("[handlePaymentComplete] Order status update warning:", errOrd);
+        }
+      }
+
+      // 4. Record customer settlement metrics ONLY after successful payment settlement
+      if (resolvedCustomerId && summary.grandTotal > 0) {
+        try {
+          const amountCents = Math.round(summary.grandTotal * 100);
+          await recordCustomerSettlement({
+            customerId: resolvedCustomerId,
+            amountCents,
+            visitAt: new Date().toISOString(),
+          });
+        } catch (errSet) {
+          console.warn("[handlePaymentComplete] Record customer settlement notice:", errSet);
         }
       }
 

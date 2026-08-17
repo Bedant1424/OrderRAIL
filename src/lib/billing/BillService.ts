@@ -17,6 +17,7 @@ export interface GenerateBillInput {
   sessionId: string;
   tableId?: string | null;
   cashierId?: string | null;
+  customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
   orderType?: OrderType;
@@ -66,6 +67,7 @@ export class BillService {
       session_id: input.sessionId,
       table_id: input.tableId || null,
       cashier_id: input.cashierId || null,
+      customer_id: input.customerId || null,
       customer_name: input.customerName || null,
       customer_phone: input.customerPhone || null,
       order_type: input.orderType || 'DINE_IN',

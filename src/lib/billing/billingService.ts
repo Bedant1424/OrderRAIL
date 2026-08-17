@@ -44,6 +44,7 @@ export interface CreateBillPayload {
   cashierName?: string;
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
   externalOrderRef?: string | null;
+  customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
   cafeName?: string;
@@ -78,6 +79,7 @@ export interface BillRecord {
   syncState: 'Pending Sync' | 'Syncing' | 'Synced' | 'Sync Failed';
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO";
   externalOrderRef?: string | null;
+  customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
   cafeName?: string;

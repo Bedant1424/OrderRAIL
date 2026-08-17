@@ -35,6 +35,7 @@ export interface Bill {
   session_id: string;
   table_id?: string | null;
   cashier_id?: string | null;
+  customer_id?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
   order_type: OrderType;
