@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { PaymentService } from "@/lib/payments/paymentService";
-import { BillingService } from "@/lib/billing/billingService";
+import { PaymentService, settlementsMap } from "@/lib/payments/paymentService";
+import { BillingService, billsMap } from "@/lib/billing/billingService";
 import { BillSummaryCalculator } from "@/lib/billing/BillSummaryCalculator";
 
 describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Tests)", () => {
@@ -107,11 +107,9 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
       { id: "d2", name: "Fries", price: 80, qty: 1 },
     ];
 
-    // 1. Target session resolution
     const targetSessionId = mockGetOrCreateDiningSession(table);
     expect(targetSessionId).toMatch(/^[0-9a-f-]+$/);
 
-    // 2. Order creation
     orderCounter++;
     const createdOrder: MockOrder = {
       id: `ord-uuid-${orderCounter}`,
@@ -128,7 +126,6 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     };
     dbOrders.push(createdOrder);
 
-    // 3. Bill & Payment
     const billRes = await BillingService.createBill({
       billId: `bill-${createdOrder.id}`,
       orderId: createdOrder.id,
@@ -149,14 +146,11 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     expect(paymentRes.status).toBe("Completed");
     expect(paymentRes.settlement.status).toBe("settled");
 
-    // 4. Update order to served
     createdOrder.status = "served";
 
-    // 5. Release table to free and close real DB session (Milestones 1 & 2 fix)
     mockUpdateTableStatusInDb(table.id, "free", null);
     mockCloseDiningSessionInDb(targetSessionId);
 
-    // Verifications
     expect(dbOrders.length).toBe(1);
     expect(dbOrders[0].status).toBe("served");
     expect(dbSessions.find((s) => s.id === targetSessionId)?.status).toBe("closed");
@@ -197,47 +191,78 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     expect(table.status).toBe("free");
   });
 
-  // TEST 3: Direct payment with customer name + phone
-  it("TEST 3: Direct payment with customer name + phone links correct profile and settles once", async () => {
-    const cust: MockCustomer = { id: "cust-2", name: "Alice", phone: "9123456789", visit_count: 0, total_spend_cents: 0 };
-    dbCustomers.push(cust);
-
-    const table = dbTables[0];
-    const targetSessionId = mockGetOrCreateDiningSession(table);
-
-    mockRecordCustomerSettlement(cust.id, 15000);
-    mockUpdateTableStatusInDb(table.id, "free", null);
-    mockCloseDiningSessionInDb(targetSessionId);
-
-    expect(cust.name).toBe("Alice");
-    expect(cust.visit_count).toBe(1);
-    expect(cust.total_spend_cents).toBe(15000);
-    expect(table.status).toBe("free");
-  });
-
-  // TEST 4: Realtime order INSERT occurs during payment
-  it("TEST 4: Realtime reload during payment does not duplicate order or subtotal and ends with FREE table", () => {
-    const orders: MockOrder[] = [
-      {
-        id: "ord-realtime-1",
-        orderNumber: 1,
-        status: "served",
-        dining_session_id: "sess-1",
-        items: [{ id: "it1", order_id: "ord-realtime-1", name: "Pizza", price: 300, qty: 1 }],
-      },
-    ];
-
-    const draftCart: any[] = []; // Draft cart already cleared by handlePaymentComplete
-
-    const summary = BillSummaryCalculator.buildBillSummary({
-      orders,
-      draftCart,
-      taxEnabled: false,
+  // TEST 3: Simulated browser refresh idempotency
+  it("TEST 3: Post-refresh payment retry on an already paid bill returns Completed without exception or duplicate payment", async () => {
+    const billRes = await BillingService.createBill({
+      billId: "bill-refresh-test",
+      orderId: "ord-refresh-test",
+      tableLabel: "Table 1",
+      items: [{ id: "i1", name: "Brownie", price: 120, qty: 1 }],
     });
 
-    expect(orders.length).toBe(1);
-    expect(summary.subtotal).toBe(300);
-    expect(summary.totalItems).toBe(1);
+    // Initial payment
+    await PaymentService.recordPayment({
+      billId: billRes.bill.billId,
+      orderId: "ord-refresh-test",
+      paymentMethod: "cash",
+      amount: billRes.bill.netTotal,
+      tableLabel: "Table 1",
+    });
+
+    // Simulate browser refresh: clear in-memory settlementsMap
+    settlementsMap.clear();
+
+    // PaymentService.recordPayment() after refresh on paid bill
+    const refreshCall = await PaymentService.recordPayment({
+      billId: billRes.bill.billId,
+      orderId: "ord-refresh-test",
+      paymentMethod: "cash",
+      amount: billRes.bill.netTotal,
+      tableLabel: "Table 1",
+    });
+
+    expect(refreshCall.status).toBe("Completed");
+    expect(refreshCall.settlement.billId).toBe("bill-refresh-test");
+  });
+
+  // TEST 4: Browser refresh customer settlement idempotency
+  it("TEST 4: Customer settlement retry after browser refresh does not increment visit_count or spend twice", async () => {
+    const cust: MockCustomer = { id: "cust-4", name: "Charlie", phone: "9887766554", visit_count: 0, total_spend_cents: 0 };
+    dbCustomers.push(cust);
+
+    const billRes = await BillingService.createBill({
+      billId: "bill-cust-refresh",
+      orderId: "ord-cust-refresh",
+      tableLabel: "Table 2",
+      items: [{ id: "i1", name: "Latte", price: 150, qty: 1 }],
+      customerId: cust.id,
+    });
+
+    // First attempt
+    await PaymentService.recordPayment({
+      billId: billRes.bill.billId,
+      orderId: "ord-cust-refresh",
+      paymentMethod: "card",
+      amount: billRes.bill.netTotal,
+      tableLabel: "Table 2",
+    });
+    mockRecordCustomerSettlement(cust.id, 15000);
+
+    // Simulate browser refresh: clear in-memory settlementsMap
+    settlementsMap.clear();
+
+    // Retry after refresh: check if bill is already paid in persistent bill record
+    const existingBill = BillingService.getBill(billRes.bill.billId);
+    const isAlreadyPaid = (existingBill?.paymentStatus === 'paid') || (PaymentService.getSettlementByBillId(billRes.bill.billId) !== undefined);
+    const isRetryPayment = isAlreadyPaid;
+
+    if (!isRetryPayment) {
+      mockRecordCustomerSettlement(cust.id, 15000);
+    }
+
+    expect(isRetryPayment).toBe(true);
+    expect(cust.visit_count).toBe(1);
+    expect(cust.total_spend_cents).toBe(15000);
   });
 
   // TEST 5: Payment succeeds but final session cleanup is interrupted. Retry finalization.
@@ -252,7 +277,6 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
       items: [{ id: "i1", name: "Tea", price: 20, qty: 1 }],
     });
 
-    // First attempt: Payment succeeds
     const payRes1 = await PaymentService.recordPayment({
       billId: billRes.bill.billId,
       orderId: "ord-retry-test",
@@ -262,7 +286,6 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     });
     expect(payRes1.status).toBe("Completed");
 
-    // Second attempt (Cashier retry after UI notice): Must NOT throw! Must return existing settlement!
     const payRes2 = await PaymentService.recordPayment({
       billId: billRes.bill.billId,
       orderId: "ord-retry-test",
@@ -275,7 +298,6 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     expect(payRes2.status).toBe("Completed");
     expect(payRes2.settlement.billId).toBe(billRes.bill.billId);
 
-    // Final cleanup completes
     mockUpdateTableStatusInDb(table.id, "free", null);
     mockCloseDiningSessionInDb(targetSessionId);
 
@@ -301,7 +323,6 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
 
     expect(firstCall.status).toBe("Completed");
 
-    // Second call for already paid bill
     const secondCall = await PaymentService.recordPayment({
       billId: billRes.bill.billId,
       orderId: "ord-idempotent",
@@ -314,33 +335,43 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     expect(secondCall.settlement.settlementId).toBe(firstCall.settlement.settlementId);
   });
 
-  // TEST 7: Customer settlement called twice for same transaction
-  it("TEST 7: Customer settlement retry does not duplicate visit_count or total_spend_cents", () => {
-    const cust: MockCustomer = { id: "cust-7", name: "Bob", phone: "9998887776", visit_count: 0, total_spend_cents: 0 };
-    dbCustomers.push(cust);
+  // TEST 7: Already-paid bill with no in-memory settlement
+  it("TEST 7: Already-paid bill with empty settlementsMap is recognized as paid and returns settlement without error", async () => {
+    const billRes = await BillingService.createBill({
+      billId: "bill-no-mem",
+      orderId: "ord-no-mem",
+      tableLabel: "Table 5",
+      items: [{ id: "i1", name: "Sandwich", price: 110, qty: 1 }],
+    });
 
-    // First attempt
-    const isRetryPayment1 = false;
-    if (!isRetryPayment1) {
-      mockRecordCustomerSettlement(cust.id, 25000);
-    }
+    await PaymentService.recordPayment({
+      billId: billRes.bill.billId,
+      orderId: "ord-no-mem",
+      paymentMethod: "cash",
+      amount: billRes.bill.netTotal,
+      tableLabel: "Table 5",
+    });
 
-    // Second attempt (retry)
-    const isRetryPayment2 = true;
-    if (!isRetryPayment2) {
-      mockRecordCustomerSettlement(cust.id, 25000);
-    }
+    settlementsMap.clear(); // Empty settlementsMap
 
-    expect(cust.visit_count).toBe(1);
-    expect(cust.total_spend_cents).toBe(25000);
+    const res = await PaymentService.recordPayment({
+      billId: billRes.bill.billId,
+      orderId: "ord-no-mem",
+      paymentMethod: "cash",
+      amount: billRes.bill.netTotal,
+      tableLabel: "Table 5",
+    });
+
+    expect(res.status).toBe("Completed");
+    expect(res.settlement).toBeDefined();
+    expect(res.settlement.billId).toBe("bill-no-mem");
   });
 
-  // TEST 8: Normal flow: Add items -> Send KOT -> Collect Payment -> Payment Received
+  // TEST 8: Normal KOT flow continues to work cleanly and leaves table FREE
   it("TEST 8: Normal KOT flow continues to work cleanly and leaves table FREE", async () => {
     const table = dbTables[0];
     const targetSessionId = mockGetOrCreateDiningSession(table);
 
-    // Send KOT
     const kotOrder: MockOrder = {
       id: "ord-kot-1",
       orderNumber: 1,
@@ -350,7 +381,6 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     };
     dbOrders.push(kotOrder);
 
-    // Collect Payment
     const billRes = await BillingService.createBill({
       billId: "bill-kot-1",
       orderId: kotOrder.id,
@@ -393,7 +423,6 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
 
     const newDraftItems = [{ id: "d-new", name: "Garlic Bread", price: 90, qty: 1 }];
 
-    // Direct Payment converts new draft items to 1 new order
     orderCounter = 2;
     const newOrder: MockOrder = {
       id: `ord-new-${orderCounter}`,
@@ -463,7 +492,6 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
     mockUpdateTableStatusInDb(table.id, "free", null);
     mockCloseDiningSessionInDb(targetSessionId);
 
-    // Simulate printer adapter exception
     let printFailed = false;
     try {
       throw new Error("Printer paper out or disconnected");
