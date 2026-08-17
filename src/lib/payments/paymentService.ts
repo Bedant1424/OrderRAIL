@@ -14,6 +14,7 @@ import {
   type Operation,
 } from "@/lib/offline";
 import { BillingService, billsMap, type BillRecord } from "@/lib/billing/billingService";
+import { BillRepository } from "@/lib/billing/BillRepository";
 import { updateTableStatusInDb, closeDiningSessionInDb } from "@/lib/tables/tableRepository";
 
 export type PaymentMethod = "cash" | "upi" | "card" | "split";
@@ -140,9 +141,38 @@ export class PaymentServiceClass {
   ): Promise<{ settlement: SettlementRecord; queued: boolean; status: Operation["status"] }> {
     this.initHandlers();
 
-    // 1. Validate Bill Exists & Immutability (Idempotency Check across refreshes)
-    const bill = billsMap.get(payload.billId);
-    const existingSettlement = this.getSettlementByBillId(payload.billId);
+    // 1. Validate Bill Exists & Immutability (Idempotency Check across refreshes & PostgreSQL)
+    let bill = billsMap.get(payload.billId);
+    let existingSettlement = this.getSettlementByBillId(payload.billId);
+
+    if (!bill || bill.paymentStatus !== "paid") {
+      try {
+        const dbBill = await BillRepository.getBillById(payload.billId);
+        if (dbBill && (dbBill.payment_status === 'PAID' || dbBill.payment_status === 'paid')) {
+          bill = {
+            billId: dbBill.id,
+            billNumber: dbBill.bill_number?.toString() || payload.billId,
+            orderId: payload.orderId,
+            tableLabel: payload.tableLabel,
+            subtotal: dbBill.subtotal || payload.amount,
+            tax: 0,
+            discountPct: 0,
+            discountAmt: 0,
+            netTotal: dbBill.grand_total || payload.amount,
+            status: 'Paid',
+            paymentStatus: 'paid',
+            items: [],
+            timestamp: dbBill.created_at || new Date().toLocaleTimeString(),
+            createdAt: dbBill.created_at || new Date().toISOString(),
+            syncState: 'Synced',
+          };
+          billsMap.set(payload.billId, bill);
+        }
+      } catch (errDb) {
+        console.warn("[PaymentService] BillRepository lookup notice:", errDb);
+      }
+    }
+
     if (bill && bill.paymentStatus === "paid") {
       console.log(`[PaymentService] Bill ${payload.billId} is already paid. Returning settlement.`);
       const settlement = existingSettlement || {
