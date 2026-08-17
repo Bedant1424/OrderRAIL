@@ -58,12 +58,15 @@ describe("Canonical Customer Profile System Suite", () => {
 
     const cleanName = name?.trim() || null;
     const cleanPhone = phone?.trim() || norm;
+    const effectiveName = cleanName || norm;
 
     // Check for existing profile for same cafe + normalized phone
     let existing = customersDb.find((c) => c.cafe_id === cafeId && c.normalized_phone === norm);
 
     if (existing) {
-      if (cleanName && (!existing.name || existing.name.trim() === "")) {
+      const existingNameTrimmed = existing.name?.trim();
+      const isPhoneFallback = !existingNameTrimmed || existingNameTrimmed === norm || existingNameTrimmed === cleanPhone;
+      if (cleanName && isPhoneFallback) {
         existing.name = cleanName;
         existing.updated_at = new Date().toISOString();
       }
@@ -76,7 +79,7 @@ describe("Canonical Customer Profile System Suite", () => {
       cafe_id: cafeId,
       phone: cleanPhone,
       normalized_phone: norm,
-      name: cleanName,
+      name: effectiveName,
       visit_count: 0,
       total_spend_cents: 0,
       first_visit_at: null,
@@ -120,13 +123,13 @@ describe("Canonical Customer Profile System Suite", () => {
   });
 
   // Test 2
-  it("2. Phone-only customer creates profile", () => {
+  it("2. Phone-only customer creates profile with phone as fallback name", () => {
     const custId = mockResolveOrCreate("cafe-1", "9876543210", "");
     expect(custId).toBeTruthy();
 
     const created = customersDb.find((c) => c.id === custId);
     expect(created).toBeDefined();
-    expect(created?.name).toBeNull();
+    expect(created?.name).toBe("9876543210");
     expect(created?.normalized_phone).toBe("9876543210");
   });
 

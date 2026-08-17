@@ -50,6 +50,7 @@ export async function resolveOrCreateCustomerProfile(params: {
 
   const cleanName = name?.trim() || null;
   const cleanPhone = phone?.trim() || normPhone;
+  const effectiveName = cleanName || normPhone;
 
   // 1. Try atomic RPC first
   try {
@@ -77,7 +78,13 @@ export async function resolveOrCreateCustomerProfile(params: {
       .maybeSingle();
 
     if (!fetchErr && existing) {
-      if (cleanName && (!existing.name || existing.name.trim() === "")) {
+      const existingNameTrimmed = existing.name?.trim();
+      const isExistingPhoneFallback =
+        !existingNameTrimmed ||
+        existingNameTrimmed === normPhone ||
+        existingNameTrimmed === cleanPhone;
+
+      if (cleanName && isExistingPhoneFallback) {
         await supabase
           .from("customers")
           .update({ name: cleanName, updated_at: new Date().toISOString() })
@@ -92,7 +99,7 @@ export async function resolveOrCreateCustomerProfile(params: {
         cafe_id: cafeId,
         phone: cleanPhone,
         normalized_phone: normPhone,
-        name: cleanName,
+        name: effectiveName,
         visit_count: 0,
         total_spend_cents: 0,
       })
