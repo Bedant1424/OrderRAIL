@@ -438,8 +438,11 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
 
     let { error: orderErr } = await supabase.from("orders").insert(insertObj);
 
-    if (orderErr && (orderErr.code === "PGRST204" || orderErr.message?.includes("guest_session_id") || orderErr.message?.includes("schema cache"))) {
+    if (orderErr && (orderErr.code === "PGRST204" || orderErr.message?.includes("guest_session_id") || orderErr.message?.includes("customer_id") || orderErr.message?.includes("schema cache"))) {
       delete insertObj.guest_session_id;
+      delete insertObj.customer_id;
+      delete insertObj.customer_name;
+      delete insertObj.customer_phone;
       const retry = await supabase.from("orders").insert(insertObj);
       orderErr = retry.error;
     }
@@ -573,13 +576,17 @@ export async function updateOrderCustomerInDb(
 
   if (Object.keys(updatePayload).length === 0) return;
 
-  const { error } = await supabase
-    .from("orders")
-    .update(updatePayload)
-    .eq("id", orderId);
+  try {
+    const { error } = await supabase
+      .from("orders")
+      .update(updatePayload)
+      .eq("id", orderId);
 
-  if (error) {
-    console.warn("[updateOrderCustomerInDb] Notice updating order customer info:", error.message);
+    if (error) {
+      console.warn("[updateOrderCustomerInDb] Notice updating order customer info:", error.message);
+    }
+  } catch (e: any) {
+    console.warn("[updateOrderCustomerInDb] Notice updating order customer info:", e?.message || e);
   }
 }
 
