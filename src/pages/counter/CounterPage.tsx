@@ -47,7 +47,7 @@ import {
   type CounterNotificationSettings
 } from '@/lib/counter/counterNotifications';
 import { printService, type KotPrintPayloadData, type ReceiptPrintPayloadData } from '@/lib/printing';
-import { BillService, BillSummaryCalculator, type BillWithItems } from '@/lib/billing';
+import { BillService, BillSummaryCalculator, BillRepository, type BillWithItems } from '@/lib/billing';
 import { SortingPolicy, RestaurantOperationsService, REALTIME_EVENTS } from '@/lib/operations';
 import { CompactDiscountControl, type CustomDiscount } from '@/components/counter/CompactDiscountControl';
 import { Receipt } from '@/components/billing/Receipt';
@@ -3913,9 +3913,21 @@ const CounterLayout = () => {
         customerPhone: effPhone,
       };
 
-      // Check if bill or payment was already recorded (retry scenario)
+      // Check if bill or payment was already recorded in memory or PostgreSQL
       const existingBill = BillingService.getBill(primaryBillId) || BillingService.getBillByOrderId(primaryOrderId);
-      const isAlreadyPaid = (existingBill?.paymentStatus === 'paid') || (PaymentService.getSettlementByBillId(primaryBillId) !== undefined);
+      let isAlreadyPaid = (existingBill?.paymentStatus === 'paid') || (PaymentService.getSettlementByBillId(primaryBillId) !== undefined);
+
+      if (!isAlreadyPaid && primaryBillId) {
+        try {
+          const dbBill = await BillRepository.getBillById(primaryBillId);
+          if (dbBill && (dbBill.payment_status === 'PAID' || dbBill.payment_status === 'paid')) {
+            isAlreadyPaid = true;
+          }
+        } catch (eErr) {
+          console.warn("[handlePaymentComplete] BillRepository check notice:", eErr);
+        }
+      }
+
       const isRetryPayment = isAlreadyPaid;
 
       // 1. Generate & finalize bill via BillingService
