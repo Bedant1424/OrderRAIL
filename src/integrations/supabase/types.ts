@@ -61,6 +61,9 @@ export type Database = {
           is_demo_cafe: boolean
           tax_settings: Json | null
           receipt_settings: Json | null
+          operating_status?: string | null
+          weekly_schedule?: Json | null
+          dine_in_enabled?: boolean | null
         }
         Insert: {
           created_at?: string
@@ -83,6 +86,9 @@ export type Database = {
           is_demo_cafe?: boolean
           tax_settings?: Json | null
           receipt_settings?: Json | null
+          operating_status?: string | null
+          weekly_schedule?: Json | null
+          dine_in_enabled?: boolean | null
         }
         Update: {
           created_at?: string
@@ -105,6 +111,9 @@ export type Database = {
           is_demo_cafe?: boolean
           tax_settings?: Json | null
           receipt_settings?: Json | null
+          operating_status?: string | null
+          weekly_schedule?: Json | null
+          dine_in_enabled?: boolean | null
         }
         Relationships: []
       }

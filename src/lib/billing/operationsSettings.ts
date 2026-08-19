@@ -1,3 +1,5 @@
+import { supabase, type Cafe } from "@/lib/db";
+
 export type RestaurantStatus = "open" | "busy" | "closed" | "maintenance";
 export type KdsRefreshInterval = "2s" | "5s" | "10s" | "30s";
 export type SessionTimeoutOption = "30m" | "60m" | "90m" | "never";
@@ -44,7 +46,7 @@ export const DEFAULT_WEEKLY_SCHEDULE: Record<number, DaySchedule> = {
   3: { isOpen: true, openTime: "08:00", closeTime: "22:00" }, // Thursday
   4: { isOpen: true, openTime: "08:00", closeTime: "23:00" }, // Friday
   5: { isOpen: true, openTime: "09:00", closeTime: "23:00" }, // Saturday
-  6: { isOpen: true, openTime: "09:00", closeTime: "22:00" }, // Sunday
+  6: { isOpen: true, openTime: "08:00", closeTime: "22:00" }, // Sunday
 };
 
 export const DEFAULT_OPERATIONS_SETTINGS: OperationsSettings = {
@@ -99,13 +101,24 @@ export function getTodayOpenStatus(settings: OperationsSettings, date: Date = ne
   return { isOpen: false, text: `Closed (Hours: ${todaySchedule.openTime} - ${todaySchedule.closeTime})` };
 }
 
-export function getOperationsSettings(cafeId?: string): OperationsSettings {
+export function getOperationsSettings(cafeOrId?: Cafe | string | null): OperationsSettings {
+  let cafeObj: Cafe | null = null;
+  let cafeIdStr: string | undefined = undefined;
+
+  if (typeof cafeOrId === "object" && cafeOrId !== null) {
+    cafeObj = cafeOrId;
+    cafeIdStr = cafeObj.id;
+  } else if (typeof cafeOrId === "string") {
+    cafeIdStr = cafeOrId;
+  }
+
+  let localSettings = DEFAULT_OPERATIONS_SETTINGS;
   try {
-    const key = `orderrail_operations_settings_${cafeId || "default"}`;
+    const key = `orderrail_operations_settings_${cafeIdStr || "default"}`;
     const stored = localStorage.getItem(key);
     if (stored) {
       const parsed = JSON.parse(stored);
-      return {
+      localSettings = {
         ...DEFAULT_OPERATIONS_SETTINGS,
         ...parsed,
         weeklySchedule: {
@@ -119,10 +132,57 @@ export function getOperationsSettings(cafeId?: string): OperationsSettings {
       };
     }
   } catch {}
-  return DEFAULT_OPERATIONS_SETTINGS;
+
+  if (!cafeObj) {
+    return localSettings;
+  }
+
+  // Database values take precedence for customer-facing fields when present on Cafe object
+  const dbStatus = (cafeObj as any).operating_status as RestaurantStatus | undefined;
+  const dbWeeklySchedule = (cafeObj as any).weekly_schedule as Record<number, DaySchedule> | undefined;
+  const dbDineInEnabled = (cafeObj as any).dine_in_enabled as boolean | undefined;
+
+  return {
+    ...localSettings,
+    status: dbStatus || localSettings.status,
+    weeklySchedule: dbWeeklySchedule ? { ...DEFAULT_WEEKLY_SCHEDULE, ...dbWeeklySchedule } : localSettings.weeklySchedule,
+    enabledChannels: {
+      ...localSettings.enabledChannels,
+      dine_in: dbDineInEnabled !== undefined && dbDineInEnabled !== null ? Boolean(dbDineInEnabled) : localSettings.enabledChannels.dine_in,
+    },
+  };
 }
 
-export function saveOperationsSettings(settings: OperationsSettings, cafeId?: string): void {
+export async function saveOperationsSettings(settings: OperationsSettings, cafeId?: string): Promise<{ success: boolean; error?: any }> {
+  // Always update localStorage cache as a local fallback
   const key = `orderrail_operations_settings_${cafeId || "default"}`;
-  localStorage.setItem(key, JSON.stringify(settings));
+  try {
+    localStorage.setItem(key, JSON.stringify(settings));
+  } catch {}
+
+  if (!cafeId) {
+    return { success: true };
+  }
+
+  try {
+    const { error } = await supabase
+      .from("cafes")
+      .update({
+        operating_status: settings.status,
+        weekly_schedule: settings.weeklySchedule as any,
+        dine_in_enabled: settings.enabledChannels.dine_in,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", cafeId);
+
+    if (error) {
+      console.error("[saveOperationsSettings] Database update error:", error.message);
+      return { success: false, error };
+    }
+  } catch (err: any) {
+    console.error("[saveOperationsSettings] Notice:", err?.message || err);
+    return { success: false, error: err };
+  }
+
+  return { success: true };
 }

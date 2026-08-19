@@ -461,13 +461,22 @@ export default function OwnerSettingsPage() {
   };
 
   // Save handler for Operations
-  const saveOperations = () => {
+  const saveOperations = async () => {
     const activeChannelsCount = Object.values(opsForm.enabledChannels).filter(Boolean).length;
     if (activeChannelsCount === 0) {
       return toast.error("At least one ordering channel must remain enabled.");
     }
 
-    saveOperationsSettings(opsForm, cafe?.id);
+    const { success, error } = await saveOperationsSettings(opsForm, cafe?.id);
+    if (!success) {
+      toast.error(`Failed to save operations settings: ${error?.message || "Database update failed"}`);
+      return;
+    }
+
+    if (refreshCafe) {
+      void refreshCafe();
+    }
+
     if (opsForm.status === "closed" || opsForm.status === "maintenance") {
       toast.warning(`Operations saved. Note: Restaurant is set to ${opsForm.status === "closed" ? "Temporarily Closed" : "Under Maintenance"}.`);
     } else {
