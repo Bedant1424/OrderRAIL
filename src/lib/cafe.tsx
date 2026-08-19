@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase, type Cafe } from "./db";
 import { APP_CONFIG } from "@/config/app";
@@ -34,6 +34,31 @@ export function CafeProvider({ children }: { children: ReactNode }) {
     await refetch();
     void qc.invalidateQueries({ queryKey: ["global-cafe"] });
   };
+
+  // Realtime synchronization for public cafe operating status and schedule changes
+  useEffect(() => {
+    if (!cafe?.id) return;
+    const channel = supabase
+      .channel(`global-cafe-realtime-${cafe.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "cafes",
+          filter: `id=eq.${cafe.id}`,
+        },
+        () => {
+          void qc.invalidateQueries({ queryKey: ["global-cafe"] });
+          void qc.invalidateQueries({ queryKey: ["table-cafe", cafe.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [cafe?.id, qc]);
 
   const value = useMemo<CafeContextType>(() => ({
     cafe: cafe ?? null,
