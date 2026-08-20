@@ -191,14 +191,14 @@ ${receiptSettings.thankYouMessage || "Thank you for visiting!"}
                 <span>{formatMoney(invoice.subtotalCents, currency)}</span>
               </div>
 
-              {taxSettings.gstEnabled && (
+              {(invoice.cgstCents > 0 || invoice.sgstCents > 0) && (
                 <>
                   <div className="flex justify-between text-gray-700">
-                    <span>CGST ({(taxSettings.gstPercentage / 2)}%)</span>
+                    <span>CGST</span>
                     <span>{formatMoney(invoice.cgstCents, currency)}</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
-                    <span>SGST ({(taxSettings.gstPercentage / 2)}%)</span>
+                    <span>SGST</span>
                     <span>{formatMoney(invoice.sgstCents, currency)}</span>
                   </div>
                 </>
