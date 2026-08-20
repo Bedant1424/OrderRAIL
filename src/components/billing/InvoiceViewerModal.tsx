@@ -5,6 +5,7 @@ import { getReceiptSettings } from "@/lib/billing/receiptSettings";
 import { getTaxSettings } from "@/lib/billing/taxSettings";
 import { formatMoney } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
+import { resolveImageUrlSync } from "@/lib/useImageUrl";
 import { X, Printer, Download, Mail, Send, RotateCcw, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -21,11 +22,18 @@ export const InvoiceViewerModal: React.FC<InvoiceViewerModalProps> = ({
   onClose,
 }) => {
   const { cafe } = useCafe();
+  const [logoError, setLogoError] = React.useState(false);
+
+  React.useEffect(() => {
+    setLogoError(false);
+  }, [cafe?.logo_url, isOpen]);
+
   if (!isOpen || !invoice) return null;
 
   const receiptSettings = getReceiptSettings(cafe?.id, cafe);
   const taxSettings = getTaxSettings(cafe?.id);
   const currency = cafe?.currency || "INR";
+  const logoUrl = resolveImageUrlSync(cafe?.logo_url);
 
   const is58mm = receiptSettings.receiptWidth === "58mm";
 
@@ -186,10 +194,11 @@ ${receiptSettings.thankYouMessage || "Thank you for visiting!"}
           >
             {/* Header branding */}
             <div className="flex flex-col items-center text-center gap-1 border-b border-dashed border-gray-400 pb-3">
-              {receiptSettings.showLogo && cafe?.logo_url && (
+              {receiptSettings.showLogo && logoUrl && !logoError && (
                 <img
-                  src={cafe.logo_url}
+                  src={logoUrl}
                   alt="Logo"
+                  onError={() => setLogoError(true)}
                   className="h-10 w-10 object-contain rounded-full mb-1 border border-gray-200"
                 />
               )}

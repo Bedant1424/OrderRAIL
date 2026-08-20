@@ -17,13 +17,47 @@ import { GlobalNotificationControls } from "@/components/owner/GlobalNotificatio
 import { formatMoney } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
+import { fetchCafeTables } from "@/lib/tables/tableRepository";
+
 type DateFilterPreset = "today" | "yesterday" | "7d" | "30d" | "all";
 type StatusFilter = "all" | "paid" | "pending" | "cancelled" | "refunded";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolves raw table_id or table reference into a human-readable table label,
+ * preventing raw UUID strings from being displayed on receipts or invoices.
+ */
+export function resolveTableLabel(
+  rawTableRef?: string | null,
+  orderType?: string,
+  tablesMap?: Map<string, string>
+): string {
+  const defaultFallback = orderType === "TAKEAWAY" ? "Takeaway" : "Dine-In Table";
+  if (!rawTableRef || !rawTableRef.trim()) {
+    return defaultFallback;
+  }
+
+  const trimmed = rawTableRef.trim();
+
+  // If rawTableRef is NOT a UUID, it is already a human-readable label
+  if (!UUID_REGEX.test(trimmed)) {
+    return trimmed;
+  }
+
+  // If rawTableRef IS a UUID, attempt lookup in tablesMap
+  if (tablesMap && tablesMap.has(trimmed)) {
+    return tablesMap.get(trimmed)!;
+  }
+
+  // Safe fallback when table UUID cannot be resolved: NEVER display UUID
+  return defaultFallback;
+}
 
 /**
  * Maps canonical PostgreSQL BillWithItems record to InvoiceRecord view model
  */
-export function mapBillToInvoiceRecord(bill: BillWithItems): InvoiceRecord {
+export function mapBillToInvoiceRecord(bill: BillWithItems, tablesMap?: Map<string, string>): InvoiceRecord {
   const statusUpper = (bill.payment_status || "PENDING").toUpperCase();
   let status: InvoiceRecord["status"] = "Pending";
   if (statusUpper === "PAID") status = "Paid";
@@ -47,6 +81,7 @@ export function mapBillToInvoiceRecord(bill: BillWithItems): InvoiceRecord {
   }));
 
   const invoiceNumber = `B-${bill.bill_number}`;
+  const tableLabel = resolveTableLabel(bill.table_id, bill.order_type, tablesMap);
 
   return {
     id: bill.id,
@@ -56,7 +91,7 @@ export function mapBillToInvoiceRecord(bill: BillWithItems): InvoiceRecord {
     createdAt: bill.created_at || new Date().toISOString(),
     customerName: bill.customer_name?.trim() || "Walk-in Customer",
     customerPhone: bill.customer_phone?.trim() || "",
-    tableLabel: bill.table_id || (bill.order_type === "TAKEAWAY" ? "Takeaway" : "Dine-In Table"),
+    tableLabel,
     orderSource: bill.order_type === "TAKEAWAY" ? "TAKEAWAY" : "DINE_IN",
     paymentMethod,
     subtotalCents: Math.round((bill.subtotal || 0) * 100),
@@ -112,6 +147,21 @@ export default function OwnerInvoicesPage() {
     return { sinceDate: null, untilDate: null };
   }, [datePreset]);
 
+  // Query cafe tables for resolving table UUIDs to human-readable labels
+  const { data: cafeTables = [] } = useQuery({
+    queryKey: ["owner-cafe-tables", cafe?.id],
+    enabled: !!cafe?.id,
+    queryFn: () => (cafe?.id ? fetchCafeTables(cafe.id) : []),
+  });
+
+  const tableLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (cafeTables || []).forEach((t) => {
+      if (t.id && t.label) map.set(t.id, t.label);
+    });
+    return map;
+  }, [cafeTables]);
+
   // Query persisted bills from Supabase / BillRepository
   const { data: rawBills = [], isLoading } = useQuery({
     queryKey: ["owner-bills-archive", cafe?.id, sinceDate, untilDate],
@@ -122,8 +172,8 @@ export default function OwnerInvoicesPage() {
 
   // Transform into standardized Invoice Records
   const allInvoices = useMemo(() => {
-    return rawBills.map(mapBillToInvoiceRecord);
-  }, [rawBills]);
+    return rawBills.map((bill) => mapBillToInvoiceRecord(bill, tableLabelMap));
+  }, [rawBills, tableLabelMap]);
 
   // Apply Search & Status Filters
   const filteredInvoices = useMemo(() => {

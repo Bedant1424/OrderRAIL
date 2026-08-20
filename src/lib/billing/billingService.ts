@@ -607,7 +607,11 @@ export class BillingServiceClass {
       orderNumber: bill.bill_number,
       diningSessionId: bill.session_id || null,
       tableId: bill.table_id || null,
-      tableLabel: bill.table_id || (bill.order_type === "TAKEAWAY" ? "Takeaway" : "Dine-In Table"),
+      tableLabel: (bill as any).tableLabel && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test((bill as any).tableLabel)
+        ? (bill as any).tableLabel
+        : (bill.table_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bill.table_id)
+            ? bill.table_id
+            : (bill.order_type === "TAKEAWAY" ? "Takeaway" : "Dine-In Table")),
       items,
       subtotal,
       tax: cgst + sgst,
