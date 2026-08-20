@@ -59,7 +59,10 @@ export async function markTableFreeInDb(tableId: string, activeSessionId?: strin
     })
     .eq("id", tableId);
 
-  if (tableErr) console.warn("[markTableFreeInDb] Direct table status update warning:", tableErr.message);
+  if (tableErr) {
+    console.warn("[markTableFreeInDb] Direct table status update warning:", tableErr.message);
+    throw new Error(`Failed to set table free: ${tableErr.message}`);
+  }
 
   // 3. Try Supabase Postgres RPC 'free_table' (best-effort)
   try {
@@ -94,6 +97,109 @@ export async function markTableFreeInDb(tableId: string, activeSessionId?: strin
   } catch (e) {
     console.warn("[markTableFreeInDb] Dining session closure warning:", e);
   }
+}
+
+export interface StaleSessionDiagnostic {
+  tablesWithClosedActiveSession: { tableId: string; label: string; activeSessionId: string }[];
+  occupiedTablesNoActiveOrders: { tableId: string; label: string }[];
+  closedSessionsReferencedByTable: { sessionId: string; tableId: string }[];
+  activeOrdersInClosedSession: { orderId: string; diningSessionId: string; status: string }[];
+}
+
+/**
+ * Read-only diagnostic helper to inspect existing database state for stale/mismatched session records.
+ * Does NOT modify or mutate any database data.
+ */
+export async function diagnoseStaleSessions(cafeId: string): Promise<StaleSessionDiagnostic> {
+  const result: StaleSessionDiagnostic = {
+    tablesWithClosedActiveSession: [],
+    occupiedTablesNoActiveOrders: [],
+    closedSessionsReferencedByTable: [],
+    activeOrdersInClosedSession: [],
+  };
+
+  try {
+    const { data: dbTables } = await supabase
+      .from("tables")
+      .select("id, label, status, active_session_id")
+      .eq("cafe_id", cafeId);
+
+    if (!dbTables) return result;
+
+    const activeSessionIds = dbTables.map((t) => t.active_session_id).filter(Boolean) as string[];
+
+    if (activeSessionIds.length > 0) {
+      const { data: closedSess } = await supabase
+        .from("dining_sessions")
+        .select("id, table_id, status")
+        .in("id", activeSessionIds)
+        .eq("status", "closed");
+
+      if (closedSess && closedSess.length > 0) {
+        const closedSet = new Set(closedSess.map((s) => s.id));
+        for (const t of dbTables) {
+          if (t.active_session_id && closedSet.has(t.active_session_id)) {
+            result.tablesWithClosedActiveSession.push({
+              tableId: t.id,
+              label: t.label,
+              activeSessionId: t.active_session_id,
+            });
+            result.closedSessionsReferencedByTable.push({
+              sessionId: t.active_session_id,
+              tableId: t.id,
+            });
+          }
+        }
+      }
+    }
+
+    const occupiedTableIds = dbTables.filter((t) => t.status === "occupied").map((t) => t.id);
+    if (occupiedTableIds.length > 0) {
+      const { data: activeOrds } = await supabase
+        .from("orders")
+        .select("table_id")
+        .in("table_id", occupiedTableIds)
+        .in("status", ["pending", "preparing", "ready"]);
+
+      const tablesWithOrders = new Set((activeOrds ?? []).map((o) => o.table_id));
+      for (const t of dbTables) {
+        if (t.status === "occupied" && !tablesWithOrders.has(t.id)) {
+          result.occupiedTablesNoActiveOrders.push({ tableId: t.id, label: t.label });
+        }
+      }
+    }
+
+    const { data: orphanOrds } = await supabase
+      .from("orders")
+      .select("id, dining_session_id, status")
+      .eq("cafe_id", cafeId)
+      .in("status", ["pending", "preparing", "ready"])
+      .not("dining_session_id", "is", null);
+
+    if (orphanOrds && orphanOrds.length > 0) {
+      const sessIds = Array.from(new Set(orphanOrds.map((o) => o.dining_session_id!)));
+      const { data: closedSessions } = await supabase
+        .from("dining_sessions")
+        .select("id")
+        .in("id", sessIds)
+        .eq("status", "closed");
+
+      const closedSessSet = new Set((closedSessions ?? []).map((s) => s.id));
+      for (const o of orphanOrds) {
+        if (o.dining_session_id && closedSessSet.has(o.dining_session_id)) {
+          result.activeOrdersInClosedSession.push({
+            orderId: o.id,
+            diningSessionId: o.dining_session_id,
+            status: o.status,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[diagnoseStaleSessions] Read-only diagnostic notice:", err);
+  }
+
+  return result;
 }
 
 /**

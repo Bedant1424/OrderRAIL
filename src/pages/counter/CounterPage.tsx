@@ -4018,6 +4018,8 @@ const CounterLayout = () => {
 
       // 3. Update order statuses to served & associate customer_id
       const orderIds = effectiveOrders.map((o) => o.id);
+      const orderStatusErrors: string[] = [];
+
       for (const orderId of orderIds) {
         try {
           await OrderService.updateOrderStatus(orderId, "served", "staff");
@@ -4026,8 +4028,9 @@ const CounterLayout = () => {
             customer_name: effName,
             customer_phone: effPhone,
           });
-        } catch (errOrd) {
+        } catch (errOrd: any) {
           console.warn("[handlePaymentComplete] Order status update warning:", errOrd);
+          orderStatusErrors.push(errOrd?.message || `Order '${orderId}' status transition failed.`);
         }
       }
 
@@ -4045,28 +4048,37 @@ const CounterLayout = () => {
         }
       }
 
-      // 5. Update Dine-In table status to free if applicable
-      if (selectedTable) {
-        try {
-          await updateTableStatusInDb(selectedTable.id, "free", null);
-        } catch (e: any) {
-          console.warn("[handlePaymentComplete] DB table release notice:", e?.message || e);
-        }
-        try {
-          await tableEngine.releaseTable(selectedTable.id);
-        } catch (e: any) {
-          console.warn("[handlePaymentComplete] TableEngine releaseTable notice:", e?.message || e);
-        }
-      }
+      // 5. Update Dine-In table status & close session ONLY IF order status updates succeeded
+      let tableReleaseError: string | null = null;
+      let sessionCloseError: string | null = null;
 
-      // 6. Close real dining session if applicable
-      const sessionToClose = targetSessionId || (cur.sessionId && !cur.sessionId.startsWith("session-") ? cur.sessionId : null) || selectedTable?.currentSessionId || (effectiveOrders[0] as any)?.dining_session_id;
+      if (orderStatusErrors.length > 0) {
+        toast.warn(`💰 Payment settled, but order status could not be updated: ${orderStatusErrors.join("; ")}`);
+      } else {
+        if (selectedTable) {
+          try {
+            await updateTableStatusInDb(selectedTable.id, "free", null);
+          } catch (e: any) {
+            console.warn("[handlePaymentComplete] DB table release notice:", e?.message || e);
+            tableReleaseError = e?.message || "Table status could not be set to free.";
+          }
+          try {
+            await tableEngine.releaseTable(selectedTable.id);
+          } catch (e: any) {
+            console.warn("[handlePaymentComplete] TableEngine releaseTable notice:", e?.message || e);
+          }
+        }
 
-      if (sessionToClose && !sessionToClose.startsWith("session-")) {
-        try {
-          await closeDiningSessionInDb(sessionToClose);
-        } catch (e: any) {
-          console.warn("[handlePaymentComplete] DB session closure notice:", e?.message || e);
+        // 6. Close real dining session ONLY IF table release succeeded (or in takeaway/express mode)
+        const sessionToClose = targetSessionId || (cur.sessionId && !cur.sessionId.startsWith("session-") ? cur.sessionId : null) || selectedTable?.currentSessionId || (effectiveOrders[0] as any)?.dining_session_id;
+
+        if (!tableReleaseError && sessionToClose && !sessionToClose.startsWith("session-")) {
+          try {
+            await closeDiningSessionInDb(sessionToClose);
+          } catch (e: any) {
+            console.warn("[handlePaymentComplete] DB session closure notice:", e?.message || e);
+            sessionCloseError = e?.message || "Dining session could not be closed.";
+          }
         }
       }
 
@@ -4077,18 +4089,23 @@ const CounterLayout = () => {
         console.warn("[handlePaymentComplete] loadSessionsFromDb notice:", errLoad);
       }
 
-      setTableSessions((prev) => {
-        const copy = { ...prev };
-        delete copy[activeTableId];
-        return copy;
-      });
+      if (!orderStatusErrors.length && !tableReleaseError && !sessionCloseError) {
+        setTableSessions((prev) => {
+          const copy = { ...prev };
+          delete copy[activeTableId];
+          return copy;
+        });
 
-      toast.success(`💰 Payment Completed! ${selectedTable ? selectedTable.label + ' is cleared.' : ''}`);
+        toast.success(`💰 Payment Completed! ${selectedTable ? selectedTable.label + ' is cleared.' : ''}`);
+      } else if (tableReleaseError || sessionCloseError) {
+        toast.error(`💰 Payment recorded, but cleanup encountered an issue: ${tableReleaseError || sessionCloseError}`);
+      }
+
       setIsPaymentOpen(false);
       setActiveReceipt(receipt);
     } catch (e: any) {
       console.error("[handlePaymentComplete] Payment completion error:", e);
-      toast.error("Payment could not be completed. Please try again.");
+      toast.error(e?.message || "Payment could not be completed. Please try again.");
       setIsPaymentOpen(false);
     } finally {
       isSubmittingPaymentRef.current = false;
