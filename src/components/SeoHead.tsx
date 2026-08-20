@@ -6,6 +6,7 @@ import { supabase, type MenuCategory } from "@/lib/db";
 import { resolveImageUrlSync } from "@/lib/useImageUrl";
 import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
 import { APP_CONFIG } from "@/config/app";
+import { getOpeningHoursSpecification } from "@/lib/billing/operationsSettings";
 
 /** Helper to set or create a <meta> element in document.head */
 function setMetaTag(attributeName: "name" | "property", attributeValue: string, content: string) {
@@ -242,7 +243,24 @@ export function SeoHead() {
 
     // 6. Dynamic Schema.org Restaurant JSON-LD for Customer Routes
     if (isCustomerRoute) {
-      const parsedHours = parseOperatingHours(cafe?.operating_hours || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.hours : null));
+      let openingSpecs = cafe?.weekly_schedule
+        ? getOpeningHoursSpecification(cafe.weekly_schedule as any)
+        : [];
+
+      if (openingSpecs.length === 0) {
+        const parsedHours = parseOperatingHours(cafe?.operating_hours || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.hours : null));
+        if (parsedHours) {
+          openingSpecs = [
+            {
+              "@type": "OpeningHoursSpecification",
+              dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+              opens: parsedHours.opens,
+              closes: parsedHours.closes,
+            },
+          ];
+        }
+      }
+
       const addressObj: any = {
         "@type": "PostalAddress",
         streetAddress: fullAddress || undefined,
@@ -269,15 +287,8 @@ export function SeoHead() {
         restaurantSchema.servesCuisine = categoryNames.slice(0, 6);
       }
 
-      if (parsedHours) {
-        restaurantSchema.openingHoursSpecification = [
-          {
-            "@type": "OpeningHoursSpecification",
-            dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-            opens: parsedHours.opens,
-            closes: parsedHours.closes,
-          },
-        ];
+      if (openingSpecs.length > 0) {
+        restaurantSchema.openingHoursSpecification = openingSpecs;
       }
 
       if (cafe?.instagram) {
