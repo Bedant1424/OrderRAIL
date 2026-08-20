@@ -17,6 +17,8 @@ import { PrinterAdapter } from "@/lib/printing/printerAdapter";
 import { renderReceiptText } from "@/lib/printing/receiptRenderer";
 import { getReceiptSettings } from "./receiptSettings";
 import { getTaxSettings, calculateTaxAndTotals, DEFAULT_TAX_SETTINGS, type TaxSettings } from "./taxSettings";
+import { BillRepository } from "./BillRepository";
+import type { Bill, BillItemSnapshot } from "./types";
 
 export type BillStatus = 'Draft' | 'Finalized' | 'Printed' | 'Paid' | 'Voided';
 
@@ -134,8 +136,99 @@ export class BillingServiceClass {
     OperationExecutor.registerHandler("CREATE_BILL", async (payload: BillRecord) => {
       billsMap.set(payload.billId, {
         ...payload,
-        syncState: "Synced",
+        syncState: NetworkManager.isOnline() ? "Synced" : "Pending Sync",
       });
+
+      if (NetworkManager.isOnline()) {
+        try {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          let canonicalBillId = payload.billId;
+          if (!uuidRegex.test(canonicalBillId)) {
+            const stripped = canonicalBillId.replace(/^bill-/, '').replace(/^ord-/, '');
+            if (uuidRegex.test(stripped)) {
+              canonicalBillId = stripped;
+            } else if (payload.orderId && uuidRegex.test(payload.orderId)) {
+              canonicalBillId = payload.orderId;
+            } else {
+              canonicalBillId = generateUUID();
+            }
+          }
+
+          const rawBillNum = parseInt(String(payload.billNumber || '').replace(/\D/g, ''), 10);
+          const billNumber = !isNaN(rawBillNum) && rawBillNum > 0 ? rawBillNum : 1;
+
+          const dbBill: Bill = {
+            id: canonicalBillId,
+            bill_number: billNumber,
+            cafe_id: payload.cafeId || '',
+            session_id: payload.diningSessionId || payload.orderId || canonicalBillId,
+            table_id: payload.tableId || payload.tableLabel || null,
+            cashier_id: payload.cashierName || null,
+            customer_id: payload.customerId || null,
+            customer_name: payload.customerName || null,
+            customer_phone: payload.customerPhone || null,
+            order_type: payload.orderSource === 'TAKEAWAY' ? 'TAKEAWAY' : 'DINE_IN',
+            payment_status: payload.paymentStatus === 'paid' ? 'PAID' : 'PENDING',
+            payment_method: 'CASH',
+            subtotal: typeof payload.subtotal === 'number' ? payload.subtotal : 0,
+            discount: typeof payload.discountAmt === 'number' ? payload.discountAmt : 0,
+            service_charge: typeof payload.serviceCharge === 'number' ? payload.serviceCharge : 0,
+            cgst: typeof payload.cgst === 'number' ? payload.cgst : (typeof payload.tax === 'number' ? payload.tax / 2 : 0),
+            sgst: typeof payload.sgst === 'number' ? payload.sgst : (typeof payload.tax === 'number' ? payload.tax / 2 : 0),
+            round_off: typeof payload.roundOff === 'number' ? payload.roundOff : 0,
+            grand_total: typeof payload.netTotal === 'number' ? payload.netTotal : 0,
+            total_items: Array.isArray(payload.items) ? payload.items.reduce((sum, item) => sum + (item.qty || 1), 0) : 0,
+            notes: null,
+            created_at: payload.createdAt || new Date().toISOString(),
+            paid_at: payload.paymentStatus === 'paid' ? new Date().toISOString() : null,
+            closed_at: payload.paymentStatus === 'paid' ? new Date().toISOString() : null,
+          };
+
+          const dbItems: BillItemSnapshot[] = (payload.items || []).map((item) => {
+            const rawId = typeof item.id === 'string' ? item.id : '';
+            let menuItemId: string | null = null;
+            if (uuidRegex.test(rawId)) {
+              menuItemId = rawId;
+            } else if (rawId.includes(':')) {
+              menuItemId = rawId.split(':')[0];
+            } else if (!rawId.startsWith('c-') && rawId.length > 0) {
+              menuItemId = rawId;
+            }
+
+            const qty = typeof item.qty === 'number' ? item.qty : 1;
+            const price = typeof item.price === 'number' ? item.price : 0;
+
+            return {
+              bill_id: canonicalBillId,
+              menu_item_id: menuItemId,
+              item_name: item.name || 'Item',
+              category_name: 'General',
+              quantity: qty,
+              unit_price: price,
+              discount: 0,
+              tax: 0,
+              line_total: price * qty,
+              special_instructions: item.notes || item.note || null,
+            };
+          });
+
+          const persisted = await BillRepository.saveBill(dbBill, dbItems);
+
+          const updatedRecord: BillRecord = {
+            ...payload,
+            billId: persisted.id,
+            billNumber: `B-${persisted.bill_number}`,
+            syncState: "Synced",
+          };
+          billsMap.set(payload.billId, updatedRecord);
+          billsMap.set(persisted.id, updatedRecord);
+
+          return { billId: persisted.id, status: payload.status };
+        } catch (errDb) {
+          console.warn("[BillingService] CREATE_BILL DB persistence warning:", errDb);
+        }
+      }
+
       return { billId: payload.billId, status: payload.status };
     });
 
@@ -351,8 +444,10 @@ export class BillingServiceClass {
 
     billRecord.syncState = res.queued ? "Pending Sync" : "Synced";
 
+    const latestRecord = (res.result?.billId ? billsMap.get(res.result.billId) : null) || billsMap.get(billId) || billRecord;
+
     return {
-      bill: billRecord,
+      bill: latestRecord,
       queued: res.queued,
       status: res.status,
     };
