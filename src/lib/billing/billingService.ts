@@ -452,6 +452,99 @@ export class BillingServiceClass {
   }
 
   /**
+   * Register a historical persisted BillWithItems into local billsMap for thermal printing/reprinting.
+   * Does NOT write to database, create orders, or modify payment/customer state.
+   */
+  public registerHistoricalBill(
+    bill: {
+      id: string;
+      bill_number: number;
+      cafe_id: string;
+      session_id?: string;
+      table_id?: string | null;
+      cashier_id?: string | null;
+      customer_name?: string | null;
+      customer_phone?: string | null;
+      order_type?: string;
+      payment_status?: string;
+      payment_method?: string;
+      subtotal?: number;
+      discount?: number;
+      service_charge?: number;
+      cgst?: number;
+      sgst?: number;
+      round_off?: number;
+      grand_total?: number;
+      total_items?: number;
+      created_at?: string;
+      items?: any[];
+    },
+    cafeRecord?: any
+  ): BillRecord {
+    this.initHandlers();
+
+    const billId = bill.id;
+    const billNumber = `B-${bill.bill_number}`;
+    const statusUpper = (bill.payment_status || "").toUpperCase();
+    const isPaid = statusUpper === "PAID";
+    const isCancelled = statusUpper === "CANCELLED";
+
+    const items: BillItemPayload[] = (bill.items || []).map((it: any) => ({
+      id: it.id || it.menu_item_id || undefined,
+      name: it.item_name || it.name || "Item",
+      price: typeof it.unit_price === "number" ? it.unit_price : (it.priceCents || 0) / 100,
+      qty: it.quantity || it.qty || 1,
+      notes: it.special_instructions || it.note || undefined,
+    }));
+
+    const subtotal = typeof bill.subtotal === "number" ? bill.subtotal : (bill as any).subtotalCents ? (bill as any).subtotalCents / 100 : 0;
+    const cgst = typeof bill.cgst === "number" ? bill.cgst : (bill as any).cgstCents ? (bill as any).cgstCents / 100 : 0;
+    const sgst = typeof bill.sgst === "number" ? bill.sgst : (bill as any).sgstCents ? (bill as any).sgstCents / 100 : 0;
+    const serviceCharge = typeof bill.service_charge === "number" ? bill.service_charge : (bill as any).serviceChargeCents ? (bill as any).serviceChargeCents / 100 : 0;
+    const roundOff = typeof bill.round_off === "number" ? bill.round_off : (bill as any).roundingCents ? (bill as any).roundingCents / 100 : 0;
+    const discountAmt = typeof bill.discount === "number" ? bill.discount : (bill as any).discountCents ? (bill as any).discountCents / 100 : 0;
+    const netTotal = typeof bill.grand_total === "number" ? bill.grand_total : (bill as any).grandTotalCents ? (bill as any).grandTotalCents / 100 : 0;
+
+    const billRecord: BillRecord = {
+      billId,
+      billNumber,
+      orderId: bill.session_id || bill.id,
+      orderNumber: bill.bill_number,
+      diningSessionId: bill.session_id || null,
+      tableId: bill.table_id || null,
+      tableLabel: bill.table_id || (bill.order_type === "TAKEAWAY" ? "Takeaway" : "Dine-In Table"),
+      items,
+      subtotal,
+      tax: cgst + sgst,
+      cgst,
+      sgst,
+      serviceCharge,
+      roundOff,
+      discountPct: 0,
+      discountAmt,
+      netTotal,
+      status: isCancelled ? "Voided" : isPaid ? "Paid" : "Finalized",
+      paymentStatus: isCancelled ? "voided" : isPaid ? "paid" : "unpaid",
+      cashierName: bill.cashier_id || "Owner Console",
+      timestamp: new Date(bill.created_at || Date.now()).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
+      createdAt: bill.created_at || new Date().toISOString(),
+      syncState: "Synced",
+      orderSource: (bill.order_type === "TAKEAWAY" ? "TAKEAWAY" : "DINE_IN") as any,
+      customerName: bill.customer_name?.trim() || null,
+      customerPhone: bill.customer_phone?.trim() || null,
+      cafeId: bill.cafe_id,
+      cafeRecord: cafeRecord || null,
+    };
+
+    billsMap.set(billId, billRecord);
+    return billRecord;
+  }
+
+  /**
    * Fetch all queued/pending bills merged from IndexedDB
    */
   public async getQueuedBills(): Promise<BillRecord[]> {

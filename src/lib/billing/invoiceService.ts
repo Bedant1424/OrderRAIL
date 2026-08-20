@@ -31,6 +31,7 @@ export interface InvoiceRecord {
   grandTotalCents: number;
   status: "Paid" | "Cancelled" | "Refunded" | "Pending" | "Partially Paid";
   items: InvoiceRecordItem[];
+  rawBill?: any;
 }
 
 /**

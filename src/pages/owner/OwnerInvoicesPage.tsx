@@ -68,6 +68,7 @@ export function mapBillToInvoiceRecord(bill: BillWithItems): InvoiceRecord {
     grandTotalCents: Math.round((bill.grand_total || 0) * 100),
     status,
     items,
+    rawBill: bill,
   };
 }
 
