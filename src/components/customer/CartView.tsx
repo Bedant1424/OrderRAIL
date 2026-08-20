@@ -124,7 +124,7 @@ export function CartView({ cafe, table }: { cafe: Cafe; table: TableRow }) {
         return;
       }
 
-      const opsSettings = getOperationsSettings(cafe.id);
+      const opsSettings = getOperationsSettings(cafe);
       const todayStatus = getTodayOpenStatus(opsSettings);
 
       if (!todayStatus.isOpen || !opsSettings.enabledChannels.dine_in) {

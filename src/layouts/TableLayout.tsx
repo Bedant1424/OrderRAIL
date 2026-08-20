@@ -14,6 +14,7 @@ import { clearOrderHistory } from "@/lib/orderHistory";
 import { Drawer, DrawerContent, DrawerFooter } from "@/components/ui/drawer";
 import { useCafe } from "@/lib/cafe";
 import { CHEESE_CORNER_CONFIG } from "@/branding/cheesecorner/config";
+import { formatWeeklySchedule } from "@/lib/billing/operationsSettings";
 
 export default function TableLayout() {
   const { tableId } = useParams();
@@ -347,12 +348,14 @@ export default function TableLayout() {
                   </div>
                 )}
 
-                {cafe.operating_hours && (
+                {(cafe.weekly_schedule || cafe.operating_hours) && (
                   <div className="flex gap-3 text-sm">
                     <Clock className="h-4 w-4 text-cc-text-muted shrink-0 mt-0.5" strokeWidth={2.2} />
                     <div>
                       <div className="font-bold text-cc-text text-[10px] uppercase tracking-wider">Operating Hours</div>
-                      <div className="mt-0.5 text-xs font-medium text-cc-text-muted whitespace-pre-line break-words">{cafe.operating_hours}</div>
+                      <div className="mt-0.5 text-xs font-medium text-cc-text-muted whitespace-pre-line break-words">
+                        {cafe.weekly_schedule ? formatWeeklySchedule(cafe.weekly_schedule as any) : cafe.operating_hours}
+                      </div>
                     </div>
                   </div>
                 )}

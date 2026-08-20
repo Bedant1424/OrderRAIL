@@ -14,7 +14,6 @@ describe('Owner Settings Email & Storage RLS Authorization & Persistence Tests',
     googleMapsReviewUrl: string;
     website: string;
     instagram: string;
-    operatingHours: string;
   }) => {
     return {
       name: inputs.name.trim(),
@@ -28,7 +27,6 @@ describe('Owner Settings Email & Storage RLS Authorization & Persistence Tests',
       google_maps_review_url: inputs.googleMapsReviewUrl.trim() || null,
       website: inputs.website.trim() || null,
       instagram: inputs.instagram.trim() || null,
-      operating_hours: inputs.operatingHours.trim() || null,
     };
   };
 
@@ -73,7 +71,6 @@ describe('Owner Settings Email & Storage RLS Authorization & Persistence Tests',
       googleMapsReviewUrl: '',
       website: '',
       instagram: '',
-      operatingHours: '10AM - 11PM',
     });
 
     expect(payload).toHaveProperty('email', 'owner@cheesecorner.com');
@@ -92,7 +89,6 @@ describe('Owner Settings Email & Storage RLS Authorization & Persistence Tests',
       googleMapsReviewUrl: '',
       website: '',
       instagram: '',
-      operatingHours: '',
     });
 
     // Simulate page reload state hydration
@@ -113,7 +109,6 @@ describe('Owner Settings Email & Storage RLS Authorization & Persistence Tests',
       googleMapsReviewUrl: '',
       website: '',
       instagram: '',
-      operatingHours: '',
     });
 
     expect(payload.email).toBeNull();
