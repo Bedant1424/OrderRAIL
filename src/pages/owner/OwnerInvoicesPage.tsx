@@ -3,30 +3,74 @@ import { useQuery } from "@tanstack/react-query";
 import {
   FileText,
   Search,
-  Filter,
-  Printer,
-  Download,
-  Calendar,
-  CreditCard,
   CheckCircle2,
   XCircle,
   Eye,
-  ShoppingBag,
   DollarSign,
-  Clock,
-  Sparkles,
-  ArrowUpDown,
 } from "lucide-react";
 import { useCafe } from "@/lib/cafe";
-import { fetchCafeOrders } from "@/lib/orders/repository";
-import { buildInvoiceRecords, type InvoiceRecord } from "@/lib/billing/invoiceService";
+import { BillRepository } from "@/lib/billing/BillRepository";
+import type { BillWithItems } from "@/lib/billing/types";
+import type { InvoiceRecord, InvoiceRecordItem } from "@/lib/billing/invoiceService";
 import { InvoiceViewerModal } from "@/components/billing/InvoiceViewerModal";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { formatMoney } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
 type DateFilterPreset = "today" | "yesterday" | "7d" | "30d" | "all";
-type StatusFilter = "all" | "paid" | "cancelled" | "refunded";
+type StatusFilter = "all" | "paid" | "pending" | "cancelled" | "refunded";
+
+/**
+ * Maps canonical PostgreSQL BillWithItems record to InvoiceRecord view model
+ */
+export function mapBillToInvoiceRecord(bill: BillWithItems): InvoiceRecord {
+  const statusUpper = (bill.payment_status || "PENDING").toUpperCase();
+  let status: InvoiceRecord["status"] = "Pending";
+  if (statusUpper === "PAID") status = "Paid";
+  else if (statusUpper === "CANCELLED") status = "Cancelled";
+  else if (statusUpper === "REFUNDED") status = "Refunded";
+  else if (statusUpper === "PARTIALLY_PAID") status = "Partially Paid";
+  else status = "Pending";
+
+  const pmUpper = (bill.payment_method || "CASH").toUpperCase();
+  let paymentMethod: InvoiceRecord["paymentMethod"] = "Cash";
+  if (pmUpper.includes("UPI")) paymentMethod = "UPI";
+  else if (pmUpper.includes("CARD")) paymentMethod = "Card";
+  else if (pmUpper.includes("MIXED")) paymentMethod = "Mixed";
+
+  const items: InvoiceRecordItem[] = (bill.items || []).map((item, i) => ({
+    id: item.id || item.menu_item_id || `item-${i}`,
+    name: item.item_name,
+    qty: item.quantity,
+    priceCents: Math.round((item.unit_price || 0) * 100),
+    note: item.special_instructions || undefined,
+  }));
+
+  const invoiceNumber = `B-${bill.bill_number}`;
+
+  return {
+    id: bill.id,
+    invoiceNumber,
+    orderId: bill.session_id || bill.id,
+    orderNumber: `${bill.bill_number}`,
+    createdAt: bill.created_at || new Date().toISOString(),
+    customerName: bill.customer_name?.trim() || "Walk-in Customer",
+    customerPhone: bill.customer_phone?.trim() || "",
+    tableLabel: bill.table_id || (bill.order_type === "TAKEAWAY" ? "Takeaway" : "Dine-In Table"),
+    orderSource: bill.order_type === "TAKEAWAY" ? "TAKEAWAY" : "DINE_IN",
+    paymentMethod,
+    subtotalCents: Math.round((bill.subtotal || 0) * 100),
+    cgstCents: Math.round((bill.cgst || 0) * 100),
+    sgstCents: Math.round((bill.sgst || 0) * 100),
+    totalTaxCents: Math.round(((bill.cgst || 0) + (bill.sgst || 0)) * 100),
+    serviceChargeCents: Math.round((bill.service_charge || 0) * 100),
+    roundingCents: Math.round((bill.round_off || 0) * 100),
+    grandTotalCents: Math.round((bill.grand_total || 0) * 100),
+    status,
+    items,
+    rawBill: bill,
+  };
+}
 
 export default function OwnerInvoicesPage() {
   const { cafe } = useCafe();
@@ -39,50 +83,54 @@ export default function OwnerInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
 
-  // Compute sinceDate for queries
-  const sinceDate = useMemo(() => {
+  // Compute sinceDate & untilDate for queries
+  const { sinceDate, untilDate } = useMemo(() => {
     if (datePreset === "today") {
       const d = new Date();
       d.setHours(0, 0, 0, 0);
-      return d.toISOString();
+      return { sinceDate: d.toISOString(), untilDate: null };
     }
     if (datePreset === "yesterday") {
-      const d = new Date();
-      d.setDate(d.getDate() - 1);
-      d.setHours(0, 0, 0, 0);
-      return d.toISOString();
+      const start = new Date();
+      start.setDate(start.getDate() - 1);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date();
+      end.setDate(end.getDate() - 1);
+      end.setHours(23, 59, 59, 999);
+      return { sinceDate: start.toISOString(), untilDate: end.toISOString() };
     }
     if (datePreset === "7d") {
       const d = new Date();
       d.setDate(d.getDate() - 7);
-      return d.toISOString();
+      return { sinceDate: d.toISOString(), untilDate: null };
     }
     if (datePreset === "30d") {
       const d = new Date();
       d.setDate(d.getDate() - 30);
-      return d.toISOString();
+      return { sinceDate: d.toISOString(), untilDate: null };
     }
-    return null;
+    return { sinceDate: null, untilDate: null };
   }, [datePreset]);
 
-  // Query raw orders from Supabase / repo
-  const { data: rawOrders = [], isLoading } = useQuery({
-    queryKey: ["owner-invoices-archive", cafe?.id, sinceDate],
+  // Query persisted bills from Supabase / BillRepository
+  const { data: rawBills = [], isLoading } = useQuery({
+    queryKey: ["owner-bills-archive", cafe?.id, sinceDate, untilDate],
     enabled: !!cafe?.id,
-    queryFn: () => fetchCafeOrders(cafe!.id, sinceDate),
+    queryFn: () => BillRepository.getBillsByDateRange(cafe!.id, sinceDate, untilDate),
     refetchInterval: 10000,
   });
 
   // Transform into standardized Invoice Records
   const allInvoices = useMemo(() => {
-    return buildInvoiceRecords(rawOrders, cafe?.id);
-  }, [rawOrders, cafe?.id]);
+    return rawBills.map(mapBillToInvoiceRecord);
+  }, [rawBills]);
 
   // Apply Search & Status Filters
   const filteredInvoices = useMemo(() => {
     return allInvoices.filter((inv) => {
       // Status Filter
       if (statusFilter === "paid" && inv.status !== "Paid") return false;
+      if (statusFilter === "pending" && inv.status !== "Pending" && inv.status !== "Partially Paid") return false;
       if (statusFilter === "cancelled" && inv.status !== "Cancelled") return false;
       if (statusFilter === "refunded" && inv.status !== "Refunded") return false;
 
@@ -238,8 +286,9 @@ export default function OwnerInvoicesPage() {
             {[
               { id: "all", label: "All" },
               { id: "paid", label: "Paid" },
+              { id: "pending", label: "Pending" },
               { id: "cancelled", label: "Cancelled" },
-              { id: "refunded", label: "Refunded (0)" },
+              { id: "refunded", label: "Refunded" },
             ].map((st) => (
               <button
                 key={st.id}
@@ -305,19 +354,19 @@ export default function OwnerInvoicesPage() {
                       <td className="p-4 text-muted-foreground">
                         <div>{new Date(inv.createdAt).toLocaleDateString()}</div>
                         <div className="text-[10px] text-muted-foreground/80">
-                          {new Date(inv.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(inv.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </div>
                       </td>
 
                       {/* Customer */}
                       <td className="p-4">
                         <div className="font-semibold text-foreground">{inv.customerName}</div>
-                        <div className="text-[10px] font-mono text-muted-foreground">{inv.customerPhone}</div>
+                        <div className="text-[10px] font-mono text-muted-foreground">{inv.customerPhone || "N/A"}</div>
                       </td>
 
                       {/* Order & Channel */}
                       <td className="p-4">
-                        <div className="font-semibold text-foreground">Order #{inv.orderNumber}</div>
+                        <div className="font-semibold text-foreground">Bill #{inv.orderNumber}</div>
                         <div className="text-[10px] text-muted-foreground">
                           {inv.tableLabel} ({inv.orderSource})
                         </div>
@@ -340,6 +389,10 @@ export default function OwnerInvoicesPage() {
                             "inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase",
                             inv.status === "Paid"
                               ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                              : inv.status === "Pending"
+                              ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                              : inv.status === "Partially Paid"
+                              ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
                               : "bg-rose-500/10 text-rose-600 border-rose-500/20"
                           )}
                         >
@@ -384,6 +437,10 @@ export default function OwnerInvoicesPage() {
                         "text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase",
                         inv.status === "Paid"
                           ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                          : inv.status === "Pending"
+                          ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                          : inv.status === "Partially Paid"
+                          ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
                           : "bg-rose-500/10 text-rose-600 border-rose-500/20"
                       )}
                     >
@@ -394,7 +451,7 @@ export default function OwnerInvoicesPage() {
                   <div className="flex justify-between items-baseline text-xs">
                     <div>
                       <div className="font-semibold text-foreground">{inv.customerName}</div>
-                      <div className="text-[10px] text-muted-foreground">Order #{inv.orderNumber} ({inv.tableLabel})</div>
+                      <div className="text-[10px] text-muted-foreground">Bill #{inv.orderNumber} ({inv.tableLabel})</div>
                     </div>
                     <div className="text-right">
                       <div className="font-display font-bold text-sm text-foreground">

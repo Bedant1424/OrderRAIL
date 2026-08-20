@@ -29,8 +29,9 @@ export interface InvoiceRecord {
   serviceChargeCents: number;
   roundingCents: number;
   grandTotalCents: number;
-  status: "Paid" | "Cancelled" | "Refunded";
+  status: "Paid" | "Cancelled" | "Refunded" | "Pending" | "Partially Paid";
   items: InvoiceRecordItem[];
+  rawBill?: any;
 }
 
 /**

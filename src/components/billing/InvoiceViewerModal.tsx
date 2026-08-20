@@ -1,5 +1,6 @@
 import React from "react";
 import type { InvoiceRecord } from "@/lib/billing/invoiceService";
+import { BillingService } from "@/lib/billing/billingService";
 import { getReceiptSettings } from "@/lib/billing/receiptSettings";
 import { getTaxSettings } from "@/lib/billing/taxSettings";
 import { formatMoney } from "@/lib/db";
@@ -28,9 +29,82 @@ export const InvoiceViewerModal: React.FC<InvoiceViewerModalProps> = ({
 
   const is58mm = receiptSettings.receiptWidth === "58mm";
 
-  const handlePrint = () => {
-    toast.success(`Printing Invoice ${invoice.invoiceNumber}...`);
-    window.print();
+  const handlePrint = async () => {
+    try {
+      const billToPrint = invoice.rawBill || {
+        id: invoice.id,
+        bill_number: parseInt(String(invoice.orderNumber).replace(/\D/g, ""), 10) || 1,
+        cafe_id: cafe?.id || "default-cafe",
+        session_id: invoice.orderId,
+        customer_name: invoice.customerName,
+        customer_phone: invoice.customerPhone,
+        order_type: invoice.orderSource,
+        payment_status: invoice.status === "Paid" ? "PAID" : "PENDING",
+        payment_method: invoice.paymentMethod,
+        subtotal: invoice.subtotalCents / 100,
+        cgst: invoice.cgstCents / 100,
+        sgst: invoice.sgstCents / 100,
+        service_charge: invoice.serviceChargeCents / 100,
+        round_off: invoice.roundingCents / 100,
+        grand_total: invoice.grandTotalCents / 100,
+        total_items: invoice.items.length,
+        created_at: invoice.createdAt,
+        items: invoice.items.map((i) => ({
+          id: i.id,
+          item_name: i.name,
+          quantity: i.qty,
+          unit_price: i.priceCents / 100,
+          line_total: (i.priceCents * i.qty) / 100,
+          special_instructions: i.note,
+        })),
+      };
+
+      BillingService.registerHistoricalBill(billToPrint, cafe);
+      await BillingService.printBill(billToPrint.id);
+      toast.success(`Printing Invoice ${invoice.invoiceNumber}...`);
+    } catch (err: any) {
+      console.error("[InvoiceViewerModal] Thermal print error:", err);
+      toast.error(`Print failed: ${err?.message || err || "Unable to print receipt"}`);
+    }
+  };
+
+  const handleReprint = async () => {
+    try {
+      const billToPrint = invoice.rawBill || {
+        id: invoice.id,
+        bill_number: parseInt(String(invoice.orderNumber).replace(/\D/g, ""), 10) || 1,
+        cafe_id: cafe?.id || "default-cafe",
+        session_id: invoice.orderId,
+        customer_name: invoice.customerName,
+        customer_phone: invoice.customerPhone,
+        order_type: invoice.orderSource,
+        payment_status: invoice.status === "Paid" ? "PAID" : "PENDING",
+        payment_method: invoice.paymentMethod,
+        subtotal: invoice.subtotalCents / 100,
+        cgst: invoice.cgstCents / 100,
+        sgst: invoice.sgstCents / 100,
+        service_charge: invoice.serviceChargeCents / 100,
+        round_off: invoice.roundingCents / 100,
+        grand_total: invoice.grandTotalCents / 100,
+        total_items: invoice.items.length,
+        created_at: invoice.createdAt,
+        items: invoice.items.map((i) => ({
+          id: i.id,
+          item_name: i.name,
+          quantity: i.qty,
+          unit_price: i.priceCents / 100,
+          line_total: (i.priceCents * i.qty) / 100,
+          special_instructions: i.note,
+        })),
+      };
+
+      BillingService.registerHistoricalBill(billToPrint, cafe);
+      await BillingService.reprintBill(billToPrint.id);
+      toast.success(`Reprinting Invoice ${invoice.invoiceNumber}...`);
+    } catch (err: any) {
+      console.error("[InvoiceViewerModal] Thermal reprint error:", err);
+      toast.error(`Reprint failed: ${err?.message || err || "Unable to reprint receipt"}`);
+    }
   };
 
   const handleDownload = () => {
@@ -191,14 +265,14 @@ ${receiptSettings.thankYouMessage || "Thank you for visiting!"}
                 <span>{formatMoney(invoice.subtotalCents, currency)}</span>
               </div>
 
-              {taxSettings.gstEnabled && (
+              {(invoice.cgstCents > 0 || invoice.sgstCents > 0) && (
                 <>
                   <div className="flex justify-between text-gray-700">
-                    <span>CGST ({(taxSettings.gstPercentage / 2)}%)</span>
+                    <span>CGST</span>
                     <span>{formatMoney(invoice.cgstCents, currency)}</span>
                   </div>
                   <div className="flex justify-between text-gray-700">
-                    <span>SGST ({(taxSettings.gstPercentage / 2)}%)</span>
+                    <span>SGST</span>
                     <span>{formatMoney(invoice.sgstCents, currency)}</span>
                   </div>
                 </>
@@ -260,7 +334,7 @@ ${receiptSettings.thankYouMessage || "Thank you for visiting!"}
             </button>
 
             <button
-              onClick={() => toast.success(`Reprinting invoice ${invoice.invoiceNumber}...`)}
+              onClick={handleReprint}
               className="inline-flex items-center gap-1.5 rounded-2xl bg-secondary text-foreground border border-border/60 px-3 py-2 text-xs font-semibold transition hover:bg-muted cursor-pointer"
             >
               <RotateCcw className="h-3.5 w-3.5" />

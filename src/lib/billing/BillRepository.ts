@@ -157,21 +157,31 @@ export class BillRepository {
    */
   public static async getBillsByDateRange(
     cafeId: string,
-    startDate: string,
-    endDate: string
+    startDate?: string | null,
+    endDate?: string | null
   ): Promise<BillWithItems[]> {
     const memoryResults = Array.from(this.inMemoryStore.values()).filter(
-      (b) => b.cafe_id === cafeId && b.created_at >= startDate && b.created_at <= endDate
+      (b) =>
+        b.cafe_id === cafeId &&
+        (!startDate || b.created_at >= startDate) &&
+        (!endDate || b.created_at <= endDate)
     );
 
     try {
-      const { data: billRows } = await supabase
+      let query = supabase
         .from('bills')
         .select('*, bill_items(*)')
         .eq('cafe_id', cafeId)
-        .gte('created_at', startDate)
-        .lte('created_at', endDate)
         .order('created_at', { ascending: false });
+
+      if (startDate) {
+        query = query.gte('created_at', startDate);
+      }
+      if (endDate) {
+        query = query.lte('created_at', endDate);
+      }
+
+      const { data: billRows } = await query;
 
       if (billRows && billRows.length > 0) {
         return billRows.map((r: any) => ({
