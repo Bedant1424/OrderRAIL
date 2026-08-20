@@ -415,7 +415,7 @@ describe("Counter POS Direct-Payment Finalization Fix (Milestone 7 Regression Te
 
     expect(res.status).toBe("Completed");
     expect(res.settlement).toBeDefined();
-    expect(res.settlement.billId).toBe("bill-no-mem");
+    expect(res.settlement.billId).toBe(billRes.bill.billId);
   });
 
   // TEST 8: Normal KOT flow continues to work cleanly and leaves table FREE
