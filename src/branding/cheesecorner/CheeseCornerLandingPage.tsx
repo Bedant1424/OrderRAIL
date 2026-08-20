@@ -38,6 +38,7 @@ import { APP_CONFIG } from "@/config/app";
 import { useMenu, type ProductionMenuItem } from "@/hooks/useMenu";
 import { useImageUrl } from "@/lib/useImageUrl";
 import { formatMoney } from "@/lib/db";
+import { formatWeeklySchedule } from "@/lib/billing/operationsSettings";
 
 // ─── PREMIUM LUCIDE ICON RENDERER ───
 function CategoryLucideIcon({ icon, className = "h-6 w-6" }: { icon: string; className?: string }) {
@@ -931,7 +932,7 @@ export default function CheeseCornerLandingPage() {
         const displayAddress = cafe?.address || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.address : "");
         const displayPhone = cafe?.phone || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.phone : "");
         const rawInstagram = cafe?.instagram || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.instagram : "");
-        const displayHours = cafe?.operating_hours || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.hours : "");
+        const displayHours = cafe?.weekly_schedule ? formatWeeklySchedule(cafe.weekly_schedule as any) : (cafe?.operating_hours || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.contact.hours : ""));
 
         const mapsHref = getAddressMapsHref(cafe?.google_maps_review_url || (isCheeseCornerSlug ? CHEESE_CORNER_CONFIG.googleReviewUrl : null), displayAddress);
         const phoneHref = normalizePhoneLink(displayPhone);
