@@ -15,6 +15,7 @@ import {
 } from "@/lib/offline";
 import { BillingService, billsMap, type BillRecord } from "@/lib/billing/billingService";
 import { BillRepository } from "@/lib/billing/BillRepository";
+import type { PaymentMethod as DbPaymentMethod } from "@/lib/billing/types";
 import { updateTableStatusInDb, closeDiningSessionInDb } from "@/lib/tables/tableRepository";
 
 export type PaymentMethod = "cash" | "upi" | "card" | "split";
@@ -30,6 +31,7 @@ export interface RecordPaymentPayload {
   amount: number; // in currency units
   operatorId?: string;
   timestamp?: string;
+  createdAt?: string;
 }
 
 export interface SettlementRecord {
@@ -81,6 +83,24 @@ export class PaymentServiceClass {
       // 3. Database Updates (if online)
       if (NetworkManager.isOnline()) {
         try {
+          // Persist payment status to PostgreSQL via canonical BillRepository
+          const pmUpper = (payload.paymentMethod || "CASH").toUpperCase();
+          const validPm: DbPaymentMethod = (
+            pmUpper.includes("UPI") ? "UPI" :
+            pmUpper.includes("CARD") ? "CARD" :
+            pmUpper.includes("MIXED") ? "MIXED" : "CASH"
+          );
+          const paidAt = payload.createdAt || new Date().toISOString();
+
+          let updatedBill = await BillRepository.updatePaymentStatus(payload.billId, 'PAID', validPm, paidAt);
+
+          if (!updatedBill && payload.diningSessionId) {
+            const existingBills = await BillRepository.getBillsBySession(payload.diningSessionId);
+            if (existingBills.length > 0) {
+              updatedBill = await BillRepository.updatePaymentStatus(existingBills[0].id, 'PAID', validPm, paidAt);
+            }
+          }
+
           if (payload.diningSessionId) {
             await closeDiningSessionInDb(payload.diningSessionId);
           }
@@ -88,7 +108,7 @@ export class PaymentServiceClass {
             await updateTableStatusInDb(payload.tableId, "free", null);
           }
         } catch (errDb) {
-          console.warn("[PaymentService] Database table closure warning:", errDb);
+          console.warn("[PaymentService] Database table/bill payment update warning:", errDb);
         }
       }
 
