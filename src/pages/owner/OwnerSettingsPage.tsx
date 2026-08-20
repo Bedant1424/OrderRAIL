@@ -54,6 +54,7 @@ import { LivePaymentPreview } from "@/components/billing/LivePaymentPreview";
 import {
   getOperationsSettings,
   saveOperationsSettings,
+  formatWeeklySchedule,
   type OperationsSettings,
   type OrderChannel,
   type RestaurantStatus,
@@ -178,7 +179,6 @@ export default function OwnerSettingsPage() {
   const [googleMapsReviewUrl, setGoogleMapsReviewUrl] = useState("");
   const [website, setWebsite] = useState("");
   const [instagram, setInstagram] = useState("");
-  const [operatingHours, setOperatingHours] = useState("");
 
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -214,7 +214,6 @@ export default function OwnerSettingsPage() {
       setGoogleMapsReviewUrl(cafe.google_maps_review_url ?? "");
       setWebsite(cafe.website ?? "");
       setInstagram(cafe.instagram ?? "");
-      setOperatingHours(cafe.operating_hours ?? "");
 
       // Load settings for cafe
       setReceiptForm(getReceiptSettings(cafe.id, cafe));
@@ -361,7 +360,6 @@ export default function OwnerSettingsPage() {
         google_maps_review_url: googleMapsReviewUrl.trim() || null,
         website: website.trim() || null,
         instagram: instagram.trim() || null,
-        operating_hours: operatingHours.trim() || null,
       })
       .eq("id", cafe.id);
 
@@ -790,13 +788,18 @@ export default function OwnerSettingsPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground">Operating Hours</label>
-                    <input
-                      value={operatingHours}
-                      disabled={isDemo}
-                      onChange={(e) => setOperatingHours(e.target.value)}
-                      placeholder="Mon-Fri: 7 AM - 6 PM, Sat-Sun: 8 AM - 8 PM"
-                      className="mt-1 w-full rounded-2xl border border-border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-60 disabled:bg-muted/35 disabled:cursor-not-allowed"
-                    />
+                    <div className="mt-1 flex flex-col gap-1 rounded-2xl border border-border bg-muted/20 p-2.5">
+                      <div className="text-xs font-medium text-foreground">
+                        {formatWeeklySchedule(opsForm.weeklySchedule)}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection("operations")}
+                        className="text-[11px] font-semibold text-primary hover:underline w-fit text-left cursor-pointer"
+                      >
+                        Managed via Operations & Hours →
+                      </button>
+                    </div>
                   </div>
                 </div>
 
