@@ -1,9 +1,64 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AnalyticsService } from "@/lib/analytics/AnalyticsService";
+import { AnalyticsRepository } from "@/lib/analytics/AnalyticsRepository";
 import { calculateRevenueMetrics, calculateAveragePrepTime } from "@/lib/analytics/metrics";
 
 describe("Sprint 9.2.4.1 — Owner Analytics Performance Optimization Tests", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("1. Pre-Aggregated Structure: AnalyticsService returns pre-aggregated analytics without overdraw", async () => {
+    vi.spyOn(AnalyticsRepository, "fetchOwnerAnalyticsRange").mockResolvedValue({
+      cafe_id: "test-cafe-123",
+      current_business_date: "2026-08-21",
+      start_business_date: "2026-08-15",
+      end_business_date: "2026-08-21",
+      range_days: 7,
+      range_financials: {
+        gross_subtotal: 1000,
+        total_discounts: 0,
+        total_tax: 50,
+        cgst: 25,
+        sgst: 25,
+        total_service_charge: 0,
+        total_round_off: 0,
+        net_collected: 1050,
+        paid_bills_count: 3,
+        total_items_sold: 6,
+        average_bill_value: 350,
+      },
+      today_financials: {
+        gross_subtotal: 300,
+        total_discounts: 0,
+        total_tax: 15,
+        cgst: 7.5,
+        sgst: 7.5,
+        total_service_charge: 0,
+        total_round_off: 0,
+        net_collected: 315,
+        paid_bills_count: 1,
+        total_items_sold: 2,
+        average_bill_value: 315,
+      },
+      tenders: { cash: 315, upi: 735, card: 0, other: 0 },
+      by_day: Array.from({ length: 7 }, (_, i) => ({
+        business_date: `2026-08-${15 + i}`,
+        day: `Aug ${15 + i}`,
+        revenue: 150,
+        gross_subtotal: 140,
+        paid_bills: 1,
+        items_sold: 2,
+      })),
+      top_items: [{ name: "Pizza", qty: 4, revenue: 600, percentage: 100 }],
+      operational_summary: {
+        total_orders_placed: 5,
+        cancelled_orders_count: 0,
+        unsettled_orders_count: 1,
+        unsettled_pipeline_cents: 1500,
+      },
+    });
+
     const data = await AnalyticsService.fetchOwnerAnalytics("test-cafe-123", 7);
 
     expect(data).toBeDefined();
@@ -53,6 +108,56 @@ describe("Sprint 9.2.4.1 — Owner Analytics Performance Optimization Tests", ()
   });
 
   it("4. Range Multi-Day Support: Correctly formats 30-day and 90-day time series arrays", async () => {
+    vi.spyOn(AnalyticsRepository, "fetchOwnerAnalyticsRange").mockImplementation(async (_, rangeDays = 7) => ({
+      cafe_id: "test-cafe-123",
+      current_business_date: "2026-08-21",
+      start_business_date: "2026-08-01",
+      end_business_date: "2026-08-21",
+      range_days: rangeDays,
+      range_financials: {
+        gross_subtotal: 0,
+        total_discounts: 0,
+        total_tax: 0,
+        cgst: 0,
+        sgst: 0,
+        total_service_charge: 0,
+        total_round_off: 0,
+        net_collected: 0,
+        paid_bills_count: 0,
+        total_items_sold: 0,
+        average_bill_value: 0,
+      },
+      today_financials: {
+        gross_subtotal: 0,
+        total_discounts: 0,
+        total_tax: 0,
+        cgst: 0,
+        sgst: 0,
+        total_service_charge: 0,
+        total_round_off: 0,
+        net_collected: 0,
+        paid_bills_count: 0,
+        total_items_sold: 0,
+        average_bill_value: 0,
+      },
+      tenders: { cash: 0, upi: 0, card: 0, other: 0 },
+      by_day: Array.from({ length: rangeDays }, (_, i) => ({
+        business_date: `2026-08-${i + 1}`,
+        day: `Day ${i + 1}`,
+        revenue: 0,
+        gross_subtotal: 0,
+        paid_bills: 0,
+        items_sold: 0,
+      })),
+      top_items: [],
+      operational_summary: {
+        total_orders_placed: 0,
+        cancelled_orders_count: 0,
+        unsettled_orders_count: 0,
+        unsettled_pipeline_cents: 0,
+      },
+    }));
+
     const data30 = await AnalyticsService.fetchOwnerAnalytics("test-cafe-123", 30);
     expect(data30.byDay.length).toBe(30);
 
@@ -61,6 +166,56 @@ describe("Sprint 9.2.4.1 — Owner Analytics Performance Optimization Tests", ()
   });
 
   it("5. Performance Benchmark: AnalyticsService resolves pre-aggregated response in < 1000ms", async () => {
+    vi.spyOn(AnalyticsRepository, "fetchOwnerAnalyticsRange").mockResolvedValue({
+      cafe_id: "test-cafe-123",
+      current_business_date: "2026-08-21",
+      start_business_date: "2026-08-15",
+      end_business_date: "2026-08-21",
+      range_days: 7,
+      range_financials: {
+        gross_subtotal: 0,
+        total_discounts: 0,
+        total_tax: 0,
+        cgst: 0,
+        sgst: 0,
+        total_service_charge: 0,
+        total_round_off: 0,
+        net_collected: 0,
+        paid_bills_count: 0,
+        total_items_sold: 0,
+        average_bill_value: 0,
+      },
+      today_financials: {
+        gross_subtotal: 0,
+        total_discounts: 0,
+        total_tax: 0,
+        cgst: 0,
+        sgst: 0,
+        total_service_charge: 0,
+        total_round_off: 0,
+        net_collected: 0,
+        paid_bills_count: 0,
+        total_items_sold: 0,
+        average_bill_value: 0,
+      },
+      tenders: { cash: 0, upi: 0, card: 0, other: 0 },
+      by_day: Array.from({ length: 7 }, (_, i) => ({
+        business_date: `2026-08-${15 + i}`,
+        day: `Aug ${15 + i}`,
+        revenue: 0,
+        gross_subtotal: 0,
+        paid_bills: 0,
+        items_sold: 0,
+      })),
+      top_items: [],
+      operational_summary: {
+        total_orders_placed: 0,
+        cancelled_orders_count: 0,
+        unsettled_orders_count: 0,
+        unsettled_pipeline_cents: 0,
+      },
+    });
+
     const start = performance.now();
     await AnalyticsService.fetchOwnerAnalytics("test-cafe-123", 7);
     const duration = performance.now() - start;
