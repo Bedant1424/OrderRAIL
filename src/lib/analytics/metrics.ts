@@ -1,19 +1,68 @@
 import type { Order, OrderItem } from "@/lib/db";
 import { FinancialSummaryCalculator } from "./FinancialSummaryCalculator";
+import type { OwnerAnalyticsFinancialSummary } from "./analyticsTypes";
 
 /**
- * Task 1: Shared Revenue Metrics Model
- * Unified through FinancialSummaryCalculator for consistent financial reporting.
+ * Shared Revenue & Financial Metrics Model (Milestone 2C.3)
+ * Unified with authoritative PostgreSQL bills and RPC contracts.
  */
 export interface RevenueMetricsModel {
   grossSalesCents: number;
   discountsCents: number;
   taxCents: number;
+  cgstCents?: number;
+  sgstCents?: number;
+  serviceChargeCents?: number;
+  roundOffCents?: number;
   netSalesCents: number;
   orderCount: number;
+  paidBillsCount: number;
+  totalItemsSold: number;
   averageOrderValueCents: number;
+  averageBillValueCents: number;
 }
 
+/**
+ * Convert authoritative PostgreSQL financial summary into frontend RevenueMetricsModel
+ */
+export function mapAuthoritativeFinancialsToModel(
+  fin: OwnerAnalyticsFinancialSummary,
+  operationalOrderCount: number = 0
+): RevenueMetricsModel {
+  const grossSalesCents = Math.round((fin.gross_subtotal || 0) * 100);
+  const discountsCents = Math.round((fin.total_discounts || 0) * 100);
+  const cgstCents = Math.round((fin.cgst || 0) * 100);
+  const sgstCents = Math.round((fin.sgst || 0) * 100);
+  const taxCents = Math.round((fin.total_tax || 0) * 100);
+  const serviceChargeCents = Math.round((fin.total_service_charge || 0) * 100);
+  const roundOffCents = Math.round((fin.total_round_off || 0) * 100);
+  const netSalesCents = Math.round((fin.net_collected || 0) * 100);
+  const paidBillsCount = fin.paid_bills_count || 0;
+  const totalItemsSold = fin.total_items_sold || 0;
+  const averageBillValueCents = Math.round((fin.average_bill_value || 0) * 100);
+  const averageOrderValueCents =
+    operationalOrderCount > 0 ? Math.round(netSalesCents / operationalOrderCount) : averageBillValueCents;
+
+  return {
+    grossSalesCents,
+    discountsCents,
+    taxCents,
+    cgstCents,
+    sgstCents,
+    serviceChargeCents,
+    roundOffCents,
+    netSalesCents,
+    orderCount: operationalOrderCount || paidBillsCount,
+    paidBillsCount,
+    totalItemsSold,
+    averageOrderValueCents,
+    averageBillValueCents,
+  };
+}
+
+/**
+ * Fallback operational calculator for order ticket estimates
+ */
 export function calculateRevenueMetrics(
   targetOrders: (Order & { order_items?: OrderItem[] })[]
 ): RevenueMetricsModel {
@@ -25,7 +74,10 @@ export function calculateRevenueMetrics(
     taxCents: summary.taxCents,
     netSalesCents: summary.netSalesCents,
     orderCount: summary.nonCancelledOrdersCount,
+    paidBillsCount: summary.paidOrdersCount,
+    totalItemsSold: 0,
     averageOrderValueCents: summary.averageOrderValueCents,
+    averageBillValueCents: summary.averageOrderValueCents,
   };
 }
 
@@ -40,20 +92,7 @@ export interface PreparationTimeResult {
 }
 
 /**
- * Task 2: Preparation Time Calculation Engine & Timestamp Architecture
- *
- * TODO (Future POS / KDS Schema Migration):
- * Currently, preparation time is computed using timestamps (created_at -> updated_at) for completed orders.
- * When the database schema is extended in upcoming sprints, migrate this calculation to dedicated order lifecycle timestamps:
- *
- *   - accepted_at   : Timestamp when staff/kitchen accepts order
- *   - preparing_at  : Timestamp when kitchen starts cooking
- *   - ready_at      : Timestamp when order is marked ready on KDS
- *   - served_at     : Timestamp when runner serves order to table
- *   - completed_at  : Timestamp when order is finalized/closed
- *
- * Target calculation formula once migrated:
- *   prep_time = ready_at - accepted_at (or created_at)
+ * Preparation Time Calculation Engine & Timestamp Architecture
  */
 export function calculateAveragePrepTime(
   orders: (Order & { order_items?: OrderItem[] })[]
@@ -67,7 +106,7 @@ export function calculateAveragePrepTime(
       value: "—",
       subtext: "Awaiting production data",
       hasData: false,
-      averageMinutes: null
+      averageMinutes: null,
     };
   }
 
@@ -91,7 +130,7 @@ export function calculateAveragePrepTime(
       value: "—",
       subtext: "Awaiting production data",
       hasData: false,
-      averageMinutes: null
+      averageMinutes: null,
     };
   }
 
@@ -100,6 +139,6 @@ export function calculateAveragePrepTime(
     value: `~${avgMins} mins`,
     subtext: `Based on ${validCount} completed orders`,
     hasData: true,
-    averageMinutes: avgMins
+    averageMinutes: avgMins,
   };
 }
