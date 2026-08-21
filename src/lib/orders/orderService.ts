@@ -504,42 +504,67 @@ export class OrderServiceClass {
     const currentVersion = order.version || 1;
     if (currentVersion > initialVersion) {
       const revision = currentVersion - initialVersion;
-      // Compute delta from previous_items vs order_items
-      const prevItems: any[] = typeof order.previous_items === "string" 
-        ? JSON.parse(order.previous_items) 
-        : (order.previous_items || []);
       
-      const deltaAdded: any[] = [];
-      const deltaRemoved: any[] = [];
-      const deltaModified: any[] = [];
+      let deltaAdded: any[] = [];
+      let deltaRemoved: any[] = [];
+      let deltaModified: any[] = [];
+      let foundEventDelta = false;
 
-      const prevMap = new Map<string, any>(prevItems.map((p: any) => [p.name || p.id, p]));
-      const currMap = new Map<string, any>(items.map((c: any) => [c.name || c.id, c]));
+      try {
+        const { data: latestEvent } = await supabase
+          .from("order_events")
+          .select("metadata")
+          .eq("order_id", realOrderId)
+          .like("event_type", "order_modified_%")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      for (const curr of items) {
-        const prev = prevMap.get(curr.name || curr.id);
-        if (!prev) {
-          deltaAdded.push(curr);
-        } else if (prev.qty !== curr.qty || prev.note !== curr.notes) {
-          deltaModified.push({
-            ...curr,
-            oldQty: prev.qty,
-            newQty: curr.qty,
-            oldNotes: prev.note || prev.notes,
-            newNotes: curr.notes,
-          });
+        if (latestEvent?.metadata?.delta_items) {
+          const rawDelta = latestEvent.metadata.delta_items;
+          deltaAdded = rawDelta.added || [];
+          deltaRemoved = rawDelta.removed || [];
+          deltaModified = rawDelta.modified || [];
+          foundEventDelta = true;
         }
+      } catch (evtErr) {
+        console.warn("[reprintKot] Could not fetch delta from order_events, falling back to previous_items:", evtErr);
       }
 
-      for (const prev of prevItems) {
-        if (!currMap.has(prev.name || prev.id)) {
-          deltaRemoved.push({
-            id: prev.id,
-            name: prev.name,
-            price: prev.price_cents ? prev.price_cents / 100 : (prev.price || 0),
-            qty: prev.qty,
-            notes: prev.note || prev.notes,
-          });
+      if (!foundEventDelta) {
+        // Fallback: compute delta from previous_items vs current order items
+        const prevItems: any[] = typeof order.previous_items === "string" 
+          ? JSON.parse(order.previous_items) 
+          : (order.previous_items || []);
+
+        const prevMap = new Map<string, any>(prevItems.map((p: any) => [p.name || p.id, p]));
+        const currMap = new Map<string, any>(items.map((c: any) => [c.name || c.id, c]));
+
+        for (const curr of items) {
+          const prev = prevMap.get(curr.name || curr.id);
+          if (!prev) {
+            deltaAdded.push(curr);
+          } else if (prev.qty !== curr.qty || prev.note !== curr.notes) {
+            deltaModified.push({
+              ...curr,
+              oldQty: prev.qty,
+              newQty: curr.qty,
+              oldNotes: prev.note || prev.notes,
+              newNotes: curr.notes,
+            });
+          }
+        }
+
+        for (const prev of prevItems) {
+          if (!currMap.has(prev.name || prev.id)) {
+            deltaRemoved.push({
+              id: prev.id,
+              name: prev.name,
+              price: prev.price_cents ? prev.price_cents / 100 : (prev.price || 0),
+              qty: prev.qty,
+              notes: prev.note || prev.notes,
+            });
+          }
         }
       }
 

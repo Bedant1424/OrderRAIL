@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone, AlertTriangle, Filter } from "lucide-react";
+import { Bell, Check, ChefHat, Clock, HandPlatter, Sparkles, X, Utensils, Droplet, Receipt, HelpCircle, Settings, Volume2, Smartphone, AlertTriangle, Filter, Pencil, Trash2, Printer } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { OrderService } from "@/lib/orders/orderService";
+import OrderEditModal from "@/components/orders/OrderEditModal";
+import CancelOrderModal from "@/components/orders/CancelOrderModal";
 import {
   supabase,
   formatMoney,
@@ -288,6 +291,8 @@ export default function StaffDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [tick, setTick] = useState(0);
   const [selectedDrawerOrder, setSelectedDrawerOrder] = useState<OrderWithItems | null>(null);
+  const [staffEditingOrder, setStaffEditingOrder] = useState<OrderWithItems | null>(null);
+  const [staffCancellingOrder, setStaffCancellingOrder] = useState<OrderWithItems | null>(null);
   const [focusedSummary, setFocusedSummary] = useState<"incoming" | "preparing" | "ready" | "service_requests" | "overdue" | null>(null);
   const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -1965,22 +1970,47 @@ export default function StaffDashboardPage() {
                   )}
                   
                   {selectedDrawerOrder.status !== "served" && selectedDrawerOrder.status !== "cancelled" && (
-                    <button
-                      onClick={async () => {
-                        if (confirm("Are you sure you want to cancel this order?")) {
-                          await cancel(selectedDrawerOrder);
-                          setSelectedDrawerOrder(null);
-                        }
-                      }}
-                      className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
-                    >
-                      Cancel Order
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setStaffEditingOrder(selectedDrawerOrder)}
+                        className="w-full rounded-full border border-border bg-card py-2 text-xs font-semibold text-foreground hover:bg-muted transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Pencil className="w-3.5 h-3.5" /> Modify Order
+                      </button>
+                      <button
+                        onClick={() => setStaffCancellingOrder(selectedDrawerOrder)}
+                        className="w-full rounded-full border border-destructive/30 bg-destructive/5 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Cancel Order
+                      </button>
+                    </div>
                   )}
 
                   <button
+                    onClick={async () => {
+                      try {
+                        const res = await OrderService.reprintKot(selectedDrawerOrder.id, {
+                          tableLabel: selectedDrawerOrder.tables?.label ? `Table ${selectedDrawerOrder.tables.label}` : "Staff Order",
+                          actor: "staff",
+                          orderSnapshot: selectedDrawerOrder,
+                        });
+                        if (!res.queued) {
+                          toast.success(`KOT #${res.kotNumber} printed.`);
+                        } else {
+                          toast.info(`KOT #${res.kotNumber} reprint queued.`);
+                        }
+                      } catch (e: any) {
+                        toast.error(e?.message || "Failed to reprint KOT");
+                      }
+                    }}
+                    className="w-full rounded-full border border-border bg-card py-2 text-xs font-semibold text-foreground hover:bg-muted transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Reprint KOT
+                  </button>
+
+                  <button
                     onClick={() => setSelectedDrawerOrder(null)}
-                    className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 transition"
+                    className="w-full rounded-full bg-secondary py-2.5 text-sm font-semibold text-secondary-foreground hover:bg-secondary/80 transition cursor-pointer"
                   >
                     Close Workspace
                   </button>
@@ -1990,6 +2020,48 @@ export default function StaffDashboardPage() {
           })()}
         </SheetContent>
       </Sheet>
+
+      {staffEditingOrder && (
+        <OrderEditModal
+          open={!!staffEditingOrder}
+          order={{
+            id: staffEditingOrder.id,
+            order_number: staffEditingOrder.order_number,
+            version: staffEditingOrder.version,
+            status: staffEditingOrder.status,
+            note: staffEditingOrder.note,
+            tableLabel: staffEditingOrder.tables?.label ? `Table ${staffEditingOrder.tables.label}` : "Staff Order",
+            cafe_id: staffEditingOrder.cafe_id,
+            order_items: staffEditingOrder.order_items,
+          }}
+          actor="staff"
+          onClose={() => setStaffEditingOrder(null)}
+          onSuccess={async () => {
+            const updated = await ordersQ.refetch();
+            const latest = updated.data?.find(o => o.id === staffEditingOrder.id);
+            if (latest) setSelectedDrawerOrder(latest);
+          }}
+        />
+      )}
+
+      {staffCancellingOrder && (
+        <CancelOrderModal
+          open={!!staffCancellingOrder}
+          order={{
+            id: staffCancellingOrder.id,
+            order_number: staffCancellingOrder.order_number,
+            status: staffCancellingOrder.status,
+            tableLabel: staffCancellingOrder.tables?.label ? `Table ${staffCancellingOrder.tables.label}` : "Staff Order",
+            order_items: staffCancellingOrder.order_items,
+          }}
+          actor="staff"
+          onClose={() => setStaffCancellingOrder(null)}
+          onSuccess={async () => {
+            setSelectedDrawerOrder(null);
+            await ordersQ.refetch();
+          }}
+        />
+      )}
 
       {isSpecialsDialogOpen && (
         <Dialog open={isSpecialsDialogOpen} onOpenChange={setIsSpecialsDialogOpen}>

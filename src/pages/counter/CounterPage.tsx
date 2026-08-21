@@ -10,12 +10,14 @@ import { useMenu } from '@/hooks/useMenu';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { 
-  Search, Plus, Minus, Trash2, Send, CreditCard, DollarSign, 
+  Search, Plus, Minus, Trash2, Pencil, Send, CreditCard, DollarSign, 
   QrCode, Printer, CheckCircle, X, ChevronDown, ChevronUp, User, Store, 
   Sparkles, AlertTriangle, Utensils, LayoutGrid, Check, Split, RefreshCw, AlertCircle, Clock, ShoppingBag, Bell, CheckCheck,
   Settings, ArrowLeft, Volume2, VolumeX, BellOff, HandPlatter, Droplet, HelpCircle, Receipt as ReceiptIcon, Smartphone, ChefHat, LogOut
 } from 'lucide-react';
 
+import OrderEditModal from '@/components/orders/OrderEditModal';
+import CancelOrderModal from '@/components/orders/CancelOrderModal';
 import { getOrCreateDiningSession, createDiningSessionInDb, closeDiningSessionInDb, updateTableStatusInDb, markTableFreeInDb } from '@/lib/tables/tableRepository';
 import { createOrderInDb, updateOrderStatusInDb, updateOrderCustomerInDb, fetchActiveDiningSessionOrders, OrderService, BillingService, PaymentService, type PaymentMethod, type OrderSource } from '@/lib/orders/repository';
 import { resolveOrCreateCustomerProfile, recordCustomerSettlement } from '@/lib/customers/customerService';
@@ -767,13 +769,17 @@ const OrderCard = memo(({
   tableLabel, 
   onAcceptOrder, 
   onSendKot, 
-  onReprintKot 
+  onReprintKot,
+  onModifyOrder,
+  onCancelOrder,
 }: { 
   order: SessionOrder; 
   tableLabel: string; 
-  onAcceptOrder?: (id: string, num: number) => void;
+  onAcceptOrder?: (id: string, num: number, order?: any) => void;
   onSendKot?: (order: SessionOrder, label: string) => void;
   onReprintKot?: (order: SessionOrder, label: string) => void;
+  onModifyOrder?: (order: SessionOrder, label: string) => void;
+  onCancelOrder?: (order: SessionOrder, label: string) => void;
 }) => {
   const getStatusBadgeClass = (status: string) => {
     const s = (status || 'PENDING').toUpperCase();
@@ -792,6 +798,8 @@ const OrderCard = memo(({
         return 'bg-purple-500/15 text-purple-600 border-purple-500/20';
       case 'SERVED':
         return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20';
+      case 'CANCELLED':
+        return 'bg-destructive/15 text-destructive border-destructive/20 line-through';
       case 'PAID':
         return 'bg-muted text-muted-foreground border-border';
       default:
@@ -816,11 +824,13 @@ const OrderCard = memo(({
   const statusUpper = (order.status || 'PENDING').toUpperCase();
   const isPending = statusUpper === 'PENDING' || statusUpper === 'NEW';
   const isAccepted = statusUpper === 'ACCEPTED';
-  const isKotSentOrBeyond = ['KOT_SENT', 'KOT SENT', 'PREPARING', 'READY', 'SERVED', 'PAID'].includes(statusUpper);
+  const isPostKotActive = ['KOT_SENT', 'KOT SENT', 'PREPARING', 'READY'].includes(statusUpper);
+  const isServed = statusUpper === 'SERVED';
+  const isCancelled = statusUpper === 'CANCELLED';
   const srcBadge = getOrderSourceBadge(order.orderSource);
 
   return (
-    <div className={cn("p-3.5 rounded-xl border flex flex-col gap-2 shadow-xs transition", isPending ? "border-amber-500/40 bg-amber-500/5" : "border-border/40 bg-card/80")}>
+    <div className={cn("p-3.5 rounded-xl border flex flex-col gap-2 shadow-xs transition", isPending ? "border-amber-500/40 bg-amber-500/5" : isCancelled ? "border-destructive/30 bg-destructive/5 opacity-80" : "border-border/40 bg-card/80")}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="font-extrabold text-xs text-foreground">Order #{order.orderNumber}</span>
@@ -871,26 +881,109 @@ const OrderCard = memo(({
         <span className="v8-font-mono">{formatCurrency(order.subtotal)}</span>
       </div>
 
-      <div className="pt-2 border-t border-border/30 flex justify-end items-center">
-        {isPending && onAcceptOrder && (
+      <div className="pt-2 border-t border-border/30 flex flex-wrap justify-end items-center gap-1.5">
+        {/* Pending: Cancel + Modify + Accept Order (primary) */}
+        {isPending && (
+          <>
+            {onCancelOrder && (
+              <button
+                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-destructive hover:bg-destructive/10 font-semibold flex items-center gap-1 border border-destructive/30"
+                onClick={() => onCancelOrder(order, tableLabel)}
+              >
+                <Trash2 className="w-3 h-3" /> Cancel
+              </button>
+            )}
+            {onModifyOrder && (
+              <button
+                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1 border border-border/50"
+                onClick={() => onModifyOrder(order, tableLabel)}
+              >
+                <Pencil className="w-3 h-3" /> Modify
+              </button>
+            )}
+            {onAcceptOrder && (
+              <button 
+                className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1"
+                onClick={() => onAcceptOrder(order.id, order.orderNumber, order)}
+              >
+                <Check className="w-3.5 h-3.5" /> Accept Order
+              </button>
+            )}
+          </>
+        )}
+
+        {/* Accepted: Cancel + Modify + Send KOT (primary) */}
+        {isAccepted && (
+          <>
+            {onCancelOrder && (
+              <button
+                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-destructive hover:bg-destructive/10 font-semibold flex items-center gap-1 border border-destructive/30"
+                onClick={() => onCancelOrder(order, tableLabel)}
+              >
+                <Trash2 className="w-3 h-3" /> Cancel
+              </button>
+            )}
+            {onModifyOrder && (
+              <button
+                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1 border border-border/50"
+                onClick={() => onModifyOrder(order, tableLabel)}
+              >
+                <Pencil className="w-3 h-3" /> Modify
+              </button>
+            )}
+            {onSendKot && (
+              <button 
+                className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center gap-1 shadow-sm"
+                onClick={() => onSendKot(order, tableLabel)}
+              >
+                <Printer className="w-3.5 h-3.5" /> Send KOT
+              </button>
+            )}
+          </>
+        )}
+
+        {/* Post-KOT Active (Preparing, Ready): Cancel + Modify + Reprint KOT */}
+        {isPostKotActive && (
+          <>
+            {onCancelOrder && (
+              <button
+                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-destructive hover:bg-destructive/10 font-semibold flex items-center gap-1 border border-destructive/30"
+                onClick={() => onCancelOrder(order, tableLabel)}
+              >
+                <Trash2 className="w-3 h-3" /> Cancel
+              </button>
+            )}
+            {onModifyOrder && (
+              <button
+                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1 border border-border/50"
+                onClick={() => onModifyOrder(order, tableLabel)}
+              >
+                <Pencil className="w-3 h-3" /> Modify
+              </button>
+            )}
+            {onReprintKot && (
+              <button 
+                className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto text-muted-foreground hover:text-foreground font-bold flex items-center gap-1 border border-border/50"
+                onClick={() => onReprintKot(order, tableLabel)}
+              >
+                <Printer className="w-3.5 h-3.5" /> Reprint KOT
+              </button>
+            )}
+          </>
+        )}
+
+        {/* Served: Reprint KOT */}
+        {isServed && onReprintKot && (
           <button 
-            className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1"
-            onClick={() => onAcceptOrder(order.id, order.orderNumber, order)}
+            className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto text-muted-foreground hover:text-foreground font-bold flex items-center gap-1 border border-border/50"
+            onClick={() => onReprintKot(order, tableLabel)}
           >
-            <Check className="w-3.5 h-3.5" /> Accept Order
+            <Printer className="w-3.5 h-3.5" /> Reprint KOT
           </button>
         )}
 
-        {isAccepted && onSendKot && (
-          <button 
-            className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center gap-1 shadow-sm"
-            onClick={() => onSendKot(order, tableLabel)}
-          >
-            <Printer className="w-3.5 h-3.5" /> Send KOT
-          </button>
-        )}
-
-        {isKotSentOrBeyond && onReprintKot && (
+        {/* Cancelled: Reprint Cancelled KOT */}
+        {isCancelled && onReprintKot && (
           <button 
             className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto text-muted-foreground hover:text-foreground font-bold flex items-center gap-1 border border-border/50"
             onClick={() => onReprintKot(order, tableLabel)}
@@ -967,7 +1060,9 @@ const ActiveOrderPanel = ({
   onEditAddons,
   onAcceptOrder,
   onSendKot,
-  onReprintKot
+  onReprintKot,
+  onModifyOrder,
+  onCancelOrder,
 }: {
   table: TableEntity | null;
   session: TableSessionData | null;
@@ -985,9 +1080,11 @@ const ActiveOrderPanel = ({
   onRestoreTable: () => void;
   onUpdateQty: (id: string, delta: number) => void;
   onEditAddons?: (item: CartLineItem) => void;
-  onAcceptOrder?: (id: string, num: number) => void;
+  onAcceptOrder?: (id: string, num: number, order?: any) => void;
   onSendKot?: (order: SessionOrder, label: string) => void;
   onReprintKot?: (order: SessionOrder, label: string) => void;
+  onModifyOrder?: (order: SessionOrder, label: string) => void;
+  onCancelOrder?: (order: SessionOrder, label: string) => void;
 }) => {
   const isAvailable = table?.status === 'AVAILABLE';
   const isCleaning = table?.status === 'CLEANING';
@@ -1043,6 +1140,7 @@ const ActiveOrderPanel = ({
             </span>
             {orderMode === 'DINE_IN' && table && (
               <span className="v8-order-status-badge">
+                <span className={cn("v8-badge-dot", isAvailable && "bg-success", isCleaning && "bg-blue-500", isOutOfService && "bg-amber-500")} />
                 {table.status}
               </span>
             )}
@@ -1203,6 +1301,8 @@ const ActiveOrderPanel = ({
                 onAcceptOrder={onAcceptOrder} 
                 onSendKot={onSendKot}
                 onReprintKot={onReprintKot}
+                onModifyOrder={onModifyOrder}
+                onCancelOrder={onCancelOrder}
               />
             ))}
           </div>
@@ -2693,6 +2793,8 @@ const CounterLayout = () => {
   const [customDiscount, setCustomDiscount] = useState<CustomDiscount>({ type: 'PERCENTAGE', value: 0 });
   const [isPaymentOpen, setIsPaymentOpen] = useState<boolean>(false);
   const [activeReceipt, setActiveReceipt] = useState<CompletedOrderReceipt | null>(null);
+  const [editingOrder, setEditingOrder] = useState<SessionOrder | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState<SessionOrder | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Consume shared production menu hook
@@ -4193,6 +4295,8 @@ const CounterLayout = () => {
           onAcceptOrder={handleAcceptOrder}
           onSendKot={handleSendKotOrder}
           onReprintKot={handleReprintKotOrder}
+          onModifyOrder={(ord, label) => setEditingOrder({ ...ord, tableLabel: label, cafe_id: cafe?.id } as any)}
+          onCancelOrder={(ord, label) => setCancellingOrder({ ...ord, tableLabel: label } as any)}
         />
         <SummaryPanel 
           session={activeSessionData}
@@ -4217,8 +4321,6 @@ const CounterLayout = () => {
       )}
       <StatusBar />
 
-
-
       <CounterNotificationErrorBoundary onClose={() => setIsNotifOpen(false)}>
         <CounterNotificationDrawer
           isOpen={isNotifOpen}
@@ -4229,6 +4331,7 @@ const CounterLayout = () => {
           onClose={() => setIsNotifOpen(false)}
           onMarkAllAsRead={handleMarkAllAsRead}
           onClearHistory={handleClearHistory}
+          onActionClick={handleNotificationAction}
           onDismiss={handleDismissNotif}
           onMarkAsRead={handleMarkAsRead}
           onUpdateSettings={handleUpdateSettings}
@@ -4295,6 +4398,26 @@ const CounterLayout = () => {
           <ReceiptModal 
             receipt={activeReceipt}
             onClose={() => setActiveReceipt(null)}
+          />
+        )}
+
+        {editingOrder && (
+          <OrderEditModal
+            open={!!editingOrder}
+            order={editingOrder as any}
+            actor="counter"
+            onClose={() => setEditingOrder(null)}
+            onSuccess={() => void loadSessionsFromDb()}
+          />
+        )}
+
+        {cancellingOrder && (
+          <CancelOrderModal
+            open={!!cancellingOrder}
+            order={cancellingOrder as any}
+            actor="counter"
+            onClose={() => setCancellingOrder(null)}
+            onSuccess={() => void loadSessionsFromDb()}
           />
         )}
       </AnimatePresence>
