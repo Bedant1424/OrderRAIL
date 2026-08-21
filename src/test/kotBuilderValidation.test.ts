@@ -90,7 +90,7 @@ describe("Kitchen Order Ticket (KOT) Builder (58mm) & Integration Validation Tes
     // Modifiers & notes assertions
     expect(result.text).toContain("> Extra Cheese");
     expect(result.text).toContain("> Gluten-Free Bread");
-    expect(result.text).toContain("> Cut into triangles");
+    expect(result.text).toContain("Note: Cut into triangles");
     expect(result.text).toContain("SPECIAL INSTRUCTIONS:");
     expect(result.text).toContain("Make it extra spicy, deliver");
     expect(result.text).toContain("immediately to table.");

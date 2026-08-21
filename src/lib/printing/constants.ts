@@ -21,7 +21,8 @@ export const ESC_POS = {
   BOLD_ON: "\x1B\x45\x01",      // Bold text mode ON
   BOLD_OFF: "\x1B\x45\x00",     // Bold text mode OFF
   SET_LINE_SPACING_24: "\x1B\x33\x18", // Compact line spacing (24 dots)
-  RESET_LINE_SPACING: "\x1B\x32",      // Default line spacing (1/6 inch)
+  FONT_A: "\x1B\x4D\x00",      // Normal Font (Font A 12x24)
+  FONT_B: "\x1B\x4D\x01",      // Smaller Font (Font B 9x17)
   FEED_AND_CUT: "\x1D\x56\x41\x03",    // Feed 3 lines & Cut paper (partial)
   LINE_FEED: "\x0A",
 };

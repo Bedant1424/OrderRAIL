@@ -3,8 +3,8 @@
  * Formats ESC/POS binary commands & clean text for 58mm (32 cols) and 80mm (48 cols) thermal printers.
  * Supports:
  * 1. Standard Kitchen Order Tickets (KOT) & Reprints (with canonical -R1, -R2 or OFFLINE REPRINT)
- * 2. Ultra-Compact Modified KOTs (ADD <qty>x, REMOVE <qty>x, MOD <item> lines only)
- * 3. Cancelled KOTs (Original KOT #, *** CANCELLED ***, STOP PREPARATION)
+ * 2. Ultra-Compact Modified KOTs (ADD <qty>x, REMOVE <qty>x, MOD <item> with indented multi-line notes)
+ * 3. Compact Cancelled KOTs (Original KOT #, *** CANCELLED ***, STOP PREPARATION)
  */
 
 import { ESC_POS } from "./constants";
@@ -58,7 +58,7 @@ export interface KotBuilderPayload {
 
 export interface KotAmendmentBuilderPayload {
   restaurantName?: string;
-  kotNumber: number | string;       // e.g. "101-M1" or 101
+  kotNumber?: number | string;       // e.g. "101-M1" or 101
   orderNumber: number | string;     // e.g. 101
   revision?: number;               // e.g. 1 for M1, 2 for M2
   tableLabel: string;
@@ -75,14 +75,14 @@ export interface KotAmendmentBuilderPayload {
 
 export interface KotCancelBuilderPayload {
   restaurantName?: string;
-  kotNumber: number | string;       // Retains original KOT number e.g. 105
+  kotNumber?: number | string;       // Retains original KOT number e.g. 105
   orderNumber: number | string;     // e.g. 105
   tableLabel: string;
   timestamp?: string;
   customerName?: string | null;
   customerPhone?: string | null;
   operatorName?: string;
-  reason?: string;
+  reason?: string;                  // Stored in metadata, omitted from thermal ticket
   cancelledItems?: KotItemInput[];
   notes?: string;
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO" | string;
@@ -170,9 +170,18 @@ export class KotBuilder {
         lines.push(`     ${nameLines[i]}`);
       }
 
+      // Modifiers
       const mods = this.extractModifiers(item);
       for (const m of mods) {
         lines.push(`     > ${m}`);
+      }
+
+      // Note (indented on separate lines)
+      if (item.notes && item.notes.trim()) {
+        const noteLines = this.formatNoteLines(item.notes, cols);
+        for (const nl of noteLines) {
+          lines.push(nl);
+        }
       }
     }
 
@@ -290,6 +299,15 @@ export class KotBuilder {
         }
         parts.push(ESC_POS.BOLD_OFF);
       }
+
+      if (item.notes && item.notes.trim()) {
+        const noteLines = this.formatNoteLines(item.notes, cols);
+        parts.push(ESC_POS.FONT_B);
+        for (const nl of noteLines) {
+          parts.push(nl + "\n");
+        }
+        parts.push(ESC_POS.FONT_A);
+      }
     }
 
     parts.push(divider);
@@ -339,11 +357,14 @@ export class KotBuilder {
    * Format:
    * KOT #101-M1
    * MODIFIED
-   * Table 4
+   * TABLE 4
    * --------------------------------
    * REMOVE 1x Fries
    * ADD 1x Mojito
-   * ADD 1x Ice Cream
+   * ADD 1x Paneer Pizza
+   *   Note: Extra oregano, no chilly
+   *         flakes and make sure it is
+   *         properly cooked
    */
   public static buildAmendmentText(payload: KotAmendmentBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
@@ -394,8 +415,12 @@ export class KotBuilder {
       hasActionableChanges = true;
       const qty = item.qty ?? 1;
       lines.push(`REMOVE ${qty}x ${item.name}`);
-      if (item.note && item.note.trim()) {
-        lines.push(`       > Note: ${item.note.trim()}`);
+      const noteToUse = item.note || item.new_note;
+      if (noteToUse && noteToUse.trim()) {
+        const noteLines = this.formatNoteLines(noteToUse, cols);
+        for (const nl of noteLines) {
+          lines.push(nl);
+        }
       }
     }
 
@@ -413,8 +438,12 @@ export class KotBuilder {
       hasActionableChanges = true;
       const qty = item.qty ?? 1;
       lines.push(`ADD ${qty}x ${item.name}`);
-      if (item.note && item.note.trim()) {
-        lines.push(`    > Note: ${item.note.trim()}`);
+      const noteToUse = item.note || item.new_note;
+      if (noteToUse && noteToUse.trim()) {
+        const noteLines = this.formatNoteLines(noteToUse, cols);
+        for (const nl of noteLines) {
+          lines.push(nl);
+        }
       }
     }
 
@@ -424,14 +453,29 @@ export class KotBuilder {
         hasActionableChanges = true;
         const diff = item.new_qty - item.old_qty;
         lines.push(`ADD ${diff}x ${item.name}`);
+        const noteToUse = item.new_note || item.note;
+        if (noteToUse && noteToUse.trim()) {
+          const noteLines = this.formatNoteLines(noteToUse, cols);
+          for (const nl of noteLines) {
+            lines.push(nl);
+          }
+        }
       }
     }
 
-    // 5. Note / Customization modifications
+    // 5. Note / Customization modifications (when quantity is unchanged)
     for (const item of modified) {
-      if (item.new_note !== undefined && item.new_note !== item.old_note) {
+      const qtyUnchanged = item.old_qty === undefined || item.new_qty === undefined || item.old_qty === item.new_qty;
+      const noteChanged = item.new_note !== undefined && item.new_note !== item.old_note;
+      if (qtyUnchanged && noteChanged) {
         hasActionableChanges = true;
-        lines.push(`MOD ${item.name} (Note: "${item.new_note || "(none)"}")`);
+        lines.push(`MOD ${item.name}`);
+        if (item.new_note && item.new_note.trim()) {
+          const noteLines = this.formatNoteLines(item.new_note, cols);
+          for (const nl of noteLines) {
+            lines.push(nl);
+          }
+        }
       }
     }
 
@@ -522,8 +566,14 @@ export class KotBuilder {
       parts.push(ESC_POS.BOLD_ON);
       parts.push(`REMOVE ${qty}x ${item.name}\n`);
       parts.push(ESC_POS.BOLD_OFF);
-      if (item.note && item.note.trim()) {
-        parts.push(`       > Note: ${item.note.trim()}\n`);
+      const noteToUse = item.note || item.new_note;
+      if (noteToUse && noteToUse.trim()) {
+        const noteLines = this.formatNoteLines(noteToUse, cols);
+        parts.push(ESC_POS.FONT_B);
+        for (const nl of noteLines) {
+          parts.push(nl + "\n");
+        }
+        parts.push(ESC_POS.FONT_A);
       }
     }
 
@@ -545,8 +595,14 @@ export class KotBuilder {
       parts.push(ESC_POS.BOLD_ON);
       parts.push(`ADD ${qty}x ${item.name}\n`);
       parts.push(ESC_POS.BOLD_OFF);
-      if (item.note && item.note.trim()) {
-        parts.push(`    > Note: ${item.note.trim()}\n`);
+      const noteToUse = item.note || item.new_note;
+      if (noteToUse && noteToUse.trim()) {
+        const noteLines = this.formatNoteLines(noteToUse, cols);
+        parts.push(ESC_POS.FONT_B);
+        for (const nl of noteLines) {
+          parts.push(nl + "\n");
+        }
+        parts.push(ESC_POS.FONT_A);
       }
     }
 
@@ -558,16 +614,35 @@ export class KotBuilder {
         parts.push(ESC_POS.BOLD_ON);
         parts.push(`ADD ${diff}x ${item.name}\n`);
         parts.push(ESC_POS.BOLD_OFF);
+        const noteToUse = item.new_note || item.note;
+        if (noteToUse && noteToUse.trim()) {
+          const noteLines = this.formatNoteLines(noteToUse, cols);
+          parts.push(ESC_POS.FONT_B);
+          for (const nl of noteLines) {
+            parts.push(nl + "\n");
+          }
+          parts.push(ESC_POS.FONT_A);
+        }
       }
     }
 
-    // 5. Note modifications
+    // 5. Note modifications (when qty unchanged)
     for (const item of modified) {
-      if (item.new_note !== undefined && item.new_note !== item.old_note) {
+      const qtyUnchanged = item.old_qty === undefined || item.new_qty === undefined || item.old_qty === item.new_qty;
+      const noteChanged = item.new_note !== undefined && item.new_note !== item.old_note;
+      if (qtyUnchanged && noteChanged) {
         hasActionableChanges = true;
         parts.push(ESC_POS.BOLD_ON);
-        parts.push(`MOD ${item.name} (Note: "${item.new_note || "(none)"}")\n`);
+        parts.push(`MOD ${item.name}\n`);
         parts.push(ESC_POS.BOLD_OFF);
+        if (item.new_note && item.new_note.trim()) {
+          const noteLines = this.formatNoteLines(item.new_note, cols);
+          parts.push(ESC_POS.FONT_B);
+          for (const nl of noteLines) {
+            parts.push(nl + "\n");
+          }
+          parts.push(ESC_POS.FONT_A);
+        }
       }
     }
 
@@ -617,14 +692,17 @@ export class KotBuilder {
   /**
    * Generates clean formatted text representation of a Cancelled KOT.
    * Format:
-   * KOT #105
-   * *** CANCELLED ***
-   * Table 4
-   * --------------------------------
-   * STOP PREPARATION
+   * ================================
+   *          CHEESE CORNER
+   *             KOT #105
+   *        *** CANCELLED ***
+   *             TABLE 4
+   * ================================
+   *         STOP PREPARATION
    * --------------------------------
    * 2x Burger
    * 1x Fries
+   * ================================
    */
   public static buildCancelText(payload: KotCancelBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
@@ -653,11 +731,6 @@ export class KotBuilder {
     lines.push(this.center("STOP PREPARATION", cols));
     lines.push(divider);
 
-    if (payload.reason && payload.reason.trim()) {
-      lines.push(`Reason: ${payload.reason.trim()}`);
-      lines.push(divider);
-    }
-
     if (payload.cancelledItems && payload.cancelledItems.length > 0) {
       for (const item of payload.cancelledItems) {
         const qtyStr = `${item.qty}x`.padEnd(5);
@@ -667,7 +740,10 @@ export class KotBuilder {
           lines.push(`     ${nameLines[i]}`);
         }
         if (item.notes && item.notes.trim()) {
-          lines.push(`     > ${item.notes.trim()}`);
+          const noteLines = this.formatNoteLines(item.notes, cols);
+          for (const nl of noteLines) {
+            lines.push(nl);
+          }
         }
       }
     } else {
@@ -725,11 +801,6 @@ export class KotBuilder {
 
     parts.push(ESC_POS.ALIGN_LEFT);
 
-    if (payload.reason && payload.reason.trim()) {
-      parts.push(`Reason: ${payload.reason.trim()}\n`);
-      parts.push(divider);
-    }
-
     if (payload.cancelledItems && payload.cancelledItems.length > 0) {
       for (const item of payload.cancelledItems) {
         const qtyStr = `${item.qty}x`.padEnd(5);
@@ -744,7 +815,12 @@ export class KotBuilder {
           parts.push(`     ${nameLines[i]}\n`);
         }
         if (item.notes && item.notes.trim()) {
-          parts.push(`     > ${item.notes.trim()}\n`);
+          const noteLines = this.formatNoteLines(item.notes, cols);
+          parts.push(ESC_POS.FONT_B);
+          for (const nl of noteLines) {
+            parts.push(nl + "\n");
+          }
+          parts.push(ESC_POS.FONT_A);
         }
       }
     } else {
@@ -766,6 +842,31 @@ export class KotBuilder {
   // HELPER UTILITIES
   // =========================================================================
 
+  /**
+   * Formats item notes with strict indentation and word boundary wrapping.
+   * Format:
+   *   Note: First line of note text
+   *         Continuation line wrapped at word boundary
+   */
+  public static formatNoteLines(note: string, widthmmOrCols: number = 58): string[] {
+    if (!note || !note.trim()) return [];
+
+    const cols = widthmmOrCols === 58 ? 32 : widthmmOrCols === 80 ? 48 : widthmmOrCols;
+    const prefix = "  Note: "; // 8 characters
+    const indent = "        "; // 8 characters
+    const availableWidth = Math.max(12, cols - 8);
+
+    const wrapped = this.wrapText(note.trim(), availableWidth);
+    if (wrapped.length === 0) return [];
+
+    const lines: string[] = [];
+    lines.push(`${prefix}${wrapped[0]}`);
+    for (let i = 1; i < wrapped.length; i++) {
+      lines.push(`${indent}${wrapped[i]}`);
+    }
+    return lines;
+  }
+
   private static formatTableLabel(rawLabel?: string, source?: string, refStr?: string | null): string {
     const label = rawLabel || "Express";
     if (source === "TAKEAWAY") return "TAKEAWAY";
@@ -783,9 +884,6 @@ export class KotBuilder {
       } else if (typeof item.modifiers === "string" && item.modifiers.trim()) {
         mods.push(item.modifiers.trim());
       }
-    }
-    if (item.notes && item.notes.trim()) {
-      mods.push(item.notes.trim());
     }
     return mods;
   }
@@ -805,23 +903,38 @@ export class KotBuilder {
   }
 
   private static wrapText(text: string, maxLen: number): string[] {
-    if (!text) return [""];
-    if (text.length <= maxLen) return [text];
+    if (!text || !text.trim()) return [];
+    if (text.length <= maxLen) return [text.trim()];
 
-    const words = text.split(" ");
+    const words = text.trim().split(/\s+/);
     const lines: string[] = [];
     let currentLine = "";
 
     for (const word of words) {
-      if ((currentLine + (currentLine ? " " : "") + word).length <= maxLen) {
-        currentLine += (currentLine ? " " : "") + word;
+      // If single token exceeds maxLen, break token safely to prevent buffer overflow
+      if (word.length > maxLen) {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = "";
+        }
+        let remainingWord = word;
+        while (remainingWord.length > maxLen) {
+          lines.push(remainingWord.substring(0, maxLen));
+          remainingWord = remainingWord.substring(maxLen);
+        }
+        currentLine = remainingWord;
+        continue;
+      }
+
+      if ((currentLine ? currentLine + " " + word : word).length <= maxLen) {
+        currentLine = currentLine ? currentLine + " " + word : word;
       } else {
         if (currentLine) lines.push(currentLine);
-        currentLine = word.length > maxLen ? word.substring(0, maxLen) : word;
+        currentLine = word;
       }
     }
     if (currentLine) lines.push(currentLine);
 
-    return lines.length > 0 ? lines : [text.substring(0, maxLen)];
+    return lines;
   }
 }
