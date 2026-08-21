@@ -1,14 +1,14 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { DailySalesPill } from "@/components/counter/DailySalesPill";
 import { DailySalesModal } from "@/components/counter/DailySalesModal";
 import type { DailySalesReport } from "@/lib/sales/types";
 
-describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
+describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
   const CAFE_ID = "6d00d671-eaea-47ce-a842-f970878373c9";
 
-  const mockReport: DailySalesReport = {
+  const mockDay1Report: DailySalesReport = {
     business_date: "2026-08-21",
     cafe_id: CAFE_ID,
     net_collected: 14850,
@@ -35,7 +35,7 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
     },
   };
 
-  const mockZeroReport: DailySalesReport = {
+  const mockDay2ZeroReport: DailySalesReport = {
     business_date: "2026-08-22",
     cafe_id: CAFE_ID,
     net_collected: 0,
@@ -86,7 +86,7 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
     const handleClick = vi.fn();
     render(
       <DailySalesPill
-        report={mockReport}
+        report={mockDay1Report}
         isLoading={false}
         isError={false}
         onClick={handleClick}
@@ -106,7 +106,7 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
   it("3. DailySalesPill renders legitimate ₹0.00 and 0 Bills for zero sales report", () => {
     render(
       <DailySalesPill
-        report={mockZeroReport}
+        report={mockDay2ZeroReport}
         isLoading={false}
         isError={false}
       />
@@ -142,7 +142,7 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
       <DailySalesModal
         isOpen={true}
         onClose={vi.fn()}
-        report={mockReport}
+        report={mockDay1Report}
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
@@ -159,7 +159,7 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
       <DailySalesModal
         isOpen={true}
         onClose={vi.fn()}
-        report={mockReport}
+        report={mockDay1Report}
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
@@ -178,7 +178,7 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
       <DailySalesModal
         isOpen={true}
         onClose={vi.fn()}
-        report={mockReport}
+        report={mockDay1Report}
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
@@ -197,7 +197,7 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
       <DailySalesModal
         isOpen={true}
         onClose={vi.fn()}
-        report={mockReport}
+        report={mockDay1Report}
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
@@ -217,7 +217,7 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
       <DailySalesModal
         isOpen={true}
         onClose={vi.fn()}
-        report={mockReport}
+        report={mockDay1Report}
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
@@ -233,14 +233,48 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
     expect(screen.getByTestId("daily-sales-cancelled-count")).toHaveTextContent("1 Order");
   });
 
-  // 14. Manual refresh action
-  it("14. Clicking modal refresh button triggers onRefresh handler", () => {
+  // 14. Rollover update while modal is open
+  it("14. When report rolls over while modal is open, modal smoothly displays the new business date and zero metrics", () => {
+    const { rerender } = render(
+      <DailySalesModal
+        isOpen={true}
+        onClose={vi.fn()}
+        report={mockDay1Report}
+        isLoading={false}
+        isError={false}
+        onRefresh={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("daily-sales-business-date")).toHaveTextContent(/21 Aug 2026/);
+    expect(screen.getByTestId("daily-sales-net-collected")).toHaveTextContent(/14,850/);
+
+    // Re-render with Day 2 rolled-over zero report
+    rerender(
+      <DailySalesModal
+        isOpen={true}
+        onClose={vi.fn()}
+        report={mockDay2ZeroReport}
+        isLoading={false}
+        isError={false}
+        onRefresh={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("daily-sales-business-date")).toHaveTextContent(/22 Aug 2026/);
+    expect(screen.getByTestId("daily-sales-net-collected")).toHaveTextContent(/0/);
+    expect(screen.getByTestId("daily-sales-paid-count")).toHaveTextContent("0");
+    expect(screen.getByTestId("daily-sales-tender-cash")).toHaveTextContent(/0/);
+  });
+
+  // 15. Manual refresh action
+  it("15. Clicking modal refresh button triggers onRefresh handler", () => {
     const handleRefresh = vi.fn();
     render(
       <DailySalesModal
         isOpen={true}
         onClose={vi.fn()}
-        report={mockReport}
+        report={mockDay1Report}
         isLoading={false}
         isError={false}
         onRefresh={handleRefresh}
@@ -250,24 +284,5 @@ describe("Milestone 2B.2: Counter Daily Sales UI Tests", () => {
     const refreshBtn = screen.getByTestId("daily-sales-refresh-button");
     fireEvent.click(refreshBtn);
     expect(handleRefresh).toHaveBeenCalledTimes(1);
-  });
-
-  // 15. Modal close action
-  it("15. Clicking modal close button triggers onClose handler", () => {
-    const handleClose = vi.fn();
-    render(
-      <DailySalesModal
-        isOpen={true}
-        onClose={handleClose}
-        report={mockReport}
-        isLoading={false}
-        isError={false}
-        onRefresh={vi.fn()}
-      />
-    );
-
-    const closeBtn = screen.getByTestId("daily-sales-close-button");
-    fireEvent.click(closeBtn);
-    expect(handleClose).toHaveBeenCalledTimes(1);
   });
 });

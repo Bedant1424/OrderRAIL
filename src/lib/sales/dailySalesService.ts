@@ -3,7 +3,7 @@
  * 
  * High-level domain service for consuming authoritative Daily Sales Reports.
  * Implements in-memory caching, in-flight promise de-duplication, debounced realtime invalidation,
- * and multi-terminal synchronization without client-side total manipulation.
+ * business-date rollover freshness validation, and multi-terminal synchronization without client-side total manipulation.
  */
 
 import { supabase } from "@/lib/db";
@@ -12,14 +12,44 @@ import type { DailySalesReport, DailySalesServiceOptions } from "./types";
 
 type DailySalesListener = (report: DailySalesReport) => void;
 
+interface CacheEntry {
+  report: DailySalesReport;
+  fetchedAt: number;
+}
+
 export class DailySalesServiceClass {
-  private cache = new Map<string, DailySalesReport>();
+  private cache = new Map<string, CacheEntry>();
   private inFlightRequests = new Map<string, Promise<DailySalesReport>>();
   private activeSubscriptions = new Map<string, { channel: any; refCount: number; listeners: Set<DailySalesListener> }>();
   private debounceTimers = new Map<string, NodeJS.Timeout>();
 
   private getCacheKey(cafeId: string, businessDate?: string | null): string {
     return `${cafeId}:${businessDate || "CURRENT"}`;
+  }
+
+  /**
+   * Check if a cached "CURRENT" report has crossed a local date boundary or exceeded freshness TTL.
+   * This serves ONLY as a signal to fetch a fresh authoritative report from PostgreSQL.
+   */
+  private isCurrentCacheStale(entry: CacheEntry): boolean {
+    const fetchedDate = new Date(entry.fetchedAt);
+    const now = new Date();
+    
+    // 1. Rollover boundary check: local calendar date has progressed
+    if (
+      fetchedDate.getFullYear() !== now.getFullYear() ||
+      fetchedDate.getMonth() !== now.getMonth() ||
+      fetchedDate.getDate() !== now.getDate()
+    ) {
+      return true;
+    }
+
+    // 2. Maximum freshness TTL check (5 minutes) for background date drift protection
+    if (now.getTime() - entry.fetchedAt > 5 * 60 * 1000) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -39,10 +69,16 @@ export class DailySalesServiceClass {
     }
 
     const key = this.getCacheKey(cafeId, businessDate);
+    const isCurrent = !businessDate;
 
-    // 1. Return cached copy if available and forceRefresh is false
+    // 1. Return cached copy if available, forceRefresh is false, and CURRENT entry is not stale
     if (!options?.forceRefresh && this.cache.has(key)) {
-      return this.cache.get(key)!;
+      const entry = this.cache.get(key)!;
+      if (isCurrent && this.isCurrentCacheStale(entry)) {
+        this.cache.delete(key);
+      } else {
+        return entry.report;
+      }
     }
 
     // 2. Share in-flight promise to avoid duplicate concurrent RPC calls
@@ -52,11 +88,12 @@ export class DailySalesServiceClass {
 
     const fetchPromise = DailySalesRepository.fetchDailySalesReport(cafeId, businessDate)
       .then((report) => {
-        this.cache.set(key, report);
+        const now = Date.now();
+        this.cache.set(key, { report, fetchedAt: now });
         // Also index under the resolved business date if fetched as CURRENT
-        if (!businessDate && report.business_date) {
+        if (isCurrent && report.business_date) {
           const resolvedKey = this.getCacheKey(cafeId, report.business_date);
-          this.cache.set(resolvedKey, report);
+          this.cache.set(resolvedKey, { report, fetchedAt: now });
         }
         return report;
       })
@@ -205,7 +242,11 @@ export class DailySalesServiceClass {
       currentSub.refCount--;
 
       if (currentSub.refCount <= 0) {
-        void supabase.removeChannel(currentSub.channel);
+        if (currentSub.channel) {
+          try {
+            void supabase.removeChannel(currentSub.channel);
+          } catch (e) {}
+        }
         this.activeSubscriptions.delete(cafeId);
         const timer = this.debounceTimers.get(cafeId);
         if (timer) {

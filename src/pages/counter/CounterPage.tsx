@@ -2871,6 +2871,33 @@ const CounterLayout = () => {
     };
   }, [cafeId, loadDailySales]);
 
+  // Track the authoritative business date returned by PostgreSQL
+  const lastKnownBusinessDateRef = useRef<string | null>(null);
+  const isRolloverRefreshingRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (dailySalesReport?.business_date) {
+      lastKnownBusinessDateRef.current = dailySalesReport.business_date;
+    }
+  }, [dailySalesReport?.business_date]);
+
+  // Periodic business-date rollover check reusing existing nowMs interval tick
+  useEffect(() => {
+    if (!cafeId || !dailySalesReport || isRolloverRefreshingRef.current) return;
+
+    const localDayStr = new Date(nowMs).toLocaleDateString('en-CA'); // 'YYYY-MM-DD'
+    if (
+      lastKnownBusinessDateRef.current &&
+      localDayStr > lastKnownBusinessDateRef.current
+    ) {
+      // Date boundary crossed while station is open! Trigger one authoritative refresh
+      isRolloverRefreshingRef.current = true;
+      void loadDailySales(true).finally(() => {
+        isRolloverRefreshingRef.current = false;
+      });
+    }
+  }, [nowMs, cafeId, dailySalesReport, loadDailySales]);
+
   const handleOpenNotifications = useCallback(() => {
     setDrawerTab('notifications');
     setIsNotifOpen(true);
