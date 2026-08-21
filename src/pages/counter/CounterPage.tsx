@@ -4331,7 +4331,6 @@ const CounterLayout = () => {
           onClose={() => setIsNotifOpen(false)}
           onMarkAllAsRead={handleMarkAllAsRead}
           onClearHistory={handleClearHistory}
-          onActionClick={handleNotificationAction}
           onDismiss={handleDismissNotif}
           onMarkAsRead={handleMarkAsRead}
           onUpdateSettings={handleUpdateSettings}
