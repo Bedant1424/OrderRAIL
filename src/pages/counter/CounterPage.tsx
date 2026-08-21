@@ -3501,14 +3501,18 @@ const CounterLayout = () => {
           : `Table ${selectedTable?.label || 'Express'}`;
 
         try {
-          await OrderService.printKot({
-            orderId: realId,
-            orderNumber: orderNumber,
-            kotNumber: orderNumber,
-            tableLabel: cleanLabel,
-            timestamp: orderObj.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-            items: orderObj.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
-          });
+          await OrderService.fireInitialKot(
+            realId,
+            {
+              orderId: realId,
+              orderNumber: orderNumber,
+              kotNumber: orderNumber,
+              tableLabel: cleanLabel,
+              timestamp: orderObj.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+              items: orderObj.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
+            },
+            "counter"
+          );
         } catch (err) {
           console.warn("[handleAcceptOrder] Auto-print KOT warning:", err);
         }
@@ -3527,14 +3531,18 @@ const CounterLayout = () => {
     const cleanLabel = tableLabel.toLowerCase().startsWith('table') ? tableLabel : `Table ${tableLabel}`;
 
     try {
-      const res = await OrderService.printKot({
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        kotNumber: order.orderNumber,
-        tableLabel: cleanLabel,
-        timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-        items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
-      });
+      const res = await OrderService.fireInitialKot(
+        order.id,
+        {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          kotNumber: order.orderNumber,
+          tableLabel: cleanLabel,
+          timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+          items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
+        },
+        "counter"
+      );
 
       if (!res.queued) {
         await OrderService.updateOrderStatus(order.id, "preparing", "staff");
@@ -3555,17 +3563,15 @@ const CounterLayout = () => {
 
     try {
       const res = await OrderService.reprintKot(order.id, {
-        orderNumber: order.orderNumber,
-        kotNumber: order.orderNumber,
         tableLabel: cleanLabel,
-        timestamp: order.timestamp || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-        items: order.items.map((i) => ({ id: i.id, name: i.name, price: i.price, qty: i.qty, notes: i.notes })),
+        actor: "counter",
+        orderSnapshot: order,
       });
 
       if (!res.queued) {
-        toast.info(`🖨️ KOT #${order.orderNumber} Reprinted.`);
+        toast.info(`🖨️ KOT #${res.kotNumber} Printed.`);
       } else {
-        toast.info(`⏳ KOT #${order.orderNumber} Reprint Queued`);
+        toast.info(`⏳ KOT #${res.kotNumber} Reprint Queued`);
       }
     } catch (e: any) {
       console.warn("[handleReprintKotOrder] Error:", e);

@@ -1,12 +1,18 @@
 /**
- * Sprint 9.2.3.2 & 9.2.3.3 — Printer Adapter Layer
+ * Sprint 9.2.3.2 & 9.2.3.3 / Milestone 1B & 1C — Printer Adapter Layer
  * 
  * Hardware-isolated printer abstraction.
  * Bridges business logic / Operations Engine with physical, ESC/POS, QZ Tray, or Mock printers.
  */
 
 import { printService } from "./PrintService";
-import { KotBuilder, renderKotText, type KotRenderPayload } from "./kotRenderer";
+import {
+  KotBuilder,
+  renderKotText,
+  type KotRenderPayload,
+  type KotAmendmentRenderPayload,
+  type KotCancelRenderPayload,
+} from "./kotRenderer";
 import { ReceiptBuilder, renderReceiptText, type ReceiptRenderPayload } from "./receiptRenderer";
 import { getReceiptSettings } from "../billing/receiptSettings";
 
@@ -112,11 +118,11 @@ class PrinterAdapterClass {
       {
         type: 'KOT',
         orderId: payload.orderId,
-        orderNumber: typeof payload.orderNumber === 'number' ? payload.orderNumber : parseInt(payload.orderNumber, 10) || 101,
+        orderNumber: typeof payload.orderNumber === 'number' ? payload.orderNumber : parseInt(String(payload.orderNumber), 10) || 101,
         tableLabel: payload.tableLabel,
         timestamp: payload.timestamp,
         notes: payload.notes,
-        items: payload.items.map((i) => ({
+        items: (payload.items || []).map((i) => ({
           id: i.id || `i-${Date.now()}`,
           name: i.name,
           price: i.price,
@@ -136,6 +142,102 @@ class PrinterAdapterClass {
     }
 
     throw new Error(res.job.errorMessage || 'KOT Print Failed');
+  }
+
+  public async printAmendmentKot(payload: KotAmendmentRenderPayload & { destination?: string }): Promise<{ success: boolean; error?: string }> {
+    let currentStatus = this.getStatus();
+
+    if (!currentStatus.isOnline && !this.simulatedState) {
+      await this.connect();
+      currentStatus = this.getStatus();
+    }
+
+    if (!currentStatus.isOnline) {
+      const errReason =
+        currentStatus.state === 'OUT_OF_PAPER'
+          ? 'Printer Out of Paper'
+          : currentStatus.state === 'ERROR'
+          ? 'Printer Hardware Fault'
+          : 'Printer Disconnected';
+      throw new Error(`[PrinterAdapter] ${errReason}`);
+    }
+
+    const kotBuild = KotBuilder.buildAmendmentKot(payload, 58);
+
+    const res = await printService.enqueue(
+      'KOT',
+      (payload.destination as any) || 'KOT_PRINTER',
+      {
+        type: 'KOT',
+        orderId: payload.orderId,
+        orderNumber: typeof payload.orderNumber === 'number' ? payload.orderNumber : parseInt(String(payload.orderNumber), 10) || 101,
+        tableLabel: payload.tableLabel,
+        timestamp: payload.timestamp,
+        notes: payload.notes,
+        items: [],
+        escpos: kotBuild.escpos,
+        formattedText: kotBuild.text,
+      },
+      { orderId: payload.orderId }
+    );
+
+    if (res.success) {
+      console.log(`[PrinterAdapter] KOT #${payload.kotNumber} (Amendment) printed successfully:\n${kotBuild.text}`);
+      return { success: true };
+    }
+
+    throw new Error(res.job.errorMessage || 'Amendment KOT Print Failed');
+  }
+
+  public async printCancelKot(payload: KotCancelRenderPayload & { destination?: string }): Promise<{ success: boolean; error?: string }> {
+    let currentStatus = this.getStatus();
+
+    if (!currentStatus.isOnline && !this.simulatedState) {
+      await this.connect();
+      currentStatus = this.getStatus();
+    }
+
+    if (!currentStatus.isOnline) {
+      const errReason =
+        currentStatus.state === 'OUT_OF_PAPER'
+          ? 'Printer Out of Paper'
+          : currentStatus.state === 'ERROR'
+          ? 'Printer Hardware Fault'
+          : 'Printer Disconnected';
+      throw new Error(`[PrinterAdapter] ${errReason}`);
+    }
+
+    const kotBuild = KotBuilder.buildCancelKot(payload, 58);
+
+    const res = await printService.enqueue(
+      'KOT',
+      (payload.destination as any) || 'KOT_PRINTER',
+      {
+        type: 'KOT',
+        orderId: payload.orderId,
+        orderNumber: typeof payload.orderNumber === 'number' ? payload.orderNumber : parseInt(String(payload.orderNumber), 10) || 101,
+        tableLabel: payload.tableLabel,
+        timestamp: payload.timestamp,
+        notes: payload.cancellationReason,
+        items: (payload.cancelledItems || []).map((i) => ({
+          id: i.id || `i-${Date.now()}`,
+          name: i.name,
+          price: i.price,
+          qty: i.qty,
+          notes: i.notes,
+        })),
+        escpos: kotBuild.escpos,
+        formattedText: kotBuild.text,
+      },
+      { orderId: payload.orderId }
+    );
+
+    if (res.success) {
+      console.log(`[PrinterAdapter] KOT #${payload.kotNumber} (Cancel) printed successfully:\n${kotBuild.text}`);
+      return { success: true };
+    }
+
+    throw new Error(res.job.errorMessage || 'Cancellation KOT Print Failed');
   }
 
   public async printReceipt(payload: ReceiptRenderPayload & { destination?: string }): Promise<{ success: boolean; error?: string }> {

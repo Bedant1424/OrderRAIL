@@ -92,15 +92,84 @@ export async function updateOrderStatusInDb(
   }
 }
 
+export interface EditOrderAtomicResult {
+  success: boolean;
+  order_id: string;
+  previous_version: number;
+  new_version: number;
+  initial_kot_version?: number | null;
+  previous_subtotal: number;
+  new_subtotal: number;
+  delta: {
+    added: any[];
+    removed: any[];
+    modified: any[];
+  };
+  requires_amendment_kot: boolean;
+  amendment_number: number;
+  amendment_code: string | null;
+}
+
+export interface CancelOrderAtomicResult {
+  success: boolean;
+  order_id: string;
+  requires_cancel_kot: boolean;
+  status: string;
+  already_cancelled?: boolean;
+}
+
+export interface RecordInitialKotFiredResult {
+  success: boolean;
+  already_fired: boolean;
+  order_id: string;
+  order_number: number;
+  initial_kot_version: number;
+  kot_fired_at: string;
+}
+
+export interface RecordKotReprintResult {
+  success: boolean;
+  order_id: string;
+  order_number: number;
+  reprint_number: number;
+  reprint_code: string;
+}
+
+export async function recordInitialKotFiredInDb(
+  orderId: string,
+  actor: "counter" | "staff" | "owner" = "counter"
+): Promise<RecordInitialKotFiredResult> {
+  const { data, error } = await supabase.rpc("record_initial_kot_fired_atomic", {
+    p_order_id: orderId,
+    p_actor: actor,
+  });
+
+  if (error) throw error;
+  return data as RecordInitialKotFiredResult;
+}
+
+export async function recordKotReprintInDb(
+  orderId: string,
+  actor: "counter" | "staff" | "owner" = "counter"
+): Promise<RecordKotReprintResult> {
+  const { data, error } = await supabase.rpc("record_kot_reprint_atomic", {
+    p_order_id: orderId,
+    p_actor: actor,
+  });
+
+  if (error) throw error;
+  return data as RecordKotReprintResult;
+}
+
 export async function editOrderInDb(params: {
   orderId: string;
   items: EditOrderItemPayload[];
   notes?: string | null;
-  updatedBy?: "customer" | "staff" | "owner";
+  updatedBy?: "customer" | "staff" | "owner" | "counter";
   guestSessionId?: string | null;
   sessionId?: string | null;
   expectedVersion?: number | null;
-}): Promise<void> {
+}): Promise<EditOrderAtomicResult | void> {
   const { orderId, items, notes, updatedBy = "staff", guestSessionId, sessionId, expectedVersion } = params;
 
   if (updatedBy === "customer") {
@@ -168,86 +237,37 @@ export async function editOrderInDb(params: {
     return;
   }
 
-  // 1. Fetch current order items
-  const { data: existingItems, error: fetchErr } = await supabase
-    .from("order_items")
-    .select("id")
-    .eq("order_id", orderId);
+  // Canonical edit_order_atomic RPC for counter/staff/owner
+  const rpcItems = items.map((it) => ({
+    id: it.id || undefined,
+    menu_item_id: it.menu_item_id ?? undefined,
+    name: it.name,
+    qty: it.qty,
+    note: it.note ?? null,
+  }));
 
-  if (fetchErr) throw fetchErr;
+  const actor = updatedBy === "counter" ? "counter" : updatedBy === "owner" ? "owner" : "staff";
+  const { data, error } = await supabase.rpc("edit_order_atomic", {
+    p_order_id: orderId,
+    p_items: rpcItems as any,
+    p_note: notes ?? "",
+    p_actor: actor,
+    p_expected_version: expectedVersion ?? 1,
+  });
 
-  const existingIds = new Set((existingItems ?? []).map((it) => it.id));
-  const payloadIds = new Set(items.filter((it) => it.id).map((it) => it.id!));
-
-  // 2. Determine items to delete
-  const toDelete = Array.from(existingIds).filter((id) => !payloadIds.has(id));
-  if (toDelete.length > 0) {
-    const { error: delErr } = await supabase
-      .from("order_items")
-      .delete()
-      .in("id", toDelete);
-    if (delErr) throw delErr;
+  if (error) {
+    throw error;
   }
 
-  // 3. Upsert items
-  for (const it of items) {
-    if (it.id && existingIds.has(it.id)) {
-      const { error: upErr } = await supabase
-        .from("order_items")
-        .update({
-          qty: it.qty,
-          note: it.note ?? null,
-          price_cents: it.price_cents,
-        })
-        .eq("id", it.id);
-      if (upErr) throw upErr;
-    } else {
-      const { error: insErr } = await supabase
-        .from("order_items")
-        .insert({
-          order_id: orderId,
-          menu_item_id: it.menu_item_id ?? null,
-          name: it.name,
-          price_cents: it.price_cents,
-          qty: it.qty,
-          note: it.note ?? null,
-        });
-      if (insErr) throw insErr;
-    }
-  }
-
-  // 4. Recalculate order total
-  const newTotalCents = items.reduce((sum, it) => sum + it.price_cents * it.qty, 0);
-
-  // 5. Fetch current version
-  const { data: orderData } = await supabase
-    .from("orders")
-    .select("version")
-    .eq("id", orderId)
-    .single();
-
-  const currentVersion = orderData?.version ?? 1;
-
-  // 6. Update order row
-  const { error: orderUpdateErr } = await supabase
-    .from("orders")
-    .update({
-      total_cents: newTotalCents,
-      note: notes ?? null,
-      version: currentVersion + 1,
-      last_updated_by: updatedBy,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId);
-
-  if (orderUpdateErr) throw orderUpdateErr;
+  return data as EditOrderAtomicResult;
 }
 
 export async function cancelOrderInDb(
   orderId: string,
-  updatedBy: "customer" | "staff" | "owner" = "staff",
-  guestSessionId?: string | null
-): Promise<void> {
+  updatedBy: "customer" | "staff" | "owner" | "counter" = "staff",
+  guestSessionId?: string | null,
+  reason?: string
+): Promise<CancelOrderAtomicResult | void> {
   if (updatedBy === "customer") {
     let currentOrder: any = null;
     try {
@@ -287,25 +307,41 @@ export async function cancelOrderInDb(
         void touchGuestSession(guestSessionId);
       }
     }
+
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        status: "cancelled",
+        last_updated_by: updatedBy,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", orderId);
+
+    if (error) {
+      if (error.code === "42501" || error.message?.includes("permission") || error.message?.includes("row-level security") || error.message?.includes("demo")) {
+        console.warn("[cancelOrderInDb] Order cancel restricted (RLS/Demo mode notice):", error.message);
+        return;
+      }
+      throw error;
+    }
+    return;
   }
 
-  const { error } = await supabase
-    .from("orders")
-    .update({
-      status: "cancelled",
-      last_updated_by: updatedBy,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", orderId);
+  // Canonical cancel_order_atomic RPC for counter/staff/owner
+  const actor = updatedBy === "counter" ? "counter" : updatedBy === "owner" ? "owner" : "staff";
+  const { data, error } = await supabase.rpc("cancel_order_atomic", {
+    p_order_id: orderId,
+    p_reason: reason || "Cancelled by operator",
+    p_actor: actor,
+  });
 
   if (error) {
-    if (error.code === "42501" || error.message?.includes("permission") || error.message?.includes("row-level security") || error.message?.includes("demo")) {
-      console.warn("[cancelOrderInDb] Order cancel restricted (RLS/Demo mode notice):", error.message);
-      return;
-    }
     throw error;
   }
+
+  return data as CancelOrderAtomicResult;
 }
+
 
 export interface CreateOrderPayload {
   id?: string;

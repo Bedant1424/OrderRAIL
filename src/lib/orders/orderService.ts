@@ -1,5 +1,5 @@
 /**
- * Sprint 9.2.3.1 & 9.2.3.2 — Offline Order Management & KOT Printing Integration
+ * Sprint 9.2.3.1 & 9.2.3.2 / Milestone 1B & 1C — Offline Order Management & Canonical KOT Printing Integration
  * 
  * Provides a single unified execution path for all order & print operations in OrderRail.
  * Routes every operation through the Offline Operations Engine (OperationExecutor).
@@ -20,10 +20,19 @@ import {
   editOrderInDb,
   cancelOrderInDb,
   updateOrderStatusInDb,
+  recordInitialKotFiredInDb,
+  recordKotReprintInDb,
   type CreateOrderPayload,
   type EditOrderItemPayload,
+  type EditOrderAtomicResult,
+  type CancelOrderAtomicResult,
 } from "./repository";
 import { PrinterAdapter } from "@/lib/printing/printerAdapter";
+import {
+  type KotRenderPayload,
+  type KotAmendmentRenderPayload,
+  type KotCancelRenderPayload,
+} from "@/lib/printing/kotRenderer";
 import { billsMap } from "@/lib/billing/billingService";
 
 // In-Memory Temporary ID Mapping (temp_ord_... -> server_order_id)
@@ -107,14 +116,14 @@ export class OrderServiceClass {
         orderId: string;
         items: EditOrderItemPayload[];
         notes?: string | null;
-        updatedBy?: "customer" | "staff" | "owner";
+        updatedBy?: "customer" | "staff" | "owner" | "counter";
         guestSessionId?: string | null;
         sessionId?: string | null;
         expectedVersion?: number | null;
       }) => {
         const realOrderId = orderIdMapping.get(params.orderId) || params.orderId;
-        await editOrderInDb({ ...params, orderId: realOrderId });
-        return { success: true };
+        const res = await editOrderInDb({ ...params, orderId: realOrderId });
+        return { success: true, result: res };
       }
     );
 
@@ -123,12 +132,13 @@ export class OrderServiceClass {
       "CANCEL_ORDER",
       async (params: {
         orderId: string;
-        updatedBy?: "customer" | "staff" | "owner";
+        updatedBy?: "customer" | "staff" | "owner" | "counter";
         guestSessionId?: string | null;
+        reason?: string;
       }) => {
         const realOrderId = orderIdMapping.get(params.orderId) || params.orderId;
-        await cancelOrderInDb(realOrderId, params.updatedBy, params.guestSessionId);
-        return { success: true };
+        const res = await cancelOrderInDb(realOrderId, params.updatedBy, params.guestSessionId, params.reason);
+        return { success: true, result: res };
       }
     );
 
@@ -152,6 +162,22 @@ export class OrderServiceClass {
       const realOrderId = orderIdMapping.get(payload.orderId) || payload.orderId;
       const finalPayload = { ...payload, orderId: realOrderId };
       const res = await PrinterAdapter.printKot(finalPayload as any);
+      return res;
+    });
+
+    // Handler 6: PRINT_AMENDMENT_KOT
+    OperationExecutor.registerHandler("PRINT_AMENDMENT_KOT", async (payload: KotAmendmentRenderPayload) => {
+      const realOrderId = orderIdMapping.get(payload.orderId) || payload.orderId;
+      const finalPayload = { ...payload, orderId: realOrderId };
+      const res = await PrinterAdapter.printAmendmentKot(finalPayload as any);
+      return res;
+    });
+
+    // Handler 7: PRINT_CANCEL_KOT
+    OperationExecutor.registerHandler("PRINT_CANCEL_KOT", async (payload: KotCancelRenderPayload) => {
+      const realOrderId = orderIdMapping.get(payload.orderId) || payload.orderId;
+      const finalPayload = { ...payload, orderId: realOrderId };
+      const res = await PrinterAdapter.printCancelKot(finalPayload as any);
       return res;
     });
   }
@@ -193,13 +219,13 @@ export class OrderServiceClass {
       orderId: string;
       items: EditOrderItemPayload[];
       notes?: string | null;
-      updatedBy?: "customer" | "staff" | "owner";
+      updatedBy?: "customer" | "staff" | "owner" | "counter";
       guestSessionId?: string | null;
       sessionId?: string | null;
       expectedVersion?: number | null;
     },
     options?: { forceQueue?: boolean }
-  ): Promise<{ queued: boolean; status: Operation["status"] }> {
+  ): Promise<{ queued: boolean; status: Operation["status"]; result?: EditOrderAtomicResult }> {
     this.initHandlers();
 
     const realOrderId = orderIdMapping.get(params.orderId) || params.orderId;
@@ -216,7 +242,7 @@ export class OrderServiceClass {
         forceQueue: options?.forceQueue,
       }
     );
-    return { queued: res.queued, status: res.status };
+    return { queued: res.queued, status: res.status, result: res.result?.result };
   }
 
   /**
@@ -224,10 +250,11 @@ export class OrderServiceClass {
    */
   public async cancelOrder(
     orderId: string,
-    updatedBy: "customer" | "staff" | "owner" = "staff",
+    updatedBy: "customer" | "staff" | "owner" | "counter" = "staff",
     guestSessionId?: string | null,
+    reason?: string,
     options?: { forceQueue?: boolean }
-  ): Promise<{ queued: boolean; status: Operation["status"] }> {
+  ): Promise<{ queued: boolean; status: Operation["status"]; result?: CancelOrderAtomicResult }> {
     this.initHandlers();
 
     const realOrderId = orderIdMapping.get(orderId) || orderId;
@@ -238,13 +265,13 @@ export class OrderServiceClass {
 
     const res = await OperationExecutor.dispatch(
       "CANCEL_ORDER",
-      { orderId: realOrderId, updatedBy, guestSessionId },
+      { orderId: realOrderId, updatedBy, guestSessionId, reason },
       {
         idempotencyKey: `cancel_order_${realOrderId}`,
         forceQueue: options?.forceQueue,
       }
     );
-    return { queued: res.queued, status: res.status };
+    return { queued: res.queued, status: res.status, result: res.result?.result };
   }
 
   /**
@@ -303,17 +330,269 @@ export class OrderServiceClass {
   }
 
   /**
-   * Dispatch KOT Reprint operation through Operations Engine
+   * Dispatch Amendment KOT Print operation through Operations Engine
+   */
+  public async printAmendmentKot(
+    payload: KotAmendmentRenderPayload,
+    options?: { forceQueue?: boolean }
+  ): Promise<{ operationId: string; queued: boolean; status: Operation["status"] }> {
+    this.initHandlers();
+
+    const realOrderId = orderIdMapping.get(payload.orderId) || payload.orderId;
+    const res = await OperationExecutor.dispatch(
+      "PRINT_AMENDMENT_KOT",
+      { ...payload, orderId: realOrderId },
+      {
+        idempotencyKey: `print_amendment_kot_${realOrderId}_${payload.revision}_${Date.now()}`,
+        forceQueue: options?.forceQueue,
+      }
+    );
+
+    return {
+      operationId: res.operationId,
+      queued: res.queued,
+      status: res.status,
+    };
+  }
+
+  /**
+   * Dispatch Cancellation KOT Print operation through Operations Engine
+   */
+  public async printCancelKot(
+    payload: KotCancelRenderPayload,
+    options?: { forceQueue?: boolean }
+  ): Promise<{ operationId: string; queued: boolean; status: Operation["status"] }> {
+    this.initHandlers();
+
+    const realOrderId = orderIdMapping.get(payload.orderId) || payload.orderId;
+    const res = await OperationExecutor.dispatch(
+      "PRINT_CANCEL_KOT",
+      { ...payload, orderId: realOrderId },
+      {
+        idempotencyKey: `print_cancel_kot_${realOrderId}_${Date.now()}`,
+        forceQueue: options?.forceQueue,
+      }
+    );
+
+    return {
+      operationId: res.operationId,
+      queued: res.queued,
+      status: res.status,
+    };
+  }
+
+  /**
+   * Dispatch Initial KOT with authoritative DB record boundary
+   */
+  public async fireInitialKot(
+    orderId: string,
+    payload: PrintKotOperationPayload,
+    actor: "counter" | "staff" | "owner" = "counter",
+    options?: { forceQueue?: boolean }
+  ): Promise<{ queued: boolean; status: Operation["status"]; kot_fired: boolean }> {
+    this.initHandlers();
+
+    // 1. Dispatch print operation through existing pipeline
+    const printRes = await this.printKot(payload, options);
+
+    // 2. Only record initial KOT fired if print dispatch succeeded online
+    let kotFired = false;
+    if (!printRes.queued && printRes.status?.toLowerCase() === "completed") {
+      try {
+        await recordInitialKotFiredInDb(orderId, actor);
+        kotFired = true;
+      } catch (dbErr) {
+        console.warn("[fireInitialKot] Warning recording initial KOT fired in DB:", dbErr);
+      }
+    }
+
+    return {
+      queued: printRes.queued,
+      status: printRes.status,
+      kot_fired: kotFired,
+    };
+  }
+
+  /**
+   * Single Operator-Facing "Reprint KOT" routing logic
    */
   public async reprintKot(
     orderId: string,
-    payload: Omit<PrintKotOperationPayload, "orderId" | "isReprint">,
+    context: {
+      tableLabel: string;
+      actor?: "counter" | "staff" | "owner";
+      orderSnapshot?: any;
+    },
     options?: { forceQueue?: boolean }
-  ): Promise<{ operationId: string; queued: boolean; status: Operation["status"] }> {
-    return this.printKot(
-      { ...payload, orderId, isReprint: true },
-      options
-    );
+  ): Promise<{
+    type: "INITIAL_KOT" | "CANCEL_KOT" | "AMENDMENT_KOT" | "STANDARD_REPRINT";
+    kotNumber: string | number;
+    queued: boolean;
+    status: Operation["status"];
+  }> {
+    this.initHandlers();
+    const actor = context.actor || "counter";
+    const realOrderId = orderIdMapping.get(orderId) || orderId;
+
+    // 1. Fetch live order details if not fully provided
+    let order = context.orderSnapshot;
+    if (!order || !order.status || order.kot_fired_at === undefined) {
+      const { data: dbOrder } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("id", realOrderId)
+        .maybeSingle();
+      if (dbOrder) {
+        order = dbOrder;
+      }
+    }
+
+    if (!order) {
+      throw new Error(`Order not found: ${realOrderId}`);
+    }
+
+    const orderNum = order.order_number || order.orderNumber || 101;
+    const items = (order.order_items || order.items || []).map((i: any) => ({
+      id: i.id,
+      name: i.name,
+      price: i.price || (i.price_cents ? i.price_cents / 100 : 0),
+      qty: i.qty,
+      notes: i.note || i.notes,
+    }));
+
+    // Case A: Cancelled order -> Cancel KOT
+    if (order.status === "cancelled") {
+      const cancelPayload: KotCancelRenderPayload = {
+        orderId: realOrderId,
+        orderNumber: orderNum,
+        kotNumber: orderNum,
+        tableLabel: context.tableLabel,
+        timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+        cancellationReason: order.note || "Order cancelled",
+        cancelledItems: items,
+      };
+      const res = await this.printCancelKot(cancelPayload, options);
+      return {
+        type: "CANCEL_KOT",
+        kotNumber: orderNum,
+        queued: res.queued,
+        status: res.status,
+      };
+    }
+
+    // Case B: Initial KOT was never fired -> Trigger initial KOT fire
+    if (!order.kot_fired_at) {
+      const initialPayload: PrintKotOperationPayload = {
+        orderId: realOrderId,
+        orderNumber: orderNum,
+        kotNumber: orderNum,
+        tableLabel: context.tableLabel,
+        timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+        items,
+      };
+      const res = await this.fireInitialKot(realOrderId, initialPayload, actor, options);
+      return {
+        type: "INITIAL_KOT",
+        kotNumber: orderNum,
+        queued: res.queued,
+        status: res.status,
+      };
+    }
+
+    // Case C: Active order modified post-KOT (version > initial_kot_version) -> Latest Amendment KOT
+    const initialVersion = order.initial_kot_version || 1;
+    const currentVersion = order.version || 1;
+    if (currentVersion > initialVersion) {
+      const revision = currentVersion - initialVersion;
+      // Compute delta from previous_items vs order_items
+      const prevItems: any[] = typeof order.previous_items === "string" 
+        ? JSON.parse(order.previous_items) 
+        : (order.previous_items || []);
+      
+      const deltaAdded: any[] = [];
+      const deltaRemoved: any[] = [];
+      const deltaModified: any[] = [];
+
+      const prevMap = new Map<string, any>(prevItems.map((p: any) => [p.name || p.id, p]));
+      const currMap = new Map<string, any>(items.map((c: any) => [c.name || c.id, c]));
+
+      for (const curr of items) {
+        const prev = prevMap.get(curr.name || curr.id);
+        if (!prev) {
+          deltaAdded.push(curr);
+        } else if (prev.qty !== curr.qty || prev.note !== curr.notes) {
+          deltaModified.push({
+            ...curr,
+            oldQty: prev.qty,
+            newQty: curr.qty,
+            oldNotes: prev.note || prev.notes,
+            newNotes: curr.notes,
+          });
+        }
+      }
+
+      for (const prev of prevItems) {
+        if (!currMap.has(prev.name || prev.id)) {
+          deltaRemoved.push({
+            id: prev.id,
+            name: prev.name,
+            price: prev.price_cents ? prev.price_cents / 100 : (prev.price || 0),
+            qty: prev.qty,
+            notes: prev.note || prev.notes,
+          });
+        }
+      }
+
+      const amendmentPayload: KotAmendmentRenderPayload = {
+        orderId: realOrderId,
+        orderNumber: orderNum,
+        kotNumber: `${orderNum}-M${revision}`,
+        revision,
+        tableLabel: context.tableLabel,
+        timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+        delta: {
+          added: deltaAdded,
+          removed: deltaRemoved,
+          modified: deltaModified,
+        },
+      };
+
+      const res = await this.printAmendmentKot(amendmentPayload, options);
+      return {
+        type: "AMENDMENT_KOT",
+        kotNumber: `${orderNum}-M${revision}`,
+        queued: res.queued,
+        status: res.status,
+      };
+    }
+
+    // Case D: Active order not modified after KOT -> Full Standard Reprint (R1, R2, ...)
+    let reprintCode = "R1";
+    try {
+      const allocRes = await recordKotReprintInDb(realOrderId, actor);
+      reprintCode = allocRes.reprint_code;
+    } catch (allocErr) {
+      console.warn("[reprintKot] Could not allocate online reprint number, using offline fallback:", allocErr);
+      reprintCode = "R";
+    }
+
+    const reprintPayload: PrintKotOperationPayload = {
+      orderId: realOrderId,
+      orderNumber: orderNum,
+      kotNumber: `${orderNum}-${reprintCode}`,
+      tableLabel: context.tableLabel,
+      timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+      items,
+      isReprint: true,
+    };
+
+    const res = await this.printKot(reprintPayload, options);
+    return {
+      type: "STANDARD_REPRINT",
+      kotNumber: `${orderNum}-${reprintCode}`,
+      queued: res.queued,
+      status: res.status,
+    };
   }
 
   /**
