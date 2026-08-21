@@ -2,9 +2,9 @@
  * Production Kitchen Order Ticket (KOT) ESC/POS & Text Builder
  * Formats ESC/POS binary commands & clean text for 58mm (32 cols) and 80mm (48 cols) thermal printers.
  * Supports:
- * 1. Standard Kitchen Order Tickets (KOT) & Reprints
- * 2. Amendment / Modified KOTs (highlighting added, removed, quantity & note deltas)
- * 3. Cancelled KOTs (highlighting reason, cancelled items, and kitchen stop warnings)
+ * 1. Standard Kitchen Order Tickets (KOT) & Reprints (with canonical -R1, -R2 or OFFLINE REPRINT)
+ * 2. Ultra-Compact Modified KOTs (ADD <qty>x, REMOVE <qty>x, MOD <item> lines only)
+ * 3. Cancelled KOTs (Original KOT #, *** CANCELLED ***, STOP PREPARATION)
  */
 
 import { ESC_POS } from "./constants";
@@ -50,14 +50,17 @@ export interface KotBuilderPayload {
   specialInstructions?: string;
   notes?: string;
   isReprint?: boolean;
+  reprintNumber?: number | string;
+  isOfflineReprint?: boolean;
   orderSource?: "DINE_IN" | "TAKEAWAY" | "SWIGGY" | "ZOMATO" | string;
   externalOrderRef?: string | null;
 }
 
 export interface KotAmendmentBuilderPayload {
   restaurantName?: string;
-  kotNumber: number | string;
-  orderNumber: number | string;
+  kotNumber: number | string;       // e.g. "101-M1" or 101
+  orderNumber: number | string;     // e.g. 101
+  revision?: number;               // e.g. 1 for M1, 2 for M2
   tableLabel: string;
   timestamp?: string;
   customerName?: string | null;
@@ -72,8 +75,8 @@ export interface KotAmendmentBuilderPayload {
 
 export interface KotCancelBuilderPayload {
   restaurantName?: string;
-  kotNumber: number | string;
-  orderNumber: number | string;
+  kotNumber: number | string;       // Retains original KOT number e.g. 105
+  orderNumber: number | string;     // e.g. 105
   tableLabel: string;
   timestamp?: string;
   customerName?: string | null;
@@ -112,13 +115,14 @@ export class KotBuilder {
 
     const lines: string[] = [];
 
-    // Header & Table Visibility
     lines.push(doubleDivider);
     if (payload.restaurantName) {
       lines.push(this.center(payload.restaurantName.toUpperCase(), cols));
     }
 
-    if (payload.isReprint) {
+    if (payload.isOfflineReprint || payload.reprintNumber === "OFFLINE") {
+      lines.push(this.center("OFFLINE REPRINT", cols));
+    } else if (payload.isReprint) {
       lines.push(this.center("** REPRINT **", cols));
     }
 
@@ -130,10 +134,16 @@ export class KotBuilder {
     lines.push(doubleDivider);
 
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : 1;
     const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
 
-    lines.push(this.justify(`KOT #: ${safeKotNum}`, `Order #: ${safeOrderNum}`, cols));
+    let kotDisplayNum: string | number = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : safeOrderNum;
+    if (payload.reprintNumber && payload.reprintNumber !== "OFFLINE") {
+      kotDisplayNum = `${safeOrderNum}-R${payload.reprintNumber}`;
+    } else if (payload.isOfflineReprint || payload.reprintNumber === "OFFLINE") {
+      kotDisplayNum = `${safeOrderNum}-R`;
+    }
+
+    lines.push(this.justify(`KOT #: ${kotDisplayNum}`, `Order #: ${safeOrderNum}`, cols));
     lines.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols));
 
     if (payload.operatorName && payload.operatorName.trim()) {
@@ -147,11 +157,9 @@ export class KotBuilder {
     }
     lines.push(divider);
 
-    // Items Header
     lines.push(this.justify("QTY  ITEM DESCRIPTION", "MODIFIERS", cols));
     lines.push(divider);
 
-    // Items List
     for (const item of payload.items) {
       const qtyStr = `${item.qty}x`.padEnd(5);
       const itemMaxLen = cols - 5;
@@ -170,7 +178,6 @@ export class KotBuilder {
 
     lines.push(divider);
 
-    // Special Instructions
     const instructions = payload.specialInstructions || payload.notes;
     if (instructions && instructions.trim()) {
       lines.push("SPECIAL INSTRUCTIONS:");
@@ -208,7 +215,11 @@ export class KotBuilder {
       parts.push(ESC_POS.BOLD_OFF);
     }
 
-    if (payload.isReprint) {
+    if (payload.isOfflineReprint || payload.reprintNumber === "OFFLINE") {
+      parts.push(ESC_POS.BOLD_ON);
+      parts.push("OFFLINE REPRINT\n");
+      parts.push(ESC_POS.BOLD_OFF);
+    } else if (payload.isReprint) {
       parts.push(ESC_POS.BOLD_ON);
       parts.push("** REPRINT **\n");
       parts.push(ESC_POS.BOLD_OFF);
@@ -228,10 +239,16 @@ export class KotBuilder {
 
     parts.push(ESC_POS.ALIGN_LEFT);
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : 1;
     const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
 
-    parts.push(this.justify(`KOT #: ${safeKotNum}`, `Order #: ${safeOrderNum}`, cols) + "\n");
+    let kotDisplayNum: string | number = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : safeOrderNum;
+    if (payload.reprintNumber && payload.reprintNumber !== "OFFLINE") {
+      kotDisplayNum = `${safeOrderNum}-R${payload.reprintNumber}`;
+    } else if (payload.isOfflineReprint || payload.reprintNumber === "OFFLINE") {
+      kotDisplayNum = `${safeOrderNum}-R`;
+    }
+
+    parts.push(this.justify(`KOT #: ${kotDisplayNum}`, `Order #: ${safeOrderNum}`, cols) + "\n");
     parts.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols) + "\n");
 
     if (payload.operatorName && payload.operatorName.trim()) {
@@ -304,11 +321,11 @@ export class KotBuilder {
   }
 
   // =========================================================================
-  // AMENDMENT / MODIFIED KOT BUILDERS
+  // REVISED COMPACT MODIFIED KOT BUILDERS
   // =========================================================================
 
   /**
-   * Builds both clean plain text and raw ESC/POS commands for an Amendment / Modified KOT.
+   * Builds both clean plain text and raw ESC/POS commands for a Compact Amendment / Modified KOT.
    */
   public static buildAmendmentKot(payload: KotAmendmentBuilderPayload, widthmm: 58 | 80 = 58): KotBuildResult {
     return {
@@ -318,7 +335,15 @@ export class KotBuilder {
   }
 
   /**
-   * Generates clean formatted text representation of an Amendment / Modified KOT.
+   * Generates clean formatted text for a Compact Modified KOT.
+   * Format:
+   * KOT #101-M1
+   * MODIFIED
+   * Table 4
+   * --------------------------------
+   * REMOVE 1x Fries
+   * ADD 1x Mojito
+   * ADD 1x Ice Cream
    */
   public static buildAmendmentText(payload: KotAmendmentBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
@@ -327,41 +352,34 @@ export class KotBuilder {
 
     const lines: string[] = [];
 
-    // Header Section
     lines.push(doubleDivider);
     if (payload.restaurantName) {
       lines.push(this.center(payload.restaurantName.toUpperCase(), cols));
     }
 
-    // Prominent Amendment Banner
-    lines.push(this.center("** MODIFIED KOT **", cols));
+    const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
+    let kotHeaderNum = payload.kotNumber;
+    if (!kotHeaderNum || String(kotHeaderNum) === "undefined") {
+      const rev = payload.revision !== undefined ? payload.revision : 1;
+      kotHeaderNum = `${safeOrderNum}-M${rev}`;
+    } else if (typeof kotHeaderNum === "number" || (!String(kotHeaderNum).includes("-M") && payload.revision)) {
+      kotHeaderNum = `${kotHeaderNum}-M${payload.revision}`;
+    }
+
+    lines.push(this.center(`KOT #${kotHeaderNum}`, cols));
+    lines.push(this.center("MODIFIED", cols));
 
     const source = payload.orderSource || "DINE_IN";
     const cleanLabel = this.formatTableLabel(payload.tableLabel, source, payload.externalOrderRef);
-
     lines.push(this.center(cleanLabel, cols));
-    lines.push(this.center(source.replace(/_/g, " "), cols));
     lines.push(doubleDivider);
 
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : 1;
-    const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
-
-    lines.push(this.justify(`KOT #: ${safeKotNum}`, `Order #: ${safeOrderNum}`, cols));
     lines.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols));
 
     if (payload.operatorName && payload.operatorName.trim()) {
       lines.push(`Operator: ${payload.operatorName.trim()}`);
     }
-    if (payload.customerName && payload.customerName.trim()) {
-      lines.push(`Customer: ${payload.customerName.trim()}`);
-    }
-    if (payload.customerPhone && payload.customerPhone.trim()) {
-      lines.push(`Phone   : ${payload.customerPhone.trim()}`);
-    }
-    lines.push(divider);
-
-    lines.push(this.justify("QTY  AMENDMENT / CHANGES", "", cols));
     lines.push(divider);
 
     const delta = payload.delta || {};
@@ -369,74 +387,60 @@ export class KotBuilder {
     const removed = delta.removed || [];
     const modified = delta.modified || [];
 
-    let hasAnyChanges = false;
+    let hasActionableChanges = false;
 
-    // 1. Added items
-    if (added.length > 0) {
-      hasAnyChanges = true;
-      lines.push("[+] ADDED ITEMS:");
-      for (const item of added) {
-        const qtyStr = `+${item.qty ?? 1}x`.padEnd(5);
-        const nameLines = this.wrapText(item.name, cols - 7);
-        lines.push(`  ${qtyStr}${nameLines[0]}`);
-        for (let i = 1; i < nameLines.length; i++) {
-          lines.push(`       ${nameLines[i]}`);
-        }
-        if (item.note && item.note.trim()) {
-          lines.push(`       > Note: ${item.note.trim()}`);
-        }
+    // 1. Removals
+    for (const item of removed) {
+      hasActionableChanges = true;
+      const qty = item.qty ?? 1;
+      lines.push(`REMOVE ${qty}x ${item.name}`);
+      if (item.note && item.note.trim()) {
+        lines.push(`       > Note: ${item.note.trim()}`);
       }
-      lines.push("");
     }
 
-    // 2. Removed items
-    if (removed.length > 0) {
-      hasAnyChanges = true;
-      lines.push("[-] REMOVED ITEMS:");
-      for (const item of removed) {
-        const qtyStr = `-${item.qty ?? 1}x`.padEnd(5);
-        const nameLines = this.wrapText(item.name, cols - 7);
-        lines.push(`  ${qtyStr}${nameLines[0]}`);
-        for (let i = 1; i < nameLines.length; i++) {
-          lines.push(`       ${nameLines[i]}`);
-        }
-        if (item.note && item.note.trim()) {
-          lines.push(`       > Note: ${item.note.trim()}`);
-        }
+    // 2. Quantity Decreases from Modified
+    for (const item of modified) {
+      if (item.old_qty !== undefined && item.new_qty !== undefined && item.new_qty < item.old_qty) {
+        hasActionableChanges = true;
+        const diff = item.old_qty - item.new_qty;
+        lines.push(`REMOVE ${diff}x ${item.name}`);
       }
-      lines.push("");
     }
 
-    // 3. Modified items (Quantity / Note changes)
-    if (modified.length > 0) {
-      hasAnyChanges = true;
-      lines.push("[Δ] QUANTITY / NOTE CHANGES:");
-      for (const item of modified) {
-        lines.push(`  * ${item.name}`);
-        if (item.old_qty !== undefined && item.new_qty !== undefined && item.old_qty !== item.new_qty) {
-          const diff = item.new_qty - item.old_qty;
-          const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
-          lines.push(`    Qty : ${item.old_qty} -> ${item.new_qty} (${diffStr})`);
-        }
-        if (item.new_note !== undefined && item.new_note !== item.old_note) {
-          lines.push(`    Note: "${item.new_note || "(none)"}"`);
-        }
+    // 3. Additions
+    for (const item of added) {
+      hasActionableChanges = true;
+      const qty = item.qty ?? 1;
+      lines.push(`ADD ${qty}x ${item.name}`);
+      if (item.note && item.note.trim()) {
+        lines.push(`    > Note: ${item.note.trim()}`);
       }
-      lines.push("");
     }
 
-    if (!hasAnyChanges) {
-      lines.push(this.center("*** NO ITEM CHANGES RECORDED ***", cols));
+    // 4. Quantity Increases from Modified
+    for (const item of modified) {
+      if (item.old_qty !== undefined && item.new_qty !== undefined && item.new_qty > item.old_qty) {
+        hasActionableChanges = true;
+        const diff = item.new_qty - item.old_qty;
+        lines.push(`ADD ${diff}x ${item.name}`);
+      }
     }
 
-    // Remove trailing empty line if present
-    if (lines[lines.length - 1] === "") {
-      lines.pop();
+    // 5. Note / Customization modifications
+    for (const item of modified) {
+      if (item.new_note !== undefined && item.new_note !== item.old_note) {
+        hasActionableChanges = true;
+        lines.push(`MOD ${item.name} (Note: "${item.new_note || "(none)"}")`);
+      }
+    }
+
+    if (!hasActionableChanges) {
+      lines.push(this.center("*** NO ACTIONABLE CHANGES ***", cols));
     }
 
     lines.push(divider);
 
-    // Special Instructions
     const instructions = payload.specialInstructions || payload.notes;
     if (instructions && instructions.trim()) {
       lines.push("SPECIAL INSTRUCTIONS:");
@@ -447,15 +451,13 @@ export class KotBuilder {
       lines.push(divider);
     }
 
-    const totalModifiedCount = added.length + removed.length + modified.length;
-    lines.push(this.center(`TOTAL CHANGES: ${totalModifiedCount} item(s)`, cols));
     lines.push(doubleDivider);
 
     return lines.join("\n");
   }
 
   /**
-   * Generates ESC/POS thermal commands for an Amendment / Modified KOT.
+   * Generates ESC/POS thermal commands for a Compact Modified KOT.
    */
   public static buildAmendmentEscPos(payload: KotAmendmentBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
@@ -474,45 +476,36 @@ export class KotBuilder {
       parts.push(ESC_POS.BOLD_OFF);
     }
 
-    // Double Height & Width Modified KOT Banner
+    const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
+    let kotHeaderNum = payload.kotNumber;
+    if (!kotHeaderNum || String(kotHeaderNum) === "undefined") {
+      const rev = payload.revision !== undefined ? payload.revision : 1;
+      kotHeaderNum = `${safeOrderNum}-M${rev}`;
+    } else if (typeof kotHeaderNum === "number" || (!String(kotHeaderNum).includes("-M") && payload.revision)) {
+      kotHeaderNum = `${kotHeaderNum}-M${payload.revision}`;
+    }
+
+    // Double Height & Width Modified Header
     parts.push(ESC_POS.BOLD_ON);
-    parts.push("\x1D\x21\x11"); // Double Width & Height
-    parts.push("** MODIFIED KOT **\n");
+    parts.push("\x1D\x21\x11");
+    parts.push(`KOT #${kotHeaderNum}\n`);
+    parts.push("MODIFIED\n");
     parts.push("\x1D\x21\x00");
-    parts.push(ESC_POS.BOLD_OFF);
 
     const source = payload.orderSource || "DINE_IN";
     const cleanLabel = this.formatTableLabel(payload.tableLabel, source, payload.externalOrderRef);
-
-    parts.push(ESC_POS.BOLD_ON);
     parts.push(`${cleanLabel}\n`);
-    parts.push(`${source.replace(/_/g, " ")}\n`);
     parts.push(ESC_POS.BOLD_OFF);
 
     parts.push(doubleDivider);
 
     parts.push(ESC_POS.ALIGN_LEFT);
     const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : 1;
-    const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
-
-    parts.push(this.justify(`KOT #: ${safeKotNum}`, `Order #: ${safeOrderNum}`, cols) + "\n");
     parts.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols) + "\n");
 
     if (payload.operatorName && payload.operatorName.trim()) {
       parts.push(`Operator: ${payload.operatorName.trim()}\n`);
     }
-    if (payload.customerName && payload.customerName.trim()) {
-      parts.push(`Customer: ${payload.customerName.trim()}\n`);
-    }
-    if (payload.customerPhone && payload.customerPhone.trim()) {
-      parts.push(`Phone   : ${payload.customerPhone.trim()}\n`);
-    }
-    parts.push(divider);
-
-    parts.push(ESC_POS.BOLD_ON);
-    parts.push(this.justify("QTY  AMENDMENT / CHANGES", "", cols) + "\n");
-    parts.push(ESC_POS.BOLD_OFF);
     parts.push(divider);
 
     const delta = payload.delta || {};
@@ -520,87 +513,67 @@ export class KotBuilder {
     const removed = delta.removed || [];
     const modified = delta.modified || [];
 
-    let hasAnyChanges = false;
+    let hasActionableChanges = false;
 
-    // 1. Added
-    if (added.length > 0) {
-      hasAnyChanges = true;
+    // 1. Removals
+    for (const item of removed) {
+      hasActionableChanges = true;
+      const qty = item.qty ?? 1;
       parts.push(ESC_POS.BOLD_ON);
-      parts.push("[+] ADDED ITEMS:\n");
+      parts.push(`REMOVE ${qty}x ${item.name}\n`);
       parts.push(ESC_POS.BOLD_OFF);
-
-      for (const item of added) {
-        const qtyStr = `+${item.qty ?? 1}x`.padEnd(5);
-        const nameLines = this.wrapText(item.name, cols - 7);
-
-        parts.push(ESC_POS.BOLD_ON);
-        parts.push(`  ${qtyStr}`);
-        parts.push(ESC_POS.BOLD_OFF);
-        parts.push(`${nameLines[0]}\n`);
-
-        for (let i = 1; i < nameLines.length; i++) {
-          parts.push(`       ${nameLines[i]}\n`);
-        }
-        if (item.note && item.note.trim()) {
-          parts.push(`       > Note: ${item.note.trim()}\n`);
-        }
+      if (item.note && item.note.trim()) {
+        parts.push(`       > Note: ${item.note.trim()}\n`);
       }
-      parts.push("\n");
     }
 
-    // 2. Removed
-    if (removed.length > 0) {
-      hasAnyChanges = true;
-      parts.push(ESC_POS.BOLD_ON);
-      parts.push("[-] REMOVED ITEMS:\n");
-      parts.push(ESC_POS.BOLD_OFF);
-
-      for (const item of removed) {
-        const qtyStr = `-${item.qty ?? 1}x`.padEnd(5);
-        const nameLines = this.wrapText(item.name, cols - 7);
-
+    // 2. Quantity Decreases
+    for (const item of modified) {
+      if (item.old_qty !== undefined && item.new_qty !== undefined && item.new_qty < item.old_qty) {
+        hasActionableChanges = true;
+        const diff = item.old_qty - item.new_qty;
         parts.push(ESC_POS.BOLD_ON);
-        parts.push(`  ${qtyStr}`);
+        parts.push(`REMOVE ${diff}x ${item.name}\n`);
         parts.push(ESC_POS.BOLD_OFF);
-        parts.push(`${nameLines[0]}\n`);
-
-        for (let i = 1; i < nameLines.length; i++) {
-          parts.push(`       ${nameLines[i]}\n`);
-        }
-        if (item.note && item.note.trim()) {
-          parts.push(`       > Note: ${item.note.trim()}\n`);
-        }
       }
-      parts.push("\n");
     }
 
-    // 3. Modified
-    if (modified.length > 0) {
-      hasAnyChanges = true;
+    // 3. Additions
+    for (const item of added) {
+      hasActionableChanges = true;
+      const qty = item.qty ?? 1;
       parts.push(ESC_POS.BOLD_ON);
-      parts.push("[Δ] QUANTITY / NOTE CHANGES:\n");
+      parts.push(`ADD ${qty}x ${item.name}\n`);
       parts.push(ESC_POS.BOLD_OFF);
-
-      for (const item of modified) {
-        parts.push(ESC_POS.BOLD_ON);
-        parts.push(`  * ${item.name}\n`);
-        parts.push(ESC_POS.BOLD_OFF);
-
-        if (item.old_qty !== undefined && item.new_qty !== undefined && item.old_qty !== item.new_qty) {
-          const diff = item.new_qty - item.old_qty;
-          const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
-          parts.push(`    Qty : ${item.old_qty} -> ${item.new_qty} (${diffStr})\n`);
-        }
-        if (item.new_note !== undefined && item.new_note !== item.old_note) {
-          parts.push(`    Note: "${item.new_note || "(none)"}"\n`);
-        }
+      if (item.note && item.note.trim()) {
+        parts.push(`    > Note: ${item.note.trim()}\n`);
       }
-      parts.push("\n");
     }
 
-    if (!hasAnyChanges) {
+    // 4. Quantity Increases
+    for (const item of modified) {
+      if (item.old_qty !== undefined && item.new_qty !== undefined && item.new_qty > item.old_qty) {
+        hasActionableChanges = true;
+        const diff = item.new_qty - item.old_qty;
+        parts.push(ESC_POS.BOLD_ON);
+        parts.push(`ADD ${diff}x ${item.name}\n`);
+        parts.push(ESC_POS.BOLD_OFF);
+      }
+    }
+
+    // 5. Note modifications
+    for (const item of modified) {
+      if (item.new_note !== undefined && item.new_note !== item.old_note) {
+        hasActionableChanges = true;
+        parts.push(ESC_POS.BOLD_ON);
+        parts.push(`MOD ${item.name} (Note: "${item.new_note || "(none)"}")\n`);
+        parts.push(ESC_POS.BOLD_OFF);
+      }
+    }
+
+    if (!hasActionableChanges) {
       parts.push(ESC_POS.ALIGN_CENTER);
-      parts.push("*** NO ITEM CHANGES RECORDED ***\n");
+      parts.push("*** NO ACTIONABLE CHANGES ***\n");
       parts.push(ESC_POS.ALIGN_LEFT);
     }
 
@@ -618,11 +591,6 @@ export class KotBuilder {
       parts.push(divider);
     }
 
-    const totalModifiedCount = added.length + removed.length + modified.length;
-    parts.push(ESC_POS.ALIGN_CENTER);
-    parts.push(ESC_POS.BOLD_ON);
-    parts.push(`TOTAL CHANGES: ${totalModifiedCount} item(s)\n`);
-    parts.push(ESC_POS.BOLD_OFF);
     parts.push(doubleDivider);
 
     parts.push(ESC_POS.LINE_FEED);
@@ -633,7 +601,7 @@ export class KotBuilder {
   }
 
   // =========================================================================
-  // CANCELLATION KOT BUILDERS
+  // REVISED COMPACT CANCELLATION KOT BUILDERS (Original KOT #)
   // =========================================================================
 
   /**
@@ -648,6 +616,15 @@ export class KotBuilder {
 
   /**
    * Generates clean formatted text representation of a Cancelled KOT.
+   * Format:
+   * KOT #105
+   * *** CANCELLED ***
+   * Table 4
+   * --------------------------------
+   * STOP PREPARATION
+   * --------------------------------
+   * 2x Burger
+   * 1x Fries
    */
   public static buildCancelText(payload: KotCancelBuilderPayload, widthmm: 58 | 80 = 58): string {
     const cols = widthmm === 58 ? 32 : 48;
@@ -656,64 +633,47 @@ export class KotBuilder {
 
     const lines: string[] = [];
 
-    // Header Section
     lines.push(doubleDivider);
     if (payload.restaurantName) {
       lines.push(this.center(payload.restaurantName.toUpperCase(), cols));
     }
 
-    // Prominent Cancel Banner
-    lines.push(this.center("*** CANCELLED KOT ***", cols));
+    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : payload.orderNumber || 1;
+
+    // Prominent Original KOT number & CANCELLED banner
+    lines.push(this.center(`KOT #${safeKotNum}`, cols));
+    lines.push(this.center("*** CANCELLED ***", cols));
 
     const source = payload.orderSource || "DINE_IN";
     const cleanLabel = this.formatTableLabel(payload.tableLabel, source, payload.externalOrderRef);
-
     lines.push(this.center(cleanLabel, cols));
-    lines.push(this.center(source.replace(/_/g, " "), cols));
     lines.push(doubleDivider);
 
-    const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : 1;
-    const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
-
-    lines.push(this.justify(`KOT #: ${safeKotNum}`, `Order #: ${safeOrderNum}`, cols));
-    lines.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols));
-
-    if (payload.operatorName && payload.operatorName.trim()) {
-      lines.push(`Operator: ${payload.operatorName.trim()}`);
-    }
-    if (payload.customerName && payload.customerName.trim()) {
-      lines.push(`Customer: ${payload.customerName.trim()}`);
-    }
-    if (payload.customerPhone && payload.customerPhone.trim()) {
-      lines.push(`Phone   : ${payload.customerPhone.trim()}`);
-    }
+    // STOP PREPARATION banner
+    lines.push(this.center("STOP PREPARATION", cols));
     lines.push(divider);
 
-    // Cancellation Reason
-    lines.push(`REASON: ${payload.reason || "Cancelled by operator"}`);
-    lines.push(divider);
+    if (payload.reason && payload.reason.trim()) {
+      lines.push(`Reason: ${payload.reason.trim()}`);
+      lines.push(divider);
+    }
 
-    // Cancelled Items Section
-    lines.push("CANCELLED ITEMS:");
     if (payload.cancelledItems && payload.cancelledItems.length > 0) {
       for (const item of payload.cancelledItems) {
         const qtyStr = `${item.qty}x`.padEnd(5);
         const nameLines = this.wrapText(item.name, cols - 5);
-        lines.push(`  ${qtyStr}${nameLines[0]}`);
+        lines.push(`${qtyStr}${nameLines[0]}`);
         for (let i = 1; i < nameLines.length; i++) {
-          lines.push(`       ${nameLines[i]}`);
+          lines.push(`     ${nameLines[i]}`);
         }
         if (item.notes && item.notes.trim()) {
-          lines.push(`       > ${item.notes.trim()}`);
+          lines.push(`     > ${item.notes.trim()}`);
         }
       }
     } else {
-      lines.push("  *** ALL ITEMS FOR THIS ORDER ***");
+      lines.push(this.center("*** ALL ITEMS FOR THIS ORDER ***", cols));
     }
 
-    lines.push(divider);
-    lines.push(this.center("*** DO NOT PREPARE / STOP ***", cols));
     lines.push(doubleDivider);
 
     return lines.join("\n");
@@ -739,52 +699,36 @@ export class KotBuilder {
       parts.push(ESC_POS.BOLD_OFF);
     }
 
-    // Double Height & Width Cancel Banner
+    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : payload.orderNumber || 1;
+
+    // Double Height & Width Cancel Banner with Original KOT #
     parts.push(ESC_POS.BOLD_ON);
     parts.push("\x1D\x21\x11"); // Double Width & Height
-    parts.push("*** CANCELLED KOT ***\n");
+    parts.push(`KOT #${safeKotNum}\n`);
+    parts.push("*** CANCELLED ***\n");
     parts.push("\x1D\x21\x00");
-    parts.push(ESC_POS.BOLD_OFF);
 
     const source = payload.orderSource || "DINE_IN";
     const cleanLabel = this.formatTableLabel(payload.tableLabel, source, payload.externalOrderRef);
-
-    parts.push(ESC_POS.BOLD_ON);
     parts.push(`${cleanLabel}\n`);
-    parts.push(`${source.replace(/_/g, " ")}\n`);
     parts.push(ESC_POS.BOLD_OFF);
 
     parts.push(doubleDivider);
 
+    // Stop Preparation Banner
+    parts.push(ESC_POS.BOLD_ON);
+    parts.push("\x1D\x21\x11");
+    parts.push("STOP PREPARATION\n");
+    parts.push("\x1D\x21\x00");
+    parts.push(ESC_POS.BOLD_OFF);
+    parts.push(divider);
+
     parts.push(ESC_POS.ALIGN_LEFT);
-    const timeStr = payload.timestamp || new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const safeKotNum = payload.kotNumber && String(payload.kotNumber) !== "undefined" ? payload.kotNumber : 1;
-    const safeOrderNum = payload.orderNumber && String(payload.orderNumber) !== "undefined" ? payload.orderNumber : 1;
 
-    parts.push(this.justify(`KOT #: ${safeKotNum}`, `Order #: ${safeOrderNum}`, cols) + "\n");
-    parts.push(this.justify(`Time: ${timeStr}`, `Source: ${source}`, cols) + "\n");
-
-    if (payload.operatorName && payload.operatorName.trim()) {
-      parts.push(`Operator: ${payload.operatorName.trim()}\n`);
+    if (payload.reason && payload.reason.trim()) {
+      parts.push(`Reason: ${payload.reason.trim()}\n`);
+      parts.push(divider);
     }
-    if (payload.customerName && payload.customerName.trim()) {
-      parts.push(`Customer: ${payload.customerName.trim()}\n`);
-    }
-    if (payload.customerPhone && payload.customerPhone.trim()) {
-      parts.push(`Phone   : ${payload.customerPhone.trim()}\n`);
-    }
-    parts.push(divider);
-
-    // Reason
-    parts.push(ESC_POS.BOLD_ON);
-    parts.push(`REASON: ${payload.reason || "Cancelled by operator"}\n`);
-    parts.push(ESC_POS.BOLD_OFF);
-    parts.push(divider);
-
-    // Items
-    parts.push(ESC_POS.BOLD_ON);
-    parts.push("CANCELLED ITEMS:\n");
-    parts.push(ESC_POS.BOLD_OFF);
 
     if (payload.cancelledItems && payload.cancelledItems.length > 0) {
       for (const item of payload.cancelledItems) {
@@ -792,30 +736,23 @@ export class KotBuilder {
         const nameLines = this.wrapText(item.name, cols - 5);
 
         parts.push(ESC_POS.BOLD_ON);
-        parts.push(`  ${qtyStr}`);
+        parts.push(qtyStr);
         parts.push(ESC_POS.BOLD_OFF);
         parts.push(`${nameLines[0]}\n`);
 
         for (let i = 1; i < nameLines.length; i++) {
-          parts.push(`       ${nameLines[i]}\n`);
+          parts.push(`     ${nameLines[i]}\n`);
         }
         if (item.notes && item.notes.trim()) {
-          parts.push(`       > ${item.notes.trim()}\n`);
+          parts.push(`     > ${item.notes.trim()}\n`);
         }
       }
     } else {
-      parts.push("  *** ALL ITEMS FOR THIS ORDER ***\n");
+      parts.push(ESC_POS.ALIGN_CENTER);
+      parts.push("*** ALL ITEMS FOR THIS ORDER ***\n");
+      parts.push(ESC_POS.ALIGN_LEFT);
     }
 
-    parts.push(divider);
-
-    // Critical Stop Banner
-    parts.push(ESC_POS.ALIGN_CENTER);
-    parts.push(ESC_POS.BOLD_ON);
-    parts.push("\x1D\x21\x11");
-    parts.push("*** DO NOT PREPARE / STOP ***\n");
-    parts.push("\x1D\x21\x00");
-    parts.push(ESC_POS.BOLD_OFF);
     parts.push(doubleDivider);
 
     parts.push(ESC_POS.LINE_FEED);

@@ -535,6 +535,89 @@ BEGIN
 END;
 $$;
 
--- 4. Restrict execution privileges to authenticated users
+-- 4. Atomic KOT Reprint Sequential Allocation RPC function
+CREATE OR REPLACE FUNCTION public.record_kot_reprint_atomic(
+  p_order_id UUID,
+  p_actor TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_order RECORD;
+  v_cafe_id UUID;
+  v_reprint_count INTEGER;
+BEGIN
+  -- 1. Validate actor parameter
+  IF p_actor NOT IN ('counter', 'staff', 'owner') THEN
+    RAISE EXCEPTION 'Invalid actor "%". Allowed values: counter, staff, owner', p_actor;
+  END IF;
+
+  -- 2. Lock parent order row FOR UPDATE to serialize concurrent reprint requests
+  SELECT * INTO v_order
+  FROM public.orders
+  WHERE id = p_order_id
+  FOR UPDATE;
+
+  IF v_order.id IS NULL THEN
+    RAISE EXCEPTION 'Order not found with ID: %', p_order_id;
+  END IF;
+
+  v_cafe_id := v_order.cafe_id;
+
+  -- 3. Authorization check
+  IF NOT (
+    public.has_role(auth.uid(), 'owner', v_cafe_id) OR
+    public.has_role(auth.uid(), 'counter', v_cafe_id) OR
+    public.has_role(auth.uid(), 'staff', v_cafe_id) OR
+    public.is_demo_admin(auth.uid())
+  ) THEN
+    RAISE EXCEPTION '403 Forbidden: Insufficient permissions to reprint KOT for this cafe.';
+  END IF;
+
+  -- 4. Count existing reprint events inside the locked transaction
+  SELECT COUNT(*) INTO v_reprint_count
+  FROM public.order_events
+  WHERE order_id = p_order_id AND event_type = 'kot_reprinted';
+
+  v_reprint_count := v_reprint_count + 1;
+
+  -- 5. Atomically insert reprint audit event
+  INSERT INTO public.order_events (
+    dining_session_id,
+    order_id,
+    event_type,
+    title,
+    actor,
+    metadata
+  ) VALUES (
+    COALESCE(v_order.dining_session_id, gen_random_uuid()),
+    p_order_id,
+    'kot_reprinted',
+    'KOT reprinted (#' || v_order.order_number || '-R' || v_reprint_count || ')',
+    p_actor,
+    jsonb_build_object(
+      'reprint_number', v_reprint_count,
+      'reprint_code', 'R' || v_reprint_count,
+      'order_number', v_order.order_number,
+      'reprinted_at', now(),
+      'actor', p_actor
+    )
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'order_id', p_order_id,
+    'order_number', v_order.order_number,
+    'reprint_number', v_reprint_count,
+    'reprint_code', 'R' || v_reprint_count
+  );
+END;
+$$;
+
+-- 5. Restrict execution privileges to authenticated users
 GRANT EXECUTE ON FUNCTION public.edit_order_atomic(UUID, JSONB, TEXT, TEXT, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cancel_order_atomic(UUID, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.record_kot_reprint_atomic(UUID, TEXT) TO authenticated;

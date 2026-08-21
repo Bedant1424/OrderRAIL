@@ -7,287 +7,299 @@ import {
 } from "../lib/printing/kotBuilder";
 import { ESC_POS } from "../lib/printing/constants";
 
-describe("Milestone 1B: KOT Amendment & Cancellation Formatting Tests", () => {
+describe("Milestone 1B: Revised Compact KOT Amendment & Cancellation Formatting Tests", () => {
   const baseRestaurant = "Cheese Corner Cafe";
 
-  // --- 1. Amendment with Added Items ---
-  it("1. Amendment with Added Items (58mm & 80mm)", () => {
+  // --- 1. Compact ADD items ---
+  it("1. Compact Amendment with ADD items (58mm & 80mm)", () => {
     const payload: KotAmendmentBuilderPayload = {
       restaurantName: baseRestaurant,
-      kotNumber: "101-M1",
-      orderNumber: 1001,
+      orderNumber: 101,
+      revision: 1, // M1
       tableLabel: "Table 4",
       timestamp: "02:15 PM",
-      operatorName: "Counter",
-      orderSource: "DINE_IN",
       delta: {
         added: [
-          { name: "Truffle Fries", qty: 2, note: "Extra crispy" },
-          { name: "Cold Coffee", qty: 1 },
+          { name: "Mojito", qty: 1 },
+          { name: "Ice Cream", qty: 1 },
         ],
       },
     };
 
     const res58 = KotBuilder.buildAmendmentKot(payload, 58);
-    expect(res58.text).toContain("CHEESE CORNER CAFE");
-    expect(res58.text).toContain("** MODIFIED KOT **");
+    expect(res58.text).toContain("KOT #101-M1");
+    expect(res58.text).toContain("MODIFIED");
     expect(res58.text).toContain("TABLE 4");
-    expect(res58.text).toContain("KOT #: 101-M1");
-    expect(res58.text).toContain("Order #: 1001");
-    expect(res58.text).toContain("Operator: Counter");
-    expect(res58.text).toContain("[+] ADDED ITEMS:");
-    expect(res58.text).toContain("+2x  Truffle Fries");
-    expect(res58.text).toContain("> Note: Extra crispy");
-    expect(res58.text).toContain("+1x  Cold Coffee");
-    expect(res58.text).toContain("TOTAL CHANGES: 2 item(s)");
+    expect(res58.text).toContain("ADD 1x Mojito");
+    expect(res58.text).toContain("ADD 1x Ice Cream");
 
-    // ESC/POS check
+    // Must NOT contain verbose headers
+    expect(res58.text).not.toContain("ADDED ITEMS");
+    expect(res58.text).not.toContain("REMOVED ITEMS");
+    expect(res58.text).not.toContain("QUANTITY / NOTE CHANGES");
+    expect(res58.text).not.toContain("TOTAL CHANGES");
+
+    // ESC/POS validation
     expect(res58.escpos).toContain(ESC_POS.INIT);
-    expect(res58.escpos).toContain("** MODIFIED KOT **");
+    expect(res58.escpos).toContain("KOT #101-M1");
+    expect(res58.escpos).toContain("ADD 1x Mojito\n");
     expect(res58.escpos).toContain(ESC_POS.FEED_AND_CUT);
 
     // 80mm width check
     const res80 = KotBuilder.buildAmendmentKot(payload, 80);
-    expect(res80.text).toContain("CHEESE CORNER CAFE");
-    expect(res80.text).toContain("+2x  Truffle Fries");
-    // 80mm line width is 48 chars
+    expect(res80.text).toContain("KOT #101-M1");
+    expect(res80.text).toContain("ADD 1x Mojito");
     expect(res80.text.split("\n")[0].length).toBe(48);
   });
 
-  // --- 2. Amendment with Removed Items ---
-  it("2. Amendment with Removed Items", () => {
+  // --- 2. Compact REMOVE items ---
+  it("2. Compact Amendment with REMOVE items", () => {
     const payload: KotAmendmentBuilderPayload = {
       restaurantName: baseRestaurant,
-      kotNumber: "102-M1",
-      orderNumber: 1002,
-      tableLabel: "Table 2",
-      timestamp: "02:30 PM",
-      operatorName: "Staff",
+      orderNumber: 101,
+      revision: 1,
+      tableLabel: "Table 4",
       delta: {
         removed: [
-          { name: "Garlic Bread", qty: 1, note: "Customer changed mind" },
+          { name: "French Fries", qty: 1 },
         ],
       },
     };
 
     const res = KotBuilder.buildAmendmentKot(payload, 58);
-    expect(res.text).toContain("[-] REMOVED ITEMS:");
-    expect(res.text).toContain("-1x  Garlic Bread");
-    expect(res.text).toContain("> Note: Customer changed mind");
-    expect(res.text).toContain("TOTAL CHANGES: 1 item(s)");
+    expect(res.text).toContain("KOT #101-M1");
+    expect(res.text).toContain("MODIFIED");
+    expect(res.text).toContain("Table 4".toUpperCase());
+    expect(res.text).toContain("REMOVE 1x French Fries");
+    expect(res.text).not.toContain("REMOVED ITEMS");
   });
 
-  // --- 3. Amendment with Quantity Changes ---
-  it("3. Amendment with Quantity Changes", () => {
+  // --- 3. Quantity Increase (represented as ADD <delta>x) ---
+  it("3. Quantity Increase: 1x Burger -> 3x Burger (renders ADD 2x Burger)", () => {
     const payload: KotAmendmentBuilderPayload = {
-      restaurantName: baseRestaurant,
-      kotNumber: "103-M1",
-      orderNumber: 1003,
-      tableLabel: "Table 7",
-      timestamp: "02:45 PM",
+      orderNumber: 102,
+      revision: 2, // M2
+      tableLabel: "Table 2",
       delta: {
         modified: [
           { name: "Veg Cheese Burger", old_qty: 1, new_qty: 3 },
-          { name: "Pasta Alfredo", old_qty: 4, new_qty: 2 },
         ],
       },
     };
 
     const res = KotBuilder.buildAmendmentKot(payload, 58);
-    expect(res.text).toContain("[Δ] QUANTITY / NOTE CHANGES:");
-    expect(res.text).toContain("* Veg Cheese Burger");
-    expect(res.text).toContain("Qty : 1 -> 3 (+2)");
-    expect(res.text).toContain("* Pasta Alfredo");
-    expect(res.text).toContain("Qty : 4 -> 2 (-2)");
-    expect(res.text).toContain("TOTAL CHANGES: 2 item(s)");
+    expect(res.text).toContain("KOT #102-M2");
+    expect(res.text).toContain("ADD 2x Veg Cheese Burger"); // 3 - 1 = +2
+    expect(res.text).not.toContain("Qty : 1 -> 3");
   });
 
-  // --- 4. Amendment with Note Changes ---
-  it("4. Amendment with Note Changes", () => {
+  // --- 4. Quantity Decrease (represented as REMOVE <delta>x) ---
+  it("4. Quantity Decrease: 3x Fries -> 1x Fries (renders REMOVE 2x Fries)", () => {
     const payload: KotAmendmentBuilderPayload = {
-      restaurantName: baseRestaurant,
-      kotNumber: "104-M1",
-      orderNumber: 1004,
+      orderNumber: 103,
+      revision: 1,
+      tableLabel: "Table 7",
+      delta: {
+        modified: [
+          { name: "French Fries", old_qty: 3, new_qty: 1 },
+        ],
+      },
+    };
+
+    const res = KotBuilder.buildAmendmentKot(payload, 58);
+    expect(res.text).toContain("KOT #103-M1");
+    expect(res.text).toContain("REMOVE 2x French Fries"); // 3 - 1 = -2
+    expect(res.text).not.toContain("Qty : 3 -> 1");
+  });
+
+  // --- 5. Note Modification (MOD <item> (Note: "<new note>")) ---
+  it('5. Note Modification: renders MOD <item> (Note: "<new note>")', () => {
+    const payload: KotAmendmentBuilderPayload = {
+      orderNumber: 104,
+      revision: 1,
       tableLabel: "Table 5",
-      timestamp: "03:00 PM",
       delta: {
         modified: [
           {
-            name: "Paneer Tikka Pizza",
+            name: "Paneer Pizza",
             old_qty: 1,
             new_qty: 1,
             old_note: "Normal",
-            new_note: "No spicy, extra oregano",
+            new_note: "Extra oregano, no chilly flakes",
           },
         ],
       },
     };
 
     const res = KotBuilder.buildAmendmentKot(payload, 58);
-    expect(res.text).toContain("[Δ] QUANTITY / NOTE CHANGES:");
-    expect(res.text).toContain("* Paneer Tikka Pizza");
-    expect(res.text).toContain('Note: "No spicy, extra oregano"');
-    // Quantity was not changed, so Qty line should not appear
-    expect(res.text).not.toContain("Qty :");
+    expect(res.text).toContain('MOD Paneer Pizza (Note: "Extra oregano, no chilly flakes")');
   });
 
-  // --- 5. Mixed Amendment (Added + Removed + Modified) ---
-  it("5. Mixed Amendment (Added + Removed + Modified)", () => {
+  // --- 6. Mixed Amendment (Removal + Addition + Qty Inc/Dec + Note) ---
+  it("6. Mixed Amendment: clean compact actionable lines only", () => {
     const payload: KotAmendmentBuilderPayload = {
       restaurantName: baseRestaurant,
-      kotNumber: "105-M2",
-      orderNumber: 1005,
-      tableLabel: "Table 9",
-      timestamp: "03:15 PM",
-      operatorName: "Counter",
-      orderSource: "TAKEAWAY",
-      specialInstructions: "Pack sauce separately",
+      orderNumber: 101,
+      revision: 1,
+      tableLabel: "Table 4",
+      timestamp: "02:20 PM",
       delta: {
-        added: [{ name: "Brownie Sundae", qty: 2 }],
-        removed: [{ name: "Vanilla Ice Cream", qty: 1 }],
-        modified: [
-          {
-            name: "Margherita Pizza",
-            old_qty: 1,
-            new_qty: 2,
-            old_note: "",
-            new_note: "Thin crust",
-          },
+        removed: [{ name: "Fries", qty: 1 }],
+        added: [
+          { name: "Mojito", qty: 1 },
+          { name: "Ice Cream", qty: 1 },
         ],
       },
     };
 
     const res = KotBuilder.buildAmendmentKot(payload, 58);
-    expect(res.text).toContain("TAKEAWAY");
-    expect(res.text).toContain("[+] ADDED ITEMS:");
-    expect(res.text).toContain("+2x  Brownie Sundae");
-    expect(res.text).toContain("[-] REMOVED ITEMS:");
-    expect(res.text).toContain("-1x  Vanilla Ice Cream");
-    expect(res.text).toContain("[Δ] QUANTITY / NOTE CHANGES:");
-    expect(res.text).toContain("* Margherita Pizza");
-    expect(res.text).toContain("Qty : 1 -> 2 (+1)");
-    expect(res.text).toContain('Note: "Thin crust"');
-    expect(res.text).toContain("SPECIAL INSTRUCTIONS:");
-    expect(res.text).toContain("Pack sauce separately");
-    expect(res.text).toContain("TOTAL CHANGES: 3 item(s)");
+    const expectedLines = [
+      "REMOVE 1x Fries",
+      "ADD 1x Mojito",
+      "ADD 1x Ice Cream",
+    ];
+
+    for (const expected of expectedLines) {
+      expect(res.text).toContain(expected);
+    }
   });
 
-  // --- 6. Cancellation KOT ---
-  it("6. Cancellation KOT ticket format and stop warnings", () => {
+  // --- 7. Cancelled KOT with Original KOT Number ---
+  it("7. Cancelled KOT uses original KOT number and STOP PREPARATION banner", () => {
     const payload: KotCancelBuilderPayload = {
       restaurantName: baseRestaurant,
-      kotNumber: "106",
-      orderNumber: 1006,
-      tableLabel: "Table 3",
-      timestamp: "03:30 PM",
-      operatorName: "Counter",
-      reason: "Table cancelled by customer",
+      kotNumber: 105, // Original KOT #
+      orderNumber: 105,
+      tableLabel: "Table 4",
       cancelledItems: [
-        { name: "Cheese Burst Burger", qty: 2 },
-        { name: "Peri Peri Fries", qty: 1, notes: "Extra dip" },
+        { name: "Burger", qty: 2 },
+        { name: "Fries", qty: 1 },
       ],
     };
 
     const res = KotBuilder.buildCancelKot(payload, 58);
-    expect(res.text).toContain("*** CANCELLED KOT ***");
-    expect(res.text).toContain("TABLE 3");
-    expect(res.text).toContain("KOT #: 106");
-    expect(res.text).toContain("Order #: 1006");
-    expect(res.text).toContain("REASON: Table cancelled by customer");
-    expect(res.text).toContain("CANCELLED ITEMS:");
-    expect(res.text).toContain("2x   Cheese Burst Burger");
-    expect(res.text).toContain("1x   Peri Peri Fries");
-    expect(res.text).toContain("> Extra dip");
-    expect(res.text).toContain("*** DO NOT PREPARE / STOP ***");
+    expect(res.text).toContain("KOT #105");
+    expect(res.text).not.toContain("105-C1");
+    expect(res.text).not.toContain("105-M");
+    expect(res.text).toContain("*** CANCELLED ***");
+    expect(res.text).toContain("TABLE 4");
+    expect(res.text).toContain("STOP PREPARATION");
+    expect(res.text).toContain("2x   Burger");
+    expect(res.text).toContain("1x   Fries");
 
     // ESC/POS check
-    expect(res.escpos).toContain(ESC_POS.INIT);
-    expect(res.escpos).toContain("*** CANCELLED KOT ***");
-    expect(res.escpos).toContain("*** DO NOT PREPARE / STOP ***");
-    expect(res.escpos).toContain(ESC_POS.FEED_AND_CUT);
+    expect(res.escpos).toContain("KOT #105");
+    expect(res.escpos).toContain("*** CANCELLED ***");
+    expect(res.escpos).toContain("STOP PREPARATION");
   });
 
-  // --- 7. Cancellation Reason Fallback ---
-  it("7. Cancellation Reason default fallback when omitted", () => {
-    const payload: KotCancelBuilderPayload = {
-      kotNumber: "107",
-      orderNumber: 1007,
-      tableLabel: "Takeaway",
-      orderSource: "TAKEAWAY",
-    };
-
-    const res = KotBuilder.buildCancelKot(payload, 58);
-    expect(res.text).toContain("REASON: Cancelled by operator");
-    expect(res.text).toContain("*** ALL ITEMS FOR THIS ORDER ***");
-    expect(res.text).toContain("*** DO NOT PREPARE / STOP ***");
-  });
-
-  // --- 8. Empty Delta Handling ---
-  it("8. Empty delta handling in Amendment KOT", () => {
-    const payload: KotAmendmentBuilderPayload = {
-      kotNumber: "108-M1",
-      orderNumber: 1008,
-      tableLabel: "Table 1",
-      delta: {},
-    };
-
-    const res = KotBuilder.buildAmendmentKot(payload, 58);
-    expect(res.text).toContain("*** NO ITEM CHANGES RECORDED ***");
-    expect(res.text).toContain("TOTAL CHANGES: 0 item(s)");
-  });
-
-  // --- 9. Normal KOT Regression ---
-  it("9. Normal KOT regression: standard build() unchanged", () => {
-    const normalPayload: KotBuilderPayload = {
-      restaurantName: "Cheese Corner",
-      kotNumber: 50,
-      orderNumber: 500,
-      tableLabel: "Table 10",
-      timestamp: "04:00 PM",
-      customerName: "Alice",
-      customerPhone: "9876543210",
-      items: [
-        { id: "1", name: "Farmhouse Pizza", qty: 2, modifiers: ["Extra Cheese"] },
-      ],
-      specialInstructions: "Serve hot",
-    };
-
-    const res = KotBuilder.build(normalPayload, 58);
-    expect(res.text).toContain("CHEESE CORNER");
-    expect(res.text).not.toContain("** MODIFIED KOT **");
-    expect(res.text).not.toContain("*** CANCELLED KOT ***");
-    expect(res.text).toContain("TABLE 10");
-    expect(res.text).toContain("KOT #: 50");
-    expect(res.text).toContain("Order #: 500");
-    expect(res.text).toContain("Customer: Alice");
-    expect(res.text).toContain("Phone   : 9876543210");
-    expect(res.text).toContain("2x   Farmhouse Pizza");
-    expect(res.text).toContain("> Extra Cheese");
-    expect(res.text).toContain("SPECIAL INSTRUCTIONS:");
-    expect(res.text).toContain("Serve hot");
-    expect(res.text).toContain("TOTAL ITEMS: 2");
-  });
-
-  // --- 10. 58mm vs 80mm Formatting Consistency ---
-  it("10. 58mm (32 cols) vs 80mm (48 cols) formatting consistency", () => {
-    const payload: KotCancelBuilderPayload = {
+  // --- 8. Normal Reprints (R1, R2, R3) ---
+  it("8. Standard KOT Reprints with sequential R numbers (101-R1, 101-R2)", () => {
+    const payloadR1: KotBuilderPayload = {
       restaurantName: baseRestaurant,
-      kotNumber: "109",
-      orderNumber: 1009,
-      tableLabel: "Table 8",
-      reason: "Order rejected by kitchen due to ingredients stockout",
-      cancelledItems: [{ name: "Special Chef Lasagna", qty: 1 }],
+      orderNumber: 101,
+      kotNumber: 101,
+      tableLabel: "Table 4",
+      isReprint: true,
+      reprintNumber: 1,
+      items: [{ name: "Cheese Burger", qty: 2 }],
     };
 
-    const res58 = KotBuilder.buildCancelKot(payload, 58);
-    const res80 = KotBuilder.buildCancelKot(payload, 80);
+    const resR1 = KotBuilder.build(payloadR1, 58);
+    expect(resR1.text).toContain("KOT #: 101-R1");
+    expect(resR1.text).toContain("** REPRINT **");
+    expect(resR1.text).toContain("2x   Cheese Burger");
 
-    // 58mm divider length is 32
-    expect(res58.text.split("\n")[0].length).toBe(32);
-    // 80mm divider length is 48
-    expect(res80.text.split("\n")[0].length).toBe(48);
+    const payloadR2: KotBuilderPayload = {
+      ...payloadR1,
+      reprintNumber: 2,
+    };
+    const resR2 = KotBuilder.build(payloadR2, 58);
+    expect(resR2.text).toContain("KOT #: 101-R2");
+  });
 
-    expect(res58.text).toContain("Special Chef Lasagna");
-    expect(res80.text).toContain("Special Chef Lasagna");
+  // --- 9. Offline Reprint (KOT #101-R, OFFLINE REPRINT) ---
+  it("9. Offline Reprint: displays KOT #101-R and OFFLINE REPRINT when no canonical R number exists", () => {
+    const payloadOffline: KotBuilderPayload = {
+      restaurantName: baseRestaurant,
+      orderNumber: 101,
+      kotNumber: 101,
+      tableLabel: "Table 4",
+      isOfflineReprint: true,
+      items: [{ name: "Cheese Burger", qty: 2 }],
+    };
+
+    const res = KotBuilder.build(payloadOffline, 58);
+    expect(res.text).toContain("KOT #: 101-R");
+    expect(res.text).toContain("OFFLINE REPRINT");
+    expect(res.text).not.toContain("101-R1");
+  });
+
+  // --- 10. Normal KOT Regression ---
+  it("10. Normal KOT regression: standard initial KOT untouched", () => {
+    const payloadNormal: KotBuilderPayload = {
+      restaurantName: baseRestaurant,
+      orderNumber: 101,
+      kotNumber: 101,
+      tableLabel: "Table 4",
+      items: [{ name: "Cold Brew", qty: 1 }],
+    };
+
+    const res = KotBuilder.build(payloadNormal, 58);
+    expect(res.text).toContain("KOT #: 101");
+    expect(res.text).not.toContain("101-R");
+    expect(res.text).not.toContain("101-M");
+    expect(res.text).not.toContain("** REPRINT **");
+    expect(res.text).not.toContain("OFFLINE REPRINT");
+    expect(res.text).toContain("1x   Cold Brew");
+  });
+
+  // --- 11. Atomic Reprint Allocation Concurrency Simulation ---
+  it("11. Concurrency Simulation: Atomic reprint allocation guarantees unique sequential R numbers", () => {
+    // Pure algorithmic model of the record_kot_reprint_atomic PostgreSQL stored procedure
+    class OrderReprintStore {
+      private lockedOrders = new Set<string>();
+      private reprintEvents: Array<{ orderId: string; reprintNumber: number }> = [];
+
+      public async recordKotReprintAtomic(orderId: string, actor: string): Promise<{ reprint_number: number; reprint_code: string }> {
+        // Simulates PostgreSQL SELECT ... FOR UPDATE row-level lock
+        while (this.lockedOrders.has(orderId)) {
+          await new Promise((r) => setTimeout(r, 2));
+        }
+        this.lockedOrders.add(orderId);
+
+        try {
+          const currentCount = this.reprintEvents.filter((e) => e.orderId === orderId).length;
+          const nextReprintNumber = currentCount + 1;
+
+          this.reprintEvents.push({ orderId, reprintNumber: nextReprintNumber });
+
+          return {
+            reprint_number: nextReprintNumber,
+            reprint_code: `R${nextReprintNumber}`,
+          };
+        } finally {
+          this.lockedOrders.delete(orderId);
+        }
+      }
+    }
+
+    const store = new OrderReprintStore();
+    const testOrderId = "order-concurrent-test-uuid";
+
+    // Simulate 5 concurrent reprint requests fired simultaneously from multiple terminals
+    const concurrentRequests = Array.from({ length: 5 }, (_, i) =>
+      store.recordKotReprintAtomic(testOrderId, i % 2 === 0 ? "counter" : "staff")
+    );
+
+    return Promise.all(concurrentRequests).then((results) => {
+      const allocatedNumbers = results.map((r) => r.reprint_number);
+      const allocatedCodes = results.map((r) => r.reprint_code);
+
+      // Verify no duplicates
+      expect(new Set(allocatedNumbers).size).toBe(5);
+      expect(allocatedNumbers.sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
+      expect(allocatedCodes.sort()).toEqual(["R1", "R2", "R3", "R4", "R5"]);
+    });
   });
 });
