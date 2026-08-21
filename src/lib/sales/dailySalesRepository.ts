@@ -1,10 +1,14 @@
 /**
  * Daily Sales Repository
- * Authoritative PostgreSQL RPC dispatcher for Daily Sales metrics.
+ * Authoritative PostgreSQL RPC dispatcher for Daily Sales metrics and transactions.
  */
 
 import { supabase } from "@/lib/db";
-import type { DailySalesReport } from "./types";
+import type {
+  DailySalesReport,
+  DailySalesTransaction,
+  DailySalesTransactionsResponse,
+} from "./types";
 
 export class DailySalesRepository {
   /**
@@ -68,5 +72,73 @@ export class DailySalesRepository {
     };
 
     return report;
+  }
+
+  /**
+   * Fetch authoritative transaction-level daily sales from PostgreSQL RPC public.get_daily_sales_transactions
+   * 
+   * @param cafeId Cafe UUID
+   * @param businessDate Optional target business date YYYY-MM-DD. When null or omitted, PostgreSQL determines current business date.
+   */
+  public static async fetchDailySalesTransactions(
+    cafeId: string,
+    businessDate?: string | null
+  ): Promise<DailySalesTransactionsResponse> {
+    if (!cafeId) {
+      throw new Error("[DailySalesRepository] cafeId is required to fetch daily sales transactions.");
+    }
+
+    const { data, error } = await supabase.rpc("get_daily_sales_transactions", {
+      p_cafe_id: cafeId,
+      p_business_date: businessDate || null,
+    });
+
+    if (error) {
+      console.error("[DailySalesRepository] Failed to fetch daily sales transactions from RPC:", error);
+      throw new Error(
+        `Failed to fetch daily sales transactions: ${error.message || error.details || "Unknown database error"}`
+      );
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new Error("[DailySalesRepository] RPC returned empty or invalid data format.");
+    }
+
+    const raw = data as Record<string, any>;
+    const rawTransactions = Array.isArray(raw.transactions) ? raw.transactions : [];
+
+    const transactions: DailySalesTransaction[] = rawTransactions.map((tx: any) => ({
+      bill_id: String(tx.bill_id || ""),
+      bill_number: Number(tx.bill_number) || 0,
+      table_label: String(tx.table_label || "Quick Serve"),
+      order_source: String(tx.order_source || "DINE_IN"),
+      customer_name: tx.customer_name ? String(tx.customer_name) : null,
+      customer_phone: tx.customer_phone ? String(tx.customer_phone) : null,
+      cashier_id: String(tx.cashier_id || "Counter"),
+      payment_method: String(tx.payment_method || "CASH"),
+      subtotal: Number(tx.subtotal) || 0,
+      discount: Number(tx.discount) || 0,
+      cgst: Number(tx.cgst) || 0,
+      sgst: Number(tx.sgst) || 0,
+      service_charge: Number(tx.service_charge) || 0,
+      round_off: Number(tx.round_off) || 0,
+      grand_total: Number(tx.grand_total) || 0,
+      total_items: Number(tx.total_items) || 0,
+      paid_at: String(tx.paid_at || ""),
+      business_date: String(tx.business_date || ""),
+      items: Array.isArray(tx.items)
+        ? tx.items.map((item: any) => ({
+            item_name: String(item.item_name || ""),
+            quantity: Number(item.quantity) || 0,
+            line_total: Number(item.line_total) || 0,
+          }))
+        : [],
+    }));
+
+    return {
+      business_date: String(raw.business_date || businessDate || ""),
+      cafe_id: String(raw.cafe_id || cafeId),
+      transactions,
+    };
   }
 }

@@ -1,14 +1,18 @@
 /**
  * Daily Sales Service
  * 
- * High-level domain service for consuming authoritative Daily Sales Reports.
+ * High-level domain service for consuming authoritative Daily Sales Reports and Transaction drilldowns.
  * Implements in-memory caching, in-flight promise de-duplication, debounced realtime invalidation,
  * business-date rollover freshness validation, and multi-terminal synchronization without client-side total manipulation.
  */
 
 import { supabase } from "@/lib/db";
 import { DailySalesRepository } from "./dailySalesRepository";
-import type { DailySalesReport, DailySalesServiceOptions } from "./types";
+import type {
+  DailySalesReport,
+  DailySalesTransactionsResponse,
+  DailySalesServiceOptions,
+} from "./types";
 
 type DailySalesListener = (report: DailySalesReport) => void;
 
@@ -17,9 +21,16 @@ interface CacheEntry {
   fetchedAt: number;
 }
 
+interface TxCacheEntry {
+  response: DailySalesTransactionsResponse;
+  fetchedAt: number;
+}
+
 export class DailySalesServiceClass {
   private cache = new Map<string, CacheEntry>();
+  private txCache = new Map<string, TxCacheEntry>();
   private inFlightRequests = new Map<string, Promise<DailySalesReport>>();
+  private inFlightTxRequests = new Map<string, Promise<DailySalesTransactionsResponse>>();
   private activeSubscriptions = new Map<string, { channel: any; refCount: number; listeners: Set<DailySalesListener> }>();
   private debounceTimers = new Map<string, NodeJS.Timeout>();
 
@@ -31,7 +42,7 @@ export class DailySalesServiceClass {
    * Check if a cached "CURRENT" report has crossed a local date boundary or exceeded freshness TTL.
    * This serves ONLY as a signal to fetch a fresh authoritative report from PostgreSQL.
    */
-  private isCurrentCacheStale(entry: CacheEntry): boolean {
+  private isCurrentCacheStale(entry: { fetchedAt: number }): boolean {
     const fetchedDate = new Date(entry.fetchedAt);
     const now = new Date();
     
@@ -106,16 +117,75 @@ export class DailySalesServiceClass {
   }
 
   /**
-   * Invalidate cached report(s) for a cafe.
+   * Fetch authoritative transaction-level daily sales for a cafe.
+   * 
+   * @param cafeId Cafe UUID
+   * @param businessDate Optional target date YYYY-MM-DD. When omitted, PostgreSQL determines current business date.
+   * @param options Options including forceRefresh
+   */
+  public async getDailySalesTransactions(
+    cafeId: string,
+    businessDate?: string | null,
+    options?: DailySalesServiceOptions
+  ): Promise<DailySalesTransactionsResponse> {
+    if (!cafeId) {
+      throw new Error("[DailySalesService] cafeId is required.");
+    }
+
+    const key = this.getCacheKey(cafeId, businessDate);
+    const isCurrent = !businessDate;
+
+    // 1. Check in-memory transaction cache
+    if (!options?.forceRefresh && this.txCache.has(key)) {
+      const entry = this.txCache.get(key)!;
+      if (isCurrent && this.isCurrentCacheStale(entry)) {
+        this.txCache.delete(key);
+      } else {
+        return entry.response;
+      }
+    }
+
+    // 2. Share in-flight promise
+    if (this.inFlightTxRequests.has(key)) {
+      return this.inFlightTxRequests.get(key)!;
+    }
+
+    const fetchPromise = DailySalesRepository.fetchDailySalesTransactions(cafeId, businessDate)
+      .then((res) => {
+        const now = Date.now();
+        this.txCache.set(key, { response: res, fetchedAt: now });
+        if (isCurrent && res.business_date) {
+          const resolvedKey = this.getCacheKey(cafeId, res.business_date);
+          this.txCache.set(resolvedKey, { response: res, fetchedAt: now });
+        }
+        return res;
+      })
+      .finally(() => {
+        this.inFlightTxRequests.delete(key);
+      });
+
+    this.inFlightTxRequests.set(key, fetchPromise);
+    return fetchPromise;
+  }
+
+  /**
+   * Invalidate cached report(s) and transaction list(s) for a cafe.
    */
   public invalidate(cafeId: string, businessDate?: string | null): void {
     if (businessDate) {
-      this.cache.delete(this.getCacheKey(cafeId, businessDate));
+      const key = this.getCacheKey(cafeId, businessDate);
+      this.cache.delete(key);
+      this.txCache.delete(key);
     } else {
       // Invalidate all cached dates for this cafe
       for (const k of Array.from(this.cache.keys())) {
         if (k.startsWith(`${cafeId}:`)) {
           this.cache.delete(k);
+        }
+      }
+      for (const k of Array.from(this.txCache.keys())) {
+        if (k.startsWith(`${cafeId}:`)) {
+          this.txCache.delete(k);
         }
       }
     }
@@ -126,7 +196,9 @@ export class DailySalesServiceClass {
    */
   public clearCache(): void {
     this.cache.clear();
+    this.txCache.clear();
     this.inFlightRequests.clear();
+    this.inFlightTxRequests.clear();
     for (const timer of this.debounceTimers.values()) {
       clearTimeout(timer);
     }

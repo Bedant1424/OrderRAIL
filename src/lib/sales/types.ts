@@ -34,6 +34,40 @@ export interface DailySalesReport {
   pipeline: DailySalesPipeline;
 }
 
+export interface DailySalesTransactionItem {
+  item_name: string;
+  quantity: number;
+  line_total: number;
+}
+
+export interface DailySalesTransaction {
+  bill_id: string;
+  bill_number: number;
+  table_label: string;
+  order_source: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  cashier_id: string;
+  payment_method: string;
+  subtotal: number;
+  discount: number;
+  cgst: number;
+  sgst: number;
+  service_charge: number;
+  round_off: number;
+  grand_total: number;
+  total_items: number;
+  paid_at: string;
+  business_date: string;
+  items: DailySalesTransactionItem[];
+}
+
+export interface DailySalesTransactionsResponse {
+  business_date: string;
+  cafe_id: string;
+  transactions: DailySalesTransaction[];
+}
+
 export interface DailySalesServiceOptions {
   forceRefresh?: boolean;
 }

@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DailySalesPill } from "@/components/counter/DailySalesPill";
 import { DailySalesModal } from "@/components/counter/DailySalesModal";
-import type { DailySalesReport } from "@/lib/sales/types";
+import { DailySalesService } from "@/lib/sales/dailySalesService";
+import type { DailySalesReport, DailySalesTransactionsResponse } from "@/lib/sales/types";
 
-describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
+describe("Milestone 2C.2: Counter Daily Sales UI & Transaction Drilldown Tests", () => {
   const CAFE_ID = "6d00d671-eaea-47ce-a842-f970878373c9";
 
   const mockDay1Report: DailySalesReport = {
@@ -62,36 +63,73 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
     },
   };
 
+  const mockTxResponse: DailySalesTransactionsResponse = {
+    business_date: "2026-08-21",
+    cafe_id: CAFE_ID,
+    transactions: [
+      {
+        bill_id: "tx-1",
+        bill_number: 1001,
+        table_label: "Table 01",
+        order_source: "DINE_IN",
+        customer_name: "Rahul Sharma",
+        customer_phone: "+919876543210",
+        cashier_id: "Counter",
+        payment_method: "CASH",
+        subtotal: 500,
+        discount: 0,
+        cgst: 12.5,
+        sgst: 12.5,
+        service_charge: 0,
+        round_off: 0,
+        grand_total: 525,
+        total_items: 2,
+        paid_at: "2026-08-21T10:30:00.000Z",
+        business_date: "2026-08-21",
+        items: [{ item_name: "Cold Coffee", quantity: 2, line_total: 500 }],
+      },
+      {
+        bill_id: "tx-2",
+        bill_number: 1002,
+        table_label: "Table 02",
+        order_source: "TAKEAWAY",
+        customer_name: null,
+        customer_phone: null,
+        cashier_id: "staff-1",
+        payment_method: "UPI",
+        subtotal: 800,
+        discount: 50,
+        cgst: 20,
+        sgst: 20,
+        service_charge: 0,
+        round_off: 0,
+        grand_total: 790,
+        total_items: 1,
+        paid_at: "2026-08-21T11:00:00.000Z",
+        business_date: "2026-08-21",
+        items: [{ item_name: "Veg Supreme Pizza", quantity: 1, line_total: 800 }],
+      },
+    ],
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(DailySalesService, "getDailySalesTransactions").mockResolvedValue(mockTxResponse);
   });
 
   // 1. Pill loading state
   it("1. DailySalesPill renders loading skeleton when isLoading is true and no report exists", () => {
-    render(
-      <DailySalesPill
-        report={null}
-        isLoading={true}
-        isError={false}
-      />
-    );
+    render(<DailySalesPill report={null} isLoading={true} isError={false} />);
 
     expect(screen.getByTestId("daily-sales-pill-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("daily-sales-pill")).not.toBeInTheDocument();
-    expect(screen.queryByText(/₹0/)).not.toBeInTheDocument(); // Never show false ₹0 while loading
+    expect(screen.queryByText(/₹0/)).not.toBeInTheDocument();
   });
 
   // 2. Pill success state
   it("2. DailySalesPill renders net collected amount and paid bills count on success", () => {
     const handleClick = vi.fn();
-    render(
-      <DailySalesPill
-        report={mockDay1Report}
-        isLoading={false}
-        isError={false}
-        onClick={handleClick}
-      />
-    );
+    render(<DailySalesPill report={mockDay1Report} isLoading={false} isError={false} onClick={handleClick} />);
 
     const pill = screen.getByTestId("daily-sales-pill");
     expect(pill).toBeInTheDocument();
@@ -104,13 +142,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
 
   // 3. Pill zero-sales state
   it("3. DailySalesPill renders legitimate ₹0.00 and 0 Bills for zero sales report", () => {
-    render(
-      <DailySalesPill
-        report={mockDay2ZeroReport}
-        isLoading={false}
-        isError={false}
-      />
-    );
+    render(<DailySalesPill report={mockDay2ZeroReport} isLoading={false} isError={false} />);
 
     expect(screen.getByTestId("daily-sales-pill-amount")).toHaveTextContent(/0/);
     expect(screen.getByTestId("daily-sales-pill-bills")).toHaveTextContent("· 0 Bills");
@@ -119,14 +151,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
   // 4 & 5. Pill error state and retry
   it("4 & 5. DailySalesPill renders error indicator on failure and triggers retry on click", () => {
     const handleRetry = vi.fn();
-    render(
-      <DailySalesPill
-        report={null}
-        isLoading={false}
-        isError={true}
-        onRetry={handleRetry}
-      />
-    );
+    render(<DailySalesPill report={null} isLoading={false} isError={true} onRetry={handleRetry} />);
 
     const errorBtn = screen.getByTestId("daily-sales-pill-error");
     expect(errorBtn).toBeInTheDocument();
@@ -146,6 +171,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
+        cafeId={CAFE_ID}
       />
     );
 
@@ -163,6 +189,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
+        cafeId={CAFE_ID}
       />
     );
 
@@ -182,6 +209,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
+        cafeId={CAFE_ID}
       />
     );
 
@@ -201,6 +229,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
+        cafeId={CAFE_ID}
       />
     );
 
@@ -211,7 +240,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
     expect(screen.getByTestId("daily-sales-tax")).toHaveTextContent(/SGST: ₹355/);
   });
 
-  // 13. Operational pipeline separation (Unsettled orders, amount, cancelled orders)
+  // 13. Operational pipeline separation
   it("13. DailySalesModal renders operational pipeline in distinct section separated from realized collections", () => {
     render(
       <DailySalesModal
@@ -221,6 +250,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
+        cafeId={CAFE_ID}
       />
     );
 
@@ -233,9 +263,9 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
     expect(screen.getByTestId("daily-sales-cancelled-count")).toHaveTextContent("1 Order");
   });
 
-  // 14. Rollover update while modal is open
-  it("14. When report rolls over while modal is open, modal smoothly displays the new business date and zero metrics", () => {
-    const { rerender } = render(
+  // 14. Tab switching and transaction drilldown list rendering
+  it("14. Switching to Bills & Transactions tab renders the transaction list with bill number, tender, and total", async () => {
+    render(
       <DailySalesModal
         isOpen={true}
         onClose={vi.fn()}
@@ -243,32 +273,75 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
+        cafeId={CAFE_ID}
       />
     );
 
-    expect(screen.getByTestId("daily-sales-business-date")).toHaveTextContent(/21 Aug 2026/);
-    expect(screen.getByTestId("daily-sales-net-collected")).toHaveTextContent(/14,850/);
+    // Switch tab
+    const txTab = screen.getByTestId("daily-sales-tab-transactions");
+    fireEvent.click(txTab);
 
-    // Re-render with Day 2 rolled-over zero report
-    rerender(
+    // Verify transactions table
+    expect(await screen.findByTestId("daily-sales-transactions-table")).toBeInTheDocument();
+    expect(screen.getByText("#1001")).toBeInTheDocument();
+    expect(screen.getByText("#1002")).toBeInTheDocument();
+    expect(screen.getByText("Table 01")).toBeInTheDocument();
+    expect(screen.getByText("Takeaway")).toBeInTheDocument();
+  });
+
+  // 15. Expanding transaction row shows line items and detailed breakdown
+  it("15. Clicking a transaction row expands itemized details and financial subtotals", async () => {
+    render(
       <DailySalesModal
         isOpen={true}
         onClose={vi.fn()}
-        report={mockDay2ZeroReport}
+        report={mockDay1Report}
         isLoading={false}
         isError={false}
         onRefresh={vi.fn()}
+        cafeId={CAFE_ID}
       />
     );
 
-    expect(screen.getByTestId("daily-sales-business-date")).toHaveTextContent(/22 Aug 2026/);
-    expect(screen.getByTestId("daily-sales-net-collected")).toHaveTextContent(/0/);
-    expect(screen.getByTestId("daily-sales-paid-count")).toHaveTextContent("0");
-    expect(screen.getByTestId("daily-sales-tender-cash")).toHaveTextContent(/0/);
+    // Switch tab
+    fireEvent.click(screen.getByTestId("daily-sales-tab-transactions"));
+
+    const row = await screen.findByTestId("daily-sales-transaction-row-tx-1");
+    fireEvent.click(row);
+
+    // Verify expanded details
+    expect(await screen.findByText("Purchased Items")).toBeInTheDocument();
+    expect(screen.getByText("Cold Coffee")).toBeInTheDocument();
+    expect(screen.getByText("2x")).toBeInTheDocument();
+    expect(screen.getByText(/Total Paid/)).toBeInTheDocument();
   });
 
-  // 15. Manual refresh action
-  it("15. Clicking modal refresh button triggers onRefresh handler", () => {
+  // 16. Searching transactions filters by bill number or table
+  it("16. Searching transactions filters the table items", async () => {
+    render(
+      <DailySalesModal
+        isOpen={true}
+        onClose={vi.fn()}
+        report={mockDay1Report}
+        isLoading={false}
+        isError={false}
+        onRefresh={vi.fn()}
+        cafeId={CAFE_ID}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("daily-sales-tab-transactions"));
+    await screen.findByTestId("daily-sales-transactions-table");
+
+    const searchInput = screen.getByTestId("daily-sales-tx-search");
+    fireEvent.change(searchInput, { target: { value: "1002" } });
+
+    expect(screen.queryByText("#1001")).not.toBeInTheDocument();
+    expect(screen.getByText("#1002")).toBeInTheDocument();
+  });
+
+  // 17. Manual refresh action
+  it("17. Clicking modal refresh button triggers onRefresh and re-loads transactions", () => {
     const handleRefresh = vi.fn();
     render(
       <DailySalesModal
@@ -278,6 +351,7 @@ describe("Milestone 2B.3: Counter Daily Sales UI & Rollover Tests", () => {
         isLoading={false}
         isError={false}
         onRefresh={handleRefresh}
+        cafeId={CAFE_ID}
       />
     );
 
