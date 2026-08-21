@@ -1,6 +1,10 @@
 /**
- * Sprint 1: Unified Financial Summary Calculator
- * Single source of calculation truth for OrderRail financial metrics across Dashboard, Analytics, Sales History, and Exports.
+ * Unified Financial Summary Calculator
+ * 
+ * @deprecated For Financial & Accounting Reporting — Use authoritative PostgreSQL
+ * public.bills and public.get_owner_analytics_range / get_daily_sales_report RPCs instead.
+ * 
+ * Retained strictly for operational order pipeline estimates and legacy order ticket metrics.
  */
 
 export interface UnifiedFinancialSummary {
@@ -17,7 +21,8 @@ export interface UnifiedFinancialSummary {
 
 export class FinancialSummaryCalculator {
   /**
-   * Unifies financial calculations across an array of order records.
+   * Calculates operational order ticket metrics across an array of order records.
+   * NOTE: This calculates estimated ticket totals on orders, NOT finalized paid billing records.
    */
   public static calculateFromOrders(
     orders: Array<{ total_cents?: number | null; status?: string | null }>
