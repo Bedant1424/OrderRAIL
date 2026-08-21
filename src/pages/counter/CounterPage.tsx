@@ -56,6 +56,9 @@ import { Receipt } from '@/components/billing/Receipt';
 import { getPaymentSettings } from '@/lib/billing/paymentSettings';
 import { getTaxSettings } from '@/lib/billing/taxSettings';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { DailySalesService, type DailySalesReport } from '@/lib/sales';
+import { DailySalesPill } from '@/components/counter/DailySalesPill';
+import { DailySalesModal } from '@/components/counter/DailySalesModal';
 
 import './counter.css';
 
@@ -206,10 +209,20 @@ const Header = memo(({
   unreadCount,
   onOpenNotifications,
   onOpenSettings,
+  dailySalesReport,
+  isDailySalesLoading,
+  isDailySalesError,
+  onRetryDailySales,
+  onOpenDailySalesModal,
 }: { 
   unreadCount: number;
   onOpenNotifications: () => void;
   onOpenSettings: () => void;
+  dailySalesReport?: DailySalesReport | null;
+  isDailySalesLoading?: boolean;
+  isDailySalesError?: boolean;
+  onRetryDailySales?: () => void;
+  onOpenDailySalesModal?: () => void;
 }) => {
   const { cafe } = useCafe();
   const { user, signOut } = useAuth();
@@ -353,6 +366,15 @@ const Header = memo(({
             </PopoverContent>
           </Popover>
         </div>
+
+        <DailySalesPill
+          report={dailySalesReport ?? null}
+          isLoading={!!isDailySalesLoading}
+          isError={!!isDailySalesError}
+          onRetry={onRetryDailySales}
+          onClick={onOpenDailySalesModal}
+          currency={cafe?.currency}
+        />
 
         <div className="v8-sync-badge">
           <div className="v8-sync-dot" />
@@ -2813,6 +2835,42 @@ const CounterLayout = () => {
   const printedKotOrderIdsRef = useRef<Set<string>>(new Set());
   const isSubmittingPaymentRef = useRef<boolean>(false);
 
+  // Daily Sales State & Realtime Synchronization (Single CounterPage Subscription)
+  const [dailySalesReport, setDailySalesReport] = useState<DailySalesReport | null>(null);
+  const [isDailySalesLoading, setIsDailySalesLoading] = useState<boolean>(true);
+  const [isDailySalesError, setIsDailySalesError] = useState<boolean>(false);
+  const [isDailySalesModalOpen, setIsDailySalesModalOpen] = useState<boolean>(false);
+
+  const loadDailySales = useCallback(async (force = false) => {
+    if (!cafeId) return;
+    setIsDailySalesLoading(true);
+    setIsDailySalesError(false);
+    try {
+      const report = await DailySalesService.getDailySalesReport(cafeId, null, { forceRefresh: force });
+      setDailySalesReport(report);
+    } catch (err) {
+      console.error("[CounterPage] Failed to fetch daily sales report:", err);
+      setIsDailySalesError(true);
+    } finally {
+      setIsDailySalesLoading(false);
+    }
+  }, [cafeId]);
+
+  useEffect(() => {
+    if (!cafeId) return;
+    void loadDailySales(false);
+
+    const unsubscribe = DailySalesService.subscribeToDailySales(cafeId, (freshReport) => {
+      setDailySalesReport(freshReport);
+      setIsDailySalesLoading(false);
+      setIsDailySalesError(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [cafeId, loadDailySales]);
+
   const handleOpenNotifications = useCallback(() => {
     setDrawerTab('notifications');
     setIsNotifOpen(true);
@@ -4255,6 +4313,11 @@ const CounterLayout = () => {
         unreadCount={unreadCount}
         onOpenNotifications={handleOpenNotifications}
         onOpenSettings={handleOpenSettings}
+        dailySalesReport={dailySalesReport}
+        isDailySalesLoading={isDailySalesLoading}
+        isDailySalesError={isDailySalesError}
+        onRetryDailySales={() => void loadDailySales(true)}
+        onOpenDailySalesModal={() => setIsDailySalesModalOpen(true)}
       />
       <TableRail 
         tables={syncedTables}
@@ -4419,6 +4482,16 @@ const CounterLayout = () => {
             onSuccess={() => void loadSessionsFromDb()}
           />
         )}
+
+        <DailySalesModal
+          isOpen={isDailySalesModalOpen}
+          onClose={() => setIsDailySalesModalOpen(false)}
+          report={dailySalesReport}
+          isLoading={isDailySalesLoading}
+          isError={isDailySalesError}
+          onRefresh={() => void loadDailySales(true)}
+          currency={cafe?.currency}
+        />
       </AnimatePresence>
       <DemoDevToolsPanel />
     </div>
