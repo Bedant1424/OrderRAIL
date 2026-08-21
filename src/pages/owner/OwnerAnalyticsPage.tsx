@@ -25,7 +25,12 @@ import {
   ArrowUpRight,
   ChevronRight,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Receipt,
+  CreditCard,
+  Banknote,
+  QrCode,
+  Layers
 } from "lucide-react";
 import { formatMoney, formatOrderLabel, type Order } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
@@ -44,7 +49,7 @@ export default function OwnerAnalyticsPage() {
   const analyticsQ = useQuery({
     queryKey: ["owner-analytics-summary", cafe?.id, range],
     enabled: !!cafe?.id,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache (Priority 3)
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
     queryFn: () => AnalyticsService.fetchOwnerAnalytics(cafe!.id, range),
@@ -60,7 +65,10 @@ export default function OwnerAnalyticsPage() {
     taxCents: 0,
     netSalesCents: 0,
     orderCount: 0,
+    paidBillsCount: 0,
+    totalItemsSold: 0,
     averageOrderValueCents: 0,
+    averageBillValueCents: 0,
   };
   const todayRevenueMetrics = data?.todayRevenueMetrics ?? {
     grossSalesCents: 0,
@@ -68,7 +76,10 @@ export default function OwnerAnalyticsPage() {
     taxCents: 0,
     netSalesCents: 0,
     orderCount: 0,
+    paidBillsCount: 0,
+    totalItemsSold: 0,
     averageOrderValueCents: 0,
+    averageBillValueCents: 0,
   };
   const prepTimeStats = data?.prepTimeStats ?? {
     value: "—",
@@ -85,6 +96,7 @@ export default function OwnerAnalyticsPage() {
   const byHour = data?.byHour ?? [];
   const peakHour = data?.peakHour ?? { hour: "12:00", count: 0 };
   const topItems = data?.topItems ?? [];
+  const tenders = data?.tenders ?? { cash: 0, upi: 0, card: 0, other: 0 };
   const recentOrders = data?.recentOrders ?? [];
   const avgRating = data?.avgRating ?? 4.9;
   const reviewsCount = data?.reviewsCount ?? 0;
@@ -114,7 +126,7 @@ export default function OwnerAnalyticsPage() {
                 key={r}
                 onClick={() => setRange(r)}
                 className={cn(
-                  "rounded-full px-3.5 py-1.5 transition duration-150",
+                  "rounded-full px-3.5 py-1.5 transition duration-150 cursor-pointer",
                   range === r
                     ? "bg-background text-foreground shadow-soft font-semibold"
                     : "text-muted-foreground hover:text-foreground"
@@ -152,7 +164,11 @@ export default function OwnerAnalyticsPage() {
           icon={CircleDollarSign}
           label="Today's Net Sales"
           value={formatMoney(todayRevenueMetrics.netSalesCents, currency)}
-          subtext={`Gross: ${formatMoney(todayRevenueMetrics.grossSalesCents, currency)}`}
+          subtext={
+            todayRevenueMetrics.paidBillsCount > 0
+              ? `${todayRevenueMetrics.paidBillsCount} paid ${todayRevenueMetrics.paidBillsCount === 1 ? "bill" : "bills"} · Gross ${formatMoney(todayRevenueMetrics.grossSalesCents, currency)}`
+              : `Gross: ${formatMoney(todayRevenueMetrics.grossSalesCents, currency)}`
+          }
           accentColor="text-emerald-500 bg-emerald-500/10"
         />
         <KpiCard
@@ -160,15 +176,19 @@ export default function OwnerAnalyticsPage() {
           icon={ShoppingBag}
           label="Orders Today"
           value={todayRevenueMetrics.orderCount.toString()}
-          subtext={`Range Total: ${rangeRevenueMetrics.orderCount}`}
+          subtext={`Range Total: ${rangeRevenueMetrics.orderCount} orders`}
           accentColor="text-blue-500 bg-blue-500/10"
         />
         <KpiCard
           isLoading={isLoading}
           icon={TrendingUp}
-          label="Avg Order Value"
-          value={formatMoney(todayRevenueMetrics.averageOrderValueCents, currency)}
-          subtext="Net AOV per ticket"
+          label="Avg Bill Value"
+          value={formatMoney(todayRevenueMetrics.averageBillValueCents || todayRevenueMetrics.averageOrderValueCents, currency)}
+          subtext={
+            rangeRevenueMetrics.averageBillValueCents > 0
+              ? `Range ABV: ${formatMoney(rangeRevenueMetrics.averageBillValueCents, currency)}`
+              : "Net realized per bill"
+          }
           accentColor="text-purple-500 bg-purple-500/10"
         />
         <KpiCard
@@ -204,14 +224,14 @@ export default function OwnerAnalyticsPage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="font-display text-base font-semibold">Revenue Trend</h2>
-              <p className="text-xs text-muted-foreground">Daily net sales performance over {range} days</p>
+              <p className="text-xs text-muted-foreground">Daily net realized sales over {range} days</p>
             </div>
             <div className="text-right">
               <div className="font-display text-lg font-bold tabular-nums text-foreground">
                 {formatMoney(rangeRevenueMetrics.netSalesCents, currency)}
               </div>
               <div className="text-[11px] font-medium text-emerald-600 flex items-center justify-end gap-0.5">
-                <ArrowUpRight className="h-3 w-3" /> Net Sales ({range}d)
+                <ArrowUpRight className="h-3 w-3" /> Net Sales ({range}d · {rangeRevenueMetrics.paidBillsCount} {rangeRevenueMetrics.paidBillsCount === 1 ? "bill" : "bills"})
               </div>
             </div>
           </div>
@@ -239,7 +259,7 @@ export default function OwnerAnalyticsPage() {
                       fontSize: 12,
                       boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                     }}
-                    formatter={(val: number) => [`$${val.toFixed(2)}`, "Net Sales"]}
+                    formatter={(val: number) => [formatMoney(Math.round(val * 100), currency), "Net Realized Sales"]}
                   />
                   <Area type="monotone" dataKey="revenue" stroke="hsl(var(--accent))" fill="url(#revGrad)" strokeWidth={2.5} />
                 </AreaChart>
@@ -252,13 +272,13 @@ export default function OwnerAnalyticsPage() {
         <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-display text-base font-semibold">Top Selling Items</h2>
-            <span className="text-xs text-muted-foreground">by quantity</span>
+            <span className="text-xs text-muted-foreground">by quantity (paid bills)</span>
           </div>
 
           {isLoading ? (
             <ListSkeleton />
           ) : topItems.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">No order data available for this range.</p>
+            <p className="py-12 text-center text-sm text-muted-foreground">No finalized bill data available for this range.</p>
           ) : (
             <div className="space-y-4">
               {topItems.map((item, idx) => (
@@ -268,7 +288,7 @@ export default function OwnerAnalyticsPage() {
                       {idx + 1}. {item.name}
                     </span>
                     <span className="tabular-nums text-muted-foreground">
-                      <strong>{item.qty}</strong> sold ({formatMoney(item.revenue, currency)})
+                      <strong>{item.qty}</strong> sold ({formatMoney(Math.round(item.revenue * 100), currency)})
                     </span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
@@ -319,7 +339,9 @@ export default function OwnerAnalyticsPage() {
                       border: "1px solid hsl(var(--border))",
                       borderRadius: 12,
                       fontSize: 12,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                     }}
+                    formatter={(val: number) => [`${val} orders`, "Volume"]}
                   />
                   <Bar dataKey="orders" fill="url(#orderBarGrad)" radius={[6, 6, 0, 0]} />
                 </BarChart>
@@ -328,15 +350,18 @@ export default function OwnerAnalyticsPage() {
           </div>
         </div>
 
-        {/* Recent Live Orders Feed */}
+        {/* Live Orders Feed */}
         <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60 flex flex-col justify-between">
           <div>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="font-display text-base font-semibold">Recent Live Orders</h2>
-                <p className="text-xs text-muted-foreground">Real-time customer order stream</p>
+                <h2 className="font-display text-base font-semibold">Live Order Stream</h2>
+                <p className="text-xs text-muted-foreground">Most recent table & quick-serve orders</p>
               </div>
-              <Link to="/owner/orders?tab=live" className="text-xs font-semibold text-accent hover:underline flex items-center gap-1">
+              <Link
+                to="/owner/orders"
+                className="text-xs font-semibold text-accent hover:underline inline-flex items-center gap-0.5"
+              >
                 View all <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -344,104 +369,50 @@ export default function OwnerAnalyticsPage() {
             {isLoading ? (
               <ListSkeleton />
             ) : recentOrders.length === 0 ? (
-              <p className="py-12 text-center text-sm text-muted-foreground">No recent orders.</p>
+              <p className="py-12 text-center text-sm text-muted-foreground">No recent orders yet.</p>
             ) : (
-              <div className="space-y-2.5">
-                {recentOrders.map((o) => (
-                  <Link
-                    key={o.id}
-                    to={`/owner/orders?tab=live&orderId=${o.id}`}
-                    className="flex items-center justify-between gap-3 rounded-2xl bg-secondary/40 p-3 text-xs transition hover:bg-secondary/70 block"
-                  >
+              <div className="divide-y divide-border/60">
+                {recentOrders.map((ord) => (
+                  <div key={ord.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-3">
-                      <span className="grid h-8 w-8 place-items-center rounded-xl bg-background font-display font-bold shadow-soft">
-                        {formatOrderLabel(o.order_number)}
+                      <span className="font-mono font-bold text-foreground">
+                        {formatOrderLabel(ord as Order)}
                       </span>
-                      <div>
-                        <div className="font-semibold text-foreground">
-                          Table {o.table_label}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {new Date(o.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <OrderStatusBadge status={o.status} />
-                      <span className="font-semibold tabular-nums text-foreground">
-                        {formatMoney(o.total_cents, currency)}
+                      <span className="text-muted-foreground font-medium">
+                        Table {ord.table_label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/80 font-mono">
+                        {new Date(ord.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                  </Link>
+                    <div className="flex items-center gap-2.5">
+                      <span className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                        ord.status === "placed" && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                        ord.status === "in_kitchen" && "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+                        ord.status === "ready" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+                        ord.status === "served" && "bg-secondary text-muted-foreground",
+                        ord.status === "cancelled" && "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+                      )}>
+                        {ord.status.replace("_", " ")}
+                      </span>
+                      <span className="font-mono font-semibold tabular-nums text-foreground">
+                        {formatMoney(ord.total_cents, currency)}
+                      </span>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
           </div>
-        </div>
-      </section>
 
-      {/* Staff & Customer Ratings Summary */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        {/* Customer Satisfaction Summary */}
-        <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-display text-base font-semibold">Customer Ratings</h2>
-              <p className="text-xs text-muted-foreground">Overall diner feedback score</p>
-            </div>
-            <div className="flex items-center gap-1 bg-amber-500/10 px-3 py-1 rounded-full text-amber-600 font-semibold text-xs">
-              <Star className="h-4 w-4 fill-amber-500 text-amber-500" /> {avgRating} / 5.0
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 text-center py-2">
-            <div className="rounded-2xl bg-secondary/30 p-3">
-              <div className="font-display text-xl font-bold">{reviewsCount}</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Reviews Received</div>
-            </div>
-            <div className="rounded-2xl bg-secondary/30 p-3">
-              <div className="font-display text-xl font-bold text-emerald-600">96%</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Positive Experience</div>
-            </div>
-            <div className="rounded-2xl bg-secondary/30 p-3">
-              <div className="font-display text-xl font-bold text-accent">&lt; 3m</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">Avg Call Response</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Staff Team Performance */}
-        <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-display text-base font-semibold">Team & Roster Summary</h2>
-              <p className="text-xs text-muted-foreground">Staff availability and active personnel</p>
-            </div>
-            <Link to="/owner/staff" className="text-xs font-semibold text-accent hover:underline flex items-center gap-1">
-              Manage Staff <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <div className="flex items-center gap-3 rounded-2xl bg-secondary/30 p-3.5">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
-                <Users className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="font-display text-lg font-bold">{staffCount}</div>
-                <div className="text-xs text-muted-foreground">Active Members</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 rounded-2xl bg-secondary/30 p-3.5">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-500">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="font-display text-lg font-bold">100%</div>
-                <div className="text-xs text-muted-foreground">Shift Coverage</div>
-              </div>
-            </div>
+          <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5 font-medium">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Staff Active: <strong>{staffCount}</strong>
+            </span>
+            <span className="flex items-center gap-1 font-medium">
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> <strong>{avgRating}</strong> ({reviewsCount} reviews)
+            </span>
           </div>
         </div>
       </section>
@@ -449,78 +420,58 @@ export default function OwnerAnalyticsPage() {
   );
 }
 
-// KPI Card Component
 function KpiCard({
+  isLoading,
   icon: Icon,
   label,
   value,
   subtext,
   accentColor,
-  isLoading
 }: {
-  icon: React.ComponentType<{ className?: string }>;
+  isLoading: boolean;
+  icon: any;
   label: string;
   value: string;
-  subtext: string;
+  subtext?: string;
   accentColor: string;
-  isLoading: boolean;
 }) {
-  if (isLoading) {
-    return (
-      <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 animate-pulse space-y-3">
-        <div className="h-4 w-20 bg-muted/60 rounded" />
-        <div className="h-7 w-24 bg-muted/80 rounded" />
-        <div className="h-3 w-16 bg-muted/50 rounded" />
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition hover:shadow-float">
+    <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60 transition hover:shadow-md">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className={cn("grid h-7 w-7 place-items-center rounded-lg", accentColor)}>
-          <Icon className="h-3.5 w-3.5" />
-        </span>
+        <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
+        <div className={cn("rounded-xl p-2", accentColor)}>
+          <Icon className="h-4 w-4" />
+        </div>
       </div>
-      <div className="mt-2 font-display text-2xl font-semibold tabular-nums text-foreground">{value}</div>
-      <div className="mt-1 text-[11px] text-muted-foreground truncate">{subtext}</div>
+      <div className="mt-2">
+        {isLoading ? (
+          <div className="h-7 w-20 animate-pulse rounded bg-secondary" />
+        ) : (
+          <div className="font-display text-xl font-bold tracking-tight text-foreground tabular-nums truncate">
+            {value}
+          </div>
+        )}
+        {subtext && (
+          <p className="mt-1 text-[11px] text-muted-foreground truncate">{subtext}</p>
+        )}
+      </div>
     </div>
   );
 }
 
-// Order Status Badge Component
-function OrderStatusBadge({ status }: { status: Order["status"] }) {
-  const meta: Record<Order["status"], { label: string; style: string }> = {
-    placed: { label: "Placed", style: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-    in_kitchen: { label: "Cooking", style: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-    ready: { label: "Ready", style: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-    served: { label: "Served", style: "bg-secondary text-muted-foreground border-border" },
-    cancelled: { label: "Cancelled", style: "bg-destructive/10 text-destructive border-destructive/20" }
-  };
-  const current = meta[status] ?? { label: status, style: "bg-muted text-muted-foreground" };
-  return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border", current.style)}>
-      {current.label}
-    </span>
-  );
-}
-
-// Chart Skeleton Loader
 function ChartSkeleton() {
   return (
-    <div className="h-full w-full animate-pulse rounded-2xl bg-muted/30 flex items-center justify-center text-xs text-muted-foreground">
-      Loading chart visualization...
+    <div className="flex h-full w-full items-center justify-center">
+      <div className="h-32 w-full animate-pulse rounded-xl bg-secondary/50" />
     </div>
   );
 }
 
-// List Skeleton Loader
 function ListSkeleton() {
   return (
-    <div className="space-y-3 animate-pulse py-2">
+    <div className="space-y-3 py-2">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="h-10 w-full bg-muted/40 rounded-xl" />
+        <div key={i} className="h-8 animate-pulse rounded-xl bg-secondary/50" />
       ))}
     </div>
   );
