@@ -1,7 +1,11 @@
 -- Migration: 20260821090000_canonical_order_edit_and_cancellation.sql
--- Description: Milestone 1A — Database Foundation for Canonical Order Edit & Cancellation.
+-- Description: Milestone 1A & 1C.1 — Database Foundation for Canonical Order Edit, Cancellation, and KOT State Model.
 -- Enforces atomic order editing, authoritative menu item pricing, optimistic concurrency locking,
--- order audit events, and pending bill consistency for Counter and Staff consoles.
+-- explicit KOT firing timestamps, post-KOT amendment numbering (M1, M2, M3), and pending bill consistency.
+
+-- 0. Add KOT firing tracking columns to public.orders
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS kot_fired_at TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS initial_kot_version INTEGER DEFAULT NULL;
 
 -- 1. Update order_events actor constraint to support 'counter' and 'owner'
 ALTER TABLE public.order_events DROP CONSTRAINT IF EXISTS order_events_actor_check;
@@ -40,6 +44,8 @@ DECLARE
   v_old_item RECORD;
   v_existing_ids UUID[] := ARRAY[]::UUID[];
   v_requires_amendment_kot BOOLEAN := false;
+  v_amendment_number INTEGER := 0;
+  v_amendment_code TEXT := NULL;
   v_paid_bill_exists BOOLEAN := false;
   v_pending_bill RECORD;
   v_calc_res RECORD;
@@ -72,7 +78,7 @@ BEGIN
     public.has_role(auth.uid(), 'staff', v_cafe_id) OR
     public.is_demo_admin(auth.uid())
   ) THEN
-    RAISE EXCEPTION '403 Forbidden: Insufficient permissions to modify orders for this cafe.';
+    RAISE EXCEPTION '403 Forbidden: Insufficient permissions to edit orders for this cafe.';
   END IF;
 
   -- 4. Check if dining session is closed
@@ -86,7 +92,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 5. Check if order or session has a PAID bill
+  -- 5. Check if order or session has a PAID bill (Immutability Lock)
   IF v_dining_session_id IS NOT NULL THEN
     SELECT EXISTS(
       SELECT 1 FROM public.bills
@@ -105,130 +111,152 @@ BEGIN
     RAISE EXCEPTION 'Cannot edit order: Order has already been paid and is immutable.';
   END IF;
 
+  -- Disallow editing cancelled orders
   IF v_order_status = 'cancelled' THEN
-    RAISE EXCEPTION 'Cannot edit order: Order is cancelled.';
+    RAISE EXCEPTION 'Cannot edit order: Order is already cancelled.';
   END IF;
 
-  -- 6. Optimistic concurrency check
+  -- 6. Optimistic Concurrency Check
   IF v_current_version IS DISTINCT FROM p_expected_version THEN
     RAISE EXCEPTION 'CONFLICT: Order has been updated by another operator (expected version %, current version %). Please refresh and try again.', p_expected_version, v_current_version;
   END IF;
 
-  -- 7. Validate items payload
-  IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
-    RAISE EXCEPTION 'Cannot edit order: Item list cannot be empty.';
-  END IF;
-
-  -- Snapshot previous items before modifications
-  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+  -- 7. Snapshot previous items for audit trail & delta calculation
+  SELECT jsonb_agg(jsonb_build_object(
     'id', id,
     'menu_item_id', menu_item_id,
     'name', name,
-    'price_cents', price_cents,
     'qty', qty,
-    'note', note
-  )), '[]'::jsonb) INTO v_prev_items
+    'price_cents', price_cents,
+    'note', note,
+    'status', status
+  )) INTO v_prev_items
   FROM public.order_items
-  WHERE order_id = p_order_id;
+  WHERE order_id = p_order_id AND status != 'cancelled';
 
-  -- 8. Validate items and enforce Authoritative Pricing
-  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
+  IF v_prev_items IS NULL THEN
+    v_prev_items := '[]'::jsonb;
+  END IF;
+
+  -- 8. Process Items (Zero Client Trust Financial Recalculation)
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
+  LOOP
+    -- Item validation
     IF (v_item->>'qty')::INTEGER <= 0 THEN
-      RAISE EXCEPTION 'Invalid item quantity: % for item "%"', v_item->>'qty', v_item->>'name';
+      RAISE EXCEPTION 'Invalid item quantity: Quantity must be positive.';
     END IF;
 
-    IF v_item->>'menu_item_id' IS NULL OR (v_item->>'menu_item_id') = '' THEN
-      RAISE EXCEPTION 'menu_item_id is required for all order items.';
-    END IF;
+    -- Existing item update vs new item addition
+    IF v_item->>'id' IS NOT NULL AND (v_item->>'id')::TEXT != '' THEN
+      SELECT * INTO v_old_item
+      FROM public.order_items
+      WHERE id = (v_item->>'id')::UUID AND order_id = p_order_id;
 
-    -- Verify menu item exists and belongs to this cafe
-    SELECT * INTO v_menu_item
-    FROM public.menu_items
-    WHERE id = (v_item->>'menu_item_id')::UUID AND cafe_id = v_cafe_id;
+      IF v_old_item.id IS NOT NULL THEN
+        v_item_price := v_old_item.price_cents; -- Preserve original line price
+        v_new_total_cents := v_new_total_cents + (v_item_price * (v_item->>'qty')::INTEGER);
+        v_existing_ids := array_append(v_existing_ids, v_old_item.id);
 
-    IF v_menu_item.id IS NULL THEN
-      RAISE EXCEPTION 'Menu item % not found or does not belong to this cafe.', v_item->>'menu_item_id';
-    END IF;
+        -- Check for modifications
+        IF v_old_item.qty != (v_item->>'qty')::INTEGER OR v_old_item.note IS DISTINCT FROM (v_item->>'note')::TEXT THEN
+          v_delta_modified := v_delta_modified || jsonb_build_object(
+            'id', v_old_item.id,
+            'name', v_old_item.name,
+            'old_qty', v_old_item.qty,
+            'new_qty', (v_item->>'qty')::INTEGER,
+            'old_note', v_old_item.note,
+            'new_note', (v_item->>'note')::TEXT,
+            'price_cents', v_item_price
+          );
+        END IF;
 
-    -- Check if item already exists in this order (preserves historical price)
-    SELECT * INTO v_old_item
-    FROM public.order_items
-    WHERE order_id = p_order_id
-      AND (
-        (v_item->>'id' IS NOT NULL AND id = (v_item->>'id')::UUID) OR
-        (menu_item_id = v_menu_item.id)
-      )
-    LIMIT 1;
+        UPDATE public.order_items
+        SET
+          qty = (v_item->>'qty')::INTEGER,
+          note = (v_item->>'note')::TEXT,
+          updated_at = now()
+        WHERE id = v_old_item.id;
+      ELSE
+        -- Item ID not found for this order, treat as new item with authoritative pricing
+        SELECT * INTO v_menu_item
+        FROM public.menu_items
+        WHERE id = (v_item->>'menu_item_id')::UUID AND cafe_id = v_cafe_id;
 
-    IF v_old_item.id IS NOT NULL THEN
-      v_item_price := v_old_item.price_cents;
-      v_existing_ids := array_append(v_existing_ids, v_old_item.id);
+        IF v_menu_item.id IS NULL THEN
+          RAISE EXCEPTION 'Menu item not found or does not belong to this cafe: %', v_item->>'name';
+        END IF;
 
-      -- Check for modified delta
-      IF v_old_item.qty != (v_item->>'qty')::INTEGER OR COALESCE(v_old_item.note, '') != COALESCE(v_item->>'note', '') THEN
-        v_delta_modified := v_delta_modified || jsonb_build_object(
+        v_item_price := v_menu_item.price_cents;
+        v_new_total_cents := v_new_total_cents + (v_item_price * (v_item->>'qty')::INTEGER);
+
+        INSERT INTO public.order_items (
+          order_id, menu_item_id, name, price_cents, qty, note, status
+        ) VALUES (
+          p_order_id,
+          v_menu_item.id,
+          v_menu_item.name,
+          v_item_price,
+          (v_item->>'qty')::INTEGER,
+          (v_item->>'note')::TEXT,
+          'pending'
+        ) RETURNING id INTO v_old_item.id;
+
+        v_existing_ids := array_append(v_existing_ids, v_old_item.id);
+
+        v_delta_added := v_delta_added || jsonb_build_object(
+          'id', v_old_item.id,
           'menu_item_id', v_menu_item.id,
-          'name', v_old_item.name,
-          'old_qty', v_old_item.qty,
-          'new_qty', (v_item->>'qty')::INTEGER,
-          'old_note', v_old_item.note,
-          'new_note', v_item->>'note',
+          'name', v_menu_item.name,
+          'qty', (v_item->>'qty')::INTEGER,
+          'note', (v_item->>'note')::TEXT,
           'price_cents', v_item_price
         );
       END IF;
-
-      -- Update existing item
-      UPDATE public.order_items
-      SET 
-        qty = (v_item->>'qty')::INTEGER,
-        note = v_item->>'note',
-        price_cents = v_item_price
-      WHERE id = v_old_item.id;
-
     ELSE
-      -- Authoritative price from public.menu_items for new items
+      -- New item without ID: authoritative pricing from menu_items
+      SELECT * INTO v_menu_item
+      FROM public.menu_items
+      WHERE id = (v_item->>'menu_item_id')::UUID AND cafe_id = v_cafe_id;
+
+      IF v_menu_item.id IS NULL THEN
+        RAISE EXCEPTION 'Menu item not found or does not belong to this cafe: %', v_item->>'name';
+      END IF;
+
       v_item_price := v_menu_item.price_cents;
+      v_new_total_cents := v_new_total_cents + (v_item_price * (v_item->>'qty')::INTEGER);
 
-      -- Add to delta added
-      v_delta_added := v_delta_added || jsonb_build_object(
-        'menu_item_id', v_menu_item.id,
-        'name', v_menu_item.name,
-        'qty', (v_item->>'qty')::INTEGER,
-        'note', v_item->>'note',
-        'price_cents', v_item_price
-      );
-
-      -- Insert new item
       INSERT INTO public.order_items (
-        order_id,
-        menu_item_id,
-        name,
-        price_cents,
-        qty,
-        note,
-        prep_station,
-        base_prep_time_minutes
+        order_id, menu_item_id, name, price_cents, qty, note, status
       ) VALUES (
         p_order_id,
         v_menu_item.id,
         v_menu_item.name,
         v_item_price,
         (v_item->>'qty')::INTEGER,
-        v_item->>'note',
-        COALESCE(v_menu_item.prep_station, 'kitchen'::public.prep_station),
-        COALESCE(v_menu_item.base_prep_time_minutes, 5)
+        (v_item->>'note')::TEXT,
+        'pending'
+      ) RETURNING id INTO v_old_item.id;
+
+      v_existing_ids := array_append(v_existing_ids, v_old_item.id);
+
+      v_delta_added := v_delta_added || jsonb_build_object(
+        'id', v_old_item.id,
+        'menu_item_id', v_menu_item.id,
+        'name', v_menu_item.name,
+        'qty', (v_item->>'qty')::INTEGER,
+        'note', (v_item->>'note')::TEXT,
+        'price_cents', v_item_price
       );
     END IF;
-
-    v_new_total_cents := v_new_total_cents + (v_item_price * (v_item->>'qty')::INTEGER);
   END LOOP;
 
-  -- Capture removed items
-  FOR v_old_item IN 
-    SELECT * FROM public.order_items 
-    WHERE order_id = p_order_id AND id != ALL(v_existing_ids)
+  -- Identify removed items
+  FOR v_old_item IN
+    SELECT * FROM public.order_items
+    WHERE order_id = p_order_id AND id != ALL(v_existing_ids) AND status != 'cancelled'
   LOOP
     v_delta_removed := v_delta_removed || jsonb_build_object(
+      'id', v_old_item.id,
       'menu_item_id', v_old_item.menu_item_id,
       'name', v_old_item.name,
       'qty', v_old_item.qty,
@@ -252,8 +280,16 @@ BEGIN
     updated_at = now()
   WHERE id = p_order_id;
 
-  -- 10. Determine if Amendment KOT is required
-  v_requires_amendment_kot := (v_order_status IN ('preparing', 'ready', 'served'));
+  -- 10. Determine if Amendment KOT is required & calculate authoritative amendment number
+  IF v_order.kot_fired_at IS NOT NULL THEN
+    v_requires_amendment_kot := true;
+    v_amendment_number := (v_current_version + 1) - COALESCE(v_order.initial_kot_version, 1);
+    v_amendment_code := 'M' || v_amendment_number;
+  ELSE
+    v_requires_amendment_kot := false;
+    v_amendment_number := 0;
+    v_amendment_code := NULL;
+  END IF;
 
   -- 11. Handle Pending Bill if one exists for the session
   IF v_dining_session_id IS NOT NULL THEN
@@ -290,7 +326,7 @@ BEGIN
         AND o.status != 'cancelled'
       GROUP BY oi.menu_item_id, oi.name, mc.name, oi.price_cents;
 
-      -- Update bill header subtotal and totals
+      -- Update bill header
       SELECT 
         COALESCE(SUM(line_total), 0),
         COALESCE(SUM(quantity), 0)
@@ -307,7 +343,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 12. Record Audit Event
+  -- 12. Record Order Event
   INSERT INTO public.order_events (
     dining_session_id,
     order_id,
@@ -327,6 +363,9 @@ BEGIN
       'new_subtotal', v_new_total_cents,
       'previous_version', v_current_version,
       'new_version', v_current_version + 1,
+      'initial_kot_version', v_order.initial_kot_version,
+      'amendment_number', v_amendment_number,
+      'amendment_code', v_amendment_code,
       'actor', p_actor
     )
   );
@@ -337,10 +376,13 @@ BEGIN
     'order_id', p_order_id,
     'previous_version', v_current_version,
     'new_version', v_current_version + 1,
+    'initial_kot_version', v_order.initial_kot_version,
     'previous_subtotal', v_prev_subtotal_cents,
     'new_subtotal', v_new_total_cents,
     'delta', jsonb_build_object('added', v_delta_added, 'removed', v_delta_removed, 'modified', v_delta_modified),
-    'requires_amendment_kot', v_requires_amendment_kot
+    'requires_amendment_kot', v_requires_amendment_kot,
+    'amendment_number', v_amendment_number,
+    'amendment_code', v_amendment_code
   );
 END;
 $$;
@@ -436,8 +478,8 @@ BEGIN
     );
   END IF;
 
-  -- 6. Determine if Cancel KOT is required (only if order reached kitchen in preparing or ready status)
-  v_requires_cancel_kot := (v_order_status IN ('preparing', 'ready'));
+  -- 6. Determine if Cancel KOT is required (only if initial KOT was fired and not already served)
+  v_requires_cancel_kot := (v_order.kot_fired_at IS NOT NULL AND v_order_status != 'served');
 
   -- 7. Update orders row
   UPDATE public.orders
@@ -535,7 +577,102 @@ BEGIN
 END;
 $$;
 
--- 4. Atomic KOT Reprint Sequential Allocation RPC function
+-- 4. Atomic Record Initial KOT Fired RPC function (Idempotent)
+CREATE OR REPLACE FUNCTION public.record_initial_kot_fired_atomic(
+  p_order_id UUID,
+  p_actor TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_order RECORD;
+  v_cafe_id UUID;
+BEGIN
+  -- 1. Validate actor parameter
+  IF p_actor NOT IN ('counter', 'staff', 'owner') THEN
+    RAISE EXCEPTION 'Invalid actor "%". Allowed values: counter, staff, owner', p_actor;
+  END IF;
+
+  -- 2. Lock order row FOR UPDATE
+  SELECT * INTO v_order
+  FROM public.orders
+  WHERE id = p_order_id
+  FOR UPDATE;
+
+  IF v_order.id IS NULL THEN
+    RAISE EXCEPTION 'Order not found with ID: %', p_order_id;
+  END IF;
+
+  v_cafe_id := v_order.cafe_id;
+
+  -- 3. Authorization check
+  IF NOT (
+    public.has_role(auth.uid(), 'owner', v_cafe_id) OR
+    public.has_role(auth.uid(), 'counter', v_cafe_id) OR
+    public.has_role(auth.uid(), 'staff', v_cafe_id) OR
+    public.is_demo_admin(auth.uid())
+  ) THEN
+    RAISE EXCEPTION '403 Forbidden: Insufficient permissions to record KOT for this cafe.';
+  END IF;
+
+  -- 4. Idempotency check: If already fired, return existing state
+  IF v_order.kot_fired_at IS NOT NULL THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'already_fired', true,
+      'order_id', p_order_id,
+      'order_number', v_order.order_number,
+      'initial_kot_version', v_order.initial_kot_version,
+      'kot_fired_at', v_order.kot_fired_at
+    );
+  END IF;
+
+  -- 5. Mark initial KOT fired at current version
+  UPDATE public.orders
+  SET
+    kot_fired_at = now(),
+    initial_kot_version = version,
+    last_updated_by = p_actor,
+    updated_at = now()
+  WHERE id = p_order_id;
+
+  -- 6. Insert audit event into order_events
+  INSERT INTO public.order_events (
+    dining_session_id,
+    order_id,
+    event_type,
+    title,
+    actor,
+    metadata
+  ) VALUES (
+    COALESCE(v_order.dining_session_id, gen_random_uuid()),
+    p_order_id,
+    'kot_fired',
+    'Initial KOT fired (Order #' || v_order.order_number || ')',
+    p_actor,
+    jsonb_build_object(
+      'order_number', v_order.order_number,
+      'initial_kot_version', v_order.version,
+      'fired_at', now(),
+      'actor', p_actor
+    )
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'already_fired', false,
+    'order_id', p_order_id,
+    'order_number', v_order.order_number,
+    'initial_kot_version', v_order.version,
+    'kot_fired_at', now()
+  );
+END;
+$$;
+
+-- 5. Atomic KOT Reprint Sequential Allocation RPC function
 CREATE OR REPLACE FUNCTION public.record_kot_reprint_atomic(
   p_order_id UUID,
   p_actor TEXT
@@ -617,7 +754,8 @@ BEGIN
 END;
 $$;
 
--- 5. Restrict execution privileges to authenticated users
+-- 6. Restrict execution privileges to authenticated users
 GRANT EXECUTE ON FUNCTION public.edit_order_atomic(UUID, JSONB, TEXT, TEXT, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cancel_order_atomic(UUID, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.record_initial_kot_fired_atomic(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.record_kot_reprint_atomic(UUID, TEXT) TO authenticated;

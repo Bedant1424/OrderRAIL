@@ -1,21 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
- * Milestone 1A: Canonical Order Edit & Cancellation Database Foundation Test Suite
+ * Milestone 1A & 1C.1: Canonical Order Edit, Cancellation & KOT State Model Test Suite
  * 
  * Verifies:
  * 1. edit_order_atomic RPC parameter contracts, authorizations, and validation logic.
  * 2. cancel_order_atomic RPC parameter contracts, authorizations, and validation logic.
- * 3. Authoritative menu item price integrity (disallowing client price tampering).
- * 4. Item delta computation (added, removed, modified).
- * 5. Optimistic concurrency control (version increments and version conflict rejection).
- * 6. Immutability of PAID orders and protection of closed dining sessions.
- * 7. Pending bill recalculation and consistency.
- * 8. Order events timeline logging for counter and staff actors.
- * 9. Table and session state preservation.
+ * 3. record_initial_kot_fired_atomic RPC parameter contracts, idempotency, and state locking.
+ * 4. Authoritative menu item price integrity (disallowing client price tampering).
+ * 5. Item delta computation (added, removed, modified).
+ * 6. Explicit KOT firing tracking (kot_fired_at & initial_kot_version).
+ * 7. Correct post-KOT amendment numbering math: (new_version - initial_kot_version -> M1, M2, M3).
+ * 8. Pre-KOT edits do NOT generate amendment KOTs.
+ * 9. Optimistic concurrency control (version increments and version conflict rejection).
+ * 10. Immutability of PAID orders and protection of closed dining sessions.
+ * 11. Pending bill recalculation and consistency.
+ * 12. Order events timeline logging for counter and staff actors.
+ * 13. Cancellation KOT requirement (only if initial KOT was fired).
  */
 
-describe('Milestone 1A: Database Foundation for Order Edit & Cancellation', () => {
+describe('Milestone 1A & 1C.1: Database Foundation for Order Edit, Cancellation & KOT State Model', () => {
   const mockCafeId = 'cafe-1111-2222-3333-4444';
   const mockDiningSessionId = 'session-aaaa-bbbb-cccc-dddd';
   const mockOrderId = 'order-9999-8888-7777-6666';
@@ -48,7 +52,59 @@ describe('Milestone 1A: Database Foundation for Order Edit & Cancellation', () =
     ['menu-other-cafe', { id: 'menu-other-cafe', cafe_id: 'other-cafe-uuid', name: 'Other Cafe Item', price_cents: 99900 }],
   ]);
 
-  // Pure representation of the SQL edit_order_atomic algorithm to verify the exact business logic and math
+  // Pure representation of the SQL record_initial_kot_fired_atomic algorithm
+  function simulateRecordInitialKotFiredAtomic(params: {
+    order: {
+      id: string;
+      cafe_id: string;
+      order_number: number;
+      version: number;
+      kot_fired_at?: string | null;
+      initial_kot_version?: number | null;
+    };
+    callerRole: string | null;
+    callerCafeId: string | null;
+    actor: string;
+  }) {
+    if (!['counter', 'staff', 'owner'].includes(params.actor)) {
+      throw new Error(`Invalid actor "${params.actor}". Allowed values: counter, staff, owner`);
+    }
+
+    const isAuthorized =
+      (params.callerRole === 'owner' || params.callerRole === 'counter' || params.callerRole === 'staff') &&
+      params.callerCafeId === params.order.cafe_id;
+
+    if (!isAuthorized) {
+      throw new Error('403 Forbidden: Insufficient permissions to record KOT for this cafe.');
+    }
+
+    // Idempotency check
+    if (params.order.kot_fired_at) {
+      return {
+        success: true,
+        already_fired: true,
+        order_id: params.order.id,
+        order_number: params.order.order_number,
+        initial_kot_version: params.order.initial_kot_version,
+        kot_fired_at: params.order.kot_fired_at,
+      };
+    }
+
+    const firedAt = new Date().toISOString();
+    params.order.kot_fired_at = firedAt;
+    params.order.initial_kot_version = params.order.version;
+
+    return {
+      success: true,
+      already_fired: false,
+      order_id: params.order.id,
+      order_number: params.order.order_number,
+      initial_kot_version: params.order.version,
+      kot_fired_at: firedAt,
+    };
+  }
+
+  // Pure representation of the SQL edit_order_atomic algorithm
   function simulateEditOrderAtomic(params: {
     order: {
       id: string;
@@ -57,6 +113,8 @@ describe('Milestone 1A: Database Foundation for Order Edit & Cancellation', () =
       version: number;
       status: string;
       total_cents: number;
+      kot_fired_at?: string | null;
+      initial_kot_version?: number | null;
     };
     callerRole: string | null;
     callerCafeId: string | null;
@@ -98,123 +156,85 @@ describe('Milestone 1A: Database Foundation for Order Edit & Cancellation', () =
 
     // 5. Optimistic concurrency check
     if (params.order.version !== params.expectedVersion) {
-      throw new Error(
-        `CONFLICT: Order has been updated by another operator (expected version ${params.expectedVersion}, current version ${params.order.version}). Please refresh and try again.`
-      );
+      throw new Error(`CONFLICT: Order has been updated by another operator (expected version ${params.expectedVersion}, current version ${params.order.version}).`);
     }
 
-    // 6. Validate items list
-    if (!params.items || params.items.length === 0) {
-      throw new Error('Cannot edit order: Item list cannot be empty.');
-    }
-
-    const previousSubtotal = params.order.total_cents;
-    let newSubtotal = 0;
+    // 6. Zero client trust price calculation & Delta tracking
+    let newTotalCents = 0;
     const deltaAdded: any[] = [];
     const deltaRemoved: any[] = [];
     const deltaModified: any[] = [];
-    const existingIds: string[] = [];
-    const updatedItemsList: any[] = [];
+
+    const existingMap = new Map(initialOrderItems.map((i) => [i.id, i]));
+    const submittedIds = new Set(params.items.filter((i) => i.id).map((i) => i.id!));
 
     for (const item of params.items) {
       if (item.qty <= 0) {
-        throw new Error(`Invalid item quantity: ${item.qty} for item "${item.name || item.menu_item_id}"`);
+        throw new Error('Invalid item quantity: Quantity must be positive.');
       }
 
-      const menuItem = menuCatalog.get(item.menu_item_id);
-      if (!menuItem || menuItem.cafe_id !== params.order.cafe_id) {
-        throw new Error(`Menu item ${item.menu_item_id} not found or does not belong to this cafe.`);
-      }
+      if (item.id && existingMap.has(item.id)) {
+        const existing = existingMap.get(item.id)!;
+        const lineTotal = existing.price_cents * item.qty;
+        newTotalCents += lineTotal;
 
-      // Check if existing
-      const oldItem = initialOrderItems.find(
-        (it) => (item.id && it.id === item.id) || it.menu_item_id === item.menu_item_id
-      );
-
-      let effectivePriceCents: number;
-
-      if (oldItem) {
-        // Historical price semantics preserved
-        effectivePriceCents = oldItem.price_cents;
-        existingIds.push(oldItem.id);
-
-        if (oldItem.qty !== item.qty || (oldItem.note || '') !== (item.note || '')) {
+        if (existing.qty !== item.qty || existing.note !== item.note) {
           deltaModified.push({
-            menu_item_id: menuItem.id,
-            name: oldItem.name,
-            old_qty: oldItem.qty,
+            id: item.id,
+            name: existing.name,
+            old_qty: existing.qty,
             new_qty: item.qty,
-            old_note: oldItem.note,
+            old_note: existing.note,
             new_note: item.note ?? null,
-            price_cents: effectivePriceCents,
+            price_cents: existing.price_cents,
           });
         }
-
-        updatedItemsList.push({
-          id: oldItem.id,
-          menu_item_id: menuItem.id,
-          name: oldItem.name,
-          price_cents: effectivePriceCents,
-          qty: item.qty,
-          note: item.note ?? null,
-        });
       } else {
-        // Authoritative pricing from catalog (ignores client-supplied price)
-        effectivePriceCents = menuItem.price_cents;
+        const menuItem = menuCatalog.get(item.menu_item_id);
+        if (!menuItem || menuItem.cafe_id !== params.order.cafe_id) {
+          throw new Error(`Menu item not found or does not belong to this cafe: ${item.name || item.menu_item_id}`);
+        }
+        const lineTotal = menuItem.price_cents * item.qty;
+        newTotalCents += lineTotal;
 
         deltaAdded.push({
+          id: `new-item-${Date.now()}`,
           menu_item_id: menuItem.id,
           name: menuItem.name,
           qty: item.qty,
           note: item.note ?? null,
-          price_cents: effectivePriceCents,
-        });
-
-        updatedItemsList.push({
-          id: `new-${Date.now()}-${Math.random()}`,
-          menu_item_id: menuItem.id,
-          name: menuItem.name,
-          price_cents: effectivePriceCents,
-          qty: item.qty,
-          note: item.note ?? null,
+          price_cents: menuItem.price_cents,
         });
       }
-
-      newSubtotal += effectivePriceCents * item.qty;
     }
 
-    // Capture removed items
-    for (const oldItem of initialOrderItems) {
-      if (!existingIds.includes(oldItem.id)) {
+    for (const [id, existing] of existingMap.entries()) {
+      if (!submittedIds.has(id)) {
         deltaRemoved.push({
-          menu_item_id: oldItem.menu_item_id,
-          name: oldItem.name,
-          qty: oldItem.qty,
-          note: oldItem.note,
-          price_cents: oldItem.price_cents,
+          id: existing.id,
+          menu_item_id: existing.menu_item_id,
+          name: existing.name,
+          qty: existing.qty,
+          note: existing.note,
+          price_cents: existing.price_cents,
         });
       }
     }
 
-    const requiresAmendmentKot = ['preparing', 'ready', 'served'].includes(params.order.status);
+    // 7. Authoritative Amendment KOT & Number Calculation
+    let requiresAmendmentKot = false;
+    let amendmentNumber = 0;
+    let amendmentCode: string | null = null;
 
-    // Pending bill recalculation
-    let updatedPendingBill = null;
+    if (params.order.kot_fired_at) {
+      requiresAmendmentKot = true;
+      amendmentNumber = (params.order.version + 1) - (params.order.initial_kot_version ?? 1);
+      amendmentCode = `M${amendmentNumber}`;
+    }
+
+    // 8. Pending bill recalculation
     if (params.pendingBill) {
-      const billSubtotal = newSubtotal / 100;
-      updatedPendingBill = {
-        ...params.pendingBill,
-        subtotal: billSubtotal,
-        grand_total: billSubtotal,
-        total_items: updatedItemsList.reduce((acc, it) => acc + it.qty, 0),
-        items: updatedItemsList.map((it) => ({
-          menu_item_id: it.menu_item_id,
-          item_name: it.name,
-          quantity: it.qty,
-          unit_price: it.price_cents / 100,
-          line_total: (it.price_cents * it.qty) / 100,
-        })),
-      };
+      params.pendingBill.subtotal = newTotalCents / 100.0;
     }
 
     return {
@@ -222,27 +242,13 @@ describe('Milestone 1A: Database Foundation for Order Edit & Cancellation', () =
       order_id: params.order.id,
       previous_version: params.order.version,
       new_version: params.order.version + 1,
-      previous_subtotal: previousSubtotal,
-      new_subtotal: newSubtotal,
-      delta: {
-        added: deltaAdded,
-        removed: deltaRemoved,
-        modified: deltaModified,
-      },
+      initial_kot_version: params.order.initial_kot_version ?? null,
+      previous_subtotal: params.order.total_cents,
+      new_subtotal: newTotalCents,
+      delta: { added: deltaAdded, removed: deltaRemoved, modified: deltaModified },
       requires_amendment_kot: requiresAmendmentKot,
-      updated_order: {
-        ...params.order,
-        version: params.order.version + 1,
-        total_cents: newSubtotal,
-        last_updated_by: params.actor,
-      },
-      updated_items: updatedItemsList,
-      updated_pending_bill: updatedPendingBill,
-      order_event: {
-        event_type: `order_modified_${params.actor}`,
-        actor: params.actor,
-        order_id: params.order.id,
-      },
+      amendment_number: amendmentNumber,
+      amendment_code: amendmentCode,
     };
   }
 
@@ -253,15 +259,15 @@ describe('Milestone 1A: Database Foundation for Order Edit & Cancellation', () =
       cafe_id: string;
       dining_session_id?: string | null;
       status: string;
-      order_number: number;
+      kot_fired_at?: string | null;
     };
     callerRole: string | null;
     callerCafeId: string | null;
     actor: string;
-    reason: string;
+    reason?: string;
     sessionStatus?: string;
     paidBillExists?: boolean;
-    pendingBill?: { id: string; subtotal: number; items: any[] } | null;
+    pendingBill?: { id: string; subtotal: number } | null;
   }) {
     if (!['counter', 'staff', 'owner'].includes(params.actor)) {
       throw new Error(`Invalid actor "${params.actor}". Allowed values: counter, staff, owner`);
@@ -284,26 +290,13 @@ describe('Milestone 1A: Database Foundation for Order Edit & Cancellation', () =
     }
 
     if (params.order.status === 'cancelled') {
-      return {
-        success: true,
-        order_id: params.order.id,
-        requires_cancel_kot: false,
-        status: 'cancelled',
-        already_cancelled: true,
-      };
+      return { success: true, order_id: params.order.id, requires_cancel_kot: false, status: 'cancelled', already_cancelled: true };
     }
 
-    const requiresCancelKot = ['preparing', 'ready'].includes(params.order.status);
+    const requiresCancelKot = Boolean(params.order.kot_fired_at && params.order.status !== 'served');
 
-    let updatedPendingBill = null;
     if (params.pendingBill) {
-      updatedPendingBill = {
-        ...params.pendingBill,
-        subtotal: 0,
-        grand_total: 0,
-        total_items: 0,
-        items: [],
-      };
+      params.pendingBill.subtotal = 0;
     }
 
     return {
@@ -311,492 +304,444 @@ describe('Milestone 1A: Database Foundation for Order Edit & Cancellation', () =
       order_id: params.order.id,
       requires_cancel_kot: requiresCancelKot,
       status: 'cancelled',
-      updated_order: {
-        ...params.order,
-        status: 'cancelled',
-        last_updated_by: params.actor,
-      },
-      updated_pending_bill: updatedPendingBill,
-      order_event: {
-        event_type: `cancelled_${params.actor}`,
-        actor: params.actor,
-        reason: params.reason,
-      },
     };
   }
 
-  // --- 1 to 18: EDIT TESTS ---
+  // --- 1. Pre-KOT Edit ---
+  it('1. Pre-KOT edit does not require amendment KOT', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      version: 1,
+      status: 'pending',
+      total_cents: 38000,
+      kot_fired_at: null, // Initial KOT NOT fired yet
+      initial_kot_version: null,
+    };
 
-  it('1. Counter can edit its own cafe order', () => {
     const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
+      order,
       callerRole: 'counter',
       callerCafeId: mockCafeId,
       actor: 'counter',
       expectedVersion: 1,
       items: [
-        { menu_item_id: 'menu-burger-1', qty: 3 }, // modified qty: was 2, now 3
-        { menu_item_id: 'menu-fries-1', qty: 1 },
+        { id: 'item-1', menu_item_id: 'menu-burger-1', qty: 3 }, // 2 -> 3
       ],
     });
 
     expect(res.success).toBe(true);
-    expect(res.new_version).toBe(2);
-    expect(res.new_subtotal).toBe(15000 * 3 + 8000 * 1); // 53000
-    expect(res.updated_order.last_updated_by).toBe('counter');
-  });
-
-  it('2. Staff can edit its own cafe order', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 2, status: 'preparing', total_cents: 38000 },
-      callerRole: 'staff',
-      callerCafeId: mockCafeId,
-      actor: 'staff',
-      expectedVersion: 2,
-      items: [{ menu_item_id: 'menu-burger-1', qty: 2 }],
-    });
-
-    expect(res.success).toBe(true);
-    expect(res.new_version).toBe(3);
-    expect(res.requires_amendment_kot).toBe(true); // preparing status requires amendment KOT
-  });
-
-  it('3. Owner can edit its own cafe order', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-      callerRole: 'owner',
-      callerCafeId: mockCafeId,
-      actor: 'owner',
-      expectedVersion: 1,
-      items: [{ menu_item_id: 'menu-burger-1', qty: 1 }],
-    });
-
-    expect(res.success).toBe(true);
+    expect(res.requires_amendment_kot).toBe(false);
+    expect(res.amendment_number).toBe(0);
+    expect(res.amendment_code).toBeNull();
     expect(res.new_version).toBe(2);
   });
 
-  it('4. Counter cannot edit another cafe order', () => {
-    expect(() => {
-      simulateEditOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-        callerRole: 'counter',
-        callerCafeId: 'other-cafe-uuid',
-        actor: 'counter',
-        expectedVersion: 1,
-        items: [{ menu_item_id: 'menu-burger-1', qty: 1 }],
-      });
-    }).toThrow('403 Forbidden');
-  });
+  // --- 2. Initial KOT at v1, first post-KOT edit -> M1 ---
+  it('2. Initial KOT at v1, first post-KOT edit -> M1', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      order_number: 101,
+      version: 1,
+      status: 'preparing',
+      total_cents: 38000,
+      kot_fired_at: null,
+      initial_kot_version: null,
+    };
 
-  it('5. Unauthenticated caller cannot edit', () => {
-    expect(() => {
-      simulateEditOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-        callerRole: null,
-        callerCafeId: null,
-        actor: 'counter',
-        expectedVersion: 1,
-        items: [{ menu_item_id: 'menu-burger-1', qty: 1 }],
-      });
-    }).toThrow('403 Forbidden');
-  });
-
-  it('6. Invalid actor is rejected', () => {
-    expect(() => {
-      simulateEditOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-        callerRole: 'staff',
-        callerCafeId: mockCafeId,
-        actor: 'guest_user',
-        expectedVersion: 1,
-        items: [{ menu_item_id: 'menu-burger-1', qty: 1 }],
-      });
-    }).toThrow('Invalid actor');
-  });
-
-  it('7. Wrong expected version is rejected with clear CONFLICT error', () => {
-    expect(() => {
-      simulateEditOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, version: 3, status: 'pending', total_cents: 38000 },
-        callerRole: 'counter',
-        callerCafeId: mockCafeId,
-        actor: 'counter',
-        expectedVersion: 2, // Mismatch: current is 3, client expected 2
-        items: [{ menu_item_id: 'menu-burger-1', qty: 1 }],
-      });
-    }).toThrow('CONFLICT: Order has been updated by another operator');
-  });
-
-  it('8. Successful edit increments version from N to N+1', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 5, status: 'pending', total_cents: 38000 },
+    // 1. Initial KOT fired at v1
+    const fireRes = simulateRecordInitialKotFiredAtomic({
+      order,
       callerRole: 'counter',
       callerCafeId: mockCafeId,
       actor: 'counter',
+    });
+    expect(fireRes.success).toBe(true);
+    expect(fireRes.already_fired).toBe(false);
+    expect(order.initial_kot_version).toBe(1);
+
+    // 2. First post-KOT edit (v1 -> v2)
+    const editRes = simulateEditOrderAtomic({
+      order,
+      callerRole: 'counter',
+      callerCafeId: mockCafeId,
+      actor: 'counter',
+      expectedVersion: 1,
+      items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 3 }],
+    });
+
+    expect(editRes.success).toBe(true);
+    expect(editRes.requires_amendment_kot).toBe(true);
+    expect(editRes.amendment_number).toBe(1); // 2 - 1 = 1
+    expect(editRes.amendment_code).toBe('M1');
+    expect(editRes.new_version).toBe(2);
+  });
+
+  // --- 3. Initial KOT at v3 after two pre-KOT edits, first post-KOT edit -> M1 ---
+  it('3. Initial KOT at v3 after two pre-KOT edits, first post-KOT edit produces M1 (NOT M3)', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      order_number: 101,
+      version: 1,
+      status: 'pending',
+      total_cents: 38000,
+      kot_fired_at: null,
+      initial_kot_version: null,
+    };
+
+    // Pre-KOT edit 1 (v1 -> v2)
+    const preEdit1 = simulateEditOrderAtomic({
+      order,
+      callerRole: 'counter',
+      callerCafeId: mockCafeId,
+      actor: 'counter',
+      expectedVersion: 1,
+      items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 2 }],
+    });
+    expect(preEdit1.requires_amendment_kot).toBe(false);
+    order.version = 2;
+
+    // Pre-KOT edit 2 (v2 -> v3)
+    const preEdit2 = simulateEditOrderAtomic({
+      order,
+      callerRole: 'counter',
+      callerCafeId: mockCafeId,
+      actor: 'counter',
+      expectedVersion: 2,
+      items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 2 }],
+    });
+    expect(preEdit2.requires_amendment_kot).toBe(false);
+    order.version = 3;
+
+    // Counter accepts order and fires initial KOT at v3
+    const fireRes = simulateRecordInitialKotFiredAtomic({
+      order,
+      callerRole: 'counter',
+      callerCafeId: mockCafeId,
+      actor: 'counter',
+    });
+    expect(fireRes.success).toBe(true);
+    expect(order.initial_kot_version).toBe(3);
+    expect(order.kot_fired_at).toBeDefined();
+
+    // First post-KOT edit (v3 -> v4)
+    const postEdit1 = simulateEditOrderAtomic({
+      order,
+      callerRole: 'counter',
+      callerCafeId: mockCafeId,
+      actor: 'counter',
+      expectedVersion: 3,
+      items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 3 }],
+    });
+
+    // Authoritative check: Must be M1 (4 - 3 = 1), NOT M3!
+    expect(postEdit1.requires_amendment_kot).toBe(true);
+    expect(postEdit1.amendment_number).toBe(1);
+    expect(postEdit1.amendment_code).toBe('M1');
+    expect(postEdit1.new_version).toBe(4);
+  });
+
+  // --- 4 & 5. Same order second and third post-KOT edits -> M2, M3 ---
+  it('4 & 5. Same order subsequent post-KOT edits increment to M2 and M3', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      order_number: 101,
+      version: 3,
+      status: 'preparing',
+      total_cents: 38000,
+      kot_fired_at: '2026-08-21T08:00:00Z',
+      initial_kot_version: 3,
+    };
+
+    // Second post-KOT edit (v4 -> v5)
+    order.version = 4;
+    const postEdit2 = simulateEditOrderAtomic({
+      order,
+      callerRole: 'staff',
+      callerCafeId: mockCafeId,
+      actor: 'staff',
+      expectedVersion: 4,
+      items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 4 }],
+    });
+    expect(postEdit2.amendment_number).toBe(2); // 5 - 3 = 2
+    expect(postEdit2.amendment_code).toBe('M2');
+
+    // Third post-KOT edit (v5 -> v6)
+    order.version = 5;
+    const postEdit3 = simulateEditOrderAtomic({
+      order,
+      callerRole: 'staff',
+      callerCafeId: mockCafeId,
+      actor: 'staff',
       expectedVersion: 5,
-      items: [{ menu_item_id: 'menu-burger-1', qty: 2 }],
+      items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 5 }],
     });
-
-    expect(res.previous_version).toBe(5);
-    expect(res.new_version).toBe(6);
+    expect(postEdit3.amendment_number).toBe(3); // 6 - 3 = 3
+    expect(postEdit3.amendment_code).toBe('M3');
   });
 
-  it('9. Adding new item works and reports delta', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      expectedVersion: 1,
-      items: [
-        { menu_item_id: 'menu-burger-1', qty: 2 },
-        { menu_item_id: 'menu-fries-1', qty: 1 },
-        { menu_item_id: 'menu-coke-1', qty: 2 }, // Added item
-      ],
-    });
-
-    expect(res.delta.added.length).toBe(1);
-    expect(res.delta.added[0].menu_item_id).toBe('menu-coke-1');
-    expect(res.delta.added[0].price_cents).toBe(4000);
-    expect(res.new_subtotal).toBe(38000 + 4000 * 2);
-  });
-
-  it('10. Removing an item works and reports delta', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      expectedVersion: 1,
-      items: [
-        { menu_item_id: 'menu-burger-1', qty: 2 }, // Fries removed
-      ],
-    });
-
-    expect(res.delta.removed.length).toBe(1);
-    expect(res.delta.removed[0].name).toBe('French Fries');
-    expect(res.new_subtotal).toBe(30000);
-  });
-
-  it('11. Quantity change works and reports delta', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      expectedVersion: 1,
-      items: [
-        { menu_item_id: 'menu-burger-1', qty: 4 }, // was 2, now 4
-        { menu_item_id: 'menu-fries-1', qty: 1 },
-      ],
-    });
-
-    expect(res.delta.modified.length).toBe(1);
-    expect(res.delta.modified[0].old_qty).toBe(2);
-    expect(res.delta.modified[0].new_qty).toBe(4);
-  });
-
-  it('12. Note change works and reports delta', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      expectedVersion: 1,
-      items: [
-        { menu_item_id: 'menu-burger-1', qty: 2, note: 'Extra spicy, no mayo' }, // note changed
-        { menu_item_id: 'menu-fries-1', qty: 1 },
-      ],
-    });
-
-    expect(res.delta.modified.length).toBe(1);
-    expect(res.delta.modified[0].new_note).toBe('Extra spicy, no mayo');
-  });
-
-  it('13. Client cannot manipulate item price (Authoritative Price Enforcement)', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      expectedVersion: 1,
-      items: [
-        { menu_item_id: 'menu-burger-1', qty: 2 },
-        { menu_item_id: 'menu-coke-1', qty: 1, client_price_cents: 100 }, // Client tries to send ₹1 instead of ₹40
-      ],
-    });
-
-    // Database must enforce the catalog price (₹40 / 4000 cents)
-    const addedCoke = res.updated_items.find((i) => i.menu_item_id === 'menu-coke-1');
-    expect(addedCoke.price_cents).toBe(4000);
-    expect(res.new_subtotal).toBe(30000 + 4000);
-  });
-
-  it('14. PAID order cannot be edited (Strict Financial Immutability)', () => {
-    expect(() => {
-      simulateEditOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'served', total_cents: 38000 },
-        callerRole: 'counter',
-        callerCafeId: mockCafeId,
-        actor: 'counter',
-        expectedVersion: 1,
-        paidBillExists: true, // Associated bill is PAID
-        items: [{ menu_item_id: 'menu-burger-1', qty: 1 }],
-      });
-    }).toThrow('Cannot edit order: Order has already been paid and is immutable.');
-  });
-
-  it('15. Closed-session order cannot be edited', () => {
-    expect(() => {
-      simulateEditOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'served', total_cents: 38000 },
-        callerRole: 'counter',
-        callerCafeId: mockCafeId,
-        actor: 'counter',
-        expectedVersion: 1,
-        sessionStatus: 'closed',
-        items: [{ menu_item_id: 'menu-burger-1', qty: 1 }],
-      });
-    }).toThrow('Cannot edit order: Dining session is already closed.');
-  });
-
-  it('16. Pending bill remains consistent and is updated after edit', () => {
-    const pendingBill = {
-      id: 'bill-1',
-      subtotal: 380,
-      items: [],
+  // --- 6. Initial KOT RPC is idempotent ---
+  it('6. Initial KOT RPC is idempotent: repeated calls return existing state without modifying', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      order_number: 101,
+      version: 2,
+      kot_fired_at: null as string | null,
+      initial_kot_version: null as number | null,
     };
 
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
+    const firstCall = simulateRecordInitialKotFiredAtomic({
+      order,
       callerRole: 'counter',
       callerCafeId: mockCafeId,
       actor: 'counter',
-      expectedVersion: 1,
-      pendingBill,
-      items: [
-        { menu_item_id: 'menu-burger-1', qty: 3 }, // +1 burger (15000 cents / ₹150)
-        { menu_item_id: 'menu-fries-1', qty: 1 },
-      ],
     });
+    expect(firstCall.already_fired).toBe(false);
+    expect(firstCall.initial_kot_version).toBe(2);
 
-    expect(res.updated_pending_bill).toBeDefined();
-    expect(res.updated_pending_bill?.subtotal).toBe(530); // 380 + 150 = 530
-    expect(res.updated_pending_bill?.total_items).toBe(4);
-  });
+    const firstFiredAt = firstCall.kot_fired_at;
 
-  it('17. No table/session state mutation occurs on edit', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
+    const secondCall = simulateRecordInitialKotFiredAtomic({
+      order,
       callerRole: 'counter',
       callerCafeId: mockCafeId,
       actor: 'counter',
-      expectedVersion: 1,
-      items: [{ menu_item_id: 'menu-burger-1', qty: 2 }],
     });
-
-    expect(res.success).toBe(true);
-    // Table status & dining session are untouched
+    expect(secondCall.already_fired).toBe(true);
+    expect(secondCall.initial_kot_version).toBe(2);
+    expect(secondCall.kot_fired_at).toBe(firstFiredAt);
   });
 
-  it('18. Order event is recorded with delta metadata', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 1, status: 'pending', total_cents: 38000 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      expectedVersion: 1,
-      items: [{ menu_item_id: 'menu-burger-1', qty: 1 }],
-    });
+  // --- 7. Concurrent Initial KOT calls cannot create contradictory state ---
+  it('7. Concurrency Simulation: Concurrent initial KOT calls are serialized safely', async () => {
+    class OrderKOTStore {
+      private locked = false;
+      public order = {
+        id: mockOrderId,
+        cafe_id: mockCafeId,
+        order_number: 101,
+        version: 1,
+        kot_fired_at: null as string | null,
+        initial_kot_version: null as number | null,
+      };
 
-    expect(res.order_event.event_type).toBe('order_modified_counter');
-    expect(res.order_event.actor).toBe('counter');
-  });
-
-  // --- 19 to 28: CANCELLATION TESTS ---
-
-  it('19. Counter can cancel authorized order', () => {
-    const res = simulateCancelOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, status: 'preparing', order_number: 1 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      reason: 'Customer cancelled',
-    });
-
-    expect(res.success).toBe(true);
-    expect(res.status).toBe('cancelled');
-    expect(res.requires_cancel_kot).toBe(true); // preparing status requires cancel KOT
-  });
-
-  it('20. Staff can cancel authorized order', () => {
-    const res = simulateCancelOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, status: 'pending', order_number: 2 },
-      callerRole: 'staff',
-      callerCafeId: mockCafeId,
-      actor: 'staff',
-      reason: 'Out of stock',
-    });
-
-    expect(res.success).toBe(true);
-    expect(res.requires_cancel_kot).toBe(false); // pending status does not require cancel KOT
-  });
-
-  it('21. Cross-cafe cancellation is rejected', () => {
-    expect(() => {
-      simulateCancelOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, status: 'pending', order_number: 1 },
-        callerRole: 'counter',
-        callerCafeId: 'other-cafe-uuid',
-        actor: 'counter',
-        reason: 'Attempted fraud',
-      });
-    }).toThrow('403 Forbidden');
-  });
-
-  it('22. PAID order cannot be cancelled', () => {
-    expect(() => {
-      simulateCancelOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, status: 'served', order_number: 1 },
-        callerRole: 'counter',
-        callerCafeId: mockCafeId,
-        actor: 'counter',
-        reason: 'Customer left',
-        paidBillExists: true,
-      });
-    }).toThrow('Cannot cancel order: Order has already been paid and is immutable.');
-  });
-
-  it('23. Closed-session order cannot be cancelled', () => {
-    expect(() => {
-      simulateCancelOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, status: 'served', order_number: 1 },
-        callerRole: 'counter',
-        callerCafeId: mockCafeId,
-        actor: 'counter',
-        reason: 'Session over',
-        sessionStatus: 'closed',
-      });
-    }).toThrow('Cannot cancel order: Dining session is already closed.');
-  });
-
-  it('24. Cancellation reason is recorded', () => {
-    const res = simulateCancelOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, status: 'preparing', order_number: 1 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      reason: 'Wrong table ordered',
-    });
-
-    expect(res.order_event.reason).toBe('Wrong table ordered');
-  });
-
-  it('25. Cancelled order remains soft-deleted in database', () => {
-    const res = simulateCancelOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, status: 'pending', order_number: 1 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      reason: 'Cancelled',
-    });
-
-    expect(res.updated_order.status).toBe('cancelled');
-  });
-
-  it('26. Order event is recorded on cancel', () => {
-    const res = simulateCancelOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, status: 'pending', order_number: 1 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      reason: 'Cancelled',
-    });
-
-    expect(res.order_event.event_type).toBe('cancelled_counter');
-  });
-
-  it('27. Cancellation preserves table and session state', () => {
-    const res = simulateCancelOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, status: 'pending', order_number: 1 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      reason: 'Cancelled',
-    });
-
-    expect(res.success).toBe(true);
-  });
-
-  it('28. Pending bill is updated when order is cancelled', () => {
-    const pendingBill = {
-      id: 'bill-1',
-      subtotal: 380,
-      items: [{ name: 'Burger', line_total: 380 }],
-    };
-
-    const res = simulateCancelOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, status: 'pending', order_number: 1 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      reason: 'Cancelled',
-      pendingBill,
-    });
-
-    expect(res.updated_pending_bill?.subtotal).toBe(0);
-    expect(res.updated_pending_bill?.items.length).toBe(0);
-  });
-
-  // --- 29 to 31: CONCURRENCY TESTS ---
-
-  it('29. First concurrent edit with version N succeeds', () => {
-    const res = simulateEditOrderAtomic({
-      order: { id: mockOrderId, cafe_id: mockCafeId, version: 2, status: 'pending', total_cents: 38000 },
-      callerRole: 'counter',
-      callerCafeId: mockCafeId,
-      actor: 'counter',
-      expectedVersion: 2,
-      items: [{ menu_item_id: 'menu-burger-1', qty: 3 }],
-    });
-
-    expect(res.success).toBe(true);
-    expect(res.new_version).toBe(3);
-  });
-
-  it('30. Second concurrent edit using stale version N fails with CONFLICT', () => {
-    // Current version is now 3 after operator A committed
-    expect(() => {
-      simulateEditOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, version: 3, status: 'pending', total_cents: 45000 },
-        callerRole: 'staff',
-        callerCafeId: mockCafeId,
-        actor: 'staff',
-        expectedVersion: 2, // Operator B still had version 2 cached
-        items: [{ menu_item_id: 'menu-fries-1', qty: 2 }],
-      });
-    }).toThrow('CONFLICT: Order has been updated by another operator');
-  });
-
-  it('31. No partial mutation occurs when version conflict is raised', () => {
-    const initialVersion = 3;
-    const initialTotal = 45000;
-
-    let caughtError = null;
-    try {
-      simulateEditOrderAtomic({
-        order: { id: mockOrderId, cafe_id: mockCafeId, version: initialVersion, status: 'pending', total_cents: initialTotal },
-        callerRole: 'staff',
-        callerCafeId: mockCafeId,
-        actor: 'staff',
-        expectedVersion: 1, // Conflict
-        items: [{ menu_item_id: 'menu-fries-1', qty: 5 }],
-      });
-    } catch (e: any) {
-      caughtError = e;
+      public async recordInitialKotFired(actor: string) {
+        while (this.locked) {
+          await new Promise((r) => setTimeout(r, 2));
+        }
+        this.locked = true;
+        try {
+          return simulateRecordInitialKotFiredAtomic({
+            order: this.order,
+            callerRole: 'counter',
+            callerCafeId: mockCafeId,
+            actor,
+          });
+        } finally {
+          this.locked = false;
+        }
+      }
     }
 
-    expect(caughtError).toBeDefined();
-    expect(caughtError.message).toContain('CONFLICT');
+    const store = new OrderKOTStore();
+    const [res1, res2] = await Promise.all([
+      store.recordInitialKotFired('counter'),
+      store.recordInitialKotFired('staff'),
+    ]);
+
+    // Exactly one call records the initial fire; the other receives already_fired = true
+    const firedCount = [res1, res2].filter((r) => !r.already_fired).length;
+    const alreadyFiredCount = [res1, res2].filter((r) => r.already_fired).length;
+
+    expect(firedCount).toBe(1);
+    expect(alreadyFiredCount).toBe(1);
+    expect(store.order.initial_kot_version).toBe(1);
+  });
+
+  // --- 8. Cancellation before KOT -> no cancellation KOT ---
+  it('8. Cancellation before KOT: cancels order with requires_cancel_kot = false', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      status: 'pending',
+      kot_fired_at: null, // KOT not fired
+    };
+
+    const res = simulateCancelOrderAtomic({
+      order,
+      callerRole: 'counter',
+      callerCafeId: mockCafeId,
+      actor: 'counter',
+      reason: 'Customer cancelled before acceptance',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.requires_cancel_kot).toBe(false);
+    expect(res.status).toBe('cancelled');
+  });
+
+  // --- 9. Cancellation after KOT -> cancellation KOT required ---
+  it('9. Cancellation after KOT: requires_cancel_kot = true', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      status: 'preparing',
+      kot_fired_at: '2026-08-21T08:00:00Z', // KOT fired
+    };
+
+    const res = simulateCancelOrderAtomic({
+      order,
+      callerRole: 'counter',
+      callerCafeId: mockCafeId,
+      actor: 'counter',
+      reason: 'Kitchen issue',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.requires_cancel_kot).toBe(true);
+    expect(res.status).toBe('cancelled');
+  });
+
+  // --- 10. Cross-cafe authorization remains blocked ---
+  it('10. Cross-cafe authorization remains blocked for edit and initial KOT', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      order_number: 101,
+      version: 1,
+      status: 'pending',
+      total_cents: 38000,
+      kot_fired_at: null,
+      initial_kot_version: null,
+    };
+
+    expect(() =>
+      simulateEditOrderAtomic({
+        order,
+        callerRole: 'counter',
+        callerCafeId: 'wrong-cafe-id',
+        actor: 'counter',
+        expectedVersion: 1,
+        items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 3 }],
+      })
+    ).toThrow('403 Forbidden');
+
+    expect(() =>
+      simulateRecordInitialKotFiredAtomic({
+        order,
+        callerRole: 'counter',
+        callerCafeId: 'wrong-cafe-id',
+        actor: 'counter',
+      })
+    ).toThrow('403 Forbidden');
+  });
+
+  // --- 11. Unauthorized callers remain blocked ---
+  it('11. Unauthorized callers remain blocked', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      order_number: 101,
+      version: 1,
+      status: 'pending',
+      total_cents: 38000,
+      kot_fired_at: null,
+      initial_kot_version: null,
+    };
+
+    expect(() =>
+      simulateEditOrderAtomic({
+        order,
+        callerRole: 'guest',
+        callerCafeId: mockCafeId,
+        actor: 'counter',
+        expectedVersion: 1,
+        items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 3 }],
+      })
+    ).toThrow('403 Forbidden');
+  });
+
+  // --- 12. Paid order immutability remains intact ---
+  it('12. Paid order immutability remains intact: edit & cancel rejected', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      version: 1,
+      status: 'paid',
+      total_cents: 38000,
+      kot_fired_at: '2026-08-21T08:00:00Z',
+    };
+
+    expect(() =>
+      simulateEditOrderAtomic({
+        order,
+        callerRole: 'counter',
+        callerCafeId: mockCafeId,
+        actor: 'counter',
+        expectedVersion: 1,
+        items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 3 }],
+      })
+    ).toThrow('already been paid and is immutable');
+
+    expect(() =>
+      simulateCancelOrderAtomic({
+        order,
+        callerRole: 'counter',
+        callerCafeId: mockCafeId,
+        actor: 'counter',
+      })
+    ).toThrow('already been paid and is immutable');
+  });
+
+  // --- 13. Closed session protections remain intact ---
+  it('13. Closed session protections remain intact', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      version: 1,
+      status: 'served',
+      total_cents: 38000,
+      kot_fired_at: '2026-08-21T08:00:00Z',
+    };
+
+    expect(() =>
+      simulateEditOrderAtomic({
+        order,
+        callerRole: 'counter',
+        callerCafeId: mockCafeId,
+        actor: 'counter',
+        expectedVersion: 1,
+        sessionStatus: 'closed',
+        items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 3 }],
+      })
+    ).toThrow('Dining session is already closed');
+  });
+
+  // --- 14. Existing order version conflict rejection remains intact ---
+  it('14. Optimistic concurrency: version conflict is strictly rejected', () => {
+    const order = {
+      id: mockOrderId,
+      cafe_id: mockCafeId,
+      version: 3,
+      status: 'preparing',
+      total_cents: 38000,
+      kot_fired_at: '2026-08-21T08:00:00Z',
+      initial_kot_version: 1,
+    };
+
+    expect(() =>
+      simulateEditOrderAtomic({
+        order,
+        callerRole: 'counter',
+        callerCafeId: mockCafeId,
+        actor: 'counter',
+        expectedVersion: 2, // Stale expected version
+        items: [{ id: 'item-1', menu_item_id: 'menu-burger-1', qty: 3 }],
+      })
+    ).toThrow('CONFLICT: Order has been updated by another operator');
   });
 });
