@@ -84,11 +84,18 @@ export class AnalyticsServiceClass {
    */
   public async fetchOwnerAnalytics(
     cafeId: string,
-    rangeDays: 7 | 30 | 90 = 7
+    rangeDays: number = 7,
+    startDate?: string | null,
+    endDate?: string | null
   ): Promise<OwnerAnalyticsSummaryData> {
-    const sinceDate = new Date();
-    sinceDate.setDate(sinceDate.getDate() - rangeDays + 1);
-    sinceDate.setHours(0, 0, 0, 0);
+    let sinceDate: Date;
+    if (startDate) {
+      sinceDate = new Date(startDate + "T00:00:00.000Z");
+    } else {
+      sinceDate = new Date();
+      sinceDate.setDate(sinceDate.getDate() - rangeDays + 1);
+      sinceDate.setHours(0, 0, 0, 0);
+    }
     const sinceIso = sinceDate.toISOString();
 
     const todayStartDate = new Date();
@@ -99,7 +106,7 @@ export class AnalyticsServiceClass {
     const [rangeRpcResult, operationalOrdersRes, todayOrdersRes, tablesRes, reviewsRes, staffRes] =
       await Promise.allSettled([
         // A. Authoritative Financial Range RPC (Single source of financial truth)
-        AnalyticsRepository.fetchOwnerAnalyticsRange(cafeId, rangeDays),
+        AnalyticsRepository.fetchOwnerAnalyticsRange(cafeId, rangeDays, startDate, endDate),
 
         // B. Operational Orders (for prep time, queue counts, hourly peak distribution, live feed)
         supabase
@@ -267,7 +274,8 @@ export class AnalyticsServiceClass {
         rangeRpcResult.reason
       );
 
-      const fallbackBills = await AnalyticsRepository.getBillsByDateRange(cafeId, sinceIso, new Date().toISOString());
+      const untilIso = endDate ? new Date(endDate + "T23:59:59.999Z").toISOString() : new Date().toISOString();
+      const fallbackBills = await AnalyticsRepository.getBillsByDateRange(cafeId, sinceIso, untilIso);
       const paidBills = fallbackBills.filter((b) => b.payment_status === "PAID");
       const todayPaidBills = paidBills.filter((b) => {
         const bd = b.business_date || (b.paid_at || b.created_at || "").slice(0, 10);
@@ -311,9 +319,12 @@ export class AnalyticsServiceClass {
       };
 
       // Fallback byDay
+      const effectiveDays = startDate && endDate
+        ? Math.max(1, Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1)
+        : rangeDays;
       const days: Record<string, AnalyticsDaySummary> = {};
-      for (let i = rangeDays - 1; i >= 0; i--) {
-        const d = new Date();
+      for (let i = effectiveDays - 1; i >= 0; i--) {
+        const d = endDate ? new Date(endDate + "T00:00:00.000Z") : new Date();
         d.setDate(d.getDate() - i);
         const k = d.toISOString().slice(0, 10);
         days[k] = {

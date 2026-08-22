@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -30,29 +30,109 @@ import {
   CreditCard,
   Banknote,
   QrCode,
-  Layers
+  Layers,
+  Calendar as CalendarIcon
 } from "lucide-react";
 import { formatMoney, formatOrderLabel, type Order } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
 import { cn } from "@/lib/utils";
 import { AnalyticsService } from "@/lib/analytics/AnalyticsService";
-
-type Range = 7 | 30 | 90;
+import {
+  OrderRailDateRangePicker,
+  formatDateDDMMYYYY,
+  getPresetDates,
+  toISODateString,
+  type DatePresetKey,
+} from "@/components/ui/OrderRailDateRangePicker";
 
 export default function OwnerAnalyticsPage() {
-  const [range, setRange] = useState<Range>(7);
+  const [preset, setPreset] = useState<DatePresetKey>("7d");
+  const [customStartDate, setCustomStartDate] = useState<string | null>(null);
+  const [customEndDate, setCustomEndDate] = useState<string | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const customRangeRef = useRef<HTMLButtonElement>(null);
+
   const { cafe } = useCafe();
   const currency = cafe?.currency ?? "INR";
 
+  // Derive active date parameters for query and display
+  const activeParams = useMemo(() => {
+    if (preset === "7d") {
+      return { rangeDays: 7, startDate: null, endDate: null, label: "Last 7 Days" };
+    }
+    if (preset === "30d") {
+      return { rangeDays: 30, startDate: null, endDate: null, label: "Last 30 Days" };
+    }
+    if (preset === "90d") {
+      return { rangeDays: 90, startDate: null, endDate: null, label: "Last 90 Days" };
+    }
+    if (preset === "custom") {
+      if (customStartDate && customEndDate) {
+        const days = Math.max(
+          1,
+          Math.round(
+            (new Date(customEndDate).getTime() - new Date(customStartDate).getTime()) /
+              (1000 * 60 * 60 * 24)
+          ) + 1
+        );
+        return {
+          rangeDays: days,
+          startDate: customStartDate,
+          endDate: customEndDate,
+          label: `${formatDateDDMMYYYY(customStartDate)} – ${formatDateDDMMYYYY(customEndDate)}`,
+        };
+      }
+      return { rangeDays: 7, startDate: null, endDate: null, label: "Custom Range" };
+    }
+    const dates = getPresetDates(preset);
+    if (dates.start && dates.end) {
+      const days = Math.max(
+        1,
+        Math.round(
+          (new Date(dates.end).getTime() - new Date(dates.start).getTime()) /
+            (1000 * 60 * 60 * 24)
+        ) + 1
+      );
+      const presetLabels: Record<string, string> = {
+        today: "Today",
+        yesterday: "Yesterday",
+        this_month: "This Month",
+        last_month: "Last Month",
+        this_year: "This Year",
+        all: "All Time",
+      };
+      return {
+        rangeDays: days,
+        startDate: dates.start,
+        endDate: dates.end,
+        label: presetLabels[preset] || preset,
+      };
+    }
+    return { rangeDays: 7, startDate: null, endDate: null, label: "Last 7 Days" };
+  }, [preset, customStartDate, customEndDate]);
+
   // Priority 1 & 3: Optimized Single Pre-Aggregated Query with 5min staleTime
   const analyticsQ = useQuery({
-    queryKey: ["owner-analytics-summary", cafe?.id, range],
+    queryKey: [
+      "owner-analytics-summary",
+      cafe?.id,
+      preset,
+      activeParams.startDate,
+      activeParams.endDate,
+      activeParams.rangeDays,
+    ],
     enabled: !!cafe?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes cache
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
-    queryFn: () => AnalyticsService.fetchOwnerAnalytics(cafe!.id, range),
+    queryFn: () =>
+      AnalyticsService.fetchOwnerAnalytics(
+        cafe!.id,
+        activeParams.rangeDays,
+        activeParams.startDate,
+        activeParams.endDate
+      ),
   });
 
   const data = analyticsQ.data;
@@ -102,6 +182,29 @@ export default function OwnerAnalyticsPage() {
   const reviewsCount = data?.reviewsCount ?? 0;
   const staffCount = data?.staffCount ?? 1;
 
+  // Presentation-only tender share calculation
+  const netCollectedCents = rangeRevenueMetrics.netSalesCents;
+  const calculateTenderPct = (tenderAmount: number) => {
+    if (netCollectedCents <= 0) return "0.0";
+    const pct = ((tenderAmount * 100) / netCollectedCents) * 100;
+    return Math.min(100, Math.max(0, pct)).toFixed(1);
+  };
+
+  // Subtitle date range representation
+  const subtitleRangeText = useMemo(() => {
+    if (data?.byDay && data.byDay.length > 0) {
+      const first = data.byDay[0]?.day;
+      const last = data.byDay[data.byDay.length - 1]?.day;
+      if (first && last) {
+        if (first === last) {
+          return `${first} · ${activeParams.label}`;
+        }
+        return `${first} – ${last} · ${activeParams.label}`;
+      }
+    }
+    return activeParams.label;
+  }, [data?.byDay, activeParams.label]);
+
   return (
     <div className="space-y-8 pb-12">
       {/* Header Bar */}
@@ -114,27 +217,81 @@ export default function OwnerAnalyticsPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? "OrderRail"} · Performance summary for the last {range} days
+            {cafe?.name ?? "OrderRail"} · Performance summary for {subtitleRangeText}
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <GlobalNotificationControls />
-          <div className="inline-flex rounded-full bg-secondary p-1 text-xs font-medium shadow-inner">
-            {([7, 30, 90] as Range[]).map((r) => (
+
+          {/* Quick Presets Chips + Custom Range Trigger */}
+          <div className="inline-flex flex-wrap items-center gap-1.5 rounded-2xl bg-secondary/60 p-1 text-xs font-medium shadow-inner">
+            {[
+              { id: "today", label: "Today" },
+              { id: "yesterday", label: "Yesterday" },
+              { id: "7d", label: "7D" },
+              { id: "30d", label: "30D" },
+              { id: "90d", label: "90D" },
+              { id: "this_month", label: "This Month" },
+              { id: "last_month", label: "Last Month" },
+            ].map((chip) => (
               <button
-                key={r}
-                onClick={() => setRange(r)}
+                key={chip.id}
+                onClick={() => {
+                  setPreset(chip.id as DatePresetKey);
+                  setIsPickerOpen(false);
+                }}
                 className={cn(
-                  "rounded-full px-3.5 py-1.5 transition duration-150 cursor-pointer",
-                  range === r
-                    ? "bg-background text-foreground shadow-soft font-semibold"
+                  "rounded-xl px-3 py-1.5 transition duration-150 cursor-pointer font-semibold",
+                  preset === chip.id
+                    ? "bg-background text-foreground shadow-soft"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {r} Days
+                {chip.label}
               </button>
             ))}
+
+            {/* Custom Range Popover Trigger */}
+            <div className="relative">
+              <button
+                ref={customRangeRef}
+                onClick={() => setIsPickerOpen((prev) => !prev)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition duration-150 cursor-pointer font-semibold",
+                  preset === "custom" || isPickerOpen
+                    ? "bg-primary text-primary-foreground shadow-soft"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <CalendarIcon className="h-3.5 w-3.5" />
+                <span>
+                  {preset === "custom" && customStartDate
+                    ? `${formatDateDDMMYYYY(customStartDate)} – ${formatDateDDMMYYYY(customEndDate)}`
+                    : "Custom"}
+                </span>
+              </button>
+
+              <OrderRailDateRangePicker
+                open={isPickerOpen}
+                onClose={() => setIsPickerOpen(false)}
+                triggerRef={customRangeRef}
+                initialStartDate={customStartDate}
+                initialEndDate={customEndDate}
+                initialPreset={preset}
+                onApply={(sDate, eDate, pKey) => {
+                  setPreset(pKey);
+                  if (sDate) {
+                    setCustomStartDate(sDate);
+                    setCustomEndDate(eDate || sDate);
+                  } else {
+                    setCustomStartDate(null);
+                    setCustomEndDate(null);
+                  }
+                  setIsPickerOpen(false);
+                }}
+              />
+            </div>
           </div>
         </div>
       </header>
@@ -217,6 +374,62 @@ export default function OwnerAnalyticsPage() {
         />
       </section>
 
+      {/* Authoritative Tender Breakdown Section */}
+      <section className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
+          <div className="flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-brand" />
+            <h2 className="font-display text-base font-semibold">Tender Collection Breakdown</h2>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            Authoritative net realized collections · {formatMoney(rangeRevenueMetrics.netSalesCents, currency)}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <TenderCard
+            isLoading={isLoading}
+            icon={Banknote}
+            label="Cash"
+            amount={tenders.cash}
+            currency={currency}
+            percentage={calculateTenderPct(tenders.cash)}
+            colorClass="text-emerald-500 bg-emerald-500/10"
+            barColorClass="bg-emerald-500"
+          />
+          <TenderCard
+            isLoading={isLoading}
+            icon={QrCode}
+            label="UPI"
+            amount={tenders.upi}
+            currency={currency}
+            percentage={calculateTenderPct(tenders.upi)}
+            colorClass="text-blue-500 bg-blue-500/10"
+            barColorClass="bg-blue-500"
+          />
+          <TenderCard
+            isLoading={isLoading}
+            icon={CreditCard}
+            label="Card"
+            amount={tenders.card}
+            currency={currency}
+            percentage={calculateTenderPct(tenders.card)}
+            colorClass="text-purple-500 bg-purple-500/10"
+            barColorClass="bg-purple-500"
+          />
+          <TenderCard
+            isLoading={isLoading}
+            icon={Layers}
+            label="Other / Split"
+            amount={tenders.other}
+            currency={currency}
+            percentage={calculateTenderPct(tenders.other)}
+            colorClass="text-amber-500 bg-amber-500/10"
+            barColorClass="bg-amber-500"
+          />
+        </div>
+      </section>
+
       {/* Revenue Chart & Peak Hours */}
       <section className="grid gap-6 lg:grid-cols-3">
         {/* Revenue Trend Area Chart */}
@@ -224,14 +437,14 @@ export default function OwnerAnalyticsPage() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="font-display text-base font-semibold">Revenue Trend</h2>
-              <p className="text-xs text-muted-foreground">Daily net realized sales over {range} days</p>
+              <p className="text-xs text-muted-foreground">Daily net realized sales ({activeParams.label})</p>
             </div>
             <div className="text-right">
               <div className="font-display text-lg font-bold tabular-nums text-foreground">
                 {formatMoney(rangeRevenueMetrics.netSalesCents, currency)}
               </div>
               <div className="text-[11px] font-medium text-emerald-600 flex items-center justify-end gap-0.5">
-                <ArrowUpRight className="h-3 w-3" /> Net Sales ({range}d · {rangeRevenueMetrics.paidBillsCount} {rangeRevenueMetrics.paidBillsCount === 1 ? "bill" : "bills"})
+                <ArrowUpRight className="h-3 w-3" /> Net Sales ({activeParams.label} · {rangeRevenueMetrics.paidBillsCount} {rangeRevenueMetrics.paidBillsCount === 1 ? "bill" : "bills"})
               </div>
             </div>
           </div>
@@ -454,6 +667,60 @@ function KpiCard({
         {subtext && (
           <p className="mt-1 text-[11px] text-muted-foreground truncate">{subtext}</p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function TenderCard({
+  isLoading,
+  icon: Icon,
+  label,
+  amount,
+  currency,
+  percentage,
+  colorClass,
+  barColorClass,
+}: {
+  isLoading: boolean;
+  icon: any;
+  label: string;
+  amount: number;
+  currency: string;
+  percentage: string;
+  colorClass: string;
+  barColorClass: string;
+}) {
+  const pctNum = parseFloat(percentage) || 0;
+  return (
+    <div className="rounded-2xl bg-secondary/30 p-4 ring-1 ring-border/40 space-y-3 transition hover:bg-secondary/40">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={cn("rounded-xl p-2", colorClass)}>
+            <Icon className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-semibold text-foreground">{label}</span>
+        </div>
+        <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums", colorClass)}>
+          {percentage}%
+        </span>
+      </div>
+
+      <div>
+        <div className="font-display text-base sm:text-lg font-bold tabular-nums text-foreground">
+          {isLoading ? (
+            <div className="h-6 w-20 animate-pulse rounded bg-secondary" />
+          ) : (
+            formatMoney(Math.round(amount * 100), currency)
+          )}
+        </div>
+      </div>
+
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
+        <div
+          className={cn("h-full rounded-full transition-all duration-500", barColorClass)}
+          style={{ width: `${Math.min(100, Math.max(0, pctNum))}%` }}
+        />
       </div>
     </div>
   );
