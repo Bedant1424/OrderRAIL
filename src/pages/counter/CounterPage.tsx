@@ -903,29 +903,36 @@ const OrderCard = memo(({
         <span className="v8-font-mono">{formatCurrency(order.subtotal)}</span>
       </div>
 
-      <div className="pt-2 border-t border-border/30 flex flex-wrap justify-end items-center gap-1.5">
-        {/* Pending: Cancel + Modify + Accept Order (primary) */}
+      <div className="pt-2 border-t border-border/30 flex flex-col gap-1.5 w-full">
+        {/* Pending: Cancel + Modify (50/50) + Accept Order (full-width) */}
         {isPending && (
           <>
-            {onCancelOrder && (
-              <button
-                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-destructive hover:bg-destructive/10 font-semibold flex items-center gap-1 border border-destructive/30"
-                onClick={() => onCancelOrder(order, tableLabel)}
-              >
-                <Trash2 className="w-3 h-3" /> Cancel
-              </button>
-            )}
-            {onModifyOrder && (
-              <button
-                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1 border border-border/50"
-                onClick={() => onModifyOrder(order, tableLabel)}
-              >
-                <Pencil className="w-3 h-3" /> Modify
-              </button>
+            {(onCancelOrder || onModifyOrder) && (
+              <div className="grid grid-cols-2 gap-1.5 w-full">
+                {onCancelOrder && (
+                  <button
+                    type="button"
+                    className="h-8 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                    onClick={() => onCancelOrder(order, tableLabel)}
+                  >
+                    <Trash2 className="w-3 h-3 text-red-500" /> Cancel
+                  </button>
+                )}
+                {onModifyOrder && (
+                  <button
+                    type="button"
+                    className="h-8 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-blue-600 dark:text-blue-400 bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                    onClick={() => onModifyOrder(order, tableLabel)}
+                  >
+                    <Pencil className="w-3 h-3 text-blue-500" /> Modify
+                  </button>
+                )}
+              </div>
             )}
             {onAcceptOrder && (
               <button 
-                className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold flex items-center gap-1"
+                type="button"
+                className="w-full h-8 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
                 onClick={() => onAcceptOrder(order.id, order.orderNumber, order)}
               >
                 <Check className="w-3.5 h-3.5" /> Accept Order
@@ -934,28 +941,35 @@ const OrderCard = memo(({
           </>
         )}
 
-        {/* Accepted: Cancel + Modify + Send KOT (primary) */}
+        {/* Accepted: Cancel + Modify (50/50) + Send KOT (full-width) */}
         {isAccepted && (
           <>
-            {onCancelOrder && (
-              <button
-                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-destructive hover:bg-destructive/10 font-semibold flex items-center gap-1 border border-destructive/30"
-                onClick={() => onCancelOrder(order, tableLabel)}
-              >
-                <Trash2 className="w-3 h-3" /> Cancel
-              </button>
-            )}
-            {onModifyOrder && (
-              <button
-                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1 border border-border/50"
-                onClick={() => onModifyOrder(order, tableLabel)}
-              >
-                <Pencil className="w-3 h-3" /> Modify
-              </button>
+            {(onCancelOrder || onModifyOrder) && (
+              <div className="grid grid-cols-2 gap-1.5 w-full">
+                {onCancelOrder && (
+                  <button
+                    type="button"
+                    className="h-8 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                    onClick={() => onCancelOrder(order, tableLabel)}
+                  >
+                    <Trash2 className="w-3 h-3 text-red-500" /> Cancel
+                  </button>
+                )}
+                {onModifyOrder && (
+                  <button
+                    type="button"
+                    className="h-8 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-blue-600 dark:text-blue-400 bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                    onClick={() => onModifyOrder(order, tableLabel)}
+                  >
+                    <Pencil className="w-3 h-3 text-blue-500" /> Modify
+                  </button>
+                )}
+              </div>
             )}
             {onSendKot && (
               <button 
-                className="v8-btn-primary text-xs h-7 px-3 py-0 w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center gap-1 shadow-sm"
+                type="button"
+                className="w-full h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
                 onClick={() => onSendKot(order, tableLabel)}
               >
                 <Printer className="w-3.5 h-3.5" /> Send KOT
@@ -964,28 +978,35 @@ const OrderCard = memo(({
           </>
         )}
 
-        {/* Post-KOT Active (Preparing, Ready): Cancel + Modify + Reprint KOT */}
+        {/* Post-KOT Active (Preparing, Ready): Cancel + Modify (50/50) + Reprint KOT (full-width) */}
         {isPostKotActive && (
           <>
-            {onCancelOrder && (
-              <button
-                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-destructive hover:bg-destructive/10 font-semibold flex items-center gap-1 border border-destructive/30"
-                onClick={() => onCancelOrder(order, tableLabel)}
-              >
-                <Trash2 className="w-3 h-3" /> Cancel
-              </button>
-            )}
-            {onModifyOrder && (
-              <button
-                className="v8-btn-secondary text-xs h-7 px-2.5 py-0 w-auto text-muted-foreground hover:text-foreground font-semibold flex items-center gap-1 border border-border/50"
-                onClick={() => onModifyOrder(order, tableLabel)}
-              >
-                <Pencil className="w-3 h-3" /> Modify
-              </button>
+            {(onCancelOrder || onModifyOrder) && (
+              <div className="grid grid-cols-2 gap-1.5 w-full">
+                {onCancelOrder && (
+                  <button
+                    type="button"
+                    className="h-8 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                    onClick={() => onCancelOrder(order, tableLabel)}
+                  >
+                    <Trash2 className="w-3 h-3 text-red-500" /> Cancel
+                  </button>
+                )}
+                {onModifyOrder && (
+                  <button
+                    type="button"
+                    className="h-8 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 text-blue-600 dark:text-blue-400 bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                    onClick={() => onModifyOrder(order, tableLabel)}
+                  >
+                    <Pencil className="w-3 h-3 text-blue-500" /> Modify
+                  </button>
+                )}
+              </div>
             )}
             {onReprintKot && (
               <button 
-                className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto text-muted-foreground hover:text-foreground font-bold flex items-center gap-1 border border-border/50"
+                type="button"
+                className="w-full h-8 px-3 rounded-lg text-xs text-muted-foreground hover:text-foreground font-bold flex items-center justify-center gap-1.5 border border-border/50 bg-secondary/50 hover:bg-secondary active:scale-[0.98] transition-all cursor-pointer"
                 onClick={() => onReprintKot(order, tableLabel)}
               >
                 <Printer className="w-3.5 h-3.5" /> Reprint KOT
@@ -994,20 +1015,22 @@ const OrderCard = memo(({
           </>
         )}
 
-        {/* Served: Reprint KOT */}
+        {/* Served: Reprint KOT (full-width) */}
         {isServed && onReprintKot && (
           <button 
-            className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto text-muted-foreground hover:text-foreground font-bold flex items-center gap-1 border border-border/50"
+            type="button"
+            className="w-full h-8 px-3 rounded-lg text-xs text-muted-foreground hover:text-foreground font-bold flex items-center justify-center gap-1.5 border border-border/50 bg-secondary/50 hover:bg-secondary active:scale-[0.98] transition-all cursor-pointer"
             onClick={() => onReprintKot(order, tableLabel)}
           >
             <Printer className="w-3.5 h-3.5" /> Reprint KOT
           </button>
         )}
 
-        {/* Cancelled: Reprint Cancelled KOT */}
+        {/* Cancelled: Reprint Cancelled KOT (full-width) */}
         {isCancelled && onReprintKot && (
           <button 
-            className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto text-muted-foreground hover:text-foreground font-bold flex items-center gap-1 border border-border/50"
+            type="button"
+            className="w-full h-8 px-3 rounded-lg text-xs text-muted-foreground hover:text-foreground font-bold flex items-center justify-center gap-1.5 border border-border/50 bg-secondary/50 hover:bg-secondary active:scale-[0.98] transition-all cursor-pointer"
             onClick={() => onReprintKot(order, tableLabel)}
           >
             <Printer className="w-3.5 h-3.5" /> Reprint KOT
