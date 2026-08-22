@@ -76,6 +76,8 @@ export interface OwnerAnalyticsSummaryData {
   reviewsCount: number;
   staffCount: number;
   tables: TableRow[];
+  rawRpc?: OwnerAnalyticsRangeResponse | null;
+  operationalSummary?: OwnerAnalyticsOperationalSummary;
 }
 
 export class AnalyticsServiceClass {
@@ -266,6 +268,8 @@ export class AnalyticsServiceClass {
         reviewsCount: reviews.length,
         staffCount,
         tables,
+        rawRpc: rpcData,
+        operationalSummary: rpcData.operational_summary,
       };
     } else {
       // Fallback path if RPC is not available in mock/test environment
@@ -391,6 +395,15 @@ export class AnalyticsServiceClass {
         reviewsCount: reviews.length,
         staffCount,
         tables,
+        rawRpc: null,
+        operationalSummary: {
+          total_orders_placed: orders.length,
+          cancelled_orders_count: orders.filter((o) => o.status === "cancelled").length,
+          unsettled_orders_count: orders.filter((o) => o.status !== "cancelled" && o.status !== "served").length,
+          unsettled_pipeline_cents: orders
+            .filter((o) => o.status !== "cancelled" && o.status !== "served")
+            .reduce((acc, o) => acc + (o.total_cents || 0), 0),
+        },
       };
     }
   }

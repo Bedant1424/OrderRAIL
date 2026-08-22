@@ -3,3 +3,4 @@ export * from './AnalyticsCalculator';
 export * from './AnalyticsRepository';
 export * from './AnalyticsService';
 export * from './ExportEngine';
+export * from './ownerAnalyticsExporter';

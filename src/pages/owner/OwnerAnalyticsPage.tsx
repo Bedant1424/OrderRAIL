@@ -31,13 +31,21 @@ import {
   Banknote,
   QrCode,
   Layers,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Download,
+  Printer
 } from "lucide-react";
 import { formatMoney, formatOrderLabel, type Order } from "@/lib/db";
 import { useCafe } from "@/lib/cafe";
 import { GlobalNotificationControls } from "@/components/owner/GlobalNotificationControls";
+import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { AnalyticsService } from "@/lib/analytics/AnalyticsService";
+import {
+  downloadOwnerAnalyticsCsv,
+  printOwnerAnalyticsPdf,
+  type CafeExportInfo
+} from "@/lib/analytics/ownerAnalyticsExporter";
 import {
   OrderRailDateRangePicker,
   formatDateDDMMYYYY,
@@ -205,6 +213,72 @@ export default function OwnerAnalyticsPage() {
     return activeParams.label;
   }, [data?.byDay, activeParams.label]);
 
+  // Export state & handlers
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportCsv = () => {
+    if (!data) {
+      toast.error("Owner Analytics data is still loading or unavailable.");
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const cafeInfo: CafeExportInfo = {
+        id: cafe?.id,
+        name: cafe?.name,
+        address: (cafe as any)?.address || null,
+        phone: (cafe as any)?.phone || null,
+        gstin: (cafe as any)?.gstin || null,
+        currency,
+        logo_url: (cafe as any)?.logo_url || null,
+      };
+      downloadOwnerAnalyticsCsv(
+        data,
+        data.rawRpc ?? null,
+        cafeInfo,
+        activeParams.label,
+        activeParams.startDate,
+        activeParams.endDate
+      );
+      toast.success(`Owner Analytics CSV exported for ${activeParams.label}`);
+    } catch (err) {
+      console.error("[OwnerAnalyticsPage] CSV export failed:", err);
+      toast.error("Failed to export Owner Analytics CSV");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handlePrintPdf = () => {
+    if (!data) {
+      toast.error("Owner Analytics data is still loading or unavailable.");
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const cafeInfo: CafeExportInfo = {
+        id: cafe?.id,
+        name: cafe?.name,
+        address: (cafe as any)?.address || null,
+        phone: (cafe as any)?.phone || null,
+        gstin: (cafe as any)?.gstin || null,
+        currency,
+        logo_url: (cafe as any)?.logo_url || null,
+      };
+      printOwnerAnalyticsPdf(
+        data,
+        data.rawRpc ?? null,
+        cafeInfo,
+        activeParams.label
+      );
+    } catch (err) {
+      console.error("[OwnerAnalyticsPage] PDF print failed:", err);
+      toast.error("Failed to prepare Owner Analytics PDF print view");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-8 pb-12">
       {/* Header Bar */}
@@ -223,6 +297,32 @@ export default function OwnerAnalyticsPage() {
 
         <div className="flex flex-wrap items-center gap-2.5">
           <GlobalNotificationControls />
+
+          {/* Export Actions Toolbar */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={isLoading || isExporting || !data}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition-all duration-150 cursor-pointer shadow-xs hover:bg-secondary active:scale-95 disabled:opacity-50 h-8 select-none"
+              title="Export Owner Analytics as CSV"
+              data-testid="owner-analytics-export-csv-button"
+            >
+              <Download className="h-3.5 w-3.5 text-primary" />
+              <span>Export CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePrintPdf}
+              disabled={isLoading || isExporting || !data}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition-all duration-150 cursor-pointer shadow-xs hover:bg-secondary active:scale-95 disabled:opacity-50 h-8 select-none"
+              title="Print / Export Owner Analytics as PDF"
+              data-testid="owner-analytics-print-pdf-button"
+            >
+              <Printer className="h-3.5 w-3.5 text-primary" />
+              <span>Print PDF</span>
+            </button>
+          </div>
 
           {/* Quick Presets Chips + Custom Range Trigger */}
           <div className="inline-flex flex-wrap items-center gap-1.5 rounded-2xl bg-secondary/60 p-1 text-xs font-medium shadow-inner">
