@@ -193,11 +193,11 @@ export async function editOrderInDb(params: {
       throw err;
     }
 
-    const targetSessionId = currentOrder.session_id || sessionId || getSessionId();
+    const targetSessionId = guestSessionId || sessionId || currentOrder.session_id || getSessionId();
     const targetVersion = expectedVersion ?? currentOrder.version ?? 1;
 
     const ownerId = currentOrder.guest_session_id || currentOrder.session_id;
-    if (ownerId && guestSessionId && ownerId !== guestSessionId && currentOrder.session_id !== targetSessionId) {
+    if (ownerId && guestSessionId && ownerId !== guestSessionId) {
       const err = new Error("403 Forbidden: Guests may only edit their own orders");
       (err as any).status = 403;
       throw err;
@@ -550,8 +550,17 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
     });
   }
 
-  // Synchronize table occupancy and active_session_id
+  // Synchronize table occupancy and active_session_id atomically via RPC
   if (diningSessionId && payload.table_id) {
+    try {
+      await supabase.rpc("activate_dining_session_on_order", {
+        p_dining_session_id: diningSessionId,
+        p_table_id: payload.table_id,
+      });
+    } catch (e: any) {
+      console.warn("[createOrderInDb] activate_dining_session_on_order fallback notice:", e?.message || e);
+    }
+
     const { data: session } = await supabase
       .from("dining_sessions")
       .select("status")

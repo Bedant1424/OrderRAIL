@@ -40,10 +40,23 @@ export function clearGuestSession(tableId: string): void {
 /**
  * Updates last_seen_at timestamp whenever the guest performs meaningful actions.
  */
-export async function touchGuestSession(guestSessionId: string): Promise<void> {
+export async function touchGuestSession(
+  guestSessionId: string,
+  diningSessionId?: string,
+  tableId?: string
+): Promise<void> {
   if (!guestSessionId || guestSessionId.startsWith("gs-mock-")) return;
 
   try {
+    if (diningSessionId && tableId) {
+      const { data, error: rpcErr } = await supabase.rpc("touch_guest_session", {
+        p_guest_session_id: guestSessionId,
+        p_dining_session_id: diningSessionId,
+        p_table_id: tableId,
+      });
+      if (!rpcErr && data !== false) return;
+    }
+
     await supabase
       .from("guest_sessions")
       .update({

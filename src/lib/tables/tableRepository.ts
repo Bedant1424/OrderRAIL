@@ -217,7 +217,9 @@ export async function getActiveDiningSession(table: TableRow): Promise<{ id: str
       .maybeSingle();
 
     if (sData && sData.status !== "closed") {
-      if (table.status === "free") {
+      // ONLY promote table to occupied if the dining session is actually active (has orders).
+      // Browsing sessions must leave table.status === "free".
+      if (table.status === "free" && sData.status === "active") {
         await supabase
           .from("tables")
           .update({ status: "occupied", active_session_id: sData.id })
@@ -237,7 +239,7 @@ export async function getActiveDiningSession(table: TableRow): Promise<{ id: str
     .maybeSingle();
 
   if (existingSession) {
-    if (table.status === "free" || table.active_session_id !== existingSession.id) {
+    if (existingSession.status === "active" && (table.status === "free" || table.active_session_id !== existingSession.id)) {
       await supabase
         .from("tables")
         .update({ status: "occupied", active_session_id: existingSession.id })
@@ -264,6 +266,26 @@ export async function getOrCreateDiningSession(table: TableRow): Promise<string>
     console.warn("[getOrCreateDiningSession] Best-effort browsing session cleanup skipped:", e);
   }
 
+  // 1. Primary Path: Consume Atomic PostgreSQL RPC with advisory lock
+  const isUuid = (val?: string | null): boolean =>
+    !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+  if (isUuid(table.id) && isUuid(table.cafe_id)) {
+    try {
+      const { data, error } = await supabase.rpc("get_or_create_table_session", {
+        p_table_id: table.id,
+        p_cafe_id: table.cafe_id,
+      });
+
+      if (!error && data && (data as any).id) {
+        return (data as any).id;
+      }
+    } catch (err: any) {
+      console.warn("[getOrCreateDiningSession] RPC get_or_create_table_session notice (fallback to direct read):", err?.message || err);
+    }
+  }
+
+  // 2. Compatibility / Mock / Offline Fallback
   let activeSessionId = table.active_session_id;
   let isSessionValid = false;
 
