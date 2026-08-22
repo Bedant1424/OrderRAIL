@@ -48,6 +48,14 @@ import {
   type CounterNotification,
   type CounterNotificationSettings
 } from '@/lib/counter/counterNotifications';
+import {
+  loadCounterDrafts,
+  saveCounterDraft,
+  clearCounterDraft,
+  clearAllCounterDrafts,
+  type PersistedDraftCartItem,
+  type PersistedTableDraft
+} from '@/lib/counter/counterDraftStorage';
 import { printService, type KotPrintPayloadData, type ReceiptPrintPayloadData } from '@/lib/printing';
 import { BillService, BillSummaryCalculator, BillRepository, type BillWithItems } from '@/lib/billing';
 import { SortingPolicy, RestaurantOperationsService, REALTIME_EVENTS } from '@/lib/operations';
@@ -153,6 +161,169 @@ export interface TableSessionData {
   guestCount: number;
   orders: SessionOrder[];
   draftCart: CartLineItem[];
+}
+
+export interface ReconcileTableSessionsParams {
+  sessionsMap: Record<string, TableSessionData>;
+  activeSessionMap: Map<string, string>;
+  activeSessionCreatedAtMap: Map<string, string>;
+  prev: Record<string, TableSessionData>;
+  persistedDrafts?: Record<string, PersistedTableDraft>;
+  offlineOrders?: any[];
+  isOnline?: boolean;
+}
+
+export function reconcileTableSessions({
+  sessionsMap,
+  activeSessionMap,
+  activeSessionCreatedAtMap,
+  prev,
+  persistedDrafts = {},
+  offlineOrders = [],
+  isOnline = true,
+}: ReconcileTableSessionsParams): Record<string, TableSessionData> {
+  const merged: Record<string, TableSessionData> = {};
+
+  // 1. Process active session entries from DB (tables that have committed DB orders)
+  for (const [tId, sess] of Object.entries(sessionsMap)) {
+    // If table order mode (not express) and table has no active session in DB, skip
+    if (tId !== "express" && !activeSessionMap.has(tId)) {
+      continue;
+    }
+
+    const activeSessionId = activeSessionMap.get(tId);
+    const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || sess.startedAtTimestamp;
+
+    // Retain in-memory draft first, or fall back to persisted draft if session matches
+    let draftCartToKeep: CartLineItem[] = [];
+    if (prev[tId]?.draftCart && prev[tId].draftCart.length > 0) {
+      draftCartToKeep = prev[tId].draftCart;
+    } else if (persistedDrafts[tId]?.draftCart && persistedDrafts[tId].draftCart.length > 0) {
+      const p = persistedDrafts[tId];
+      if (tId === "express" || !p.sessionId || p.sessionId === activeSessionId) {
+        draftCartToKeep = p.draftCart;
+      }
+    }
+
+    merged[tId] = {
+      ...sess,
+      startedAtTimestamp: sessCreatedAt,
+      orders: sess.orders, // Pure PostgreSQL orders
+      draftCart: draftCartToKeep,
+    };
+  }
+
+  // 2. Process in-memory tables that have drafts or active sessions but NO committed DB orders
+  for (const [tId, prevSess] of Object.entries(prev)) {
+    if (merged[tId]) continue; // Already processed above
+
+    // For dine-in tables: verify table has an active session in DB
+    if (tId !== "express") {
+      const activeSessionId = activeSessionMap.get(tId);
+      // If table has no active session in DB, skip (clearing stale closed session drafts)
+      if (!activeSessionId) {
+        continue;
+      }
+      // If previous session ID does not match current active session ID, it's an old session; skip
+      if (prevSess.sessionId && prevSess.sessionId !== activeSessionId) {
+        continue;
+      }
+    }
+
+    // If this previous session had draft items or express orders, retain it!
+    if ((prevSess.draftCart && prevSess.draftCart.length > 0) || (prevSess.orders && prevSess.orders.length > 0)) {
+      merged[tId] = {
+        ...prevSess,
+        orders: prevSess.orders || [],
+        draftCart: prevSess.draftCart || [],
+      };
+    }
+  }
+
+  // 3. Process any persisted drafts from localStorage that are not yet in merged
+  for (const [tId, pDraft] of Object.entries(persistedDrafts)) {
+    if (merged[tId]) continue; // Already in merged
+    if (!pDraft.draftCart || pDraft.draftCart.length === 0) continue;
+
+    if (tId !== "express") {
+      const activeSessionId = activeSessionMap.get(tId);
+      // Only restore if table has an active session and session ID matches
+      if (!activeSessionId || (pDraft.sessionId && pDraft.sessionId !== activeSessionId)) {
+        continue;
+      }
+      const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || new Date().toISOString();
+      const codeSuffix = activeSessionId ? activeSessionId.substring(0, 4).toUpperCase() : "0000";
+      merged[tId] = {
+        sessionId: activeSessionId,
+        sessionCode: `#S-${codeSuffix}`,
+        startedAt: new Date(sessCreatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        startedAtTimestamp: sessCreatedAt,
+        guestCount: 2,
+        orders: [],
+        draftCart: pDraft.draftCart,
+      };
+    } else {
+      merged["express"] = {
+        sessionId: "",
+        sessionCode: "#S-EXPR",
+        startedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        startedAtTimestamp: new Date().toISOString(),
+        guestCount: 1,
+        orders: [],
+        draftCart: pDraft.draftCart,
+      };
+    }
+  }
+
+  // 4. Merge queued offline orders ONLY when currently offline
+  if (!isOnline) {
+    for (const off of offlineOrders) {
+      const tId = off.table_id || "express";
+      const isServedOrPaid = off.status === 'served' || off.status === 'paid' || off.status === 'cancelled' || off.status === 'SERVED' || off.status === 'PAID' || off.status === 'CANCELLED';
+
+      if (tId !== "express" && (!activeSessionMap.has(tId) || isServedOrPaid)) {
+        continue;
+      }
+
+      const sessOrder: SessionOrder = {
+        id: off.id,
+        orderNumber: (off as any).order_number || (off as any).daily_order_number,
+        timestamp: new Date(off.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        createdAt: off.created_at || new Date().toISOString(),
+        status: (off.status.toUpperCase() as any),
+        items: off.items.map((it: any) => ({
+          id: it.id || it.menu_item_id || `c-${Date.now()}`,
+          name: it.name,
+          price: it.price_cents / 100,
+          qty: it.qty,
+          notes: it.note || undefined,
+        })),
+        subtotal: off.total_cents / 100,
+        syncState: off.syncState,
+      };
+
+      if (!merged[tId]) {
+        merged[tId] = {
+          sessionId: off.dining_session_id || "",
+          sessionCode: "#S-OFFL",
+          startedAt: new Date(off.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          startedAtTimestamp: off.created_at,
+          guestCount: 2,
+          orders: [],
+          draftCart: []
+        };
+      }
+
+      const existingIdx = merged[tId].orders.findIndex((o) => o.id === sessOrder.id);
+      if (existingIdx >= 0) {
+        merged[tId].orders[existingIdx] = sessOrder;
+      } else {
+        merged[tId].orders.push(sessOrder);
+      }
+    }
+  }
+
+  return merged;
 }
 
 export interface PaymentTenderRecord {
@@ -3321,92 +3492,16 @@ const CounterLayout = () => {
       }
 
       setTableSessions((prev) => {
-        const merged: Record<string, TableSessionData> = {};
-
-        // 1. Process active session entries from DB
-        for (const [tId, sess] of Object.entries(sessionsMap)) {
-          // If table order mode (not express) and table has no active session in DB, skip
-          if (tId !== "express" && !activeSessionMap.has(tId)) {
-            continue;
-          }
-
-          const sessCreatedAt = activeSessionCreatedAtMap.get(tId) || sess.startedAtTimestamp;
-
-          const prevDraft = prev[tId]?.draftCart || [];
-          let safeDraftCart = prevDraft;
-          if (sess.orders.length > 0 && prevDraft.length > 0) {
-            const dbItemNames = new Set(sess.orders.flatMap((o) => o.items || []).map((i) => i.name));
-            const isDuplicateDraft = prevDraft.every((d) => dbItemNames.has(d.name));
-            if (isDuplicateDraft) {
-              safeDraftCart = [];
-            }
-          }
-
-          merged[tId] = {
-            ...sess,
-            startedAtTimestamp: sessCreatedAt,
-            orders: sess.orders, // Pure PostgreSQL orders
-            draftCart: safeDraftCart
-          };
-        }
-
-        // 2. Retain Express draft cart or active express orders if express key not present in sessionsMap
-        if (prev["express"] && !merged["express"]) {
-          if ((prev["express"].draftCart && prev["express"].draftCart.length > 0) || (prev["express"].orders && prev["express"].orders.length > 0)) {
-            merged["express"] = prev["express"];
-          }
-        }
-
-        // Merge queued offline orders ONLY when currently offline
-        if (!NetworkManager.isOnline()) {
-          for (const off of offlineOrders) {
-            const tId = off.table_id || "express";
-            const isServedOrPaid = off.status === 'served' || off.status === 'paid' || off.status === 'cancelled' || off.status === 'SERVED' || off.status === 'PAID' || off.status === 'CANCELLED';
-
-            // Skip merging offline order if table has no active session or if order is already served/paid/cancelled
-            if (tId !== "express" && (!activeSessionMap.has(tId) || isServedOrPaid)) {
-              continue;
-            }
-
-            const sessOrder: SessionOrder = {
-              id: off.id,
-              orderNumber: (off as any).order_number || (off as any).daily_order_number,
-              timestamp: new Date(off.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-              createdAt: off.created_at || new Date().toISOString(),
-              status: (off.status.toUpperCase() as any),
-              items: off.items.map((it: any) => ({
-                id: it.id || it.menu_item_id || `c-${Date.now()}`,
-                name: it.name,
-                price: it.price_cents / 100,
-                qty: it.qty,
-                notes: it.note || undefined,
-              })),
-              subtotal: off.total_cents / 100,
-              syncState: off.syncState,
-            };
-
-            if (!merged[tId]) {
-              merged[tId] = {
-                sessionId: off.dining_session_id || "",
-                sessionCode: "#S-OFFL",
-                startedAt: new Date(off.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-                startedAtTimestamp: off.created_at,
-                guestCount: 2,
-                orders: [],
-                draftCart: []
-              };
-            }
-
-            const existingIdx = merged[tId].orders.findIndex((o) => o.id === sessOrder.id);
-            if (existingIdx >= 0) {
-              merged[tId].orders[existingIdx] = sessOrder;
-            } else {
-              merged[tId].orders.push(sessOrder);
-            }
-          }
-        }
-
-        return merged;
+        const persistedDrafts = loadCounterDrafts(cafeId || "");
+        return reconcileTableSessions({
+          sessionsMap,
+          activeSessionMap,
+          activeSessionCreatedAtMap,
+          prev,
+          persistedDrafts,
+          offlineOrders,
+          isOnline: NetworkManager.isOnline(),
+        });
       });
 
       return { activeSessions, dbOrders };
@@ -3457,7 +3552,10 @@ const CounterLayout = () => {
       .on(
         "broadcast",
         { event: REALTIME_EVENTS.TABLE_RESET },
-        () => {
+        (payload: any) => {
+          if (payload?.payload?.table_id && cafeId) {
+            clearCounterDraft(cafeId, payload.payload.table_id);
+          }
           void loadSessionsFromDb();
         }
       )
@@ -3686,6 +3784,10 @@ const CounterLayout = () => {
         ];
       }
 
+      if (cafeId) {
+        saveCounterDraft(cafeId, activeTableId, cur.sessionId || selectedTable?.currentSessionId, updatedDraft);
+      }
+
       return {
         ...prev,
         [activeTableId]: {
@@ -3696,7 +3798,7 @@ const CounterLayout = () => {
     });
 
     toast.success(`Added ${item.name} to ${selectedTable?.label ?? 'Express'}`);
-  }, [activeTableId, selectedTable]);
+  }, [activeTableId, cafeId, selectedTable]);
 
   const handleOpenAddonModal = useCallback((item: any) => {
     setAddonModalItem(item);
@@ -3776,6 +3878,10 @@ const CounterLayout = () => {
         }
       }
 
+      if (cafeId) {
+        saveCounterDraft(cafeId, activeTableId, cur.sessionId || selectedTable?.currentSessionId, updatedDraft);
+      }
+
       return {
         ...prev,
         [activeTableId]: {
@@ -3785,7 +3891,7 @@ const CounterLayout = () => {
       };
     });
     toast.success(`Updated add-ons for ${itemObj.name}`);
-  }, [activeTableId, selectedTable]);
+  }, [activeTableId, cafeId, selectedTable]);
 
   const handleUpdateQty = useCallback((id: string, delta: number) => {
     setTableSessions((prev) => {
@@ -3802,6 +3908,10 @@ const CounterLayout = () => {
         })
         .filter(Boolean) as CartLineItem[];
 
+      if (cafeId) {
+        saveCounterDraft(cafeId, activeTableId, cur.sessionId || selectedTable?.currentSessionId, updatedDraft);
+      }
+
       return {
         ...prev,
         [activeTableId]: {
@@ -3810,7 +3920,7 @@ const CounterLayout = () => {
         }
       };
     });
-  }, [activeTableId]);
+  }, [activeTableId, cafeId, selectedTable]);
 
   const handleClearDraft = useCallback(() => {
     setTableSessions((prev) => {
@@ -3821,8 +3931,11 @@ const CounterLayout = () => {
         [activeTableId]: { ...cur, draftCart: [] }
       };
     });
+    if (cafeId) {
+      clearCounterDraft(cafeId, activeTableId);
+    }
     toast('Draft order cleared');
-  }, [activeTableId]);
+  }, [activeTableId, cafeId]);
 
   const [activeKot, setActiveKot] = useState<KotPrintPayload | null>(null);
 
@@ -4013,6 +4126,15 @@ const CounterLayout = () => {
       }
     } catch (e) {
       console.warn("[handleKot] OrderService write warning:", e);
+    }
+
+    if (!createdOrderId) {
+      toast.error("Failed to create order. Draft is preserved.");
+      return;
+    }
+
+    if (cafeId) {
+      clearCounterDraft(cafeId, activeTableId);
     }
 
     const loadRes = await loadSessionsFromDb("Send KOT Post-Write");
@@ -4300,6 +4422,10 @@ const CounterLayout = () => {
             }
           };
         });
+
+        if (cafeId) {
+          clearCounterDraft(cafeId, activeTableId);
+        }
       }
 
       const primaryOrderId = effectiveOrders[0]?.id;
@@ -4477,6 +4603,10 @@ const CounterLayout = () => {
           delete copy[activeTableId];
           return copy;
         });
+
+        if (cafeId) {
+          clearCounterDraft(cafeId, activeTableId);
+        }
 
         toast.success(`💰 Payment Completed! ${selectedTable ? selectedTable.label + ' is cleared.' : ''}`);
       } else if (tableReleaseError || sessionCloseError) {
