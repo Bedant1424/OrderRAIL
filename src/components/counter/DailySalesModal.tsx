@@ -24,6 +24,8 @@ import {
   ChevronUp,
   User,
   Phone,
+  Download,
+  Printer,
 } from "lucide-react";
 import {
   BarChart,
@@ -38,9 +40,16 @@ import type {
   DailySalesReport,
   DailySalesTransaction,
   DailySalesHourlyBucket,
+  DailySalesTransactionsResponse,
 } from "@/lib/sales/types";
 import { DailySalesService } from "@/lib/sales/dailySalesService";
 import { formatCurrency } from "./DailySalesPill";
+import {
+  downloadDailySalesCsv,
+  printDailySalesPdf,
+  type CafeExportInfo,
+} from "@/lib/sales/dailySalesExporter";
+import { toast } from "@/components/ui/sonner";
 
 interface DailySalesModalProps {
   isOpen: boolean;
@@ -51,6 +60,7 @@ interface DailySalesModalProps {
   onRefresh: () => void;
   currency?: string;
   cafeId?: string;
+  cafe?: CafeExportInfo;
 }
 
 const formatBusinessDate = (dateStr?: string): string => {
@@ -94,10 +104,12 @@ export const DailySalesModal: React.FC<DailySalesModalProps> = ({
   onRefresh,
   currency = "INR",
   cafeId,
+  cafe,
 }) => {
   const [activeTab, setActiveTab] = useState<"overview" | "transactions">("overview");
   const [transactions, setTransactions] = useState<DailySalesTransaction[]>([]);
   const [isTxLoading, setIsTxLoading] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
@@ -140,6 +152,60 @@ export const DailySalesModal: React.FC<DailySalesModalProps> = ({
     onRefresh();
     void loadTransactions(true);
   }, [onRefresh, loadTransactions]);
+
+  const getFullTransactionsForExport = useCallback(async (): Promise<DailySalesTransaction[]> => {
+    if (transactions.length > 0) return transactions;
+    if (!effectiveCafeId || !report) return [];
+    try {
+      const res = await DailySalesService.getDailySalesTransactions(
+        effectiveCafeId,
+        report.business_date || null
+      );
+      return res.transactions || [];
+    } catch (err) {
+      console.error("[DailySalesModal] Failed to fetch transactions for export:", err);
+      return [];
+    }
+  }, [transactions, effectiveCafeId, report]);
+
+  const handleExportCsv = useCallback(async () => {
+    if (!report) return;
+    setIsExporting(true);
+    try {
+      const txs = await getFullTransactionsForExport();
+      const txResponse: DailySalesTransactionsResponse = {
+        business_date: report.business_date,
+        cafe_id: effectiveCafeId || "",
+        transactions: txs,
+      };
+      downloadDailySalesCsv(report, txResponse, cafe);
+      toast.success("Daily Sales CSV downloaded");
+    } catch (err) {
+      console.error("[DailySalesModal] CSV export failed:", err);
+      toast.error("Failed to export Daily Sales CSV");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [report, getFullTransactionsForExport, effectiveCafeId, cafe]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!report) return;
+    setIsExporting(true);
+    try {
+      const txs = await getFullTransactionsForExport();
+      const txResponse: DailySalesTransactionsResponse = {
+        business_date: report.business_date,
+        cafe_id: effectiveCafeId || "",
+        transactions: txs,
+      };
+      printDailySalesPdf(report, txResponse, cafe);
+    } catch (err) {
+      console.error("[DailySalesModal] PDF export failed:", err);
+      toast.error("Failed to prepare PDF print document");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [report, getFullTransactionsForExport, effectiveCafeId, cafe]);
 
   const filteredTransactions = useMemo(() => {
     if (!searchQuery.trim()) return transactions;
@@ -188,6 +254,28 @@ export const DailySalesModal: React.FC<DailySalesModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={isLoading || isExporting || !report}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/80 bg-background text-xs font-semibold text-foreground hover:bg-secondary transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+              title="Export Daily Sales as CSV"
+              data-testid="daily-sales-export-csv-button"
+            >
+              <Download className="w-3.5 h-3.5 text-primary" />
+              <span>CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={isLoading || isExporting || !report}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border/80 bg-background text-xs font-semibold text-foreground hover:bg-secondary transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+              title="Print / Export Daily Sales as PDF"
+              data-testid="daily-sales-export-pdf-button"
+            >
+              <Printer className="w-3.5 h-3.5 text-primary" />
+              <span>PDF</span>
+            </button>
             <button
               type="button"
               onClick={handleManualRefresh}

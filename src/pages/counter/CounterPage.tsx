@@ -4580,6 +4580,7 @@ const CounterLayout = () => {
           onRefresh={() => void loadDailySales(true)}
           currency={cafe?.currency}
           cafeId={cafeId || undefined}
+          cafe={cafe ?? undefined}
         />
       </AnimatePresence>
       <DemoDevToolsPanel />
