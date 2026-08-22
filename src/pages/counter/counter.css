@@ -309,8 +309,9 @@
 .v8-menu-row {
   display: flex;
   align-items: center;
-  height: 38px;
-  padding: 0 10px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px;
   background-color: transparent;
   border-radius: 8px;
   transition: all 180ms ease;
@@ -326,8 +327,8 @@
 }
 
 .v8-veg-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -337,7 +338,7 @@
 
 .v8-menu-row-name {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: hsl(var(--foreground));
   flex: 1;
   white-space: nowrap;
@@ -353,15 +354,15 @@
 
 .v8-menu-row-price {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: hsl(var(--foreground));
   font-family: 'JetBrains Mono', monospace;
 }
 
 .v8-menu-add-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background-color: hsl(var(--secondary) / 0.6);
   color: hsl(var(--muted-foreground));
   display: flex;
