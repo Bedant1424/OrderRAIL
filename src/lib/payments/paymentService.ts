@@ -70,7 +70,7 @@ export interface SettlementRecord {
 
 export const settlementsMap = new Map<string, SettlementRecord>();
 
-class PaymentServiceCore {
+export class PaymentServiceClass {
   private handlersRegistered = false;
 
   constructor() {
@@ -250,10 +250,12 @@ class PaymentServiceCore {
         paymentMethod: payload.paymentMethod,
         amount: payload.amount,
         operatorId: payload.operatorId || "Counter Staff",
+        settledByUserId: payload.settledByUserId,
         timestamp: payload.timestamp || new Date().toLocaleTimeString("en-IN"),
         createdAt: new Date().toISOString(),
         status: "settled",
         syncState: "Synced",
+        tenders: payload.tenders,
       };
       settlementsMap.set(settlement.settlementId, settlement);
       return {
@@ -287,10 +289,12 @@ class PaymentServiceCore {
       paymentMethod: payload.paymentMethod,
       amount: payload.amount,
       operatorId: payload.operatorId || "Counter Staff",
+      settledByUserId: payload.settledByUserId,
       timestamp,
       createdAt: new Date().toISOString(),
       status: "settled",
       syncState: "Pending Sync",
+      tenders: payload.tenders,
     };
 
     // 3. Update local state immediately for UI responsiveness

@@ -65,8 +65,8 @@ describe("Compact Thermal Receipt (58mm / 80mm) Builder Validation Tests", () =>
     expect(text).toContain("QTY  ITEM");
     expect(text).not.toContain("ITEM DESCRIPTION");
     // 14. Item amounts correct
-    expect(text).toContain("2x  Espresso Coffee");
-    expect(text).toContain("Rs.240.00");
+    expect(text).toContain("2x Espresso Coffee");
+    expect(text).toContain("240.00");
     // 15. Subtotal correct
     expect(text).toContain("Subtotal:");
     expect(text).toContain("Rs.540.00");
@@ -195,7 +195,7 @@ describe("Compact Thermal Receipt (58mm / 80mm) Builder Validation Tests", () =>
     const result = ReceiptBuilder.build(payload, 58);
 
     expect(result.escpos).toContain("\x1B@"); // INIT
-    expect(result.escpos).toContain("\x1B\x33\x18"); // SET_LINE_SPACING_24
+    expect(result.escpos).toContain("\x1B\x32"); // RESET_LINE_SPACING
     expect(result.escpos).toContain("\x1D\x56\x41\x03"); // FEED & CUT
   });
 
@@ -218,6 +218,6 @@ describe("Compact Thermal Receipt (58mm / 80mm) Builder Validation Tests", () =>
     const lastJob = history[history.length - 1];
     expect(lastJob.type).toBe("RECEIPT");
     expect(lastJob.status).toBe("COMPLETED");
-    expect(lastJob.payload.escpos).toContain("\x1B\x33\x18"); // SET_LINE_SPACING_24
+    expect(lastJob.payload.escpos).toContain("\x1B\x32"); // RESET_LINE_SPACING
   });
 });

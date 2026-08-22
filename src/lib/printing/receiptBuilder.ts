@@ -197,7 +197,7 @@ export class ReceiptBuilder {
     lines.push(divider);
 
     // Items Header
-    lines.push(justify("QTY ITEM", "AMOUNT"));
+    lines.push(justify("QTY  ITEM", "AMOUNT"));
     lines.push(divider);
 
     // Items List
@@ -415,7 +415,7 @@ export class ReceiptBuilder {
 
     // Items Header
     parts.push(ESC_POS.BOLD_ON);
-    parts.push(this.justify("QTY ITEM", "AMOUNT", cols) + "\n");
+    parts.push(this.justify("QTY  ITEM", "AMOUNT", cols) + "\n");
     parts.push(ESC_POS.BOLD_OFF);
     parts.push(divider);
 
