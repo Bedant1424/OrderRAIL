@@ -423,7 +423,7 @@ const TableChip = memo(({
 });
 TableChip.displayName = 'TableChip';
 
-const TableRail = memo(({ 
+export const TableRail = memo(({ 
   tables, 
   tableSessions, 
   nowMs, 
@@ -722,7 +722,7 @@ export const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogIt
 });
 MenuRow.displayName = 'MenuRow';
 
-const MenuPanel = ({ 
+export const MenuPanel = ({ 
   catalog,
   categoriesList,
   searchRef, 
@@ -869,7 +869,7 @@ const MenuPanel = ({
 };
 
 // --- 4. MULTI-ORDER DINING SESSION HERO PANEL ---
-const OrderCard = memo(({ 
+export const OrderCard = memo(({ 
   order, 
   tableLabel, 
   onAcceptOrder, 
