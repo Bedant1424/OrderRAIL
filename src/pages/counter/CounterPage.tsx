@@ -1340,7 +1340,7 @@ const OrderItemRow = memo(({ item, onUpdateQty, onEditAddons }: { item: CartLine
 });
 OrderItemRow.displayName = 'OrderItemRow';
 
-const ActiveOrderPanel = ({
+export const ActiveOrderPanel = ({
   table,
   session,
   nowMs = Date.now(),
@@ -1586,6 +1586,27 @@ const ActiveOrderPanel = ({
       )}
 
       <div className="v8-order-items-scroll v8-scroll flex flex-col gap-3">
+        {/* Current Unsubmitted KOT Draft Items (Prominent Top Visibility) */}
+        {draftCart.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mt-1">
+              New KOT Draft Items ({draftCart.length})
+            </span>
+            {draftCart.map((item) => (
+              <OrderItemRow key={item.id} item={item} onUpdateQty={onUpdateQty} onEditAddons={onEditAddons} />
+            ))}
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mt-1">
+              New KOT Draft Items (0)
+            </span>
+            <div className="p-6 text-center text-xs text-muted-foreground">
+              No items in {workspaceTitle.toLowerCase()}.
+            </div>
+          </div>
+        ) : null}
+
         {/* Submitted Orders */}
         {orders.length > 0 && (
           <div className="flex flex-col gap-2">
@@ -1606,22 +1627,6 @@ const ActiveOrderPanel = ({
             ))}
           </div>
         )}
-
-        {/* Current Unsubmitted KOT Draft Items */}
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider mt-1">
-            New KOT Draft Items ({draftCart.length})
-          </span>
-          {draftCart.length === 0 ? (
-            <div className="p-6 text-center text-xs text-muted-foreground">
-              {orders.length > 0 ? 'Tap menu items to add another KOT order.' : `No items in ${workspaceTitle.toLowerCase()}.`}
-            </div>
-          ) : (
-            draftCart.map((item) => (
-              <OrderItemRow key={item.id} item={item} onUpdateQty={onUpdateQty} onEditAddons={onEditAddons} />
-            ))
-          )}
-        </div>
       </div>
     </div>
   );
