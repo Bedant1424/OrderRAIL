@@ -73,6 +73,8 @@ interface CatalogItem {
   isAvailable: boolean;
   imageUrl?: string | null;
   modifier?: string;
+  sortOrder?: number;
+  categorySortOrder?: number;
 }
 
 interface CartLineItem {
@@ -662,24 +664,27 @@ export const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogIt
 
   return (
     <div
-      className={cn('v8-menu-row flex items-center justify-between p-2.5 border-b border-border/40', isSoldOut && 'opacity-50 cursor-not-allowed bg-muted/20')}
+      className={cn(
+        'v8-menu-row flex items-center justify-between px-3 py-2 min-h-[44px] h-[44px] border-b border-border/30 transition-all select-none',
+        isSoldOut ? 'opacity-50 cursor-not-allowed bg-muted/20' : 'hover:bg-secondary/40 cursor-pointer'
+      )}
       onClick={() => !isSoldOut && onAdd(item)}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div className={cn('v8-veg-dot shrink-0', item.isVeg ? 'v8-veg-true' : 'v8-veg-false')} />
-        <span className="v8-menu-row-name truncate">
+      <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-2">
+        <div className={cn('v8-veg-dot shrink-0 w-2 h-2 rounded-full', item.isVeg ? 'v8-veg-true' : 'v8-veg-false')} />
+        <span className="v8-menu-row-name text-xs font-semibold text-foreground truncate">
           {item.name}
-          {item.modifier && <span className="v8-menu-row-modifier">({item.modifier})</span>}
+          {item.modifier && <span className="v8-menu-row-modifier font-normal text-muted-foreground text-[11px] ml-1">({item.modifier})</span>}
         </span>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
         {isSoldOut ? (
-          <span className="text-[10px] font-bold text-destructive uppercase tracking-wider px-1.5 py-0.5 rounded bg-destructive/10">
+          <span className="text-[10px] font-extrabold text-destructive uppercase tracking-wider px-1.5 py-0.5 rounded bg-destructive/10 border border-destructive/20">
             Sold Out
           </span>
         ) : (
-          <span className="v8-menu-row-price v8-font-mono">
+          <span className="v8-menu-row-price text-xs font-bold text-foreground font-mono tabular-nums">
             {formatCurrency(item.price)}
           </span>
         )}
@@ -687,7 +692,7 @@ export const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogIt
         {hasAddons && !isSoldOut && onAddWithAddons && (
           <button
             type="button"
-            className="text-[10px] font-bold px-2 py-1 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition-all"
+            className="text-[10px] font-bold px-2 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
               onAddWithAddons(item);
@@ -704,9 +709,12 @@ export const MenuRow = memo(({ item, onAdd, onAddWithAddons }: { item: CatalogIt
             e.stopPropagation();
             if (!isSoldOut) onAdd(item);
           }}
-          className={cn('v8-menu-add-btn', isSoldOut && 'bg-muted text-muted-foreground')}
+          className={cn(
+            'v8-menu-add-btn w-7 h-7 rounded-md flex items-center justify-center transition-all cursor-pointer',
+            isSoldOut ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-secondary/70 hover:bg-primary hover:text-primary-foreground text-foreground active:scale-95'
+          )}
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -732,11 +740,62 @@ const MenuPanel = ({
 
   const categories = ['All', ...categoriesList];
 
-  const filteredCatalog = catalog.filter((item) => {
-    const matchCat = activeCategory === 'All' || item.category === activeCategory;
-    const matchQuery = item.name.toLowerCase().includes(query.toLowerCase());
-    return matchCat && matchQuery;
-  });
+  const sortItems = (itemsList: CatalogItem[]) => {
+    return [...itemsList].sort((a, b) => {
+      // 1. Available items before sold-out items
+      if (a.isAvailable !== b.isAvailable) {
+        return a.isAvailable ? -1 : 1;
+      }
+      // 2. Item sortOrder
+      const sortA = a.sortOrder ?? 0;
+      const sortB = b.sortOrder ?? 0;
+      if (sortA !== sortB) {
+        return sortA - sortB;
+      }
+      // 3. Alphabetical name A-Z
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+  };
+
+  const filteredCatalog = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return catalog.filter((item) => {
+      const matchCat = activeCategory === 'All' || item.category === activeCategory;
+      const matchQuery = !q || item.name.toLowerCase().includes(q) || (item.category && item.category.toLowerCase().includes(q));
+      return matchCat && matchQuery;
+    });
+  }, [catalog, activeCategory, query]);
+
+  // Group items by category when viewing "All" (with or without search query)
+  const groupedCategories = useMemo(() => {
+    if (activeCategory !== 'All') return null;
+
+    const groupMap = new Map<string, CatalogItem[]>();
+    // Pre-populate categories in order of categoriesList
+    categoriesList.forEach((cat) => {
+      groupMap.set(cat, []);
+    });
+
+    filteredCatalog.forEach((item) => {
+      const cat = item.category || 'General';
+      if (!groupMap.has(cat)) {
+        groupMap.set(cat, []);
+      }
+      groupMap.get(cat)!.push(item);
+    });
+
+    const result: { category: string; items: CatalogItem[] }[] = [];
+    groupMap.forEach((items, cat) => {
+      if (items.length > 0) {
+        result.push({
+          category: cat,
+          items: sortItems(items),
+        });
+      }
+    });
+
+    return result;
+  }, [activeCategory, categoriesList, filteredCatalog]);
 
   return (
     <div className="v8-panel-menu">
@@ -751,7 +810,7 @@ const MenuPanel = ({
             onChange={(e) => setQuery(e.target.value)}
           />
           {query && (
-            <button className="text-muted-foreground hover:text-foreground" onClick={() => setQuery('')}>
+            <button className="text-muted-foreground hover:text-foreground cursor-pointer" onClick={() => setQuery('')}>
               <X className="w-3.5 h-3.5" />
             </button>
           )}
@@ -761,7 +820,7 @@ const MenuPanel = ({
           {categories.map((cat) => (
             <button 
               key={cat}
-              className={cn('v8-cat-btn', activeCategory === cat && 'v8-cat-btn--active')}
+              className={cn('v8-cat-btn cursor-pointer', activeCategory === cat && 'v8-cat-btn--active')}
               onClick={() => setActiveCategory(cat)}
             >
               {cat}
@@ -771,9 +830,33 @@ const MenuPanel = ({
       </div>
 
       <div className="v8-menu-scroll v8-scroll">
-        {filteredCatalog.map((item) => (
-          <MenuRow key={item.id} item={item} onAdd={onAdd} onAddWithAddons={onAddWithAddons} />
-        ))}
+        {activeCategory === 'All' && groupedCategories ? (
+          <div className="flex flex-col gap-3">
+            {groupedCategories.map(({ category, items }) => (
+              <div key={category} className="flex flex-col">
+                {/* Subtle category header divider */}
+                <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-xs py-1.5 px-2 flex items-center justify-between border-b border-border/60 text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground shadow-xs">
+                  <span>{category}</span>
+                  <span className="text-[10px] font-bold text-muted-foreground/70 font-mono">
+                    {items.length} {items.length === 1 ? 'item' : 'items'}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  {items.map((item) => (
+                    <MenuRow key={item.id} item={item} onAdd={onAdd} onAddWithAddons={onAddWithAddons} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {sortItems(filteredCatalog).map((item) => (
+              <MenuRow key={item.id} item={item} onAdd={onAdd} onAddWithAddons={onAddWithAddons} />
+            ))}
+          </div>
+        )}
+
         {filteredCatalog.length === 0 && (
           <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
             <AlertCircle className="w-6 h-6 text-muted-foreground/60" />
@@ -3474,21 +3557,43 @@ const CounterLayout = () => {
     draftCart: []
   };
 
-  const catalog: CatalogItem[] = (menu.items && menu.items.length > 0)
-    ? menu.items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: item.price_cents / 100,
-        category: item.categoryName || 'General',
-        isVeg: item.is_veg ?? true,
-        isAvailable: item.is_available ?? true,
-        imageUrl: item.image_url,
-      }))
-    : FALLBACK_CATALOG;
+  const categorySortMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (menu.categories) {
+      menu.categories.forEach((c, idx) => {
+        map.set(c.id, c.sort_order ?? idx + 1);
+        map.set(c.name, c.sort_order ?? idx + 1);
+      });
+    }
+    return map;
+  }, [menu.categories]);
 
-  const categoriesList = (menu.categories && menu.categories.length > 0)
-    ? menu.categories.map((c) => c.name)
-    : Array.from(new Set(catalog.map((i) => i.category)));
+  const catalog: CatalogItem[] = useMemo(() => {
+    if (!menu.items || menu.items.length === 0) return FALLBACK_CATALOG;
+    return menu.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      price: item.price_cents / 100,
+      category: item.categoryName || 'General',
+      categoryId: item.category_id || undefined,
+      isVeg: item.is_veg ?? true,
+      isAvailable: item.is_available ?? true,
+      imageUrl: item.image_url,
+      sortOrder: item.sort_order ?? 0,
+      categorySortOrder: item.category_id 
+        ? (categorySortMap.get(item.category_id) ?? 999)
+        : (categorySortMap.get(item.categoryName || 'General') ?? 999),
+    }));
+  }, [menu.items, categorySortMap]);
+
+  const categoriesList = useMemo(() => {
+    if (menu.categories && menu.categories.length > 0) {
+      return [...menu.categories]
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .map((c) => c.name);
+    }
+    return Array.from(new Set(catalog.map((i) => i.category)));
+  }, [menu.categories, catalog]);
 
   // Table State Actions
   const handleOpenSession = useCallback(async () => {
