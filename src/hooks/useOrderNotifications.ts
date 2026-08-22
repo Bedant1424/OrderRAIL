@@ -8,11 +8,9 @@ import { supabase, formatOrderLabel, type Order } from "@/lib/db";
  * Mounted once above the customer route Outlet so the "order ready" popup
  * fires no matter which page the customer is currently on.
  *
- * NOTE: We intentionally do NOT use a server-side filter on dining_session_id
- * here. Supabase postgres_changes column filters require REPLICA IDENTITY FULL
- * on the table — without it the WAL only exposes the primary key and the
- * server silently drops filtered events before they reach the client. Instead
- * we subscribe to all order UPDATEs on the table and match by session in JS.
+ * Scoped server-side via Supabase Realtime postgres_changes filter to the
+ * active dining_session_id. REPLICA IDENTITY FULL on public.orders ensures
+ * reliable event delivery across table/session transitions.
  */
 export function useOrderNotifications({
   tableId,
@@ -31,13 +29,17 @@ export function useOrderNotifications({
       .channel(`order-notifications-${sessionId}`)
       .on(
         "postgres_changes",
-        // No server-side filter — we match by session in the callback below.
-        { event: "UPDATE", schema: "public", table: "orders" },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `dining_session_id=eq.${sessionId}`,
+        },
         (payload) => {
           const order = payload.new as Order;
           console.log("[useOrderNotifications callback] Received order update:", order.id, "status:", order.status, "session:", order.dining_session_id);
           console.log("[useOrderNotifications callback] Is local toast === window.__toast?", toast === (window as any).__toast);
-          // Only handle orders belonging to this dining session.
+          // Defense in depth: safeguard check for dining session match
           if (order.dining_session_id !== sessionId) {
             console.log("[useOrderNotifications callback] Ignored order (session mismatch):", order.dining_session_id, "expected:", sessionId);
             return;
