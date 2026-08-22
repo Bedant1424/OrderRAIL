@@ -25,9 +25,19 @@ import {
   User,
   Phone,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import type {
   DailySalesReport,
   DailySalesTransaction,
+  DailySalesHourlyBucket,
 } from "@/lib/sales/types";
 import { DailySalesService } from "@/lib/sales/dailySalesService";
 import { formatCurrency } from "./DailySalesPill";
@@ -91,6 +101,12 @@ export const DailySalesModal: React.FC<DailySalesModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
+
+  const hourlyData = report?.hourly || [];
+  const peakHour = useMemo(() => {
+    if (!hourlyData || hourlyData.length === 0) return null;
+    return hourlyData.reduce((max, curr) => (curr.revenue > max.revenue ? curr : max), hourlyData[0]);
+  }, [hourlyData]);
 
   const effectiveCafeId = cafeId || report?.cafe_id;
 
@@ -310,7 +326,74 @@ export const DailySalesModal: React.FC<DailySalesModalProps> = ({
                 </div>
               </div>
 
-              {/* 2. Tender Breakdown */}
+              {/* 2. Hourly Sales Distribution */}
+              <div className="space-y-2.5" data-testid="daily-sales-hourly-section">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-primary" /> Hourly Sales Distribution
+                  </h4>
+                  {peakHour && peakHour.revenue > 0 && (
+                    <span
+                      className="text-[11px] font-semibold text-muted-foreground bg-secondary/80 px-2.5 py-0.5 rounded-full border border-border/50"
+                      data-testid="daily-sales-peak-hour"
+                    >
+                      Peak: <span className="font-bold text-foreground">{peakHour.label}</span> ({formatCurrency(peakHour.revenue, currency)})
+                    </span>
+                  )}
+                </div>
+
+                <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-soft">
+                  <div className="h-48 sm:h-56 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={hourlyData}
+                        margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                      >
+                        <defs>
+                          <linearGradient id="hourlySalesGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1} />
+                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 10 }}
+                          stroke="hsl(var(--muted-foreground))"
+                          interval={2}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10 }}
+                          stroke="hsl(var(--muted-foreground))"
+                          allowDecimals={false}
+                          tickFormatter={(val) => (val >= 1000 ? `₹${(val / 1000).toFixed(0)}k` : `₹${val}`)}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: 12,
+                            fontSize: 11,
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                          }}
+                          formatter={(value: number, name: string) => {
+                            if (name === "revenue") return [formatCurrency(value, currency), "Sales"];
+                            return [value, name];
+                          }}
+                          labelFormatter={(label: string, payload: any[]) => {
+                            const item = payload?.[0]?.payload as DailySalesHourlyBucket | undefined;
+                            if (!item) return label;
+                            return `${label} • ${item.paid_bills} ${item.paid_bills === 1 ? "bill" : "bills"} (${item.items_sold} items)`;
+                          }}
+                        />
+                        <Bar dataKey="revenue" fill="url(#hourlySalesGrad)" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Tender Breakdown */}
               <div className="space-y-2.5">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5 text-primary" /> Tender Breakdown

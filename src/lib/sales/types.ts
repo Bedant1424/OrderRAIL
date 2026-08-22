@@ -16,6 +16,18 @@ export interface DailySalesPipeline {
   cancelled_orders_count: number;
 }
 
+export interface DailySalesHourlyBucket {
+  hour: number;
+  label: string;
+  revenue: number;
+  paid_bills: number;
+  items_sold: number;
+  cash: number;
+  upi: number;
+  card: number;
+  other: number;
+}
+
 export interface DailySalesReport {
   business_date: string;
   cafe_id: string;
@@ -31,6 +43,7 @@ export interface DailySalesReport {
   total_items_sold: number;
   average_bill_value: number;
   tenders: DailySalesTenders;
+  hourly: DailySalesHourlyBucket[];
   pipeline: DailySalesPipeline;
 }
 

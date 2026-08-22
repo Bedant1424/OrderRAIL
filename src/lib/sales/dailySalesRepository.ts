@@ -43,6 +43,39 @@ export class DailySalesRepository {
 
     const raw = data as Record<string, any>;
 
+    // Build and normalize dense 24-bucket hourly breakdown
+    const defaultHourly = Array.from({ length: 24 }, (_, h) => {
+      const label = h === 0 ? "12 AM" : h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`;
+      return {
+        hour: h,
+        label,
+        revenue: 0,
+        paid_bills: 0,
+        items_sold: 0,
+        cash: 0,
+        upi: 0,
+        card: 0,
+        other: 0,
+      };
+    });
+
+    const hourlyRaw = Array.isArray(raw.hourly) ? raw.hourly : [];
+    const hourly = defaultHourly.map((defaultBucket) => {
+      const match = hourlyRaw.find((b: any) => Number(b?.hour) === defaultBucket.hour);
+      if (!match) return defaultBucket;
+      return {
+        hour: defaultBucket.hour,
+        label: String(match.label || defaultBucket.label),
+        revenue: Number(match.revenue) || 0,
+        paid_bills: Number(match.paid_bills) || 0,
+        items_sold: Number(match.items_sold) || 0,
+        cash: Number(match.cash) || 0,
+        upi: Number(match.upi) || 0,
+        card: Number(match.card) || 0,
+        other: Number(match.other) || 0,
+      };
+    });
+
     // Strict type mapping and numeric normalization
     const report: DailySalesReport = {
       business_date: String(raw.business_date || businessDate || ""),
@@ -64,6 +97,7 @@ export class DailySalesRepository {
         card: Number(raw.tenders?.card) || 0,
         other: Number(raw.tenders?.other) || 0,
       },
+      hourly,
       pipeline: {
         unsettled_orders_count: Number(raw.pipeline?.unsettled_orders_count) || 0,
         unsettled_pipeline_cents: Number(raw.pipeline?.unsettled_pipeline_cents) || 0,

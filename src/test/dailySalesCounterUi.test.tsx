@@ -6,6 +6,13 @@ import { DailySalesModal } from "@/components/counter/DailySalesModal";
 import { DailySalesService } from "@/lib/sales/dailySalesService";
 import type { DailySalesReport, DailySalesTransactionsResponse } from "@/lib/sales/types";
 
+// Global mock for ResizeObserver required by Recharts ResponsiveContainer in jsdom
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 describe("Milestone 2C.2: Counter Daily Sales UI & Transaction Drilldown Tests", () => {
   const CAFE_ID = "6d00d671-eaea-47ce-a842-f970878373c9";
 
