@@ -1352,7 +1352,7 @@ const ActiveOrderPanel = ({
 
 // --- 5. PAYMENT DIALOG MODAL (INR LOCALIZATION) ---
 
-const PaymentDialogModal = ({
+export const PaymentDialogModal = ({
   tableLabel,
   netTotal,
   subtotal,
@@ -1706,6 +1706,28 @@ const PaymentDialogModal = ({
 
               {method === 'card' && (
                 <div className="flex flex-col gap-3 p-3.5 bg-muted/20 rounded-xl border border-border/40">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-muted-foreground">Tender Amount:</span>
+                    <span className="v8-font-mono font-extrabold text-sm">{formatCurrency(currentTenderVal)}</span>
+                  </div>
+
+                  {isSplitMode && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold text-muted-foreground">Split Card Amount</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-muted-foreground">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="h-10 pl-7 pr-3 w-full rounded-lg border border-border bg-background text-sm font-bold v8-font-mono outline-none focus:border-primary"
+                          placeholder="0.00"
+                          value={tenderAmount}
+                          onChange={(e) => setTenderAmount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-col gap-1">
                     <label className="text-[11px] font-bold text-muted-foreground">Card Transaction Ref / Auth Code (Optional)</label>
                     <input
@@ -1730,6 +1752,23 @@ const PaymentDialogModal = ({
                       {formatCurrency(currentTenderVal)}
                     </span>
                   </div>
+
+                  {isSplitMode && (
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[11px] font-bold text-muted-foreground">Split UPI Amount</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-muted-foreground">₹</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="h-10 pl-7 pr-3 w-full rounded-lg border border-border bg-background text-sm font-bold v8-font-mono outline-none focus:border-primary"
+                          placeholder="0.00"
+                          value={tenderAmount}
+                          onChange={(e) => setTenderAmount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <p className="text-xs text-muted-foreground text-left">
                     Customer is paying using the restaurant's QR.
@@ -1885,9 +1924,11 @@ const PaymentDialogModal = ({
             onClick={handleAddTender}
           >
             <CheckCircle className="w-4 h-4" /> {
-              method === 'upi'
-                ? (isSubmitting ? '✅ Payment Received' : '✓ Confirm Payment')
-                : (isSplitMode ? `Record ${method.toUpperCase()} Payment` : `Confirm & Complete Session (${formatCurrency(netTotal)})`)
+              isSplitMode
+                ? `Record ${method.toUpperCase()} Payment`
+                : (method === 'upi'
+                    ? (isSubmitting ? '✅ Payment Received' : '✓ Confirm Payment')
+                    : `Confirm & Complete Session (${formatCurrency(netTotal)})`)
             }
           </button>
         </div>
