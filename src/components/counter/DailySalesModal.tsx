@@ -633,6 +633,31 @@ export const DailySalesModal: React.FC<DailySalesModalProps> = ({
                                 </span>
                               </div>
                             </div>
+
+                            {/* Tender Allocations (Split Details) */}
+                            {tx.tenders && tx.tenders.length > 0 && (
+                              <div className="space-y-1.5 pt-2 border-t border-border/40">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  Tender Allocations
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {tx.tenders.map((t, tIdx) => (
+                                    <div
+                                      key={tIdx}
+                                      className="px-2.5 py-1 rounded-md bg-card border border-border/50 font-mono text-[11px] flex items-center gap-1.5"
+                                    >
+                                      <span className="font-bold uppercase text-foreground">{t.method}:</span>
+                                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                        {formatCurrency(t.amount, currency)}
+                                      </span>
+                                      {t.transaction_ref && (
+                                        <span className="text-[10px] text-muted-foreground">({t.transaction_ref})</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

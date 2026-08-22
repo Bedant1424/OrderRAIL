@@ -18,7 +18,7 @@ import { BillRepository } from "@/lib/billing/BillRepository";
 import type { PaymentMethod as DbPaymentMethod } from "@/lib/billing/types";
 import { updateTableStatusInDb, closeDiningSessionInDb } from "@/lib/tables/tableRepository";
 
-export type PaymentMethod = "cash" | "upi" | "card" | "split";
+export type PaymentMethod = "cash" | "upi" | "card" | "split" | "mixed";
 
 export interface RecordPaymentPayload {
   paymentId?: string;
@@ -30,8 +30,16 @@ export interface RecordPaymentPayload {
   paymentMethod: PaymentMethod;
   amount: number; // in currency units
   operatorId?: string;
+  settledByUserId?: string;
   timestamp?: string;
   createdAt?: string;
+  tenders?: {
+    method: string;
+    amount: number;
+    tenderedAmount?: number;
+    changeDue?: number;
+    transactionRef?: string;
+  }[];
 }
 
 export interface SettlementRecord {
@@ -46,15 +54,23 @@ export interface SettlementRecord {
   paymentMethod: PaymentMethod;
   amount: number;
   operatorId: string;
+  settledByUserId?: string;
   timestamp: string;
   createdAt: string;
   status: "settled" | "voided" | "refunded";
   syncState: "Pending Sync" | "Syncing" | "Synced" | "Sync Failed";
+  tenders?: {
+    method: string;
+    amount: number;
+    tenderedAmount?: number;
+    changeDue?: number;
+    transactionRef?: string;
+  }[];
 }
 
 export const settlementsMap = new Map<string, SettlementRecord>();
 
-export class PaymentServiceClass {
+class PaymentServiceCore {
   private handlersRegistered = false;
 
   constructor() {
@@ -83,21 +99,48 @@ export class PaymentServiceClass {
       // 3. Database Updates (if online)
       if (NetworkManager.isOnline()) {
         try {
-          // Persist payment status to PostgreSQL via canonical BillRepository
-          const pmUpper = (payload.paymentMethod || "CASH").toUpperCase();
-          const validPm: DbPaymentMethod = (
-            pmUpper.includes("UPI") ? "UPI" :
-            pmUpper.includes("CARD") ? "CARD" :
-            pmUpper.includes("MIXED") ? "MIXED" : "CASH"
-          );
           const paidAt = payload.createdAt || new Date().toISOString();
 
-          let updatedBill = await BillRepository.updatePaymentStatus(payload.billId, 'PAID', validPm, paidAt);
+          let updatedBill: any = null;
+
+          if (payload.tenders && payload.tenders.length > 0) {
+            updatedBill = await BillRepository.settleBillWithTenders(
+              payload.billId,
+              payload.tenders,
+              payload.settledByUserId || null,
+              paidAt
+            );
+          } else {
+            // Persist payment status to PostgreSQL via canonical BillRepository
+            const pmUpper = (payload.paymentMethod || "CASH").toUpperCase();
+            const validPm: DbPaymentMethod = (
+              pmUpper.includes("UPI") ? "UPI" :
+              pmUpper.includes("CARD") ? "CARD" :
+              pmUpper.includes("MIXED") ? "MIXED" : "CASH"
+            );
+
+            updatedBill = await BillRepository.updatePaymentStatus(payload.billId, 'PAID', validPm, paidAt);
+          }
 
           if (!updatedBill && payload.diningSessionId) {
             const existingBills = await BillRepository.getBillsBySession(payload.diningSessionId);
             if (existingBills.length > 0) {
-              updatedBill = await BillRepository.updatePaymentStatus(existingBills[0].id, 'PAID', validPm, paidAt);
+              if (payload.tenders && payload.tenders.length > 0) {
+                updatedBill = await BillRepository.settleBillWithTenders(
+                  existingBills[0].id,
+                  payload.tenders,
+                  payload.settledByUserId || null,
+                  paidAt
+                );
+              } else {
+                const pmUpper = (payload.paymentMethod || "CASH").toUpperCase();
+                const validPm: DbPaymentMethod = (
+                  pmUpper.includes("UPI") ? "UPI" :
+                  pmUpper.includes("CARD") ? "CARD" :
+                  pmUpper.includes("MIXED") ? "MIXED" : "CASH"
+                );
+                updatedBill = await BillRepository.updatePaymentStatus(existingBills[0].id, 'PAID', validPm, paidAt);
+              }
             }
           }
 

@@ -55,8 +55,22 @@ export interface Bill {
   closed_at?: string | null;
 }
 
+export interface BillPaymentTender {
+  id?: string;
+  bill_id?: string;
+  cafe_id?: string;
+  payment_method: PaymentMethod;
+  amount: number;
+  tendered_amount?: number;
+  change_due?: number;
+  transaction_ref?: string | null;
+  created_by_user_id?: string | null;
+  created_at?: string;
+}
+
 export interface BillWithItems extends Bill {
   items: BillItemSnapshot[];
+  tenders?: BillPaymentTender[];
 }
 
 export interface RawInputItem {

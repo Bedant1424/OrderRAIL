@@ -60,6 +60,13 @@ export interface DailySalesTransaction {
   paid_at: string;
   business_date: string;
   items: DailySalesTransactionItem[];
+  tenders?: {
+    method: string;
+    amount: number;
+    tendered_amount?: number;
+    change_due?: number;
+    transaction_ref?: string;
+  }[];
 }
 
 export interface DailySalesTransactionsResponse {

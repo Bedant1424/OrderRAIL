@@ -139,9 +139,16 @@ export class BillRepository {
         .select('*')
         .eq('bill_id', id);
 
+      const { data: paymentRows } = await supabase
+        .from('bill_payments')
+        .select('*')
+        .eq('bill_id', id)
+        .order('created_at', { ascending: true });
+
       const billWithItems: BillWithItems = {
         ...(billRow as Bill),
         items: (itemRows || []) as BillItemSnapshot[],
+        tenders: (paymentRows || []) as BillPaymentTender[],
       };
 
       this.inMemoryStore.set(id, billWithItems);
@@ -320,6 +327,61 @@ export class BillRepository {
     }
 
     return this.getBillById(billId);
+  }
+
+  /**
+   * Settle Bill with Structured Tenders atomically.
+   */
+  public static async settleBillWithTenders(
+    billId: string,
+    tenders: {
+      method: string;
+      amount: number;
+      tenderedAmount?: number;
+      changeDue?: number;
+      transactionRef?: string;
+    }[],
+    settledByUserId?: string | null,
+    paidAt?: string
+  ): Promise<BillWithItems | null> {
+    const formattedTenders = tenders.map((t) => ({
+      method: t.method.toUpperCase(),
+      amount: t.amount,
+      tendered_amount: t.tenderedAmount ?? t.amount,
+      change_due: t.changeDue ?? 0.0,
+      transaction_ref: t.transactionRef || null,
+    }));
+
+    try {
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+        'settle_bill_with_tenders_atomic',
+        {
+          p_bill_id: billId,
+          p_tenders: formattedTenders,
+          p_settled_by: settledByUserId || null,
+          p_paid_at: paidAt || new Date().toISOString(),
+        }
+      );
+
+      if (rpcErr) {
+        console.warn('[BillRepository] settle_bill_with_tenders_atomic notice:', rpcErr.message);
+        // Fallback to legacy single status update if RPC is unapplied
+        const fallbackMethod = tenders.length > 1 
+          ? 'MIXED' 
+          : (tenders[0]?.method?.toUpperCase() || 'CASH') as PaymentMethod;
+        return this.updatePaymentStatus(billId, 'PAID', fallbackMethod, paidAt);
+      }
+
+      // Evict in-memory cache to force re-fetch with fresh tenders
+      this.inMemoryStore.delete(billId);
+      return this.getBillById(billId);
+    } catch (e: any) {
+      console.warn('[BillRepository] settleBillWithTenders warning:', e?.message || e);
+      const fallbackMethod = tenders.length > 1 
+        ? 'MIXED' 
+        : (tenders[0]?.method?.toUpperCase() || 'CASH') as PaymentMethod;
+      return this.updatePaymentStatus(billId, 'PAID', fallbackMethod, paidAt);
+    }
   }
 
   public static clearMemoryStoreForTesting(): void {

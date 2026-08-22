@@ -133,6 +133,15 @@ export class DailySalesRepository {
             line_total: Number(item.line_total) || 0,
           }))
         : [],
+      tenders: Array.isArray(tx.tenders)
+        ? tx.tenders.map((t: any) => ({
+            method: String(t.method || "CASH"),
+            amount: Number(t.amount) || 0,
+            tendered_amount: t.tendered_amount !== undefined ? Number(t.tendered_amount) : undefined,
+            change_due: t.change_due !== undefined ? Number(t.change_due) : undefined,
+            transaction_ref: t.transaction_ref ? String(t.transaction_ref) : undefined,
+          }))
+        : undefined,
     }));
 
     return {

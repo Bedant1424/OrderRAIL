@@ -169,7 +169,7 @@ export class ReceiptBuilder {
 
     let modeStr = payload.paymentMode;
     if (!modeStr && payload.tenders && payload.tenders.length > 0) {
-      modeStr = payload.tenders[0].method.toUpperCase();
+      modeStr = payload.tenders.length > 1 ? "MIXED" : payload.tenders[0].method.toUpperCase();
     }
     if (!modeStr) {
       modeStr = isPaid ? "Paid" : "UNPAID";
@@ -251,6 +251,16 @@ export class ReceiptBuilder {
 
     lines.push(divider);
     lines.push(justify("NET PAYABLE TOTAL:", `Rs.${payload.netTotal.toFixed(2)}`));
+
+    // Multi-tender split payment breakdown
+    if (payload.tenders && payload.tenders.length > 1) {
+      lines.push(divider);
+      lines.push(justify("PAYMENT BREAKDOWN:", ""));
+      for (const t of payload.tenders) {
+        lines.push(justify(`  ${t.method.toUpperCase()}:`, `Rs.${t.amount.toFixed(2)}`));
+      }
+    }
+
     lines.push(divider);
 
     // Footer
@@ -375,7 +385,7 @@ export class ReceiptBuilder {
 
     let modeStr = payload.paymentMode;
     if (!modeStr && payload.tenders && payload.tenders.length > 0) {
-      modeStr = payload.tenders[0].method.toUpperCase();
+      modeStr = payload.tenders.length > 1 ? "MIXED" : payload.tenders[0].method.toUpperCase();
     }
     if (!modeStr) {
       modeStr = isPaid ? "Paid" : "UNPAID";
@@ -464,6 +474,15 @@ export class ReceiptBuilder {
     parts.push(ESC_POS.BOLD_ON);
     parts.push(this.justify("NET PAYABLE TOTAL:", `Rs.${payload.netTotal.toFixed(2)}`, cols) + "\n");
     parts.push(ESC_POS.BOLD_OFF);
+
+    // Multi-tender split payment breakdown
+    if (payload.tenders && payload.tenders.length > 1) {
+      parts.push(divider);
+      parts.push(this.justify("PAYMENT BREAKDOWN:", "", cols) + "\n");
+      for (const t of payload.tenders) {
+        parts.push(this.justify(`  ${t.method.toUpperCase()}:`, `Rs.${t.amount.toFixed(2)}`, cols) + "\n");
+      }
+    }
 
     parts.push(divider);
 

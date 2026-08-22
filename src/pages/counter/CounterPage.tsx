@@ -2130,6 +2130,18 @@ const ReceiptModal = ({
                     <span>GRAND TOTAL</span>
                     <span className="font-mono font-bold">{formatCurrency(receipt?.netTotal || 0)}</span>
                   </div>
+
+                  {receipt?.tenders && receipt.tenders.length > 1 && (
+                    <div className="flex flex-col gap-1 pt-1.5 border-t border-dashed border-gray-200">
+                      <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Paid Via</div>
+                      {receipt.tenders.map((t) => (
+                        <div key={t.id} className="flex justify-between text-gray-700">
+                          <span className="uppercase font-semibold">{t.method}</span>
+                          <span className="font-mono">{formatCurrency(t.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="text-center text-[10px] text-gray-400 pt-3 border-t border-dashed border-gray-300">
@@ -4197,7 +4209,7 @@ const CounterLayout = () => {
       }
 
       // 2. Record payment & settlement via PaymentService (idempotent)
-      const primaryMethod = (tenders[0]?.method || "cash").toLowerCase() as PaymentMethod;
+      const primaryMethod = (tenders.length > 1 ? "mixed" : (tenders[0]?.method || "cash")).toLowerCase() as PaymentMethod;
       await PaymentService.recordPayment({
         billId: billRes.bill.billId,
         orderId: primaryOrderId,
@@ -4207,6 +4219,14 @@ const CounterLayout = () => {
         paymentMethod: primaryMethod,
         amount: summary.grandTotal,
         operatorId: user?.email ? user.email.split('@')[0] : 'Counter Staff',
+        settledByUserId: user?.id,
+        tenders: tenders.map((t) => ({
+          method: t.method,
+          amount: t.amount,
+          tenderedAmount: t.tenderedAmount,
+          changeDue: t.changeDue,
+          transactionRef: t.transactionRef,
+        })),
       });
 
       // 3. Update order statuses to served & associate customer_id
