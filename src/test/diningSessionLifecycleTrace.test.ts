@@ -111,7 +111,7 @@ describe("Deep Investigation: Customer Session Persistence & Dining Session Life
     });
 
     // Insert order into DB
-    const insertedOrderId = await createOrderInDb({
+    const createdOrder = await createOrderInDb({
       id: orderUuid,
       cafe_id: contextTableObj.cafe_id,
       table_id: contextTableObj.id,
@@ -129,6 +129,7 @@ describe("Deep Investigation: Customer Session Persistence & Dining Session Life
       ],
     });
 
+    const insertedOrderId = typeof createdOrder === "string" ? createdOrder : createdOrder.id;
     addOrderToHistory(insertedOrderId);
 
     // Query back the inserted order from DB to check dining_session_id
