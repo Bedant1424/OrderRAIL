@@ -441,7 +441,7 @@ const TableRail = memo(({
   onExternalOrderRefChange?: (val: string) => void;
 }) => {
   return (
-    <div className="v8-table-rail flex items-center justify-between gap-3 px-4 py-2 border-b border-border/80 bg-card/70 overflow-x-auto shadow-xs">
+    <div className="v8-table-rail flex items-center justify-between gap-3 px-4 py-1.5 border-b border-border/80 bg-card/70 shadow-xs">
       <div className="flex items-center gap-1.5 shrink-0 p-1 bg-muted/40 rounded-xl border border-border/60 shadow-inner">
         <button 
           type="button"

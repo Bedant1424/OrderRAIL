@@ -117,10 +117,9 @@
   border-left: 1px solid hsl(var(--border) / 0.3);
 }
 
-/* 2. Horizontal Table Rail (44px) */
+/* 2. Horizontal Table Rail (52px) */
 .v8-table-rail {
-  height: 44px;
-  min-height: 44px;
+  min-height: 52px;
   background-color: hsl(var(--background));
   border-bottom: 1px solid hsl(var(--border) / 0.3);
   display: flex;
@@ -214,7 +213,7 @@
 .v8-workspace {
   display: flex;
   flex: 1;
-  height: calc(100vh - 56px - 44px - 32px);
+  height: calc(100vh - 56px - 52px - 32px);
   overflow: hidden;
   padding: 14px 20px;
   gap: 16px;
