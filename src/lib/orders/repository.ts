@@ -193,7 +193,7 @@ export async function editOrderInDb(params: {
       throw err;
     }
 
-    const targetSessionId = guestSessionId || sessionId || currentOrder.session_id || getSessionId();
+    const targetSessionId = currentOrder.session_id || sessionId || getSessionId();
     const targetVersion = expectedVersion ?? currentOrder.version ?? 1;
 
     const ownerId = currentOrder.guest_session_id || currentOrder.session_id;
