@@ -25,6 +25,9 @@ dist-ssr
 
 # Environment overrides (use .env.example as template)
 .env
+.env.*
+*.env
+!.env.example
 
 # QA certification reports (local only)
 *_report.md
