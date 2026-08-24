@@ -1,28 +1,9 @@
 import puppeteer from 'puppeteer-core';
 import { createClient } from '@supabase/supabase-js';
 
-import fs from 'fs';
-import path from 'path';
-
-function getEnv(key) {
-  if (process.env[key]) return process.env[key];
-  for (const file of ['.env.local', '.env', '.env.cheesecorner']) {
-    try {
-      const content = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith(`${key}=`)) {
-          return trimmed.slice(`${key}=`.length).replace(/^["']|["']$/g, '');
-        }
-      }
-    } catch (e) {}
-  }
-  return '';
-}
-
-const CHROME_PATH = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const SUPABASE_URL = getEnv('VITE_SUPABASE_URL');
-const SUPABASE_KEY = getEnv('VITE_SUPABASE_PUBLISHABLE_KEY');
+const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const SUPABASE_URL = 'https://toqerqtcnlkvdawrkkqh.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_h0QPEEIba4IaVl6HtEEiLg_z0WQthRk';
 
 async function verifyOwnerSettingsBrowser() {
   console.log("=== REAL BROWSER PRODUCTION OWNER SETTINGS VERIFICATION ===");

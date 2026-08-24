@@ -17,8 +17,8 @@ function getEnv(key) {
   return '';
 }
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || getEnv('VITE_SUPABASE_URL');
-const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || getEnv('VITE_SUPABASE_PUBLISHABLE_KEY');
+const SUPABASE_URL = getEnv('VITE_SUPABASE_URL') || 'https://xkhuhxvxqlyjytndgxvg.supabase.co';
+const SUPABASE_KEY = getEnv('VITE_SUPABASE_PUBLISHABLE_KEY');
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
