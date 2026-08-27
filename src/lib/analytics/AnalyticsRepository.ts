@@ -189,4 +189,79 @@ export class AnalyticsRepository {
       return [];
     }
   }
+
+  /**
+   * Fetches complete itemized sales performance for paid bills within a date range without truncation.
+   */
+  public static async fetchFullTopItems(
+    cafeId: string,
+    sinceIso: string,
+    untilIso: string,
+    startDate?: string | null,
+    endDate?: string | null
+  ): Promise<Array<{ name: string; qty: number; revenue: number; percentage: number }>> {
+    try {
+      let query = supabase
+        .from('bill_items')
+        .select('item_name, quantity, line_total, bills!inner(cafe_id, payment_status, created_at, business_date)')
+        .eq('bills.cafe_id', cafeId)
+        .eq('bills.payment_status', 'PAID');
+
+      if (startDate && endDate) {
+        query = query.gte('bills.business_date', startDate).lte('bills.business_date', endDate);
+      } else {
+        query = query.gte('bills.created_at', sinceIso).lte('bills.created_at', untilIso);
+      }
+
+      const { data, error } = await query;
+
+      if (error || !data || data.length === 0) {
+        // Fallback if business_date filtering yielded no records (e.g. legacy records with only created_at)
+        if (startDate && endDate) {
+          const fallbackRes = await supabase
+            .from('bill_items')
+            .select('item_name, quantity, line_total, bills!inner(cafe_id, payment_status, created_at)')
+            .eq('bills.cafe_id', cafeId)
+            .eq('bills.payment_status', 'PAID')
+            .gte('bills.created_at', sinceIso)
+            .lte('bills.created_at', untilIso);
+          if (fallbackRes.data && fallbackRes.data.length > 0) {
+            return this.aggregateTopItemsFromBillItems(fallbackRes.data);
+          }
+        }
+        return [];
+      }
+
+      return this.aggregateTopItemsFromBillItems(data);
+    } catch (err) {
+      console.error('[AnalyticsRepository] fetchFullTopItems failed:', err);
+      return [];
+    }
+  }
+
+  private static aggregateTopItemsFromBillItems(
+    data: any[]
+  ): Array<{ name: string; qty: number; revenue: number; percentage: number }> {
+    const itemMap = new Map<string, { name: string; qty: number; revenue: number }>();
+    for (const it of data) {
+      const name = it.item_name || 'Unknown Item';
+      const cur = itemMap.get(name) ?? { name, qty: 0, revenue: 0 };
+      cur.qty += Number(it.quantity || 1);
+      cur.revenue += Number(it.line_total || 0);
+      itemMap.set(name, cur);
+    }
+
+    const sorted = Array.from(itemMap.values()).sort((a, b) => {
+      if (b.qty !== a.qty) return b.qty - a.qty;
+      return b.revenue - a.revenue;
+    });
+
+    const maxQty = sorted[0]?.qty || 1;
+    return sorted.map((item) => ({
+      name: item.name,
+      qty: item.qty,
+      revenue: item.revenue,
+      percentage: maxQty > 0 ? Math.round((item.qty / maxQty) * 100) : 0,
+    }));
+  }
 }

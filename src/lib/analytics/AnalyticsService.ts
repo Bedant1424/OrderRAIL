@@ -409,6 +409,29 @@ export class AnalyticsServiceClass {
   }
 
   /**
+   * Fetch complete ranked top selling items for paid bills across the active date range (untruncated).
+   */
+  public async fetchFullTopSellingItems(
+    cafeId: string,
+    rangeDays: number = 7,
+    startDate?: string | null,
+    endDate?: string | null
+  ): Promise<AnalyticsTopItem[]> {
+    let sinceDate: Date;
+    if (startDate) {
+      sinceDate = new Date(startDate + "T00:00:00.000Z");
+    } else {
+      sinceDate = new Date();
+      sinceDate.setDate(sinceDate.getDate() - rangeDays + 1);
+      sinceDate.setHours(0, 0, 0, 0);
+    }
+    const sinceIso = sinceDate.toISOString();
+    const untilIso = endDate ? new Date(endDate + "T23:59:59.999Z").toISOString() : new Date().toISOString();
+
+    return AnalyticsRepository.fetchFullTopItems(cafeId, sinceIso, untilIso, startDate, endDate);
+  }
+
+  /**
    * BI Dashboard aggregation helper for Sales Reports
    */
   public async getDashboard(cafeId: string, dateRange?: any): Promise<any> {

@@ -42,6 +42,13 @@ import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { AnalyticsService } from "@/lib/analytics/AnalyticsService";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   downloadOwnerAnalyticsCsv,
   printOwnerAnalyticsPdf,
   type CafeExportInfo
@@ -189,6 +196,35 @@ export default function OwnerAnalyticsPage() {
   const avgRating = data?.avgRating ?? 4.9;
   const reviewsCount = data?.reviewsCount ?? 0;
   const staffCount = data?.staffCount ?? 1;
+
+  // View all modal state & full top-selling items query for active date range
+  const [isTopItemsModalOpen, setIsTopItemsModalOpen] = useState(false);
+
+  const fullTopItemsQ = useQuery({
+    queryKey: [
+      "owner-full-top-items",
+      cafe?.id,
+      preset,
+      activeParams.startDate,
+      activeParams.endDate,
+      activeParams.rangeDays,
+    ],
+    enabled: !!cafe?.id && isTopItemsModalOpen,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    queryFn: () =>
+      AnalyticsService.fetchFullTopSellingItems(
+        cafe!.id,
+        activeParams.rangeDays,
+        activeParams.startDate,
+        activeParams.endDate
+      ),
+  });
+
+  const displayFullItems =
+    fullTopItemsQ.data && fullTopItemsQ.data.length > 0
+      ? fullTopItemsQ.data
+      : topItems;
 
   // Presentation-only tender share calculation
   const netCollectedCents = rangeRevenueMetrics.netSalesCents;
@@ -584,8 +620,19 @@ export default function OwnerAnalyticsPage() {
         {/* Top Selling Items */}
         <div className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/60">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-base font-semibold">Top Selling Items</h2>
-            <span className="text-xs text-muted-foreground">by quantity (paid bills)</span>
+            <div>
+              <h2 className="font-display text-base font-semibold">Top Selling Items</h2>
+              <p className="text-xs text-muted-foreground">by quantity (paid bills)</p>
+            </div>
+            {topItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsTopItemsModalOpen(true)}
+                className="text-xs font-semibold text-accent hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+              >
+                View all <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {isLoading ? (
@@ -689,7 +736,7 @@ export default function OwnerAnalyticsPage() {
                   <div key={ord.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-3">
                       <span className="font-mono font-bold text-foreground">
-                        {formatOrderLabel(ord as Order)}
+                        {formatOrderLabel(ord.order_number)}
                       </span>
                       <span className="text-muted-foreground font-medium">
                         Table {ord.table_label}
@@ -729,6 +776,56 @@ export default function OwnerAnalyticsPage() {
           </div>
         </div>
       </section>
+
+      {/* Top Selling Items Full List Dialog */}
+      <Dialog open={isTopItemsModalOpen} onOpenChange={setIsTopItemsModalOpen}>
+        <DialogContent className="max-w-lg rounded-3xl p-6 sm:max-w-xl">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="font-display text-lg font-bold">
+              Top Selling Items
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Ranked by quantity sold across paid bills ({activeParams.label})
+            </DialogDescription>
+          </DialogHeader>
+
+          {fullTopItemsQ.isLoading && !fullTopItemsQ.data ? (
+            <div className="py-8 space-y-4">
+              <ListSkeleton />
+            </div>
+          ) : displayFullItems.length === 0 ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">
+              No finalized bill data available for this range.
+            </p>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-4">
+              {displayFullItems.map((item, idx) => (
+                <div key={item.name} className="space-y-1.5 rounded-xl p-2 transition-colors hover:bg-muted/40">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="truncate max-w-[240px] text-foreground font-semibold">
+                      {idx + 1}. {item.name}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      <strong className="text-foreground">{item.qty}</strong> sold ({formatMoney(Math.round(item.revenue * 100), currency)})
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-brand transition-all duration-500"
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-2 pt-3 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
+            <span>Total Menu Items Sold: <strong>{displayFullItems.length}</strong></span>
+            <span>Range: <strong>{activeParams.label}</strong></span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
