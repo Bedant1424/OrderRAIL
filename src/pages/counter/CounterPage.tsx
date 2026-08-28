@@ -230,11 +230,12 @@ export function reconcileTableSessions({
       }
     }
 
-    // If this previous session had draft items or express orders, retain it!
-    if ((prevSess.draftCart && prevSess.draftCart.length > 0) || (prevSess.orders && prevSess.orders.length > 0)) {
+    // If this previous session had uncommitted draft items, retain only the draft items!
+    // Never preserve stale in-memory orders when the database reports 0 active orders.
+    if (prevSess.draftCart && prevSess.draftCart.length > 0) {
       merged[tId] = {
         ...prevSess,
-        orders: prevSess.orders || [],
+        orders: [],
         draftCart: prevSess.draftCart || [],
       };
     }
@@ -1388,6 +1389,7 @@ export const ActiveOrderPanel = ({
   const isAvailable = table?.status === 'AVAILABLE';
   const isCleaning = table?.status === 'CLEANING';
   const isOutOfService = table?.status === 'OUT_OF_SERVICE';
+  const isOccupied = table?.status === 'OCCUPIED';
 
   const rawOrders = session?.orders ?? [];
   const orders = useMemo(() => sortCounterOrders(rawOrders), [rawOrders]);
@@ -1510,6 +1512,17 @@ export const ActiveOrderPanel = ({
           </span>
           <button className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto" onClick={onRestoreTable}>
             Restore Service
+          </button>
+        </div>
+      )}
+
+      {orderMode === 'DINE_IN' && isOccupied && orders.length === 0 && draftCart.length === 0 && (
+        <div className="px-4 py-2 bg-amber-500/10 border-y border-amber-500/20 flex items-center justify-between my-1 rounded-lg">
+          <span className="text-xs font-semibold text-amber-500 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> No active orders. Table is occupied.
+          </span>
+          <button className="v8-btn-secondary text-xs h-7 px-3 py-0 w-auto" onClick={onReleaseTable}>
+            Release Table
           </button>
         </div>
       )}
