@@ -328,7 +328,15 @@ export default function OwnerOrdersPage() {
     }
 
     const rangeParam = searchParams.get("range");
-    if (rangeParam) setDateRange(rangeParam as DateRangeFilter);
+    if (rangeParam) {
+      const validPresets: DatePresetKey[] = [
+        "today", "yesterday", "7d", "30d", "90d",
+        "this_month", "last_month", "this_year", "all", "custom", "month", "year"
+      ];
+      if (validPresets.includes(rangeParam as DatePresetKey)) {
+        setPreset(rangeParam as DatePresetKey);
+      }
+    }
   }, [searchParams]);
 
   // Fetch tables mapping
@@ -590,6 +598,32 @@ export default function OwnerOrdersPage() {
       {/* VIEW 1: LIVE OPERATIONS KANBAN */}
       {activeTab === "live" && (
         <section className="space-y-4">
+          {summary.activeCount === 0 && (
+            <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-soft flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+                  <Utensils className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">No active orders in kitchen</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {summary.completedCount > 0
+                      ? `All current orders are fulfilled (${summary.completedCount} completed orders available in Sales History).`
+                      : "New incoming customer orders will appear in real-time."}
+                  </p>
+                </div>
+              </div>
+              {summary.completedCount > 0 && (
+                <button
+                  onClick={() => setActiveTab("history")}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer"
+                >
+                  <History className="h-3.5 w-3.5" /> View Sales History
+                </button>
+              )}
+            </div>
+          )}
+
           <SharedOrderKanban
             orders={selectedTableIdFilter ? orders.filter((o) => o.table_id === selectedTableIdFilter) : orders}
             tableLabelMap={tableLabelMap}

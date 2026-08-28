@@ -37,6 +37,8 @@ export default function StaffLoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    let timerId: NodeJS.Timeout | null = null;
+
     try {
       if (mode === "signup") {
         const redirectUrl = `${window.location.origin}/staff/login`;
@@ -49,19 +51,32 @@ export default function StaffLoginPage() {
         toast.success("Account created — awaiting manager approval.");
       } else {
         console.log("StaffLoginPage: Attempting signInWithPassword for email:", email);
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        
+        // 10-second client-side timeout wrapper around signInWithPassword
+        const authPromise = supabase.auth.signInWithPassword({ email, password });
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timerId = setTimeout(() => {
+            reject(new Error("Authentication server timed out. Please try again."));
+          }, 10000);
+        });
+
+        const { data, error } = await Promise.race([authPromise, timeoutPromise]);
+        if (timerId) clearTimeout(timerId);
+
         console.log("StaffLoginPage: signInWithPassword result:", {
           success: !error,
           error,
-          userId: data.user?.id,
-          userEmail: data.user?.email
+          userId: data?.user?.id,
+          userEmail: data?.user?.email
         });
         if (error) throw error;
       }
     } catch (err: unknown) {
+      if (timerId) clearTimeout(timerId);
       const msg = err instanceof Error ? err.message : "Something went wrong";
       toast.error(msg);
     } finally {
+      if (timerId) clearTimeout(timerId);
       setBusy(false);
     }
   };

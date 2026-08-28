@@ -154,20 +154,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      void loadRoles(data.session?.user.id, true).finally(() => {
-        if (active) setLoading(false);
+    // Fallback safety timer (5s) to guarantee loading state is released even if GoTrue stalls
+    const fallbackTimer = setTimeout(() => {
+      if (active) {
+        setLoading(false);
+      }
+    }, 5000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.session);
+        void loadRoles(data.session?.user.id, true).finally(() => {
+          if (active) {
+            clearTimeout(fallbackTimer);
+            setLoading(false);
+          }
+        });
+      })
+      .catch((err) => {
+        console.error("[AuthProvider] getSession failed:", err);
+        if (active) {
+          clearTimeout(fallbackTimer);
+          setLoading(false);
+        }
       });
-    });
 
     const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
       if (!active) return;
       setSession(s);
       
       if (evt === "SIGNED_IN") {
-        void loadRoles(s?.user.id, true);
+        void loadRoles(s?.user.id, true).finally(() => {
+          if (active) setLoading(false);
+        });
       } else if (evt === "SIGNED_OUT") {
         setRoles([]);
         setLastUid(null);
@@ -181,6 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
+      clearTimeout(fallbackTimer);
       sub.subscription.unsubscribe();
     };
   }, []);
