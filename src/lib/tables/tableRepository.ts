@@ -18,31 +18,31 @@ export async function fetchCafeTables(cafeId: string): Promise<TableRow[]> {
 }
 
 export async function markTableFreeInDb(tableId: string, activeSessionId?: string | null): Promise<void> {
-  // 1. Cancel active orders for table or session so DB constraints and triggers permit session release
+  // 1. Cancel ONLY active, in-flight orders (pending, preparing, ready) so DB permits session release.
+  // NEVER cancel served, completed, or already cancelled historical orders.
   try {
-    if (tableId) {
-      const { data: activeOrders } = await supabase
-        .from("orders")
-        .select("id")
-        .eq("table_id", tableId)
-        .neq("status", "cancelled");
-
-      if (activeOrders && activeOrders.length > 0) {
-        for (const o of activeOrders) {
-          await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
-        }
-      }
-    }
     if (activeSessionId) {
       const { data: sessionOrders } = await supabase
         .from("orders")
         .select("id")
         .eq("dining_session_id", activeSessionId)
-        .neq("status", "cancelled");
+        .in("status", ["pending", "preparing", "ready"]);
 
       if (sessionOrders && sessionOrders.length > 0) {
         for (const o of sessionOrders) {
-          await supabase.from("orders").update({ status: "cancelled" }).eq("id", o.id);
+          await supabase.from("orders").update({ status: "cancelled", last_updated_by: "staff" }).eq("id", o.id);
+        }
+      }
+    } else if (tableId) {
+      const { data: activeOrders } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("table_id", tableId)
+        .in("status", ["pending", "preparing", "ready"]);
+
+      if (activeOrders && activeOrders.length > 0) {
+        for (const o of activeOrders) {
+          await supabase.from("orders").update({ status: "cancelled", last_updated_by: "staff" }).eq("id", o.id);
         }
       }
     }
