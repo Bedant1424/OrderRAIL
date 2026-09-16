@@ -4,6 +4,7 @@ export * from "./services/counterCacheService";
 export * from "./services/counterKotService";
 export * from "./services/counterOrderActionService";
 export * from "./services/counterOrderBuilderService";
+export * from "./services/counterBillingService";
 export * from "./services/printer/counterPrinter";
 export * from "./hooks/useCounterRealtime";
 export * from "./components/CounterHeader";
