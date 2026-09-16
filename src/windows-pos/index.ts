@@ -13,6 +13,7 @@ export * from "./components/ChannelOrderEntryModal";
 export * from "./components/ChannelOrdersView";
 export * from "./components/TableGrid";
 export * from "./components/OrderDetailsPanel";
+export * from "./components/BillSettlementModal";
 export * from "./components/CounterMenuImage";
 export * from "./components/MenuCatalog";
 export * from "./components/CounterCart";

@@ -13,26 +13,33 @@ import {
   CheckCircle,
   AlertTriangle,
   ExternalLink,
+  Receipt,
 } from "lucide-react";
 import { CounterOrderActionService } from "../services/counterOrderActionService";
+import { BillSettlementModal } from "./BillSettlementModal";
 import type { CounterOrder, OrderSource } from "../types/counterTypes";
 
 interface ChannelOrdersViewProps {
   channel: OrderSource;
   orders: CounterOrder[];
+  cafeId?: string;
   cafeName?: string;
   onOrderUpdated?: (orderId: string, newStatus: "preparing") => void;
   onOpenNewOrder: () => void;
+  onRefresh?: () => void;
 }
 
 export const ChannelOrdersView: React.FC<ChannelOrdersViewProps> = ({
   channel,
   orders,
+  cafeId = "00000000-0000-0000-0000-000000000001",
   cafeName = "Cheese Corner",
   onOrderUpdated,
   onOpenNewOrder,
+  onRefresh,
 }) => {
   const [inFlightOrderIds, setInFlightOrderIds] = useState<Set<string>>(new Set());
+  const [settlingOrder, setSettlingOrder] = useState<CounterOrder | null>(null);
   const [actionFeedback, setActionFeedback] = useState<
     Record<string, { type: "success" | "error" | "warning"; message: string }>
   >({});
@@ -424,6 +431,17 @@ export const ChannelOrdersView: React.FC<ChannelOrdersViewProps> = ({
                         </button>
                       </div>
                     )}
+
+                    {/* Settle Button — visible for preparing/ready/served */}
+                    {!isPending && (
+                      <button
+                        onClick={() => setSettlingOrder(order)}
+                        className="w-full mt-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/20 transition-all border border-emerald-500/40 cursor-pointer"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        <span>Settle ({formatCurrency(order.totalCents)})</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -431,6 +449,22 @@ export const ChannelOrdersView: React.FC<ChannelOrdersViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Bill & Settlement Modal for Channel Orders */}
+      {settlingOrder && (
+        <BillSettlementModal
+          isOpen={!!settlingOrder}
+          onClose={() => setSettlingOrder(null)}
+          orders={[settlingOrder]}
+          channel={channel}
+          cafeId={cafeId}
+          cafeName={cafeName}
+          onSettlementCompleted={() => {
+            setSettlingOrder(null);
+            onRefresh?.();
+          }}
+        />
+      )}
     </div>
   );
 };

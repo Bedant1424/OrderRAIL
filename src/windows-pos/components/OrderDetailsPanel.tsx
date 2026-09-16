@@ -11,25 +11,32 @@ import {
   CheckCircle,
   AlertTriangle,
   Plus,
+  Receipt,
 } from "lucide-react";
 import { CounterOrderActionService } from "../services/counterOrderActionService";
+import { BillSettlementModal } from "./BillSettlementModal";
 import type { CounterTable, CounterOrder } from "../types/counterTypes";
 
 interface OrderDetailsPanelProps {
   table: CounterTable | null;
+  cafeId?: string;
   cafeName?: string;
   onOrderUpdated?: (orderId: string, newStatus: "preparing") => void;
   onPunchOrderForTable?: (tableId: string) => void;
+  onRefresh?: () => void;
 }
 
 export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
   table,
+  cafeId = "00000000-0000-0000-0000-000000000001",
   cafeName = "Cheese Corner",
   onOrderUpdated,
   onPunchOrderForTable,
+  onRefresh,
 }) => {
   const [inFlightOrderIds, setInFlightOrderIds] = useState<Set<string>>(new Set());
   const [actionFeedback, setActionFeedback] = useState<Record<string, { type: "success" | "error" | "warning"; message: string }>>({});
+  const [isSettlementOpen, setIsSettlementOpen] = useState<boolean>(false);
 
   const formatCurrency = (cents: number) => {
     return `₹${(cents / 100).toFixed(2)}`;
@@ -209,6 +216,17 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
             <span>Punch Order / Add Items to {table.label}</span>
           </button>
         )}
+
+        {/* Bill & Settle Action Button */}
+        {activeOrders.length > 0 && (
+          <button
+            onClick={() => setIsSettlementOpen(true)}
+            className="w-full mt-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/20 transition-all border border-emerald-500/40 cursor-pointer"
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Bill & Settle Table ({formatCurrency(table.unbilledTotalCents)})</span>
+          </button>
+        )}
       </div>
 
       {/* Orders List */}
@@ -381,6 +399,22 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
           })
         )}
       </div>
+
+      {/* Bill & Settlement Modal */}
+      <BillSettlementModal
+        isOpen={isSettlementOpen}
+        onClose={() => setIsSettlementOpen(false)}
+        orders={activeOrders}
+        channel="DINE_IN"
+        cafeId={cafeId}
+        cafeName={cafeName}
+        tableId={table.id}
+        tableLabel={table.label}
+        diningSessionId={table.activeSessionId}
+        onSettlementCompleted={() => {
+          onRefresh?.();
+        }}
+      />
     </aside>
   );
 };
