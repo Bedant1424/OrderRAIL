@@ -1,7 +1,9 @@
 import { createOrderInDb, type CreateOrderPayload } from "@/lib/orders/repository";
+import { NetworkManager } from "@/lib/offline/networkManager";
+import { OperationExecutor } from "@/lib/offline/operationExecutor";
 import { generateCounterKot, type GeneratedCounterKot } from "./counterKotService";
 import { type CounterPrinter, type PrintResult, defaultCounterPrinter } from "./printer/counterPrinter";
-import type { OrderSource, CounterOrder } from "../types/counterTypes";
+import type { OrderSource, CounterOrder, OrderSyncStatus } from "../types/counterTypes";
 
 export interface CounterCartItem {
   id: string;
@@ -38,6 +40,8 @@ export interface CreatedCounterOrderResult {
   diningSessionId: string | null;
   externalOrderRef: string | null;
   totalCents: number;
+  isOffline?: boolean;
+  syncStatus?: OrderSyncStatus;
   kot?: GeneratedCounterKot;
   printResult?: PrintResult;
   error?: string;
@@ -149,6 +153,12 @@ export class CounterOrderBuilderService {
       };
     }
 
+    // Check if terminal is operating offline
+    const isOnline = NetworkManager.isOnline();
+    if (!isOnline) {
+      return await this.handleOfflineOrderSubmission(payload, params, cafeName, printer);
+    }
+
     try {
       const createdOrder = await createOrderInDb(payload);
       const orderNumber = createdOrder.daily_order_number ?? createdOrder.order_number ?? 1;
@@ -177,6 +187,8 @@ export class CounterOrderBuilderService {
         customerPhone: createdOrder.customer_phone || null,
         externalOrderRef: payload.external_order_ref || null,
         note: createdOrder.note || null,
+        syncStatus: "SYNCED",
+        isOfflineCreated: false,
         items: (createdOrder.order_items || []).map((i) => ({
           id: i.id,
           menuItemId: i.menu_item_id,
@@ -214,10 +226,23 @@ export class CounterOrderBuilderService {
         diningSessionId: createdOrder.dining_session_id || null,
         externalOrderRef: payload.external_order_ref || null,
         totalCents: createdOrder.total_cents,
+        syncStatus: "SYNCED",
+        isOffline: false,
         kot,
         printResult,
       };
     } catch (dbErr: any) {
+      const isNetworkError =
+        !NetworkManager.isOnline() ||
+        dbErr?.message?.toLowerCase().includes("fetch") ||
+        dbErr?.message?.toLowerCase().includes("network") ||
+        dbErr?.message?.toLowerCase().includes("offline");
+
+      if (isNetworkError) {
+        console.warn("[CounterOrderBuilderService] Network error during online submission. Enqueuing for offline sync:", dbErr);
+        return await this.handleOfflineOrderSubmission(payload, params, cafeName, printer);
+      }
+
       console.error("[CounterOrderBuilderService] Failed to create order in DB:", dbErr);
       return {
         success: false,
@@ -229,5 +254,97 @@ export class CounterOrderBuilderService {
         error: dbErr?.message || "Failed to persist order to database.",
       };
     }
+  }
+
+  /**
+   * Handles offline order entry: assigns local ID, enqueues to operation queue,
+   * generates offline KOT, and marks order as PENDING_SYNC.
+   */
+  private static async handleOfflineOrderSubmission(
+    payload: CreateOrderPayload,
+    params: BuildCounterOrderParams,
+    cafeName: string,
+    printer: CounterPrinter
+  ): Promise<CreatedCounterOrderResult> {
+    const tempId = payload.id || `temp_counter_ord_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const orderNumber = Math.floor(1000 + Math.random() * 9000);
+
+    const offlinePayload: CreateOrderPayload = {
+      ...payload,
+      id: tempId,
+    };
+
+    // Dispatch into OperationExecutor / IndexedDB Queue for background sync on reconnect
+    await OperationExecutor.dispatch("CREATE_ORDER", offlinePayload, {
+      idempotencyKey: `create_order_${tempId}`,
+      forceQueue: true,
+    });
+
+    // Determine label for KOT
+    let kotLabel = "Takeaway";
+    if (payload.order_source === "DINE_IN") {
+      kotLabel = params.tableLabel || "Table";
+    } else if (payload.order_source === "SWIGGY") {
+      kotLabel = payload.external_order_ref ? `Swiggy #${payload.external_order_ref}` : "Swiggy";
+    } else if (payload.order_source === "ZOMATO") {
+      kotLabel = payload.external_order_ref ? `Zomato #${payload.external_order_ref}` : "Zomato";
+    }
+
+    const counterOrderForKot: CounterOrder = {
+      id: tempId,
+      orderNumber,
+      tableId: payload.table_id || null,
+      diningSessionId: payload.dining_session_id || null,
+      status: "preparing",
+      orderSource: payload.order_source as OrderSource,
+      createdAt: new Date().toISOString(),
+      totalCents: payload.total_cents,
+      customerName: payload.customer_name || null,
+      customerPhone: payload.customer_phone || null,
+      externalOrderRef: payload.external_order_ref || null,
+      note: payload.note || null,
+      syncStatus: "PENDING_SYNC",
+      isOfflineCreated: true,
+      items: (payload.items || []).map((i) => ({
+        id: i.id || crypto.randomUUID(),
+        menuItemId: i.menu_item_id,
+        name: i.name,
+        priceCents: i.price_cents,
+        qty: i.qty,
+        note: i.note,
+      })),
+    };
+
+    const kot = generateCounterKot(counterOrderForKot, `${kotLabel} [OFFLINE]`, cafeName);
+
+    let printResult: PrintResult;
+    try {
+      printResult = await printer.printRaw(kot.rawBytes, {
+        title: "Kitchen Order Ticket (Offline)",
+        orderNumber,
+        tableLabel: `${kotLabel} [OFFLINE]`,
+      });
+    } catch (printErr: any) {
+      printResult = {
+        status: "FAILED",
+        message: printErr?.message || "Printer communication exception",
+        timestamp: new Date(),
+      };
+    }
+
+    return {
+      success: true,
+      orderId: tempId,
+      orderNumber,
+      orderSource: payload.order_source as OrderSource,
+      tableId: payload.table_id || null,
+      diningSessionId: payload.dining_session_id || null,
+      externalOrderRef: payload.external_order_ref || null,
+      totalCents: payload.total_cents,
+      isOffline: true,
+      syncStatus: "PENDING_SYNC",
+      kot,
+      printResult,
+    };
   }
 }

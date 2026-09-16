@@ -49,6 +49,7 @@ export function generateCounterKot(
     customerPhone: order.customerPhone,
     orderSource: order.orderSource || "DINE_IN",
     externalOrderRef: order.externalOrderRef || null,
+    specialInstructions: order.isOfflineCreated ? "[OFFLINE ORDER - PENDING SYNC]" : undefined,
     notes: order.note || undefined,
     items: order.items.map((it) => ({
       name: it.name,
