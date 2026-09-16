@@ -5,11 +5,13 @@ import type { OrderSource } from "../types/counterTypes";
 interface ChannelSelectorProps {
   activeChannel: OrderSource;
   onSelectChannel: (channel: OrderSource) => void;
+  channelCounts?: Partial<Record<OrderSource, number>>;
 }
 
 export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
   activeChannel,
   onSelectChannel,
+  channelCounts = {},
 }) => {
   const channels: Array<{
     key: OrderSource;
@@ -17,6 +19,7 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
     icon: React.ReactNode;
     activeClass: string;
     borderClass: string;
+    badgeActiveClass: string;
   }> = [
     {
       key: "DINE_IN",
@@ -24,6 +27,7 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
       icon: <Utensils className="w-3.5 h-3.5" />,
       activeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
       borderClass: "hover:border-emerald-500/30",
+      badgeActiveClass: "bg-emerald-500/30 text-emerald-200",
     },
     {
       key: "TAKEAWAY",
@@ -31,6 +35,7 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
       icon: <ShoppingBag className="w-3.5 h-3.5" />,
       activeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40",
       borderClass: "hover:border-amber-500/30",
+      badgeActiveClass: "bg-amber-500/30 text-amber-200",
     },
     {
       key: "SWIGGY",
@@ -38,6 +43,7 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
       icon: <Bike className="w-3.5 h-3.5" />,
       activeClass: "bg-orange-500/20 text-orange-300 border-orange-500/40",
       borderClass: "hover:border-orange-500/30",
+      badgeActiveClass: "bg-orange-500/30 text-orange-200",
     },
     {
       key: "ZOMATO",
@@ -45,13 +51,16 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
       icon: <Bike className="w-3.5 h-3.5" />,
       activeClass: "bg-rose-500/20 text-rose-300 border-rose-500/40",
       borderClass: "hover:border-rose-500/30",
+      badgeActiveClass: "bg-rose-500/30 text-rose-200",
     },
   ];
 
   return (
-    <div className="flex items-center gap-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+    <div className="flex items-center gap-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800 select-none">
       {channels.map((ch) => {
         const isActive = activeChannel === ch.key;
+        const count = channelCounts[ch.key] ?? 0;
+
         return (
           <button
             key={ch.key}
@@ -64,6 +73,15 @@ export const ChannelSelector: React.FC<ChannelSelectorProps> = ({
           >
             {ch.icon}
             <span>{ch.label}</span>
+            {count > 0 && (
+              <span
+                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold ${
+                  isActive ? ch.badgeActiveClass : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {count}
+              </span>
+            )}
           </button>
         );
       })}

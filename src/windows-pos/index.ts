@@ -11,6 +11,10 @@ export * from "./components/ChannelOrderEntryModal";
 export * from "./components/ChannelOrdersView";
 export * from "./components/TableGrid";
 export * from "./components/OrderDetailsPanel";
+export * from "./components/CounterMenuImage";
+export * from "./components/MenuCatalog";
+export * from "./components/CounterCart";
+export * from "./components/OrderEntryView";
 export * from "./app/WindowsCounterApp";
 export { default } from "./app/WindowsCounterApp";
 
