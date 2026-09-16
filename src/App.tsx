@@ -27,6 +27,9 @@ const TableOrderPage = lazy(() => import("./pages/table/TableOrderPage"));
 // Production OrderRail Counter Page (Protected Workstation)
 const CounterPage = lazy(() => import("./pages/counter/CounterPage"));
 
+// Native Windows Desktop Counter POS
+const WindowsCounterApp = lazy(() => import("./windows-pos/app/WindowsCounterApp"));
+
 // Living Design System Showcase
 const DesignSystemShowcasePage = lazy(() => import("./pages/design-system/DesignSystemShowcasePage"));
 
@@ -91,6 +94,10 @@ const App = () => {
                       </ProtectedCounterRoute>
                     } 
                   />
+
+                  {/* Native Windows Counter POS Station */}
+                  <Route path="/windows-pos" element={<WindowsCounterApp />} />
+                  <Route path="/pos" element={<WindowsCounterApp />} />
 
                   {/* Obsolete experimental redirects */}
                   <Route path="/counter/v2" element={<Navigate to="/counter" replace />} />
