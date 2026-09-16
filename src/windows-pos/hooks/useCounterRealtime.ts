@@ -12,6 +12,7 @@ export interface UseCounterRealtimeResult {
   lastSyncedAt: Date | null;
   isLoading: boolean;
   refresh: () => Promise<void>;
+  updateLocalOrderStatus: (orderId: string, newStatus: string) => void;
 }
 
 export function useCounterRealtime(cafeId: string | undefined): UseCounterRealtimeResult {
@@ -140,6 +141,17 @@ export function useCounterRealtime(cafeId: string | undefined): UseCounterRealti
     };
   }, [cafeId, performReconciliation]);
 
+  const updateLocalOrderStatus = useCallback((orderId: string, newStatus: string) => {
+    setTables((prevTables) =>
+      prevTables.map((tbl) => ({
+        ...tbl,
+        orders: tbl.orders.map((ord) =>
+          ord.id === orderId ? { ...ord, status: newStatus } : ord
+        ),
+      }))
+    );
+  }, []);
+
   const selectedTable = tables.find((t) => t.id === selectedTableId) || null;
 
   return {
@@ -151,5 +163,6 @@ export function useCounterRealtime(cafeId: string | undefined): UseCounterRealti
     lastSyncedAt,
     isLoading,
     refresh: performReconciliation,
+    updateLocalOrderStatus,
   };
 }

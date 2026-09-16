@@ -1,12 +1,22 @@
-import React from "react";
-import { Clock, User, Phone, FileText, ShoppingCart } from "lucide-react";
-import type { CounterTable } from "../types/counterTypes";
+import React, { useState } from "react";
+import { Clock, User, Phone, FileText, ShoppingCart, ChefHat, Printer, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
+import { CounterOrderActionService } from "../services/counterOrderActionService";
+import type { CounterTable, CounterOrder } from "../types/counterTypes";
 
 interface OrderDetailsPanelProps {
   table: CounterTable | null;
+  cafeName?: string;
+  onOrderUpdated?: (orderId: string, newStatus: "preparing") => void;
 }
 
-export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({ table }) => {
+export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({
+  table,
+  cafeName = "Cheese Corner",
+  onOrderUpdated,
+}) => {
+  const [inFlightOrderIds, setInFlightOrderIds] = useState<Set<string>>(new Set());
+  const [actionFeedback, setActionFeedback] = useState<Record<string, { type: "success" | "error" | "warning"; message: string }>>({});
+
   const formatCurrency = (cents: number) => {
     return `₹${(cents / 100).toFixed(2)}`;
   };
@@ -56,6 +66,79 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({ table }) =
             {status}
           </span>
         );
+    }
+  };
+
+  const handleAcceptOrder = async (order: CounterOrder) => {
+    if (inFlightOrderIds.has(order.id) || !table) return;
+
+    setInFlightOrderIds((prev) => new Set(prev).add(order.id));
+    setActionFeedback((prev) => {
+      const next = { ...prev };
+      delete next[order.id];
+      return next;
+    });
+
+    try {
+      const res = await CounterOrderActionService.acceptOrder(order, table.label, cafeName);
+
+      if (!res.success) {
+        setActionFeedback((prev) => ({
+          ...prev,
+          [order.id]: { type: "error", message: res.error || "Order acceptance failed" },
+        }));
+      } else {
+        // Successful DB transition to preparing
+        onOrderUpdated?.(order.id, "preparing");
+
+        let printMsg = "Order accepted & preparing.";
+        if (res.printResult?.status === "ACCEPTED_FOR_TEST_PRINT") {
+          printMsg = "Order accepted. KOT accepted by mock printer.";
+        } else if (res.printResult?.status === "UNAVAILABLE") {
+          printMsg = "Order accepted. KOT ready (printer unavailable).";
+        }
+
+        setActionFeedback((prev) => ({
+          ...prev,
+          [order.id]: {
+            type: res.printResult?.status === "UNAVAILABLE" ? "warning" : "success",
+            message: printMsg,
+          },
+        }));
+      }
+    } catch (err: any) {
+      setActionFeedback((prev) => ({
+        ...prev,
+        [order.id]: { type: "error", message: err?.message || "Unexpected error accepting order" },
+      }));
+    } finally {
+      setInFlightOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(order.id);
+        return next;
+      });
+    }
+  };
+
+  const handleReprintKot = async (order: CounterOrder) => {
+    if (inFlightOrderIds.has(order.id) || !table) return;
+
+    setInFlightOrderIds((prev) => new Set(prev).add(order.id));
+    try {
+      const res = await CounterOrderActionService.reprintKot(order, table.label, cafeName);
+      setActionFeedback((prev) => ({
+        ...prev,
+        [order.id]: {
+          type: res.success ? "success" : "warning",
+          message: res.printResult?.message || (res.success ? "KOT dispatched to printer" : "Print failed"),
+        },
+      }));
+    } finally {
+      setInFlightOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(order.id);
+        return next;
+      });
     }
   };
 
@@ -111,81 +194,147 @@ export const OrderDetailsPanel: React.FC<OrderDetailsPanelProps> = ({ table }) =
             <span>No orders placed yet for this table.</span>
           </div>
         ) : (
-          activeOrders.map((order, index) => (
-            <div
-              key={order.id}
-              className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3.5 shadow-sm space-y-2.5"
-            >
-              {/* Order Card Header */}
-              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white font-mono bg-zinc-800 px-2 py-0.5 rounded">
-                    #{order.orderNumber}
-                  </span>
-                  <span className="flex items-center gap-1 text-[11px] text-zinc-400">
-                    <Clock className="w-3 h-3" />
-                    {formatTime(order.createdAt)}
-                  </span>
-                </div>
-                {getStatusBadge(order.status)}
-              </div>
+          activeOrders.map((order) => {
+            const isInFlight = inFlightOrderIds.has(order.id);
+            const feedback = actionFeedback[order.id];
+            const isPending = order.status.toLowerCase() === "pending";
+            const isPreparing = order.status.toLowerCase() === "preparing" || order.status.toLowerCase() === "kot_sent";
 
-              {/* Customer Info if present */}
-              {(order.customerName || order.customerPhone) && (
-                <div className="flex items-center gap-3 text-xs text-zinc-400 bg-zinc-900/50 px-2 py-1 rounded border border-zinc-800/50">
-                  {order.customerName && (
-                    <span className="flex items-center gap-1 truncate">
-                      <User className="w-3 h-3 text-zinc-500" />
-                      {order.customerName}
+            return (
+              <div
+                key={order.id}
+                className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-3.5 shadow-sm space-y-2.5"
+              >
+                {/* Order Card Header */}
+                <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white font-mono bg-zinc-800 px-2 py-0.5 rounded">
+                      #{order.orderNumber}
                     </span>
-                  )}
-                  {order.customerPhone && (
-                    <span className="flex items-center gap-1 font-mono text-[11px]">
-                      <Phone className="w-3 h-3 text-zinc-500" />
-                      {order.customerPhone}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Order Items */}
-              <div className="space-y-1.5 divide-y divide-zinc-900">
-                {order.items.map((item) => (
-                  <div key={item.id} className="pt-1.5 first:pt-0 flex items-start justify-between text-xs">
-                    <div className="flex-1 pr-2">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-bold text-orange-400 font-mono">{item.qty}x</span>
-                        <span className="text-zinc-200 font-medium">{item.name}</span>
-                      </div>
-                      {item.note && (
-                        <p className="text-[11px] text-amber-300/80 italic mt-0.5 pl-5">
-                          Note: {item.note}
-                        </p>
-                      )}
-                    </div>
-                    <span className="font-mono text-zinc-300 font-medium">
-                      {formatCurrency(item.priceCents * item.qty)}
+                    <span className="flex items-center gap-1 text-[11px] text-zinc-400">
+                      <Clock className="w-3 h-3" />
+                      {formatTime(order.createdAt)}
                     </span>
                   </div>
-                ))}
-              </div>
-
-              {/* Order Footer Note & Total */}
-              {order.note && (
-                <div className="flex items-start gap-1 text-[11px] text-zinc-400 bg-zinc-900/40 p-1.5 rounded border border-zinc-800/40">
-                  <FileText className="w-3 h-3 text-zinc-500 shrink-0 mt-0.5" />
-                  <span className="italic">{order.note}</span>
+                  {getStatusBadge(order.status)}
                 </div>
-              )}
 
-              <div className="flex justify-between items-center pt-2 border-t border-zinc-800/80 text-xs">
-                <span className="text-zinc-400">Order Subtotal</span>
-                <span className="font-bold font-mono text-white">
-                  {formatCurrency(order.totalCents)}
-                </span>
+                {/* Customer Info if present */}
+                {(order.customerName || order.customerPhone) && (
+                  <div className="flex items-center gap-3 text-xs text-zinc-400 bg-zinc-900/50 px-2 py-1 rounded border border-zinc-800/50">
+                    {order.customerName && (
+                      <span className="flex items-center gap-1 truncate">
+                        <User className="w-3 h-3 text-zinc-500" />
+                        {order.customerName}
+                      </span>
+                    )}
+                    {order.customerPhone && (
+                      <span className="flex items-center gap-1 font-mono text-[11px]">
+                        <Phone className="w-3 h-3 text-zinc-500" />
+                        {order.customerPhone}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Order Items */}
+                <div className="space-y-1.5 divide-y divide-zinc-900">
+                  {order.items.map((item) => (
+                    <div key={item.id} className="pt-1.5 first:pt-0 flex items-start justify-between text-xs">
+                      <div className="flex-1 pr-2">
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-bold text-orange-400 font-mono">{item.qty}x</span>
+                          <span className="text-zinc-200 font-medium">{item.name}</span>
+                        </div>
+                        {item.note && (
+                          <p className="text-[11px] text-amber-300/80 italic mt-0.5 pl-5">
+                            Note: {item.note}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-mono text-zinc-300 font-medium">
+                        {formatCurrency(item.priceCents * item.qty)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Order Footer Note & Total */}
+                {order.note && (
+                  <div className="flex items-start gap-1 text-[11px] text-zinc-400 bg-zinc-900/40 p-1.5 rounded border border-zinc-800/40">
+                    <FileText className="w-3 h-3 text-zinc-500 shrink-0 mt-0.5" />
+                    <span className="italic">{order.note}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center pt-2 border-t border-zinc-800/80 text-xs">
+                  <span className="text-zinc-400">Order Subtotal</span>
+                  <span className="font-bold font-mono text-white">
+                    {formatCurrency(order.totalCents)}
+                  </span>
+                </div>
+
+                {/* Feedback Message Banner */}
+                {feedback && (
+                  <div
+                    className={`text-[11px] p-2 rounded flex items-center gap-1.5 ${
+                      feedback.type === "success"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : feedback.type === "warning"
+                        ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                        : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                    }`}
+                  >
+                    {feedback.type === "success" ? (
+                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span className="truncate">{feedback.message}</span>
+                  </div>
+                )}
+
+                {/* Primary Action Button */}
+                {isPending && (
+                  <button
+                    onClick={() => handleAcceptOrder(order)}
+                    disabled={isInFlight}
+                    className="w-full mt-1.5 py-2 px-3 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-md shadow-orange-600/20"
+                  >
+                    {isInFlight ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Accepting & Generating KOT...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChefHat className="w-4 h-4" />
+                        <span>Accept Order & Start Preparing</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* Preparing Order KOT Reprint Option */}
+                {isPreparing && (
+                  <div className="flex items-center justify-between pt-1 text-xs">
+                    <span className="text-[11px] text-zinc-500 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 text-blue-400" />
+                      In Kitchen
+                    </span>
+                    <button
+                      onClick={() => handleReprintKot(order)}
+                      disabled={isInFlight}
+                      className="text-[11px] font-medium text-zinc-400 hover:text-white px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 flex items-center gap-1 border border-zinc-700/50 transition-colors"
+                    >
+                      <Printer className="w-3 h-3" />
+                      <span>Print KOT</span>
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </aside>

@@ -20,6 +20,7 @@ export const WindowsCounterApp: React.FC = () => {
     lastSyncedAt,
     isLoading,
     refresh,
+    updateLocalOrderStatus,
   } = useCounterRealtime(effectiveCafeId);
 
   return (
@@ -41,7 +42,11 @@ export const WindowsCounterApp: React.FC = () => {
           onSelectTable={setSelectedTableId}
         />
 
-        <OrderDetailsPanel table={selectedTable} />
+        <OrderDetailsPanel
+          table={selectedTable}
+          cafeName={cafe?.name || "Cheese Corner"}
+          onOrderUpdated={updateLocalOrderStatus}
+        />
       </main>
     </div>
   );
