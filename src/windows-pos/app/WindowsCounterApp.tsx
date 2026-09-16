@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from "react";
 import { useCafe } from "@/lib/cafe";
 import { useCounterRealtime } from "../hooks/useCounterRealtime";
-import { CounterHeader } from "../components/CounterHeader";
+import { CounterHeader, type PrinterHeaderStatus } from "../components/CounterHeader";
 import { TableGrid } from "../components/TableGrid";
 import { OrderDetailsPanel } from "../components/OrderDetailsPanel";
 import { ChannelOrdersView } from "../components/ChannelOrdersView";
 import { OrderEntryView } from "../components/OrderEntryView";
+import { getActiveCounterPrinter } from "../services/printer/counterPrinter";
+import { PrinterConfigService } from "../services/printer/printerConfigService";
 import type { OrderSource } from "../types/counterTypes";
 
 export const WindowsCounterApp: React.FC = () => {
@@ -30,6 +32,27 @@ export const WindowsCounterApp: React.FC = () => {
 
   const [activeChannel, setActiveChannel] = useState<OrderSource>("DINE_IN");
   const [mode, setMode] = useState<"MONITOR" | "ORDER_ENTRY">("MONITOR");
+  const [printerStatus, setPrinterStatus] = useState<PrinterHeaderStatus>("Printer Ready");
+
+  const handleTestPrint = async () => {
+    try {
+      const printer = getActiveCounterPrinter();
+      const res = await PrinterConfigService.executeTestPrint(printer);
+      if (res.status === "SPOOLER_ACCEPTED" || res.status === "ACCEPTED_FOR_TEST_PRINT") {
+        setPrinterStatus("Spooler Accepted");
+        setTimeout(() => setPrinterStatus("Printer Ready"), 4000);
+      } else if (res.status === "UNAVAILABLE") {
+        setPrinterStatus("Printer Unavailable");
+        setTimeout(() => setPrinterStatus("Printer Ready"), 5000);
+      } else {
+        setPrinterStatus("Printer Error");
+        setTimeout(() => setPrinterStatus("Printer Ready"), 5000);
+      }
+    } catch {
+      setPrinterStatus("Printer Error");
+      setTimeout(() => setPrinterStatus("Printer Ready"), 5000);
+    }
+  };
 
   // Dynamic order / active table counts for each channel badge
   const channelCounts = useMemo(() => {
@@ -79,6 +102,8 @@ export const WindowsCounterApp: React.FC = () => {
         onOpenNewOrder={() => setMode("ORDER_ENTRY")}
         channelCounts={channelCounts}
         pendingSyncCount={pendingSyncCount}
+        printerStatusText={printerStatus}
+        onTriggerTestPrint={handleTestPrint}
       />
 
       {/* Main Workspace Area */}

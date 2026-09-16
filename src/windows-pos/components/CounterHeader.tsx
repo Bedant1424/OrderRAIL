@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { RefreshCw, Wifi, WifiOff, Store, Plus, Clock } from "lucide-react";
+import { RefreshCw, Wifi, WifiOff, Store, Plus, Clock, Printer } from "lucide-react";
 import { ChannelSelector } from "./ChannelSelector";
 import type { ConnectionStatus, OrderSource } from "../types/counterTypes";
+
+export type PrinterHeaderStatus = "Printer Ready" | "Spooler Accepted" | "Printer Unavailable" | "Printer Error";
 
 interface CounterHeaderProps {
   cafeName?: string;
@@ -15,6 +17,8 @@ interface CounterHeaderProps {
   onOpenNewOrder: () => void;
   channelCounts?: Partial<Record<OrderSource, number>>;
   pendingSyncCount?: number;
+  printerStatusText?: PrinterHeaderStatus;
+  onTriggerTestPrint?: () => void;
 }
 
 export const CounterHeader: React.FC<CounterHeaderProps> = ({
@@ -29,6 +33,8 @@ export const CounterHeader: React.FC<CounterHeaderProps> = ({
   onOpenNewOrder,
   channelCounts,
   pendingSyncCount = 0,
+  printerStatusText = "Printer Ready",
+  onTriggerTestPrint,
 }) => {
   const [currentClock, setCurrentClock] = useState<string>(() =>
     new Date().toLocaleTimeString("en-IN", {
@@ -52,6 +58,56 @@ export const CounterHeader: React.FC<CounterHeaderProps> = ({
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const getPrinterBadge = () => {
+    switch (printerStatusText) {
+      case "Spooler Accepted":
+        return (
+          <button
+            onClick={onTriggerTestPrint}
+            title="ESC/POS Spooler Accepted - Click to run diagnostic test print"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-medium transition-all"
+          >
+            <Printer className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden md:inline">Spooler Accepted</span>
+          </button>
+        );
+      case "Printer Error":
+        return (
+          <button
+            onClick={onTriggerTestPrint}
+            title="Printer Error - Click to test print"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-medium transition-all"
+          >
+            <Printer className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden md:inline">Printer Error</span>
+          </button>
+        );
+      case "Printer Unavailable":
+        return (
+          <button
+            onClick={onTriggerTestPrint}
+            title="Printer Unavailable - Click to test print"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 text-xs font-medium transition-all"
+          >
+            <Printer className="w-3.5 h-3.5 text-zinc-500" />
+            <span className="hidden md:inline">Printer Unavailable</span>
+          </button>
+        );
+      case "Printer Ready":
+      default:
+        return (
+          <button
+            onClick={onTriggerTestPrint}
+            title="Printer Ready (Windows Spooler) - Click to run diagnostic test print"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/60 text-xs font-medium transition-all"
+          >
+            <Printer className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden md:inline">Printer Ready</span>
+          </button>
+        );
+    }
+  };
 
   const getStatusBadge = () => {
     switch (connectionStatus) {
@@ -135,6 +191,7 @@ export const CounterHeader: React.FC<CounterHeaderProps> = ({
         </div>
 
         {getStatusBadge()}
+        {getPrinterBadge()}
 
         {pendingSyncCount > 0 && (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-mono font-medium animate-pulse">

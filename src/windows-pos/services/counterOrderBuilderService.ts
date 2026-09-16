@@ -2,7 +2,7 @@ import { createOrderInDb, type CreateOrderPayload } from "@/lib/orders/repositor
 import { NetworkManager } from "@/lib/offline/networkManager";
 import { OperationExecutor } from "@/lib/offline/operationExecutor";
 import { generateCounterKot, type GeneratedCounterKot } from "./counterKotService";
-import { type CounterPrinter, type PrintResult, defaultCounterPrinter } from "./printer/counterPrinter";
+import { type CounterPrinter, type PrintResult, defaultCounterPrinter, getActiveCounterPrinter } from "./printer/counterPrinter";
 import type { OrderSource, CounterOrder, OrderSyncStatus } from "../types/counterTypes";
 
 export interface CounterCartItem {
@@ -136,7 +136,7 @@ export class CounterOrderBuilderService {
     params: BuildCounterOrderParams,
     cafeName: string = "Cheese Corner"
   ): Promise<CreatedCounterOrderResult> {
-    const printer = params.printer || defaultCounterPrinter;
+    const printer = params.printer || getActiveCounterPrinter();
 
     let payload: CreateOrderPayload;
     try {
