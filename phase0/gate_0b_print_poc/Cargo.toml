@@ -1,0 +1,16 @@
+[package]
+name = "cheese-corner-print-poc"
+version = "0.1.0"
+edition = "2021"
+description = "Isolated printing proof-of-concept for Cheese Corner POS Gate 0B"
+
+[dependencies.windows]
+version = "0.58"
+features = [
+    "Win32_Graphics_Printing",
+    "Win32_Foundation",
+    "Win32_Security",
+]
+
+[dependencies]
+chrono = "0.4"

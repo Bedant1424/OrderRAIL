@@ -1,0 +1,19 @@
+{
+  "auditTimestamp": "2026-09-16T03:56:05.588Z",
+  "productionProjectRef": "toqerqtcnlkvdawrkkqh",
+  "verifications": {
+    "productionMigrationsUntouched": true,
+    "latestProductionMigration": "20260822210000_enable_replica_identity_full_orders",
+    "productionTablesUntouched": true,
+    "gate0dObjectsAbsentFromProd": {
+      "bill_orders_exists": false,
+      "bill_settlement_idempotency_exists": false,
+      "settle_bill_and_close_session_atomic_rpc_exists": false
+    },
+    "zeroDmlDuringTestWindow": {
+      "recent_bills_created": 0,
+      "recent_orders_created": 0
+    },
+    "independentAuditVerdict": "PASS"
+  }
+}

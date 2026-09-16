@@ -1,0 +1,157 @@
+{
+  "executionDate": "2026-09-16T03:54:19.655Z",
+  "stagingHost": "db.nmlrggmiksxwxptrcntb.supabase.co",
+  "deadlockCount": 0,
+  "tests": {
+    "T1": {
+      "passed": true,
+      "total": 500,
+      "successes": 500,
+      "deadlocks": 0,
+      "latency": {
+        "min": 113,
+        "max": 204,
+        "mean": 135,
+        "p95": 186,
+        "p99": 200
+      }
+    },
+    "T2": {
+      "passed": true,
+      "freshCount": 1,
+      "replayCount": 499,
+      "dbIdemCount": 1,
+      "dbPayCount": 1,
+      "deadlocks": 0
+    },
+    "T3": {
+      "passed": true,
+      "successes": 1,
+      "alreadySettled": 499,
+      "dbIdemCount": 1,
+      "dbPayCount": 1,
+      "deadlocks": 0
+    },
+    "T4": {
+      "passed": true,
+      "successes": 500,
+      "deadlocks": 0
+    },
+    "T5": {
+      "passed": true,
+      "result": {
+        "success": true,
+        "duration": 134,
+        "result": {
+          "status": "SUCCESS",
+          "response": {
+            "bill_id": "40000000-0000-0000-0000-000100000004",
+            "cafe_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "order_ids": [
+              "30000000-0000-0000-0000-000100000003"
+            ],
+            "settled_at": "2026-09-16T03:54:26.741068+00:00",
+            "operator_id": "11111111-1111-1111-1111-111111111111",
+            "payment_mode": "CASH",
+            "amount_applied_paise": 50000
+          },
+          "idempotent_replay": true
+        }
+      }
+    },
+    "T6": {
+      "passed": true,
+      "error": "BILL_VOIDED: Cannot settle voided bill 40000000-0000-0000-0000-000000000006"
+    },
+    "T7": {
+      "passed": true,
+      "error": "IDEMPOTENCY_KEY_REUSE_CONFLICT: Key idem_t4_dine_0001 already used with differing payload or bill"
+    },
+    "T8": {
+      "passed": true,
+      "error": "BILL_ALREADY_SETTLED: Bill 40000000-0000-0000-0000-000100000004 is already settled under a different idempotency key"
+    },
+    "T9": {
+      "passed": true,
+      "error": "IDEMPOTENCY_KEY_REUSE_CONFLICT: Key idem_t4_dine_0001 already used with differing payload or bill"
+    },
+    "T10": {
+      "passed": true,
+      "successes": 100,
+      "freshCount": 1,
+      "replayCount": 99,
+      "ledgerRows": 2,
+      "deadlocks": 0
+    },
+    "T11": {
+      "passed": true,
+      "error": "insert or update on table \"bill_orders\" violates foreign key constraint \"fk_bill_orders_order\""
+    },
+    "T12": {
+      "passed": true,
+      "error": "duplicate key value violates unique constraint \"idx_remote_bill_orders_active_unique\""
+    }
+  },
+  "integrityChecks": {
+    "A": {
+      "title": "No paid bill without exactly one idempotency record",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    },
+    "B": {
+      "title": "Zero duplicate successful idempotency keys",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    },
+    "C": {
+      "title": "Exact paise ledger balance (SUM(applied) = grand_total)",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    },
+    "D": {
+      "title": "Zero orders with multiple ACTIVE bill associations",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    },
+    "E": {
+      "title": "Zero cross-tenant associations in bill_orders or bill_payments",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    },
+    "F": {
+      "title": "Zero Dine-In paid bills with active session",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    },
+    "G": {
+      "title": "Zero tables pointing to closed sessions",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    },
+    "H": {
+      "title": "Zero non-Dine-In bills with session or table",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    },
+    "I": {
+      "title": "Every paid bill has >= 1 payment ledger row",
+      "passed": true,
+      "violatingRows": 0,
+      "rows": []
+    }
+  },
+  "summary": {
+    "allTestsPassed": true,
+    "allChecksPassed": true,
+    "totalDeadlocks": 0,
+    "gate0dVerdict": "PASS"
+  }
+}
