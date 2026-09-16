@@ -346,7 +346,7 @@ export async function cancelOrderInDb(
 export interface CreateOrderPayload {
   id?: string;
   cafe_id: string;
-  table_id: string;
+  table_id?: string | null;
   session_id?: string | null;
   dining_session_id?: string | null;
   guest_session_id?: string | null;
@@ -357,6 +357,7 @@ export interface CreateOrderPayload {
   customer_id?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
+  external_order_ref?: string | null;
   items: {
     menu_item_id?: string | null;
     name: string;
@@ -434,6 +435,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
     dining_session_id: diningSessionId,
     session_id: payload.session_id || payload.guest_session_id || getSessionId(),
     order_source: orderSource,
+    external_order_ref: payload.external_order_ref ?? null,
     customer_name: payload.customer_name || null,
     customer_phone: payload.customer_phone || null,
   });
@@ -468,6 +470,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
       customer_name: payload.customer_name || null,
       customer_phone: payload.customer_phone || null,
       order_source: orderSource,
+      external_order_ref: payload.external_order_ref ?? null,
       total_cents: payload.total_cents,
       note: payload.note ?? null,
       status: initialStatus,

@@ -127,20 +127,23 @@ describe("Windows Counter Synchronization & State Loading Tests", () => {
   });
 
   it("3. Handles empty cafe tables gracefully", async () => {
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
+    vi.mocked(supabase.from).mockImplementation((_table: string) => {
       const builder: any = {
         select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockImplementation(async () => {
-          if (table === "tables") return { data: [], error: null };
-          return { data: [], error: null };
-        }),
-        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        neq: vi.fn().mockReturnThis(),
+        is: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        then: (resolve: (val: any) => any) =>
+          Promise.resolve({ data: [], error: null }).then(resolve),
       };
       return builder;
     });
 
     const result = await loadActiveCounterState("non-existent-cafe");
     expect(result.tables).toEqual([]);
+    expect(result.channelOrders).toEqual([]);
     expect(result.lastSyncedAt).toBeInstanceOf(Date);
   });
 });

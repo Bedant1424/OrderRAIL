@@ -48,6 +48,7 @@ export function generateCounterKot(
     customerName: order.customerName,
     customerPhone: order.customerPhone,
     orderSource: order.orderSource || "DINE_IN",
+    externalOrderRef: order.externalOrderRef || null,
     notes: order.note || undefined,
     items: order.items.map((it) => ({
       name: it.name,

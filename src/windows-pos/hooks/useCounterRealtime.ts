@@ -5,6 +5,7 @@ import type { CounterTable, ConnectionStatus } from "../types/counterTypes";
 
 export interface UseCounterRealtimeResult {
   tables: CounterTable[];
+  channelOrders: CounterOrder[];
   selectedTable: CounterTable | null;
   selectedTableId: string | null;
   setSelectedTableId: (id: string | null) => void;
@@ -17,6 +18,7 @@ export interface UseCounterRealtimeResult {
 
 export function useCounterRealtime(cafeId: string | undefined): UseCounterRealtimeResult {
   const [tables, setTables] = useState<CounterTable[]>([]);
+  const [channelOrders, setChannelOrders] = useState<CounterOrder[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
@@ -37,6 +39,7 @@ export function useCounterRealtime(cafeId: string | undefined): UseCounterRealti
     try {
       const state = await loadActiveCounterState(cafeId);
       setTables(state.tables);
+      setChannelOrders(state.channelOrders || []);
       setLastSyncedAt(state.lastSyncedAt);
 
       // Auto-select first table if nothing is selected or previous selection no longer exists
@@ -150,12 +153,18 @@ export function useCounterRealtime(cafeId: string | undefined): UseCounterRealti
         ),
       }))
     );
+    setChannelOrders((prevOrders) =>
+      prevOrders.map((ord) =>
+        ord.id === orderId ? { ...ord, status: newStatus } : ord
+      )
+    );
   }, []);
 
   const selectedTable = tables.find((t) => t.id === selectedTableId) || null;
 
   return {
     tables,
+    channelOrders,
     selectedTable,
     selectedTableId,
     setSelectedTableId,

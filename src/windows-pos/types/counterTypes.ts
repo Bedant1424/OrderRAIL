@@ -20,6 +20,7 @@ export interface CounterOrder {
   totalCents: number;
   customerName?: string | null;
   customerPhone?: string | null;
+  externalOrderRef?: string | null;
   note?: string | null;
   items: CounterOrderItem[];
 }

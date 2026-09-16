@@ -4,12 +4,13 @@ import type { CounterTable, CounterOrder, CounterOrderItem } from "../types/coun
 
 export interface LoadedCounterState {
   tables: CounterTable[];
+  channelOrders: CounterOrder[];
   lastSyncedAt: Date;
 }
 
 export async function loadActiveCounterState(cafeId: string): Promise<LoadedCounterState> {
   if (!cafeId) {
-    return { tables: [], lastSyncedAt: new Date() };
+    return { tables: [], channelOrders: [], lastSyncedAt: new Date() };
   }
 
   // 1. Authoritative fetch of all tables for this cafe
@@ -26,59 +27,59 @@ export async function loadActiveCounterState(cafeId: string): Promise<LoadedCoun
   const dbTables = rawTables ?? [];
   const tableIds = dbTables.map((t) => t.id);
 
-  if (tableIds.length === 0) {
-    return { tables: [], lastSyncedAt: new Date() };
-  }
-
-  // 2. Authoritative fetch of non-closed dining sessions for these tables
-  const { data: rawSessions, error: sessionsErr } = await supabase
-    .from("dining_sessions")
-    .select("id, table_id, status, created_at")
-    .in("table_id", tableIds)
-    .neq("status", "closed");
-
-  if (sessionsErr) {
-    console.warn("[counterSyncService] Warning fetching dining sessions:", sessionsErr);
-  }
-
-  const activeSessions = rawSessions ?? [];
-  const activeSessionIds = activeSessions.map((s) => s.id);
-
-  // 3. Authoritative fetch of active orders (and their order_items) for active sessions
+  let activeSessions: any[] = [];
   let dbOrders: any[] = [];
-  if (activeSessionIds.length > 0) {
-    const { data: rawOrders, error: ordersErr } = await supabase
+
+  if (tableIds.length > 0) {
+    // 2. Authoritative fetch of non-closed dining sessions for these tables
+    const { data: rawSessions, error: sessionsErr } = await supabase
+      .from("dining_sessions")
+      .select("id, table_id, status, created_at")
+      .in("table_id", tableIds)
+      .neq("status", "closed");
+
+    if (sessionsErr) {
+      console.warn("[counterSyncService] Warning fetching dining sessions:", sessionsErr);
+    }
+
+    activeSessions = rawSessions ?? [];
+    const activeSessionIds = activeSessions.map((s) => s.id);
+
+    // 3. Authoritative fetch of active orders (and their order_items) for active sessions
+    if (activeSessionIds.length > 0) {
+      const { data: rawOrders, error: ordersErr } = await supabase
+        .from("orders")
+        .select("*, order_items(*)")
+        .eq("cafe_id", cafeId)
+        .in("dining_session_id", activeSessionIds)
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: true });
+
+      if (ordersErr) {
+        console.error("[counterSyncService] Error fetching orders:", ordersErr);
+        throw ordersErr;
+      }
+      dbOrders = rawOrders ?? [];
+    }
+
+    // 4. Also fetch table-linked orders that might not yet have a dining_session_id attached
+    const { data: unlinkedOrders } = await supabase
       .from("orders")
       .select("*, order_items(*)")
       .eq("cafe_id", cafeId)
-      .in("dining_session_id", activeSessionIds)
+      .in("table_id", tableIds)
+      .is("dining_session_id", null)
       .neq("status", "cancelled")
+      .neq("status", "served")
+      .neq("status", "paid")
       .order("created_at", { ascending: true });
 
-    if (ordersErr) {
-      console.error("[counterSyncService] Error fetching orders:", ordersErr);
-      throw ordersErr;
-    }
-    dbOrders = rawOrders ?? [];
-  }
-
-  // 4. Also fetch table-linked orders that might not yet have a dining_session_id attached
-  const { data: unlinkedOrders } = await supabase
-    .from("orders")
-    .select("*, order_items(*)")
-    .eq("cafe_id", cafeId)
-    .in("table_id", tableIds)
-    .is("dining_session_id", null)
-    .neq("status", "cancelled")
-    .neq("status", "served")
-    .neq("status", "paid")
-    .order("created_at", { ascending: true });
-
-  if (unlinkedOrders && unlinkedOrders.length > 0) {
-    const existingIds = new Set(dbOrders.map((o) => o.id));
-    for (const uo of unlinkedOrders) {
-      if (!existingIds.has(uo.id)) {
-        dbOrders.push(uo);
+    if (unlinkedOrders && unlinkedOrders.length > 0) {
+      const existingIds = new Set(dbOrders.map((o) => o.id));
+      for (const uo of unlinkedOrders) {
+        if (!existingIds.has(uo.id)) {
+          dbOrders.push(uo);
+        }
       }
     }
   }
@@ -123,6 +124,7 @@ export async function loadActiveCounterState(cafeId: string): Promise<LoadedCoun
         totalCents: o.total_cents || 0,
         customerName: o.customer_name || null,
         customerPhone: o.customer_phone || null,
+        externalOrderRef: o.external_order_ref || null,
         note: o.note || null,
         items,
       };
@@ -144,8 +146,51 @@ export async function loadActiveCounterState(cafeId: string): Promise<LoadedCoun
     };
   });
 
+  // 6. Authoritative fetch of active non-table channel orders (TAKEAWAY, SWIGGY, ZOMATO)
+  const { data: rawChannelOrders, error: channelOrdersErr } = await supabase
+    .from("orders")
+    .select("*, order_items(*)")
+    .eq("cafe_id", cafeId)
+    .is("table_id", null)
+    .neq("status", "cancelled")
+    .neq("status", "served")
+    .neq("status", "paid")
+    .order("created_at", { ascending: true });
+
+  if (channelOrdersErr) {
+    console.warn("[counterSyncService] Warning fetching channel orders:", channelOrdersErr);
+  }
+
+  const channelOrders: CounterOrder[] = (rawChannelOrders || []).map((o: any) => {
+    const items: CounterOrderItem[] = (o.order_items || []).map((item: any) => ({
+      id: item.id,
+      menuItemId: item.menu_item_id || null,
+      name: item.name || "Item",
+      priceCents: item.price_cents || 0,
+      qty: item.qty || 1,
+      note: item.note || null,
+    }));
+
+    return {
+      id: o.id,
+      orderNumber: o.daily_order_number ?? o.order_number ?? 1,
+      tableId: null,
+      diningSessionId: null,
+      status: o.status || "pending",
+      orderSource: o.order_source || "TAKEAWAY",
+      createdAt: o.created_at,
+      totalCents: o.total_cents || 0,
+      customerName: o.customer_name || null,
+      customerPhone: o.customer_phone || null,
+      externalOrderRef: o.external_order_ref || null,
+      note: o.note || null,
+      items,
+    };
+  });
+
   return {
     tables,
+    channelOrders,
     lastSyncedAt: new Date(),
   };
 }
