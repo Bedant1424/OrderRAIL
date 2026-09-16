@@ -1,6 +1,7 @@
 import React from "react";
-import { RefreshCw, Wifi, WifiOff, Store } from "lucide-react";
-import type { ConnectionStatus } from "../types/counterTypes";
+import { RefreshCw, Wifi, WifiOff, Store, Plus } from "lucide-react";
+import { ChannelSelector } from "./ChannelSelector";
+import type { ConnectionStatus, OrderSource } from "../types/counterTypes";
 
 interface CounterHeaderProps {
   cafeName?: string;
@@ -8,6 +9,9 @@ interface CounterHeaderProps {
   lastSyncedAt: Date | null;
   isLoading: boolean;
   onRefresh: () => void;
+  activeChannel: OrderSource;
+  onSelectChannel: (channel: OrderSource) => void;
+  onOpenNewOrder: () => void;
 }
 
 export const CounterHeader: React.FC<CounterHeaderProps> = ({
@@ -16,6 +20,9 @@ export const CounterHeader: React.FC<CounterHeaderProps> = ({
   lastSyncedAt,
   isLoading,
   onRefresh,
+  activeChannel,
+  onSelectChannel,
+  onOpenNewOrder,
 }) => {
   const getStatusBadge = () => {
     switch (connectionStatus) {
@@ -73,7 +80,23 @@ export const CounterHeader: React.FC<CounterHeaderProps> = ({
         </div>
       </div>
 
-      {/* Sync Status & Action */}
+      {/* Center: Four-Channel Selector */}
+      <div className="flex items-center gap-2">
+        <ChannelSelector
+          activeChannel={activeChannel}
+          onSelectChannel={onSelectChannel}
+        />
+
+        <button
+          onClick={onOpenNewOrder}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold shadow-md shadow-orange-600/20 transition-all ml-1"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>New Order</span>
+        </button>
+      </div>
+
+      {/* Right: Sync Status & Force Sync Trigger */}
       <div className="flex items-center gap-3">
         {getStatusBadge()}
 
