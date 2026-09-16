@@ -1,11 +1,13 @@
 import { supabase } from "@/lib/db";
 import { sortTablesNatural } from "@/lib/tables/naturalTableSort";
+import { CounterCacheService } from "./counterCacheService";
 import type { CounterTable, CounterOrder, CounterOrderItem } from "../types/counterTypes";
 
 export interface LoadedCounterState {
   tables: CounterTable[];
   channelOrders: CounterOrder[];
   lastSyncedAt: Date;
+  isFromCache?: boolean;
 }
 
 export async function loadActiveCounterState(cafeId: string): Promise<LoadedCounterState> {
@@ -13,16 +15,17 @@ export async function loadActiveCounterState(cafeId: string): Promise<LoadedCoun
     return { tables: [], channelOrders: [], lastSyncedAt: new Date() };
   }
 
-  // 1. Authoritative fetch of all tables for this cafe
-  const { data: rawTables, error: tablesErr } = await supabase
-    .from("tables")
-    .select("id, cafe_id, label, status, active_session_id")
-    .eq("cafe_id", cafeId);
+  try {
+    // 1. Authoritative fetch of all tables for this cafe
+    const { data: rawTables, error: tablesErr } = await supabase
+      .from("tables")
+      .select("id, cafe_id, label, status, active_session_id")
+      .eq("cafe_id", cafeId);
 
-  if (tablesErr) {
-    console.error("[counterSyncService] Error fetching tables:", tablesErr);
-    throw tablesErr;
-  }
+    if (tablesErr) {
+      console.error("[counterSyncService] Error fetching tables:", tablesErr);
+      throw tablesErr;
+    }
 
   const dbTables = rawTables ?? [];
   const tableIds = dbTables.map((t) => t.id);
@@ -188,9 +191,26 @@ export async function loadActiveCounterState(cafeId: string): Promise<LoadedCoun
     };
   });
 
-  return {
-    tables,
-    channelOrders,
-    lastSyncedAt: new Date(),
-  };
+    const result: LoadedCounterState = {
+      tables,
+      channelOrders,
+      lastSyncedAt: new Date(),
+    };
+
+    // Cache state locally upon confirmed successful fetch
+    CounterCacheService.saveCounterStateCache(cafeId, result);
+
+    return result;
+  } catch (err: any) {
+    console.warn("[counterSyncService] Network or DB error fetching active counter state. Checking local cache...", err?.message);
+    const cached = CounterCacheService.loadCounterStateCache(cafeId);
+    if (cached) {
+      console.log("[counterSyncService] Returning cached counter state (Temporary Offline Mode).");
+      return {
+        ...cached,
+        isFromCache: true,
+      };
+    }
+    throw err;
+  }
 }

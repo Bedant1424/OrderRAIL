@@ -9,6 +9,8 @@ export interface CounterOrderItem {
   note?: string | null;
 }
 
+export type OrderSyncStatus = 'SYNCED' | 'PENDING_SYNC' | 'FAILED_SYNC';
+
 export interface CounterOrder {
   id: string;
   orderNumber: number;
@@ -23,6 +25,9 @@ export interface CounterOrder {
   externalOrderRef?: string | null;
   note?: string | null;
   items: CounterOrderItem[];
+  syncStatus?: OrderSyncStatus;
+  isOfflineCreated?: boolean;
+  offlineErrorMessage?: string | null;
 }
 
 export interface CounterTable {
@@ -35,7 +40,7 @@ export interface CounterTable {
   unbilledTotalCents: number;
 }
 
-export type ConnectionStatus = 'connected' | 'reconnecting' | 'disconnected';
+export type ConnectionStatus = 'connected' | 'reconnecting' | 'disconnected' | 'offline';
 
 export interface CounterState {
   tables: CounterTable[];
@@ -44,4 +49,5 @@ export interface CounterState {
   lastSyncedAt: Date | null;
   isLoading: boolean;
   error: string | null;
+  pendingSyncCount?: number;
 }
