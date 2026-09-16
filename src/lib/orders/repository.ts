@@ -487,7 +487,13 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
       orderErr = retry.error;
     }
 
-    if (orderErr && orderErr.code !== "23505") {
+    const isDuplicateKey =
+      orderErr?.code === "23505" ||
+      orderErr?.message?.includes("23505") ||
+      orderErr?.message?.toLowerCase().includes("duplicate key") ||
+      orderErr?.message?.toLowerCase().includes("violates unique constraint");
+
+    if (orderErr && !isDuplicateKey) {
       console.error("[createOrderInDb orders INSERT ERROR]", {
         code: orderErr.code,
         message: orderErr.message,
@@ -516,7 +522,13 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
 
     const { error: itemsErr } = await supabase.from("order_items").insert(itemsPayload);
 
-    if (itemsErr) {
+    const isItemsDuplicateKey =
+      itemsErr?.code === "23505" ||
+      itemsErr?.message?.includes("23505") ||
+      itemsErr?.message?.toLowerCase().includes("duplicate key") ||
+      itemsErr?.message?.toLowerCase().includes("violates unique constraint");
+
+    if (itemsErr && !isItemsDuplicateKey) {
       console.error("[createOrderInDb order_items INSERT ERROR]", {
         code: itemsErr.code,
         message: itemsErr.message,

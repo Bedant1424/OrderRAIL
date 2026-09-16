@@ -141,6 +141,7 @@ export const CounterCart: React.FC<CounterCartProps> = ({
           items: cartItems,
           tableId: channel === "DINE_IN" ? targetTableId : null,
           tableLabel: selectedTableObj?.label || "Table",
+          diningSessionId: channel === "DINE_IN" ? (selectedTableObj?.activeSessionId || null) : null,
           customerName: customerName.trim() || null,
           customerPhone: customerPhone.trim() || null,
           externalOrderRef: externalOrderRef.trim() || null,

@@ -102,11 +102,36 @@ export class OrderServiceClass {
     OperationExecutor.registerHandler("CREATE_ORDER", async (payload: CreateOrderPayload) => {
       const realOrderId = orderIdMapping.get(payload.id!) || payload.id;
       const finalPayload = { ...payload, id: realOrderId };
-      const createdOrder = await createOrderInDb(finalPayload);
-      if (payload.id && payload.id !== createdOrder.id) {
-        orderIdMapping.set(payload.id, createdOrder.id);
+      try {
+        const createdOrder = await createOrderInDb(finalPayload);
+        if (payload.id && payload.id !== createdOrder.id) {
+          orderIdMapping.set(payload.id, createdOrder.id);
+        }
+        return { orderId: createdOrder.id, dbOrder: createdOrder };
+      } catch (err: any) {
+        const isDuplicateKey =
+          err?.code === "23505" ||
+          err?.message?.includes("23505") ||
+          err?.message?.toLowerCase().includes("duplicate key") ||
+          err?.message?.toLowerCase().includes("already exists");
+
+        if (isDuplicateKey && finalPayload.id) {
+          console.warn("[orderService] CREATE_ORDER retry caught duplicate key. Idempotently recovering server order:", finalPayload.id);
+          const { data: existingOrder } = await supabase
+            .from("orders")
+            .select("*, order_items(*)")
+            .eq("id", finalPayload.id)
+            .maybeSingle();
+
+          if (existingOrder) {
+            if (payload.id && payload.id !== existingOrder.id) {
+              orderIdMapping.set(payload.id, existingOrder.id);
+            }
+            return { orderId: existingOrder.id, dbOrder: existingOrder };
+          }
+        }
+        throw err;
       }
-      return { orderId: createdOrder.id, dbOrder: createdOrder };
     });
 
     // Handler 2: EDIT_ORDER

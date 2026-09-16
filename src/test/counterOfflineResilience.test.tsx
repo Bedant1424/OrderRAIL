@@ -446,4 +446,189 @@ describe("Milestone 5 — Local-First & Temporary Offline Resilience Tests", () 
       spy.mockRestore();
     }
   });
+
+  it("11. Idempotent retry recovery succeeds without 23505 error when order was already committed on server", async () => {
+    NetworkManager.resetForceOverride();
+    const existingOrderId = "c4992dc7-8fb7-4467-9c96-6e580e227911";
+
+    // Simulate that the order already exists in Supabase (e.g. committed during a previous timed-out attempt)
+    capturedDbOrders.push({
+      id: existingOrderId,
+      cafe_id: testCafeId,
+      order_source: "TAKEAWAY",
+      total_cents: 29900,
+      status: "preparing",
+    });
+
+    // Mock insert attempting to re-insert the same UUID and encountering Postgres 23505 error
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      const builder: any = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        neq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockImplementation(async () => {
+          if (table === "orders") {
+            const found = capturedDbOrders.find((o) => o.id === existingOrderId);
+            if (found) {
+              return {
+                data: {
+                  ...found,
+                  daily_order_number: 77,
+                  order_items: sampleItems.map((it) => ({
+                    id: it.id,
+                    menu_item_id: it.menuItemId,
+                    name: it.name,
+                    price_cents: it.priceCents,
+                    qty: it.qty,
+                  })),
+                },
+                error: null,
+              };
+            }
+          }
+          return { data: null, error: null };
+        }),
+        insert: vi.fn().mockImplementation(async (payload: any) => {
+          if (table === "orders") {
+            // Simulate Postgres 23505 duplicate key on retry
+            return {
+              data: null,
+              error: {
+                code: "23505",
+                message: 'duplicate key value violates unique constraint "orders_pkey"',
+                details: `Key (id)=(${existingOrderId}) already exists.`,
+              },
+            };
+          }
+          return { data: payload, error: null };
+        }),
+        update: vi.fn().mockReturnThis(),
+      };
+      return builder;
+    });
+
+    // Queue operation for retrying
+    const op = {
+      operationId: "retry-op-123",
+      operationType: "CREATE_ORDER",
+      payload: {
+        id: existingOrderId,
+        cafe_id: testCafeId,
+        order_source: "TAKEAWAY",
+        total_cents: 29900,
+        status: "preparing",
+        items: sampleItems,
+      },
+      createdAt: new Date().toISOString(),
+      retryCount: 1,
+      status: "Retrying" as const,
+      idempotencyKey: `create_order_${existingOrderId}`,
+    };
+
+    await enqueueOperation(op);
+
+    // Sync queue
+    const syncResult = await SyncManager.startSync();
+    expect(syncResult.success).toBe(true);
+    expect(syncResult.processed).toBe(1);
+
+    // Queue should now be drained (operation completed)
+    const remaining = await getPendingOperations();
+    expect(remaining).toHaveLength(0);
+  });
+
+  it("12. Offline Dine-In order preserves active dining session and attaches cleanly upon reconnect", async () => {
+    NetworkManager.forceOffline();
+    const activeSessionId = "d7890abc-1234-4567-89ab-cdef01234567";
+    const tableId = "table-uuid-dinein-4";
+
+    // 1. Submit Dine-In order while terminal is offline
+    const offlineResult = await CounterOrderBuilderService.submitOrder({
+      cafeId: testCafeId,
+      orderSource: "DINE_IN",
+      tableId,
+      diningSessionId: activeSessionId,
+      tableLabel: "Table 4",
+      customerName: "Vikas Dine-In",
+      items: sampleItems,
+      status: "preparing",
+      printer: mockPrinter,
+    });
+
+    expect(offlineResult.success).toBe(true);
+    expect(offlineResult.isOffline).toBe(true);
+    expect(offlineResult.syncStatus).toBe("PENDING_SYNC");
+    expect(offlineResult.tableId).toBe(tableId);
+    expect(offlineResult.diningSessionId).toBe(activeSessionId);
+
+    // 2. Verify queue payload contains diningSessionId
+    const pendingOps = await getPendingOperations();
+    expect(pendingOps).toHaveLength(1);
+    const queuedOrderOp = pendingOps[0];
+    expect(queuedOrderOp.operationType).toBe("CREATE_ORDER");
+    expect(queuedOrderOp.payload.table_id).toBe(tableId);
+    expect(queuedOrderOp.payload.dining_session_id).toBe(activeSessionId);
+    expect(queuedOrderOp.payload.order_source).toBe("DINE_IN");
+
+    // 3. Track dining_sessions calls during reconnect
+    let createdNewSession = false;
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      const builder: any = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        neq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockImplementation(async () => {
+          if (table === "orders") {
+            const last = capturedDbOrders[capturedDbOrders.length - 1];
+            if (!last) return { data: null, error: null };
+            return {
+              data: {
+                ...last,
+                daily_order_number: 88,
+                order_items: sampleItems.map((it) => ({
+                  id: it.id,
+                  menu_item_id: it.menuItemId,
+                  name: it.name,
+                  price_cents: it.priceCents,
+                  qty: it.qty,
+                })),
+              },
+              error: null,
+            };
+          }
+          if (table === "dining_sessions") {
+            return { data: { id: activeSessionId, status: "active" }, error: null };
+          }
+          return { data: null, error: null };
+        }),
+        insert: vi.fn().mockImplementation(async (payload: any) => {
+          if (table === "orders") {
+            capturedDbOrders.push(payload);
+          }
+          if (table === "dining_sessions") {
+            createdNewSession = true;
+          }
+          return { data: payload, error: null };
+        }),
+        update: vi.fn().mockReturnThis(),
+      };
+      return builder;
+    });
+
+    // 4. Reconnect network and trigger sync
+    NetworkManager.resetForceOverride();
+    const syncRes = await SyncManager.startSync();
+    expect(syncRes.success).toBe(true);
+
+    // 5. Server order must have attached to the existing active session without creating a new session
+    expect(capturedDbOrders).toHaveLength(1);
+    expect(capturedDbOrders[0].dining_session_id).toBe(activeSessionId);
+    expect(capturedDbOrders[0].table_id).toBe(tableId);
+    expect(capturedDbOrders[0].order_source).toBe("DINE_IN");
+    expect(createdNewSession).toBe(false);
+  });
 });
