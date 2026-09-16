@@ -467,6 +467,7 @@ export async function createOrderInDb(payload: CreateOrderPayload): Promise<Orde
       customer_id: payload.customer_id || null,
       customer_name: payload.customer_name || null,
       customer_phone: payload.customer_phone || null,
+      order_source: orderSource,
       total_cents: payload.total_cents,
       note: payload.note ?? null,
       status: initialStatus,
