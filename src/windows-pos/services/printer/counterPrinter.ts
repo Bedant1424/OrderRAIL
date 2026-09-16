@@ -1,14 +1,30 @@
+import { defaultNativeWindowsPrinter } from "./nativeWindowsPrinter";
+
 export type PrintStatus =
   | 'SUCCESS'
+  | 'SPOOLER_ACCEPTED'
   | 'ACCEPTED_FOR_TEST_PRINT'
   | 'FAILED'
-  | 'UNAVAILABLE';
+  | 'UNAVAILABLE'
+  | 'UNKNOWN';
+
+export type PrintErrorCode =
+  | 'PRINTER_NOT_FOUND'
+  | 'ACCESS_DENIED'
+  | 'SPOOLER_UNAVAILABLE'
+  | 'INVALID_PAYLOAD'
+  | 'PRINTER_DISABLED'
+  | 'BRIDGE_UNAVAILABLE'
+  | 'TIMEOUT'
+  | 'NATIVE_ERROR'
+  | 'UNKNOWN_ERROR';
 
 export interface PrintResult {
   status: PrintStatus;
   message: string;
   bytesPrinted?: number;
   jobId?: string;
+  errorCode?: PrintErrorCode;
   timestamp: Date;
 }
 
@@ -90,3 +106,18 @@ export class MockCounterPrinter implements CounterPrinter {
 }
 
 export const defaultCounterPrinter = new MockCounterPrinter();
+
+/**
+ * Factory providing the active printer implementation:
+ * - NativeWindowsPrinter in Tauri desktop runtime
+ * - MockCounterPrinter in web browser or unit test environments
+ */
+export function getActiveCounterPrinter(): CounterPrinter {
+  if (typeof window !== "undefined") {
+    const tauri = (window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__?.core;
+    if (tauri && typeof tauri.invoke === "function") {
+      return defaultNativeWindowsPrinter;
+    }
+  }
+  return defaultCounterPrinter;
+}
