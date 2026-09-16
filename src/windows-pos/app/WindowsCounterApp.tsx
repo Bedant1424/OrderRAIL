@@ -25,6 +25,7 @@ export const WindowsCounterApp: React.FC = () => {
     isLoading,
     refresh,
     updateLocalOrderStatus,
+    pendingSyncCount,
   } = useCounterRealtime(effectiveCafeId);
 
   const [activeChannel, setActiveChannel] = useState<OrderSource>("DINE_IN");
@@ -77,6 +78,7 @@ export const WindowsCounterApp: React.FC = () => {
         }}
         onOpenNewOrder={() => setMode("ORDER_ENTRY")}
         channelCounts={channelCounts}
+        pendingSyncCount={pendingSyncCount}
       />
 
       {/* Main Workspace Area */}

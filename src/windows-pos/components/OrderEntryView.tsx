@@ -7,6 +7,7 @@ import type {
   CounterCartItem,
   CreatedCounterOrderResult,
 } from "../services/counterOrderBuilderService";
+import { CounterCacheService } from "../services/counterCacheService";
 import type { OrderSource, CounterTable } from "../types/counterTypes";
 
 export interface OrderEntryViewProps {
@@ -30,7 +31,20 @@ export const OrderEntryView: React.FC<OrderEntryViewProps> = ({
   onOrderSubmitted,
   onClose,
 }) => {
-  const [cartItems, setCartItems] = useState<CounterCartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CounterCartItem[]>(() => {
+    const draft = CounterCacheService.loadCounterCartDraft(cafeId);
+    if (draft && draft.channel === channel && draft.items && draft.items.length > 0) {
+      return draft.items;
+    }
+    return [];
+  });
+
+  React.useEffect(() => {
+    const draft = CounterCacheService.loadCounterCartDraft(cafeId);
+    if (draft && draft.channel === channel && draft.items && draft.items.length > 0) {
+      setCartItems(draft.items);
+    }
+  }, [cafeId, channel]);
 
   const handleAddToCart = (item: ProductionMenuItem) => {
     setCartItems((prev) => {

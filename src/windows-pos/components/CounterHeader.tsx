@@ -14,6 +14,7 @@ interface CounterHeaderProps {
   onSelectChannel: (channel: OrderSource) => void;
   onOpenNewOrder: () => void;
   channelCounts?: Partial<Record<OrderSource, number>>;
+  pendingSyncCount?: number;
 }
 
 export const CounterHeader: React.FC<CounterHeaderProps> = ({
@@ -27,6 +28,7 @@ export const CounterHeader: React.FC<CounterHeaderProps> = ({
   onSelectChannel,
   onOpenNewOrder,
   channelCounts,
+  pendingSyncCount = 0,
 }) => {
   const [currentClock, setCurrentClock] = useState<string>(() =>
     new Date().toLocaleTimeString("en-IN", {
@@ -69,6 +71,7 @@ export const CounterHeader: React.FC<CounterHeaderProps> = ({
             <span>Reconnecting...</span>
           </div>
         );
+      case "offline":
       case "disconnected":
         return (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-medium">
@@ -132,6 +135,13 @@ export const CounterHeader: React.FC<CounterHeaderProps> = ({
         </div>
 
         {getStatusBadge()}
+
+        {pendingSyncCount > 0 && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-mono font-medium animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span>{pendingSyncCount} waiting to sync</span>
+          </div>
+        )}
 
         <span className="text-xs text-zinc-500 font-mono hidden xl:inline-block">
           Synced: {formatLastSync(lastSyncedAt)}

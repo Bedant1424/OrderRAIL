@@ -289,7 +289,14 @@ export const ChannelOrdersView: React.FC<ChannelOrdersViewProps> = ({
                           {formatTime(order.createdAt)}
                         </span>
                       </div>
-                      {getStatusBadge(order.status)}
+                      {order.syncStatus === "PENDING_SYNC" ? (
+                        <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          Pending Sync
+                        </span>
+                      ) : (
+                        getStatusBadge(order.status)
+                      )}
                     </div>
 
                     {/* External Ref Tag for Swiggy / Zomato */}

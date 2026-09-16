@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Search, Plus, Minus, X, AlertCircle, Sparkles } from "lucide-react";
 import { useMenu, type ProductionMenuItem } from "@/hooks/useMenu";
 import { CounterMenuImage } from "./CounterMenuImage";
+import { CounterCacheService } from "../services/counterCacheService";
 import type { CounterCartItem } from "../services/counterOrderBuilderService";
 
 export interface MenuCatalogProps {
@@ -17,7 +18,25 @@ export const MenuCatalog: React.FC<MenuCatalogProps> = ({
   onAddToCart,
   onUpdateCartQty,
 }) => {
-  const { categories = [], items = [], isLoading, error } = useMenu(cafeId);
+  const { categories: fetchedCategories = [], items: fetchedItems = [], isLoading, error } = useMenu(cafeId);
+
+  // Auto-save to cache when live menu items exist
+  React.useEffect(() => {
+    if (cafeId && fetchedCategories.length > 0 && fetchedItems.length > 0) {
+      CounterCacheService.saveMenuCache(cafeId, fetchedCategories, fetchedItems);
+    }
+  }, [cafeId, fetchedCategories, fetchedItems]);
+
+  // Fallback to cache if network error occurs or offline
+  const cachedMenu = useMemo(() => {
+    if (cafeId && (error || fetchedItems.length === 0)) {
+      return CounterCacheService.loadMenuCache(cafeId);
+    }
+    return null;
+  }, [cafeId, error, fetchedItems.length]);
+
+  const categories = fetchedCategories.length > 0 ? fetchedCategories : cachedMenu?.categories || [];
+  const items = fetchedItems.length > 0 ? fetchedItems : cachedMenu?.items || [];
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -132,12 +151,12 @@ export const MenuCatalog: React.FC<MenuCatalogProps> = ({
 
       {/* Main Items Catalog Content */}
       <div className="flex-1 overflow-y-auto p-3.5">
-        {isLoading ? (
+        {isLoading && items.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center text-zinc-500 text-xs">
             <div className="w-6 h-6 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin mb-2" />
             <span>Loading Cheese Corner menu...</span>
           </div>
-        ) : error ? (
+        ) : error && items.length === 0 ? (
           <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>Failed to load menu items. Please check network connection.</span>

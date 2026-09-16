@@ -18,6 +18,7 @@ import {
   type CounterCartItem,
   type CreatedCounterOrderResult,
 } from "../services/counterOrderBuilderService";
+import { CounterCacheService } from "../services/counterCacheService";
 import type { OrderSource, CounterTable } from "../types/counterTypes";
 
 export interface CounterCartProps {
@@ -70,6 +71,37 @@ export const CounterCart: React.FC<CounterCartProps> = ({
     }
   }, [selectedTableId]);
 
+  // Restore draft form inputs if available for this cafe and channel
+  React.useEffect(() => {
+    const draft = CounterCacheService.loadCounterCartDraft(cafeId);
+    if (draft && draft.channel === channel) {
+      if (draft.targetTableId) setTargetTableId(draft.targetTableId);
+      if (draft.externalOrderRef) setExternalOrderRef(draft.externalOrderRef);
+      if (draft.customerName) setCustomerName(draft.customerName);
+      if (draft.customerPhone) setCustomerPhone(draft.customerPhone);
+      if (draft.orderNote) setOrderNote(draft.orderNote);
+    }
+  }, [cafeId, channel]);
+
+  // Auto-save draft whenever cart items or metadata changes
+  React.useEffect(() => {
+    if (cartItems.length > 0) {
+      CounterCacheService.saveCounterCartDraft({
+        cafeId,
+        channel,
+        targetTableId: channel === "DINE_IN" ? targetTableId : null,
+        externalOrderRef: externalOrderRef || null,
+        customerName: customerName || null,
+        customerPhone: customerPhone || null,
+        orderNote: orderNote || null,
+        items: cartItems,
+        savedAt: new Date().toISOString(),
+      });
+    } else {
+      CounterCacheService.clearCounterCartDraft(cafeId);
+    }
+  }, [cafeId, channel, targetTableId, externalOrderRef, customerName, customerPhone, orderNote, cartItems]);
+
   const totalCents = useMemo(() => {
     return cartItems.reduce((sum, it) => sum + it.priceCents * it.qty, 0);
   }, [cartItems]);
@@ -121,6 +153,7 @@ export const CounterCart: React.FC<CounterCartProps> = ({
       if (!result.success) {
         setErrorMessage(result.error || "Order submission failed.");
       } else {
+        CounterCacheService.clearCounterCartDraft(cafeId);
         onOrderSubmitted(result);
         onClearCart();
       }
@@ -129,6 +162,11 @@ export const CounterCart: React.FC<CounterCartProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleClearAll = () => {
+    CounterCacheService.clearCounterCartDraft(cafeId);
+    onClearCart();
   };
 
   return (
@@ -147,7 +185,7 @@ export const CounterCart: React.FC<CounterCartProps> = ({
 
         {cartItems.length > 0 && (
           <button
-            onClick={onClearCart}
+            onClick={handleClearAll}
             className="text-[11px] text-zinc-500 hover:text-rose-400 transition-colors"
           >
             Clear All

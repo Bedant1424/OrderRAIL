@@ -1,5 +1,6 @@
 export * from "./types/counterTypes";
 export * from "./services/counterSyncService";
+export * from "./services/counterCacheService";
 export * from "./services/counterKotService";
 export * from "./services/counterOrderActionService";
 export * from "./services/counterOrderBuilderService";
